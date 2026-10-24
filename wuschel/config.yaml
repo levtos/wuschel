@@ -1,7 +1,7 @@
 name: Wuschel
 version: 1.0.0b5
 slug: wuschel
-description: Wuschel – Verträge verständlich anlegen und verwalten (Alpha 10)
+description: Wuschel – Verträge verständlich anlegen und verwalten
 url: https://github.com/Levtos/wuschel
 arch: [amd64, aarch64]
 startup: services
