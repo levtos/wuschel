@@ -604,6 +604,21 @@ def validate_document(
             ),
             None,
         )
+        if contract.ha_projection:
+            projection_field = declaration.schema.fields.get("value")
+            if projection_field is None or projection_field.type not in {
+                "bool",
+                "number",
+                "text",
+                "enum",
+                "timestamp",
+            }:
+                add(
+                    "ha_projection_scalar_required",
+                    path + "/ha_projection",
+                    "scalar value field required",
+                    key,
+                )
         if declared_definition and contract.enabled and declaration.definition is not None:
             evaluation_cost += 2 * len(all_rules(declared_definition))
         try:

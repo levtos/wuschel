@@ -80,10 +80,12 @@ it('formats a timestamp contract value in the list instead of exposing its wire 
 
 it('shows now, a sentence for why, named origin and history with gaps', async () => {
   const api = fake();
+  // The chart now has a real 24-hour window; keep all three samples inside it.
+  const chartAt = Date.now() - 3_600_000;
   api.routes.push({ match: /^history\/query\/contracts/, respond: () => reply(200, { items: [
-    { id: '1', contract_id: 'zimmer', registry_revision: 1, published_at: at, fields: { value: field } },
-    { id: '2', contract_id: 'zimmer', registry_revision: 1, published_at: '2026-10-16T10:01:00Z', fields: { value: { ...field, value: null, status: 'unknown' } } },
-    { id: '3', contract_id: 'zimmer', registry_revision: 1, published_at: '2026-10-16T10:02:00Z', fields: { value: { ...field, value: 22 } } },
+    { id: '1', contract_id: 'zimmer', registry_revision: 1, published_at: new Date(chartAt).toISOString(), fields: { value: field } },
+    { id: '2', contract_id: 'zimmer', registry_revision: 1, published_at: new Date(chartAt + 60_000).toISOString(), fields: { value: { ...field, value: null, status: 'unknown' } } },
+    { id: '3', contract_id: 'zimmer', registry_revision: 1, published_at: new Date(chartAt + 120_000).toISOString(), fields: { value: { ...field, value: 22 } } },
   ], next_cursor: null }) });
   app('#/contracts/view/zimmer');
   expect(await screen.findByRole('heading', { name: 'Wert jetzt' })).toBeVisible();

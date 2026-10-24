@@ -40,6 +40,42 @@ def remember(
     return clean
 
 
+def retained_replay(
+    incoming: Observation,
+    previous: Observation | None,
+    config: RegistryConfig,
+    types: TypeRegistry,
+    now: datetime,
+) -> bool:
+    """An identical retained delivery says nothing about an accepted measurement.
+
+    Preserve its original proof, reference and clock; never admit retained data
+    as a new positive report, even when its timestamp happens to look fresh.
+    """
+    from .model import canonical
+
+    return bool(
+        previous
+        and incoming.mqtt_retained
+        and incoming.adapter == previous.adapter == "mqtt"
+        and incoming.source_id == previous.source_id
+        and incoming.binding_id == previous.binding_id
+        and incoming.device_time is not None
+        and incoming.device_time == previous.device_time
+        and incoming.availability == "available"
+        and incoming.normalized
+        and not incoming.ha_restored
+        and not incoming.assumed_state
+        and not incoming.invalid_timestamp
+        and not incoming.transform_error
+        and canonical(incoming.value_raw) == canonical(previous.value_raw)
+        and canonical(incoming.value) == canonical(previous.value)
+        and previous.mqtt_device_proof
+        and previous.mqtt_device_proof == fingerprints(config, types).get(previous.source_id)
+        and eligible(previous, config, now)
+    )
+
+
 def restore(
     observation: Observation, config: RegistryConfig, types: TypeRegistry, now: datetime
 ) -> Observation:

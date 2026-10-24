@@ -12,8 +12,9 @@ import { isObject, type JsonObject } from '@/lib/json';
 import { formatDuration, formatTime } from '@/lib/format';
 import { api } from '@/lib/api';
 import { valueText } from '@/lib/valueText';
-import { displayValue } from '@/lib/status';
-import { POLL_MS, useHistory } from '@/lib/queries';
+import { displayValue, FIELD_STATUS } from '@/lib/status';
+import { POLL_MS } from '@/lib/queries';
+import { useHistoryWindow, useWindowHistory } from './historyWindow';
 import type { Envelope, FieldValue, HistoryItem, Registry } from '@/lib/types';
 import { problemAdvice } from '@/features/overview/overviewModel';
 import { contractSources, contractState } from './presentation';
@@ -21,43 +22,52 @@ import { ContractStateChip } from './ContractStateChip';
 import { MachineRestartPanel } from './MachineRestartPanel';
 import { ManualSourcePanel } from '@/features/sources/ManualSourcePanel';
 
-interface Point { at: string; field: FieldValue | null }
+interface Point { at: string; field: FieldValue | null; sampleAt?: string }
 export function historyPoints(rows: HistoryItem[], contractId: string, field: string, revision?: number, gaps: HistoryItem[] = []): Point[] {
   const points = rows.filter(row => row.contract_id === contractId && (revision === undefined || row.registry_revision === revision) && typeof row.published_at === 'string' && Number.isFinite(Date.parse(row.published_at)))
     .sort((a, b) => Date.parse(String(a.published_at)) - Date.parse(String(b.published_at)) || Number(a.publication_seq ?? 0) - Number(b.publication_seq ?? 0))
-    .slice(-60).map(row => ({ at: String(row.published_at), field: isObject(asObject(row.fields)[field]) ? asObject(row.fields)[field] as unknown as FieldValue : null }));
+    .map(row => ({ at: String(row.published_at), field: isObject(asObject(row.fields)[field]) ? asObject(row.fields)[field] as unknown as FieldValue : null }));
   return [...points, ...gaps.filter(row => typeof row.at === 'string' && Date.parse(row.at) >= Date.parse(points[0]?.at ?? '')).map(row => ({ at: String(row.at), field: null }))].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 }
 
 /** Stored samples plus the currently confirmed boolean tail; gaps stay gaps. */
-export function MiniHistory({ points, schema, name, current, now = Date.now() }: { points: Point[]; schema?: FieldSchema; name: string; current?: FieldValue; now?: number }) {
+export function MiniHistory({ points, schema, name, current, now = Date.now(), since, until }: { points: Point[]; schema?: FieldSchema; name: string; current?: FieldValue; now?: number; since?: number; until?: number }) {
+  if (since !== undefined && until !== undefined) {
+    const boundary = points.filter(point => Date.parse(point.at) < since).at(-1);
+    points = [...(boundary ? [{ ...boundary, sampleAt: boundary.at, at: new Date(since).toISOString() }] : []), ...points.filter(point => Date.parse(point.at) >= since && Date.parse(point.at) <= until)];
+  }
   const tail = points.at(-1);
   const extend = current?.status === 'valid' && typeof current.value === 'boolean' && tail?.field?.status === 'valid' && tail.field.value === current.value && Date.parse(tail.at) < now;
   const drawn = extend ? [...points, { at: new Date(now).toISOString(), field: current }] : points;
-  const categories = [...new Set(points.map(point => point.field?.value).filter(value => typeof value === 'string'))];
+  const categories = schema?.type === 'enum' ? asArray(schema.value_catalog).filter((value): value is string => typeof value === 'string') : [...new Set(points.map(point => point.field?.value).filter((value): value is string => typeof value === 'string'))].sort();
   const ordinate = (field: FieldValue | null) => !field || !['valid', 'held'].includes(field.status) || field.value === null ? null : typeof field.value === 'number' && Number.isFinite(field.value) ? field.value : typeof field.value === 'boolean' ? Number(field.value) : typeof field.value === 'string' ? categories.indexOf(field.value) : null;
   const values = points.map(point => ordinate(point.field)).filter((value): value is number => value !== null);
   const boolean = schema?.type === 'bool' || points.some(point => typeof point.field?.value === 'boolean');
-  const low = boolean ? 0 : Math.min(...values); const high = boolean ? 1 : Math.max(...values) === low ? low + 1 : Math.max(...values); const range = high - low || 1;
-  const first = Date.parse(drawn[0]?.at ?? ''); const last = Date.parse(drawn.at(-1)?.at ?? '');
-  const segments: { x: number; y: number }[][] = [[]];
+  const low = boolean || categories.length || !values.length ? 0 : Math.min(...values); const high = boolean || !values.length ? 1 : categories.length ? categories.length - 1 : Math.max(...values) === low ? low + 1 : Math.max(...values); const range = high - low || 1;
+  const first = since ?? Date.parse(drawn[0]?.at ?? ''); const last = until ?? Date.parse(drawn.at(-1)?.at ?? '');
+  const xFor = (at: string) => 110 + (Date.parse(at) - first) / (last - first || 1) * 870;
+  const yFor = (value: number) => categories.length ? 32 + value / range * 100 : 132 - (value - low) / range * 100;
+  const title = (point: Point) => `${formatTime(point.sampleAt ?? point.at)} · ${point.field ? displayValue(point.field, typeof schema?.unit === 'string' ? schema.unit : undefined, schema) : t('alpha7.contract.noValue')} · ${point.field ? FIELD_STATUS[point.field.status].label : t('alpha7.contract.noValue')}`;
+  const segments: { x: number; y: number; title: string }[][] = [[]];
   for (const point of drawn) {
     const value = ordinate(point.field);
     if (value === null) { if (segments.at(-1)!.length) segments.push([]); continue; }
-    const x = 110 + (Date.parse(point.at) - first) / (last - first || 1) * 870; const y = 132 - (value - low) / range * 100;
-    segments.at(-1)!.push({ x, y });
+    const x = xFor(point.at); const y = yFor(value);
+    segments.at(-1)!.push({ x, y, title: title(point) });
   }
   const label = (value: number) => boolean ? t(value ? 'lib.status.ja_cde9e5' : 'lib.status.nein_90ebc1') : categories.length ? valueText(categories[value], schema) : displayValue({ status: 'valid', value, quality: 'healthy', evidence: [], reasons: [] }, typeof schema?.unit === 'string' ? schema.unit : undefined);
-  const path = (segment: { x: number; y: number }[]) => segment.flatMap((point, index) => boolean && index > 0 ? [`${point.x},${segment[index - 1]!.y}`, `${point.x},${point.y}`] : [`${point.x},${point.y}`]).join(' ');
+  const path = (segment: { x: number; y: number }[]) => segment.flatMap((point, index) => (boolean || categories.length > 0) && index > 0 ? [`${point.x},${segment[index - 1]!.y}`, `${point.x},${point.y}`] : [`${point.x},${point.y}`]).join(' ');
   return <div className="space-y-2">
     <h3 className="text-sm font-medium">{fieldLabel(name)}</h3>
-    {values.length > 0 ? <svg viewBox="0 0 1000 165" role="img" aria-label={t('alpha7.contract.chart', { name: fieldLabel(name) })} className="block h-auto w-full text-muted">
+    {drawn.length > 0 ? <svg viewBox="0 0 1000 165" role="img" aria-label={t('alpha7.contract.chart', { name: fieldLabel(name) })} className="block h-auto w-full text-muted">
       <path d="M110 24V140H980" fill="none" stroke="currentColor" opacity="0.5" />
-      {(boolean ? [0, 1] : [low, (low + high) / 2, high]).map(value => <g key={value}><text x="98" y={136 - (value - low) / range * 100} textAnchor="end" fontSize="13" fill="currentColor">{label(value)}</text><path d={`M110 ${132 - (value - low) / range * 100}H980`} fill="none" stroke="currentColor" opacity="0.15" /></g>)}
-      {segments.filter(segment => segment.length).map((segment, index) => <g key={index}><polyline data-interpolation={boolean ? 'step' : 'linear'} points={path(segment)} fill="none" stroke="currentColor" strokeWidth="2" />{segment.map((point, n) => <circle key={n} cx={point.x} cy={point.y} r="3" fill="currentColor" />)}</g>)}
+      {(categories.length ? categories.map((_, index) => index) : boolean ? [0, 1] : values.length ? [low, (low + high) / 2, high] : []).map(value => <g key={value}><text x="98" y={yFor(value) + 4} textAnchor="end" fontSize="13" fill="currentColor">{label(value)}</text><path d={`M110 ${yFor(value)}H980`} fill="none" stroke="currentColor" opacity="0.15" /></g>)}
+      {segments.filter(segment => segment.length).map((segment, index) => <g key={index}><polyline data-interpolation={boolean || categories.length ? 'step' : 'linear'} points={path(segment)} fill="none" stroke="currentColor" strokeWidth="2" />{segment.map((point, n) => <circle key={n} cx={point.x} cy={point.y} r="3" fill="currentColor" tabIndex={0}><title>{point.title}</title></circle>)}</g>)}
+      {points.filter(point => ordinate(point.field) === null).map((point, index) => <rect key={index} x={xFor(point.at) - 3} y="145" width="6" height="6" tabIndex={0}><title>{title(point)}</title></rect>)}
     </svg> : <p className="text-sm text-muted">{t('alpha7.contract.noHistoryValue')}</p>}
-    {drawn.length > 0 && <div className="flex justify-between gap-4 text-xs text-muted"><time dateTime={drawn[0]!.at}>{formatTime(drawn[0]!.at)}</time><time dateTime={drawn.at(-1)!.at}>{formatTime(drawn.at(-1)!.at)}</time></div>}
-    <details className="text-xs"><summary className="cursor-pointer text-muted">{t('alpha7.contract.historyTable')}</summary><table className="mt-2 w-full text-left"><caption className="sr-only">{t('alpha7.contract.historyTable')}</caption><thead><tr><th>{t('alpha7.contract.time')}</th><th>{t('alpha7.contract.value')}</th></tr></thead><tbody>{points.slice(-8).reverse().map((point, index) => <tr key={index}><td className="py-1">{formatTime(point.at)}</td><td>{point.field ? displayValue(point.field, typeof schema?.unit === 'string' ? schema.unit : undefined, schema) : t('alpha7.contract.noValue')}</td></tr>)}</tbody></table></details>
+    {points.some(point => ordinate(point.field) === null) && <p className="text-xs text-muted">{t('beta5.history.gaps')}</p>}
+    {drawn.length > 0 && <div className="flex justify-between gap-4 text-xs text-muted"><time dateTime={new Date(first).toISOString()}>{formatTime(new Date(first).toISOString())}</time><time dateTime={new Date(last).toISOString()}>{formatTime(new Date(last).toISOString())}</time></div>}
+    <details className="text-xs"><summary className="cursor-pointer text-muted">{t('alpha7.contract.historyTable')}</summary><table className="mt-2 w-full text-left"><caption className="sr-only">{t('alpha7.contract.historyTable')}</caption><thead><tr><th>{t('alpha7.contract.time')}</th><th>{t('alpha7.contract.value')}</th></tr></thead><tbody>{points.slice(-8).reverse().map((point, index) => <tr key={index}><td className="py-1">{formatTime(point.sampleAt ?? point.at)}</td><td>{point.field ? displayValue(point.field, typeof schema?.unit === 'string' ? schema.unit : undefined, schema) : t('alpha7.contract.noValue')}</td></tr>)}</tbody></table></details>
   </div>;
 }
 
@@ -74,8 +84,9 @@ export function ContractSummary({ envelope, stale, fields, config, machine }: { 
   const [advanced, setAdvanced] = useState(false);
   const ha = useHaCatalog(asArray(config?.bindings).filter(isObject).some(binding => isObject(binding.adapter) && String(binding.adapter.kind).startsWith('ha_')));
   const sources = contractSources(envelope.contract_id, config, ha.entities);
-  const history = useHistory('contracts', { contract_id: envelope.contract_id, limit: 60 }, true, POLL_MS);
-  const gaps = useHistory('gaps', { limit: 200 }, true, POLL_MS);
+  const window = useHistoryWindow();
+  const history = useWindowHistory('contracts', envelope.contract_id, window.since, window.until);
+  const gaps = useWindowHistory('gaps', undefined, window.since, window.until);
   const reasons = Object.values(envelope.fields).flatMap(field => field.reasons);
   const contract = asArray(config?.contracts).filter(isObject).find(item => item.contract_id === envelope.contract_id);
   const affected = sources.find(source => reasons.some(reason => source.id === reason.source_id || source.id === reason.input || asArray(contract?.inputs).filter(isObject).some(input => input.name === reason.input && input.ref === source.id)));
@@ -104,7 +115,8 @@ export function ContractSummary({ envelope, stale, fields, config, machine }: { 
       {ha.isError && <p className="mt-2 text-xs text-muted">{t('alpha7.contract.namesUnavailable')}</p>}
     </div></Panel>
     <Panel><PanelHeader title={t('alpha7.contract.history')} description={t('alpha7.contract.historyScope')} /><div className="space-y-5 p-5">
-      {history.isPending ? <Spinner /> : history.isError ? <p role="alert" className="text-sm text-bad">{t('alpha7.contract.historyUnavailable')}</p> : Object.keys(envelope.fields).map(name => <MiniHistory key={name} name={name} schema={fields[name]} current={stale || gaps.isPending || gaps.isError ? undefined : envelope.fields[name]} points={historyPoints(history.isPlaceholderData ? [] : history.data?.pages.flatMap(page => page.items) ?? [], envelope.contract_id, name, envelope.registry_revision, gaps.isPlaceholderData ? [] : gaps.data?.pages.flatMap(page => page.items) ?? [])} />)}
+      <label className="text-sm">{t('beta5.history.window')} <select value={window.hours} onChange={event => window.select(Number(event.target.value) === 168 ? 168 : 24)}><option value={24}>{t('beta5.history.day')}</option><option value={168}>{t('beta5.history.week')}</option></select></label>
+      {history.isPending || gaps.isPending ? <Spinner /> : history.isError || gaps.isError ? <p role="alert" className="text-sm text-bad">{t('alpha7.contract.historyUnavailable')}</p> : Object.keys(envelope.fields).map(name => <MiniHistory key={name} name={name} schema={fields[name]} since={window.since} until={window.until} now={window.until} current={stale ? undefined : envelope.fields[name]} points={historyPoints(history.data ?? [], envelope.contract_id, name, envelope.registry_revision, gaps.data ?? [])} />)}
     </div></Panel>
     {sources.filter(source => asArray(config?.sources).map(asObject)[source.sourceIndex]?.origin === 'manual').map(source => <ManualSourcePanel key={source.id} sourceId={source.id} />)}
     {machine && <CommandsPanel contractId={envelope.contract_id} onContract={() => {}} fixed />}

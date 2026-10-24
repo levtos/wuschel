@@ -1,6 +1,6 @@
 # GHCR-Veröffentlichung und Supervisor-Packaging
 
-Alpha 8 vorbereitet; Veröffentlichung erst nach Bennis Teil-B-Go und Repo-Umbenennung. [Issue #5](https://github.com/levtos/wuschel/issues/5).
+Aktueller Ablauf ab b5: [Issue #42](https://github.com/levtos/wuschel/issues/42), [Implementierung und Review-Gate](beta/b5-implementation.md).
 Ein erfolgreicher Image-Build allein belegt keine Installierbarkeit. Die
 Konfiguration `wuschel/config.yaml` verlangt diese öffentlichen Images:
 
@@ -11,41 +11,56 @@ Konfiguration `wuschel/config.yaml` verlangt diese öffentlichen Images:
 
 `{arch}` wird mit dem Supervisor-Namen ersetzt; `arm64-wuschel` wäre
 für die zweite Zeile falsch. Version und Image-Vorlage kommen aus der
-Supervisor-Konfiguration; die Python-Paketversion muss dazu passen.
+Supervisor-Konfiguration. Bei einem Release-Marker verwenden Build und Python-Paket
+dessen Kandidaten; der Store bietet weiterhin nur seine bereits veröffentlichte Version an.
 
 ## Explizit veröffentlichen
 
-Die Versionsangaben oben beschreiben den vorbereiteten Alpha-8-Stand, keine bereits
-erfolgte Veröffentlichung. [Alpha-8-Nachweise und Freigabeschritte](releases/1.0.0a8.md)
-trennen Vorbereitung, GHCR-Publikation und Live-Abnahme. Frühere Stände:
-[Alpha 4](releases/1.0.0a4.md), [Alpha 3](releases/1.0.0a3.md).
+Die Tabelle oben zeigt historische Alpha-8-Image-Namen. Die aktuelle angebotene Version
+steht in `wuschel/config.yaml`. Während einer Release-Vorbereitung enthält
+`wuschel/PENDING_RELEASE.json` Kandidat und bisherige Store-Version. Python und Frontend
+tragen den Kandidaten; der Store bleibt bis zur erfolgreichen Veröffentlichung auf
+der bisherigen Version. Kein Image-Build allein ist eine Distributionsfreigabe.
 
-1. Vor jedem Tag: uv run python dev/verify_postrelease.py ausführen. Gepinntes
+1. Vor Veröffentlichung und Tag: uv run python dev/verify_postrelease.py ausführen. Gepinntes
    AwesomeVersion prüft alle Tags und deren gespeicherte Supervisor-Slugs gemäß
    [ADR 0009](adr/0009-prerelease-version-gate.md). Erst grünes Gate erlaubt den Tag.
-   Packaging-PR prüfen und mit vollständig grüner CI nach main mergen.
+   Code-PR gemäß Review-/Go-Gate prüfen und mit vollständig grüner CI nach main mergen.
 2. Die volle main-SHA ermitteln und den Workflow **Publish Supervisor images**
    (`.github/workflows/publish-images.yml`) ausdrücklich auf main starten.
-   Das Pflichtfeld `expected_sha` muss exakt dem ausgewählten Commit entsprechen.
+   `expected_sha` muss exakt dem ausgewählten Commit entsprechen. `ci_run_id` nennt
+   die vollständig grüne reguläre CI, deren Git-Baum identisch mit main ist.
    Beispiel mit ersetztem SHA-Platzhalter:
 
    ```sh
    gh api repos/levtos/wuschel/commits/main --jq .sha
-   gh workflow run publish-images.yml --repo levtos/wuschel --ref main -f expected_sha=REPLACE_WITH_FULL_MAIN_SHA
+   gh workflow run publish-images.yml --repo levtos/wuschel --ref main -f expected_sha=REPLACE_WITH_FULL_MAIN_SHA -f ci_run_id=REPLACE_WITH_GREEN_CI_RUN
    ```
 
-3. Der Workflow führt die **vollständige bestehende CI** als wiederverwendbaren
-   Workflow aus. Nur wenn alle Jobs bestehen, lädt der Publish-Job die dort
-   erzeugten Image-TARs. Er veröffentlicht exakt diese geprüften Bytes, ohne
-   erneuten Build. Reguläre Push-/PR-CI baut weiterhin mit `push: false`.
+3. Der Workflow prüft den CI-Beleg (Repository, Workflow, Run-Versuch, alle Jobs und
+   identischen Git-Baum). Er übernimmt die Image-TARs aus genau diesem grünen Run
+   und veröffentlicht ihre geprüften Bytes ohne neue Suite oder Neubau. Die tatsächliche
+   getestete Merge-SHA bleibt im OCI-Label; sie kann von der PR-Branch-SHA abweichen.
+   Reguläre Push-/PR-CI baut weiterhin mit `push: false`.
 4. Nur die Publish-Jobs erhalten `packages: write`; alle übrigen Jobs haben
-   lediglich `contents: read`. Registry-Anmeldung erfolgt ausschließlich mit
+   nur Lesezugriff auf Inhalt und benötigte Actions-Artefakte. Registry-Anmeldung erfolgt ausschließlich mit
    dem kurzlebigen `GITHUB_TOKEN`. Es gibt keine zusätzlichen PAT-Secrets,
    keinen Git-Tag, keinen GitHub-Release und kein HA-Deployment.
 5. Ein vorhandener Versionstag wird nur akzeptiert, wenn seine Image-ID exakt
    dem geprüften Artefakt entspricht. Andernfalls bricht der Workflow ab.
    Für geänderte Images ist eine bewusst neue Version erforderlich; kein
    stilles Überschreiben von `1.0.0a1`.
+6. Erst wenn beide anonymen Pull-Jobs einschließlich Inhalts-/Digest-Prüfungen und
+   amd64-Lifecycle-Smoke grün sind, in einem sauberen Checkout der veröffentlichten
+   main-SHA `uv run python dev/promote_store.py --run-id PUBLISH_RUN` ausführen.
+   Der dadurch vorbereitete PR darf nur `wuschel/config.yaml` auf den Kandidaten setzen
+   und `wuschel/PENDING_RELEASE.json` entfernen. Volle reguläre CI, kein Überspringen
+   von Checks. `dev/store_offer.py` prüft in jeder CI die öffentliche Erreichbarkeit,
+   Version, Plattform und Konfigurations-Digest der angebotenen Version für beide Architekturen.
+   Nach grünem Merge: strenges Versionsgate, Tag auf diesem Promotion-Commit,
+   Pre-Release mit Code-/Image-/Publish-/Promotion-Belegen. Erst jetzt bietet HA die Version an.
+7. GitHub-Schreiben erfordert jeweils unmittelbar zuvor die Identität `levtos-codex`.
+   Installation folgt nur dem freigegebenen Auftrag. Live-Abnahme bleibt bei Benni.
 
 ## Öffentlich lesbar machen
 
@@ -64,13 +79,10 @@ Ein Package-Admin prüft für **beide** Pakete in GitHub:
    access** das Repository `levtos/wuschel` mit Write-Zugriff freigeben.
    Die Workflow-Images tragen bereits das passende Source-Label; bei neu
    erzeugten Paketen wird der Workflow automatisch mit dem Repository verbunden.
-4. Nach einer Sichtbarkeitskorrektur **nur die fehlgeschlagenen Jobs desselben
-   Runs** erneut starten. So bleiben Commit, Images und Veröffentlichungsbelege
-   unverändert:
-
-   ```sh
-   gh run rerun RUN_ID --failed --repo levtos/wuschel
-   ```
+4. Fehlende Berechtigungen oder Package-Sichtbarkeit als Blocker melden. Die aktuellen
+   Arbeitsregeln erlauben dem Agenten keine Repository-Einstellungs-/Secret-Änderungen.
+   Für Fehler gelten höchstens drei Versuche mit neuer Korrektur; ein bloßer Neustart
+   ist nur bei belegter Runner-/Netzstörung erlaubt. Keine Store-Promotion bei Rot.
 
 Die Sichtbarkeit wird nicht durch einen undokumentierten API-Aufruf geändert.
 Fehlt die erforderliche Package-Admin-Berechtigung, bleibt dies ein konkreter

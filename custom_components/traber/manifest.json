@@ -1,7 +1,7 @@
 {
   "domain": "traber",
   "name": "Traber",
-  "version": "1.0.0b1",
+  "version": "1.0.0b5",
   "config_flow": true,
   "documentation": "https://github.com/Levtos/wuschel",
   "issue_tracker": "https://github.com/Levtos/wuschel/issues",

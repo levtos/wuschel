@@ -1,12 +1,35 @@
 # Changelog
 
-## 1.0.0b1 — Öffnungen und HA-Verbindung (A2, unveröffentlicht)
+## 1.0.0b5 — Nachweise, HA-Sensoren und Verlauf (vorbereitet)
+
+- Identische retained-Messungen verdrängen nach einem Neustart keinen gültigen Gerätenachweis; Alterung und Fristen bleiben unverändert.
+- Verträge können einzeln als HA-Sensor über Traber 1.0.0b5 angezeigt werden. Unbekannte Werte bleiben unbekannt.
+- Verlauf mit 24 Stunden / 7 Tagen, Schema-Reihenfolge für Aufzählungen und Zeitpunkt/Wert/Status am Messpunkt.
+- Store-Angebot erst nach veröffentlichten und anonym geprüften Images; Veröffentlichung übernimmt die vollständig grüne CI für identischen Inhalt.
+- Produktionsabhängigkeiten blockieren das Audit-Gate, Entwicklungsabhängigkeiten erscheinen als Warnung.
+
+## 1.0.0b4 — Aktualitätsvorlagen
+
+- Gemeinsame und eigene Aktualitätsregeln, bestätigte Sensorarten und nachvollziehbare Weiterführung bei Regeländerungen.
+- Fehlercodes bei beschädigten Altentwürfen ohne Ausgabe privater Inhalte; belastbare Wartepunkte in den E2E-Tests.
+- Testabhängigkeit undici auf 8.12.3 aktualisiert.
+
+## 1.0.0b3 — Entwürfe und sichere Übernahme
+
+- Entwürfe können veraltete Grundlagen nicht still ersetzen; Übernahme und Importbeleg werden atomar gespeichert.
+- Altentwürfe werden ohne Löschen migriert und bei fehlenden Belegen zur Prüfung erhalten.
+
+## 1.0.0b2 — HA-Verbindungsaufbau
+
+- Streng steigende WebSocket-IDs, eindeutige Zuordnung von Antworten und sichere Fehlerdiagnosen.
+
+## 1.0.0b1 — Öffnungen und HA-Verbindung
 
 - Vier Öffnungen und drei Zonen können mit geprüften Pakettypen konfiguriert werden.
 - Direkte MQTT-Geräte-Evidence mit Heartbeat, asymmetrischer Fusion und unverlängerlicher Grace.
 - Sicher begrenzte Wiederbewertung beim Wuschel-Neustart; Retain und Replay schaffen keinen neuen Nachweis.
 - Lebenszeichen-Grenzen im bestehenden Vertragsformular und neue Kategorie Öffnungen.
-- Technisch vorbereitete Beta; kein Release, keine Installation und kein Import in diesem Schritt.
+- Erste veröffentlichte Öffnungs-Beta mit Traber 1.0.0b1.
 
 ## 1.0.0a10 — Wuschel / Traber (A2, vor Release)
 

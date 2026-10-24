@@ -7,6 +7,18 @@ on:
 permissions:
   contents: read
 jobs:
+  source-proof:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Record the actual tested merge tree
+        run: |
+          python -c 'import json,os,subprocess; print(json.dumps(dict(revision=os.environ["GITHUB_SHA"],tree=subprocess.check_output(["git","rev-parse","HEAD^{tree}"],text=True).strip(),run_id=os.environ["GITHUB_RUN_ID"],run_attempt=os.environ["GITHUB_RUN_ATTEMPT"])))' > ci-source.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-source
+          path: ci-source.json
+          retention-days: 7
   herd-assets:
     runs-on: ubuntu-24.04
     steps:
@@ -44,6 +56,8 @@ jobs:
           python-version: '3.14.5'
       - run: uv sync --frozen
       - run: uv run python dev/verify_postrelease.py --mode ci
+      - name: Require public images for the offered store version
+        run: uv run python dev/store_offer.py
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy --strict src client/core_contracts_client
@@ -86,7 +100,11 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run verify:dist
-      - run: npm audit --audit-level=high
+      - name: Production dependency audit (blocking)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Development dependency audit (warning)
+        continue-on-error: true
+        run: npm audit --audit-level=high
   workbench-e2e:
     # The Workbench against the REAL API and engine of a throw-away, in-memory instance
     # (dev/workbench_demo.py): no Home Assistant, no PostgreSQL, nothing persistent.

@@ -128,7 +128,11 @@ def main() -> None:
         if git(ROOT, "rev-parse", ref).strip() != sha:
             raise SystemExit(f"Tag-Snapshot stimmt nicht mit origin überein: {ref}")
     app = yaml.safe_load((ROOT / "wuschel/config.yaml").read_text(encoding="utf-8"))
-    candidate = str(app["version"])
+    try:
+        from .release_version import candidate as release_candidate
+    except ImportError:
+        from release_version import candidate as release_candidate
+    candidate = release_candidate(ROOT, str(app["version"]))
     report = compare_tags(ROOT, candidate, app["slug"], tags, mode=args.mode)
     versions = [
         tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"],

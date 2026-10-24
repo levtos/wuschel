@@ -42,7 +42,7 @@ def image_info(meta):
 @pytest.mark.parametrize("arch,docker_arch", [("amd64", "amd64"), ("aarch64", "arm64")])
 def test_supervisor_reference_and_platform(arch, docker_arch):
     meta = package.metadata(arch, REVISION)
-    assert meta["image"] == f"ghcr.io/levtos/{arch}-wuschel:1.0.0b4"
+    assert meta["image"] == f"ghcr.io/levtos/{arch}-wuschel:1.0.0b5"
     assert meta["docker_arch"] == docker_arch
 
 
@@ -174,9 +174,13 @@ def test_publication_is_manual_and_gated_by_full_ci():
         (package.ROOT / ".github/workflows/publish-images.yml").read_text(), Loader=yaml.BaseLoader
     )
     assert set(workflow["on"]) == {"workflow_dispatch"}
-    assert workflow["permissions"] == {"contents": "read"}
+    assert workflow["permissions"] == {"contents": "read", "actions": "read"}
     jobs = workflow["jobs"]
-    release_gate = jobs["guard"]["steps"][-1]
+    release_gate = next(
+        step
+        for step in jobs["guard"]["steps"]
+        if step.get("name", "").startswith("Require a new release")
+    )
     assert release_gate["run"] == "uv run python dev/verify_postrelease.py --mode release"
     assert "if" not in release_gate
     checkout = next(
@@ -185,11 +189,22 @@ def test_publication_is_manual_and_gated_by_full_ci():
         if step.get("uses", "").startswith("actions/checkout@")
     )
     assert checkout["with"]["fetch-depth"] == "0"
-    assert jobs["ci"]["uses"] == "./.github/workflows/ci.yml"
-    assert jobs["ci"]["needs"] == "guard"
-    assert jobs["publish"]["needs"] == "ci"
-    assert jobs["publish"]["permissions"] == {"contents": "read", "packages": "write"}
-    assert jobs["anonymous-pull"]["needs"] == "publish"
+    assert "ci" not in jobs
+    proof = next(step for step in jobs["guard"]["steps"] if step.get("id") == "tested")
+    assert "dev/release_ci.py" in proof["run"] and "if" not in proof
+    download = next(
+        step
+        for step in jobs["publish"]["steps"]
+        if step.get("uses", "").startswith("actions/download-artifact@")
+    )
+    assert download["with"]["run-id"] == "${{ inputs.ci_run_id }}"
+    assert jobs["publish"]["needs"] == "guard"
+    assert jobs["publish"]["permissions"] == {
+        "contents": "read",
+        "actions": "read",
+        "packages": "write",
+    }
+    assert jobs["anonymous-pull"]["needs"] == ["guard", "publish"]
     assert jobs["anonymous-pull"]["permissions"] == {"contents": "read"}
     assert "docker login" not in str(jobs["anonymous-pull"])
     assert set(jobs["publish"]["strategy"]["matrix"]["arch"]) == set(package.ARCHITECTURES)

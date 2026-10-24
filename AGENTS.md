@@ -11,3 +11,4 @@ Repository-specific:
 - Never commit real media titles, private data, MQTT addresses of the live system, or secrets.
 - Never call tools that return the Wuschel app options (they contain secrets).
 - The legacy integration `benni_core_contracts` is not touched.
+- Before pushing any change to `custom_components/traber/` or `tests/test_bridge_kernel.py`, run the HA-kernel test locally with the exact Python/package versions from the `ha-bridge` CI job. It must pass before push; on Windows use the venv's `Scripts/python.exe` equivalent.

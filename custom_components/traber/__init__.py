@@ -13,6 +13,7 @@ from homeassistant.helpers.event import (
     async_track_state_report_event,
 )
 
+from .projection import Projection
 from .service_channel import OPERATIONS, ServiceChannel
 from .source_metadata import refresh_action, source_metadata
 
@@ -27,10 +28,14 @@ async def async_setup_entry(hass, entry):
     active = set()
     channels = {}
     hass.data[DOMAIN] = active
+    projection = Projection()
+    hass.data["traber_projection"] = projection
 
     @callback
     def unload():
         hass.data.pop(DOMAIN, None)
+        hass.data.pop("traber_projection", None)
+        projection.disconnect(projection.owner)
         for channel in channels.values():
             channel.close()
         channels.clear()
@@ -68,6 +73,7 @@ async def async_setup_entry(hass, entry):
         old = channels.pop(id(connection), None)
         if old:
             old.close()
+            projection.disconnect(connection)
         if selected == 2:
             try:
                 channel = ServiceChannel(execute, installation_id=msg.get("installation_id"))
@@ -81,6 +87,7 @@ async def async_setup_entry(hass, entry):
             @callback
             def disconnected():
                 channel.close()
+                projection.disconnect(connection)
                 if channels.get(id(connection)) is channel:
                     channels.pop(id(connection), None)
 
@@ -91,7 +98,8 @@ async def async_setup_entry(hass, entry):
                 "protocol_selected": selected,
                 "bridge_version": VERSION,
                 "ha_epoch_id": HA_EPOCH_ID,
-                "features": list(OPERATIONS) + ["ha_context", "area_metadata"]
+                "features": list(OPERATIONS)
+                + ["ha_context", "area_metadata", "contract_projection"]
                 if selected == 2
                 else [],
             },
@@ -284,8 +292,34 @@ async def async_setup_entry(hass, entry):
     websocket_api.async_register_command(hass, negotiate)
     websocket_api.async_register_command(hass, service_call)
     websocket_api.async_register_command(hass, subscribe)
+
+    @callback
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): f"{DOMAIN}/project_contracts",
+            vol.Required("installation_id"): str,
+            vol.Required("epoch_id"): str,
+            vol.Required("publication_seq"): int,
+            vol.Required("contracts"): list,
+        }
+    )
+    @websocket_api.require_admin
+    def project_contracts(hass, connection, msg):
+        channel = channels.get(id(connection))
+        if channel is None:
+            connection.send_error(msg["id"], "unsupported_protocol", "Negotiate protocol 2 first")
+            return
+        try:
+            applied = projection.accept(connection, channel.installation_id, msg)
+        except ValueError, TypeError, AttributeError:
+            connection.send_error(msg["id"], "invalid_projection", "Invalid projection snapshot")
+            return
+        connection.send_result(msg["id"], {"applied": applied})
+
+    websocket_api.async_register_command(hass, project_contracts)
+    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
     return True
 
 
 async def async_unload_entry(hass, entry):
-    return True
+    return await hass.config_entries.async_unload_platforms(entry, ["sensor"])

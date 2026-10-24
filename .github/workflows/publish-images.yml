@@ -8,9 +8,14 @@ on:
         description: Full main commit SHA to test and publish (must match the selected main ref)
         required: true
         type: string
+      ci_run_id:
+        description: Completed green CI run with an identical tested Git tree
+        required: true
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: publish-supervisor-images
@@ -19,6 +24,8 @@ concurrency:
 jobs:
   guard:
     runs-on: ubuntu-24.04
+    outputs:
+      revision: ${{ steps.tested.outputs.revision }}
     steps:
       - name: Require explicitly selected main commit
         env:
@@ -36,17 +43,27 @@ jobs:
       - run: uv sync --frozen
       - name: Require a new release version before building or publishing images
         run: uv run python dev/verify_postrelease.py --mode release
-
-  ci:
-    needs: guard
-    uses: ./.github/workflows/ci.yml
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ci-source
+          run-id: ${{ inputs.ci_run_id }}
+          github-token: ${{ github.token }}
+      - name: Require all CI jobs green and the exact tested tree
+        id: tested
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_RUN_ID: ${{ inputs.ci_run_id }}
+        run: uv run python dev/release_ci.py --run-id "$CI_RUN_ID" --proof ci-source.json
 
   publish:
-    needs: ci
+    needs: guard
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+      actions: read
       packages: write
+    env:
+      TESTED_REVISION: ${{ needs.guard.outputs.revision }}
     strategy:
       fail-fast: false
       matrix:
@@ -59,6 +76,8 @@ jobs:
         with:
           name: image-${{ matrix.arch }}
           path: /tmp/tested-image
+          run-id: ${{ inputs.ci_run_id }}
+          github-token: ${{ github.token }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           python-version: '3.14.5'
@@ -73,7 +92,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          uv run python dev/image_package.py publish --arch "${{ matrix.arch }}" --revision "$GITHUB_SHA" --receipt receipt-${{ matrix.arch }}.json
+          uv run python dev/image_package.py publish --arch "${{ matrix.arch }}" --revision "$TESTED_REVISION" --receipt receipt-${{ matrix.arch }}.json
           cat receipt-${{ matrix.arch }}.json >> "$GITHUB_STEP_SUMMARY"
       - name: Logout
         if: always()
@@ -84,7 +103,9 @@ jobs:
           path: receipt-${{ matrix.arch }}.json
 
   anonymous-pull:
-    needs: publish
+    needs: [guard, publish]
+    env:
+      TESTED_REVISION: ${{ needs.guard.outputs.revision }}
     runs-on: ubuntu-24.04
     # No packages permission and no registry login in this independent job.
     permissions:
@@ -107,14 +128,14 @@ jobs:
       - run: uv sync --frozen
       - name: Anonymous pull, digest, platform and content verification
         run: |
-          uv run python dev/image_package.py anonymous --arch "${{ matrix.arch }}" --revision "$GITHUB_SHA" --receipt receipt-${{ matrix.arch }}.json
+          uv run python dev/image_package.py anonymous --arch "${{ matrix.arch }}" --revision "$TESTED_REVISION" --receipt receipt-${{ matrix.arch }}.json
           echo "Anonymous ${{ matrix.arch }} pull and source/digest verification passed." >> "$GITHUB_STEP_SUMMARY"
       - name: Lifecycle smoke of the anonymously pulled image
         if: matrix.arch == 'amd64'
         run: |
-          image=$(uv run python dev/image_package.py metadata --arch amd64 --revision "$GITHUB_SHA" | sed -n 's/^image=//p')
+          image=$(uv run python dev/image_package.py metadata --arch amd64 --revision "$TESTED_REVISION" | sed -n 's/^image=//p')
           uv run python dev/container_smoke.py "$image"
       - name: Explain an incomplete distribution gate
         if: failure()
         run: |
-          echo "Installability is NOT verified. For DENIED, check the package visibility: Settings > Change visibility > Public. Repository visibility alone is insufficient. After correcting visibility, re-run failed jobs; do not replace the tested version tag. See docs/publishing.md." >> "$GITHUB_STEP_SUMMARY"
+          echo "Installability is NOT verified. Report package visibility or permission blockers without changing repository settings. Follow the correction budget in the working rules; no store promotion on failure. See docs/publishing.md." >> "$GITHUB_STEP_SUMMARY"

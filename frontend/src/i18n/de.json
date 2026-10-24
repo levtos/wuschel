@@ -1,4 +1,10 @@
 {
+  "beta5.projection.label": "Als Sensor in Home Assistant anzeigen",
+  "beta5.projection.hint": "Für Verträge mit einem einzelnen Wertfeld. Nur dieser Vertrag wird über Traber angezeigt. Unbekannte Werte bleiben unbekannt.",
+  "beta5.history.window": "Zeitraum für alle Verläufe",
+  "beta5.history.day": "24 Stunden",
+  "beta5.history.week": "7 Tage",
+  "beta5.history.gaps": "Unbekannte Werte und Aufzeichnungslücken erscheinen getrennt unter der Wertachse.",
   "b4.title": "Aktualität",
   "b4.ownRule": "Eigene Regel",
   "b4.sharedRule": "Gemeinsame Vorlage",

@@ -508,7 +508,10 @@ class Runtime:
         if config is None:
             return False
         needed = required_sources(config)
-        if any(contract.enabled and contract.refresh_plan for contract in config.contracts):
+        if any(
+            contract.enabled and (contract.refresh_plan or contract.ha_projection)
+            for contract in config.contracts
+        ):
             return True
         if any(
             key.startswith("notice:") and (row.get("acknowledged") or row.get("desired"))
@@ -1418,6 +1421,10 @@ class Runtime:
                 return None
             stored = state.tables["source_observation_current"].get(obs.binding_id)
             previous = Observation.model_validate(stored) if stored else None
+            from .mqtt_restore import retained_replay
+
+            if retained_replay(obs, previous, config, self.types, now):
+                return None
             # Overflow drains the newest coalesced observation before older queue
             # entries. Quality changes must obey measurement order too. Without
             # comparable source times, keep the conservative negative-evidence

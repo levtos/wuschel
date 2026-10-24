@@ -360,6 +360,7 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
                         group.create_task(bridge.run(), name="ha_adapter"),
                         group.create_task(bridge.refresh_worker(), name="ha_refresh"),
                         group.create_task(bridge.service_worker(), name="ha_services"),
+                        group.create_task(bridge.projection_worker(), name="ha_projection"),
                         group.create_task(mqtt.run(), name="mqtt_adapter"),
                         group.create_task(clock.run(), name="clock"),
                         group.create_task(health(), name="health"),

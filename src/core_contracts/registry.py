@@ -162,6 +162,7 @@ class Contract(Model):
     display_name: str = ""
     description: str = ""
     refresh_plan: RefreshPlan | None = Field(default=None, exclude_if=lambda value: value is None)
+    ha_projection: bool = Field(default=False, strict=True, exclude_if=lambda value: not value)
 
 
 class Catalog(Model):
@@ -264,6 +265,8 @@ class RegistryConfig(Model):
 
     @model_validator(mode="after")
     def versioned_capabilities(self) -> Self:
+        if sum(contract.ha_projection and contract.enabled for contract in self.contracts) > 256:
+            raise ValueError("ha_projection_limit")
         if (
             any(isinstance(c, ManagedCatalog) for c in self.catalogs)
             or any(d.language_version == 4 for d in self.definitions)
@@ -522,7 +525,7 @@ def fingerprints(config: RegistryConfig, types: TypeRegistry) -> dict[str, str]:
             {
                 **({"fingerprint_version": 2} if config.fingerprint_version >= 2 else {}),
                 "definition": description,
-                "contract": contract.model_dump(mode="json", exclude={"enabled"}),
+                "contract": contract.model_dump(mode="json", exclude={"enabled", "ha_projection"}),
                 "inputs": [result[resolve_ref(i.ref, config)[0]] for i in contract.inputs],
             }
         )

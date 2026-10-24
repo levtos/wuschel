@@ -504,7 +504,10 @@ async def test_longer_interval_does_not_promote_invalid_or_retained_evidence(ret
                 "observation", observation.model_copy(update={"invalid_timestamp": True})
             )
         else:
-            await report(runtime, retained=retained)
+            # b5 intentionally ignores an identical retained replay. This test
+            # needs genuinely invalid evidence before changing the interval.
+            await report(runtime, retained=retained, value=True)
+        assert field(runtime)["status"] != "valid"
         await activate(runtime, shared(legacy(), 10800))
         assert field(runtime)["status"] != "valid"
     finally:

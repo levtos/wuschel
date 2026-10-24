@@ -540,6 +540,8 @@ export function ContractEditor({ value, onChange, pointer, types, refs, onAddDev
         </div>
       </div>
       {entry?.lifecycle && entry.lifecycle !== 'active' && <Notice tone="warn" title={codeLabel(entry.lifecycle)}>{uiText('alpha8.lifecycle.existing')}</Notice>}
+      <Switch checked={value.ha_projection === true} disabled={value.ha_projection !== true && (!entry?.fields.value || entry.fields.value.type === 'object')} onCheckedChange={on => set({ ha_projection: on || undefined })} label={uiText('beta5.projection.label')} />
+      <p className="text-xs text-muted">{uiText('beta5.projection.hint')}</p>
       <Fld label={uiText("editors.RegistryObjects.beschreibung_e9262f")} pointer={join(pointer, 'description')}>
         {(p) => <Textarea {...p} rows={2} className="font-sans text-sm" value={str(value.description)} onChange={(e) => set({ description: e.target.value })} />}
       </Fld>

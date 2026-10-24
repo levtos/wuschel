@@ -37,7 +37,7 @@ export const HANDLED = {
   AdapterConfig: ['kind', 'ha_entity_id', 'ha_attribute', 'ha_time_attribute', 'mqtt_topic', 'mqtt_value_path', 'mqtt_time_path', 'window', 'refresh_s', 'max_age_s'],
   Transform: ['kind', 'target', 'factor', 'offset', 'catalog_id'],
   Catalog: ['catalog_id', 'kind', 'version', 'entries'],
-  Contract: ['contract_id', 'type_id', 'type_version', 'enabled', 'inputs', 'parameters', 'display_name', 'description', 'refresh_plan'],
+  Contract: ['contract_id', 'type_id', 'type_version', 'enabled', 'ha_projection', 'inputs', 'parameters', 'display_name', 'description', 'refresh_plan'],
   Dependency: ['dependency_id', 'kind', 'monitor', 'source_id'],
 } satisfies Record<string, string[]>;
 

@@ -111,6 +111,9 @@ class BridgeAdapter:
         self.protocol_selected = 1
         self.socket: aiohttp.ClientWebSocketResponse | None = None
         self.connection: WebSocketRequests | None = None
+        self.projection_connected = asyncio.Event()
+        self.projection_disconnected = asyncio.Event()
+        self.projection_supported = False
         self.contexts = ContextIndex()
         runtime.context_index = self.contexts
         self.subscription_count = 0
@@ -474,6 +477,8 @@ class BridgeAdapter:
         try:
             await self._connect(config)
         finally:
+            self.projection_connected.clear()
+            self.projection_disconnected.set()
             self.socket = None
             connection = self.connection
             self.connection = None
@@ -573,6 +578,7 @@ class BridgeAdapter:
                 self.contexts.set_epoch(None)
             self.runtime.bridge_protocol_selected = self.protocol_selected
             self.runtime.bridge_features = features
+            self.projection_supported = "contract_projection" in features
             await self._result(connection, {"type": "get_config"})
             for event_type in ("homeassistant_started", "homeassistant_stop"):
                 await self._result(
@@ -618,6 +624,8 @@ class BridgeAdapter:
             LOGGER.info("bridge_connected")
             self.socket = socket
             self.connection = connection
+            self.projection_disconnected.clear()
+            self.projection_connected.set()
             while True:
                 receive = asyncio.create_task(socket.receive_json())
                 change = asyncio.create_task(self.runtime.revision_changed.wait())
@@ -669,6 +677,57 @@ class BridgeAdapter:
                         if not task.done():
                             task.cancel()
                     await asyncio.gather(*pending, return_exceptions=True)
+
+    async def projection_worker(self) -> None:
+        from ..ha_projection import snapshot
+
+        queue = self.runtime.subscribe(max_queue=1)
+        try:
+            while True:
+                await self.projection_connected.wait()
+                connection = self.connection
+                previous: dict[str, Any] | None = None
+                while connection is not None and connection is self.connection:
+                    payload = snapshot(self.runtime)
+                    if self.projection_supported and payload != previous:
+                        future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
+                        identifier = None
+                        try:
+                            identifier = await connection.send(payload, future)
+                            async with asyncio.timeout(20):
+                                result = await future
+                            if not isinstance(result, dict) or "applied" not in result:
+                                raise ConnectionError("projection_not_acknowledged")
+                            previous = payload
+                        except TimeoutError, ConnectionError, aiohttp.ClientError:
+                            self.runtime.resubscribe.set()
+                            await self.projection_disconnected.wait()
+                            break
+                        finally:
+                            if identifier is not None:
+                                connection.pending.pop(identifier, None)
+                    elif (
+                        payload["contracts"] and not self.projection_supported and previous is None
+                    ):
+                        LOGGER.warning(
+                            "projection_unavailable", extra={"error_type": "UnsupportedFeature"}
+                        )
+                        previous = payload
+                    changed = asyncio.create_task(queue.get())
+                    disconnected = asyncio.create_task(self.projection_disconnected.wait())
+                    try:
+                        done, _ = await asyncio.wait(
+                            {changed, disconnected}, return_when=asyncio.FIRST_COMPLETED
+                        )
+                        if disconnected in done:
+                            break
+                    finally:
+                        for task in (changed, disconnected):
+                            if not task.done():
+                                task.cancel()
+                        await asyncio.gather(changed, disconnected, return_exceptions=True)
+        finally:
+            self.runtime.subscribers.discard(queue)
 
     async def run(self) -> None:
         while True:

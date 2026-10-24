@@ -1,6 +1,6 @@
 [project]
 name = "wuschel"
-version = "1.0.0b4"
+version = "1.0.0b5"
 requires-python = ">=3.14,<3.15"
 dependencies = ["aiohttp>=3.13,<4", "asyncpg>=0.32,<0.33", "pydantic>=2.12,<3", "aiomqtt>=2.5,<3", "tzdata==2026.2"]
 
