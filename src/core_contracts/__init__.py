@@ -1,3 +1,5 @@
 """Generic Core Contracts platform."""
 
-__version__ = "1.0.0b4"
+from importlib.metadata import version
+
+__version__ = version("wuschel")
