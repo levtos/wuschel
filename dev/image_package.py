@@ -92,6 +92,8 @@ def check_content(image, meta):
         "assert Path('/app/frontend/index.html').is_file(); "
         "assert any(Path('/app/frontend/assets').glob('*')); "
         "assert importlib.metadata.version('wuschel')==sys.argv[2]; "
+        "from core_contracts import __version__; "
+        "assert __version__==sys.argv[2], 'Runtime API version differs from image/package version'; "
         "from core_contracts.contract_types import type_registry; "
         "types=type_registry(); "
         "assert all(not types.get(name,1).schema.fixture for name in "

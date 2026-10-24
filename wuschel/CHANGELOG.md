@@ -1,6 +1,13 @@
 # Changelog
 
-## 1.0.0b5 — Nachweise, HA-Sensoren und Verlauf (vorbereitet)
+## 1.0.0b6 — Programmversion und Beschreibung
+
+- Die API liest ihre Programmversion aus den installierten Paketmetadaten; ein übersehener Versionsliteral kann die Anzeige nicht mehr zurücksetzen.
+- Der Image-Test prüft zusätzlich die tatsächliche Programmversion. Ein Regressionstest deckt den Unterschied zwischen Paket und API ab.
+- App-Beschreibung ohne Phasen-/Versionsangabe, aktueller README-Stand und Regression gegen veraltete Beschreibungen.
+- Traber bleibt unverändert auf 1.0.0b5.
+
+## 1.0.0b5 — Nachweise, HA-Sensoren und Verlauf
 
 - Identische retained-Messungen verdrängen nach einem Neustart keinen gültigen Gerätenachweis; Alterung und Fristen bleiben unverändert.
 - Verträge können einzeln als HA-Sensor über Traber 1.0.0b5 angezeigt werden. Unbekannte Werte bleiben unbekannt.

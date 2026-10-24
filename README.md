@@ -4,11 +4,11 @@ Core Contracts als **Supervisor-verwaltete Home-Assistant-App**: kanonische fach
 Status, Quality, Freshness, Evidence und Reasons. Dazu kommen Registry mit stabilen IDs, PostgreSQL-Persistenz,
 HA-Bridge Traber und `CoreContractsClient`.
 
-**Stand:** Alpha 10 / 1.0.0a10, A2 zur technischen Review auf `agent/codex-alpha10-wuschel`.
+**Stand:** Beta. Aktuelle Veröffentlichungen und Prüfnachweise stehen in den [Releases](https://github.com/levtos/wuschel/releases) und den zugehörigen Issues.
 Wuschel nutzt den eigenen Supervisor-Slug `wuschel`; Traber ist die Integration
 für die HA-Anbindung mit Protokoll 2. G4-Katalogpflege und portable Konfigurations-
 pakete ergänzen die bestehenden Verträge. Alle mitgelieferten Beispiele sind synthetisch.
-Release, neue Datenbank, Installation und Live-Abnahme bleiben Bennis Teil B.
+Veröffentlichung und Installation folgen der jeweiligen Freigabe; die fachliche Live-Abnahme bleibt bei Benni.
 
 ## Übergabe / aktueller Stand
 
