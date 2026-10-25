@@ -56,6 +56,14 @@ def map_key(value: Any) -> str:
 
 
 def rule_children(rule: dm.Rule) -> list[tuple[str, dm.Rule]]:
+    if isinstance(rule, dm.AnnualCurveRule):
+        return [("at", rule.at)] + [
+            (f"points/{i}/value", point.value)
+            for i, point in enumerate(rule.points)
+            if isinstance(point.value, dm.ParameterRule)
+        ]
+    if isinstance(rule, dm.CalendarActiveRule):
+        return [("arg", rule.arg), ("pattern", rule.pattern)]
     if isinstance(rule, dm.ManagedCatalogRule):
         return [
             (name, getattr(rule, name)) for name in ("scope", "media_type", "signal_type", "key")
@@ -257,6 +265,17 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
         if isinstance(rule, dm.LiteralRule):
             return rule.field_schema
         args = [infer(child, guard=guard, depth=depth + 1) for child in children(rule)]
+        if isinstance(rule, (dm.AnnualCurveRule, dm.CalendarActiveRule)):
+            if definition.language_version < 5:
+                raise ValueError("language_version_5_required")
+            if isinstance(rule, dm.AnnualCurveRule):
+                require(args[0], scalar("text"))
+                for arg in args[1:]:
+                    require(arg, scalar("number"))
+                return scalar("number")
+            require(args[0], FieldSchema(type="object", required=True, physical_state=False))
+            require(args[1], scalar("text"))
+            return scalar("bool")
         if isinstance(rule, dm.KnownAutomaticRule):
             if definition.language_version < 3:
                 raise ValueError("language_version_3_required")
@@ -295,7 +314,7 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
                 raise ValueError("unordered_comparison")
             return scalar("bool")
         if isinstance(rule, dm.ManagedCatalogRule):
-            if definition.language_version != 4:
+            if definition.language_version < 4:
                 raise ValueError("language_version_4_required")
             for arg in args:
                 require(arg, scalar("text"))
@@ -606,6 +625,15 @@ class Evaluation:
                 )
             return self.memo["$machine"]
         args = [self.evaluate(child) for child in children(rule)]
+        if isinstance(rule, dm.AnnualCurveRule):
+            from .calendar_rules import annual_curve
+
+            return annual_curve(rule, args, now)
+        if isinstance(rule, dm.CalendarActiveRule):
+            from .calendar_rules import calendar_active
+
+            due = self.context.node.setdefault("clock_due", []) if self.context else []
+            return calendar_active(rule, args, now, due)
         if isinstance(rule, dm.ManagedCatalogRule):
             from .managed_catalog import lookup
 
@@ -897,7 +925,10 @@ def compile_definition(definition: dm.DeclarativeDefinition) -> ContractType:
     temporal_rules = [r for r in all_rules(definition) if isinstance(r, dm.TemporalRule)]
 
     def evaluate(ctx: Context) -> dict[str, FieldValue]:
-        if any(isinstance(r, dm.TimeReachedRule) for r in all_rules(definition)):
+        if any(
+            isinstance(r, (dm.TimeReachedRule, dm.CalendarActiveRule))
+            for r in all_rules(definition)
+        ):
             ctx.node["clock_due"] = []
         for name in definition.refresh_inputs:
             requested = ctx.node.setdefault("refresh", {})

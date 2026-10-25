@@ -4,6 +4,7 @@ No expression strings are interpreted. The discriminated union is also the
 public editor schema; runtime and import use precisely the same models.
 """
 
+from datetime import date
 from typing import Annotated, Any, Literal, Self
 
 from pydantic import ConfigDict, Field, model_validator
@@ -267,6 +268,49 @@ class TimeReachedRule(Model):
     at: Rule
 
 
+class AnnualCurvePoint(Model):
+    day: str = Field(pattern=r"^\d{2}-\d{2}$")
+    value: (
+        Annotated[int, Field(strict=True)]
+        | Annotated[float, Field(strict=True, allow_inf_nan=False)]
+        | ParameterRule
+    )
+
+    @model_validator(mode="after")
+    def calendar_day(self) -> Self:
+        date.fromisoformat("2000-" + self.day)
+        return self
+
+
+class AnnualCurveRule(Model):
+    op: Literal["annual_curve"]
+    at: Rule
+    points: tuple[AnnualCurvePoint, ...] = Field(min_length=2, max_length=64)
+    leap_day: Literal["skip", "feb28", "mar01"] | None = None
+
+    @model_validator(mode="after")
+    def anchors(self) -> Self:
+        days = [point.day for point in self.points]
+        if days != sorted(set(days)):
+            raise ValueError("annual_curve_points_order")
+        if "02-29" in days:
+            if self.leap_day is None:
+                raise ValueError("annual_curve_leap_day_required")
+            ordinary = [day for day in days if day != "02-29"]
+            if self.leap_day != "skip":
+                ordinary.append("02-28" if self.leap_day == "feb28" else "03-01")
+            if len(ordinary) < 2 or len(ordinary) != len(set(ordinary)):
+                raise ValueError("annual_curve_points_collision")
+        return self
+
+
+class CalendarActiveRule(Model):
+    op: Literal["calendar_active"]
+    arg: Rule
+    pattern: Rule
+    all_day_only: bool = False
+
+
 class KnownAutomaticRule(Model):
     op: Literal["known_automatic"]
     arg: Rule
@@ -323,6 +367,8 @@ Rule = Annotated[
     | MachineRule
     | NotApplicableRule
     | TimeReachedRule
+    | AnnualCurveRule
+    | CalendarActiveRule
     | KnownAutomaticRule
     | TextRule
     | ConfigurationHintRule
@@ -456,7 +502,7 @@ class MachineDefinition(Model):
 class DeclarativeDefinition(DeclarativeModel):
     type_id: str = Field(pattern=r"^[a-zA-Z][a-zA-Z0-9_-]*\.[a-zA-Z0-9_.-]+$", max_length=128)
     type_version: int = Field(ge=1)
-    language_version: Literal[1, 2, 3, 4] = 1
+    language_version: Literal[1, 2, 3, 4, 5] = 1
     display_name: str = ""
     description: str = ""
     inputs: tuple[TypedInput, ...] = Field(default=(), max_length=MAX_INPUTS)
@@ -559,6 +605,8 @@ for _model in (
     MachineDefinition,
     NotApplicableRule,
     TimeReachedRule,
+    AnnualCurveRule,
+    CalendarActiveRule,
     KnownAutomaticRule,
     TextRule,
     ConfigurationHintRule,

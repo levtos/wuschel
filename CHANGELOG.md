@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0b9 — Zeit, Tag und Sonne (Kandidat)
+
+- Regelsprache 5 ergänzt Jahreskurven mit echten Kalendertagen und Kalendertreffer mit genauer Terminplanung ohne Abfragetakt.
+- Stützpunkte lassen sich als Tabelle bearbeiten; Kalendertitel bleiben aus Ergebnissen, Begründungen und Traces heraus.
+- Sieben importierbare Datenvorlagen und die Kategorie „Zeit, Tag und Sonne“. Private Verknüpfungen und Schwellen gehören ausschließlich zum lokalen Paket.
+- Alte Sprachversionen und Fingerabdrücke bleiben erhalten. Traber bleibt auf 1.0.0b5; keine Datenbankmigration.
+
 ## 1.0.0b8 — HA-Neuverbindung nach Übernahme
 
 - Ausstehende Projektionsantworten einer beendeten HA-Verbindung lösen keine weitere Neuverbindung auf der Ersatzverbindung aus. Der erste Snapshot nach einer Konfigurationsübernahme wird wieder verarbeitet.

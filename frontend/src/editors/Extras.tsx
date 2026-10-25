@@ -12,6 +12,8 @@ import { ValueEditor } from './ValueEditor';
 export const HANDLED = {
   FieldSchema: ['type', 'required', 'physical_state', 'value_catalog', 'unit'],
   InputRule: ['op', 'name'],
+  AnnualCurveRule: ['op', 'at', 'points', 'leap_day'],
+  CalendarActiveRule: ['op', 'arg', 'pattern', 'all_day_only'],
   ReferenceRule: ['op', 'name'],
   LiteralRule: ['op', 'schema', 'value'],
   BooleanRule: ['op', 'args'],

@@ -26,6 +26,7 @@ import { FieldSchemaEditor } from './FieldSchemaEditor';
 import { SchemaForm } from './SchemaForm';
 import { defaultLiteralValue } from '@/features/authoring/model';
 import { Extras, HANDLED } from './Extras';
+import { AnnualCurvePoints } from './AnnualCurvePoints';
 
 /**
  * Recursive editor for the closed, tagged rule union. Operators, formulas,
@@ -58,6 +59,8 @@ export function operatorDefaults(caps: Capabilities | undefined): OperatorDefaul
 }
 
 const OP_LABELS: Record<string, string> = {
+  annual_curve: uiText('beta3.annualCurve'),
+  calendar_active: uiText('beta3.calendarActive'),
   input: uiText("editors.RuleEditor.eingang_d8af5e"),
   known_automatic: uiText('alpha9.context.automatic'),
   ref: uiText('editors.RuleEditor.interne_regel_verweis'),
@@ -292,6 +295,18 @@ function Body({ value, onChange, pointer, depth }: { value: Rule; onChange: (nex
   };
 
   switch (value.op) {
+    case 'annual_curve': return <>
+      <p className="text-sm text-muted">{uiText('beta3.languageHelp')}</p>
+      <Child parent={value} pointer={pointer} depth={depth} keyPath={['at']} label={uiText('beta3.date')} onChange={onChange} />
+      <AnnualCurvePoints value={value} onChange={onChange} pointer={pointer} />
+    </>;
+    case 'calendar_active': return <>
+      <p className="text-sm text-muted">{uiText('beta3.languageHelp')}</p>
+      <Child parent={value} pointer={pointer} depth={depth} keyPath={['arg']} label={uiText('beta3.calendarList')} onChange={onChange} />
+      <Child parent={value} pointer={pointer} depth={depth} keyPath={['pattern']} label={uiText('beta3.pattern')} onChange={onChange} />
+      <p className="text-sm text-muted">{uiText('beta3.patternHelp')}</p>
+      <Checkbox checked={value.all_day_only === true} onCheckedChange={checked => set({ all_day_only: checked })} label={uiText('beta3.allDayOnly')} />
+    </>;
     case 'managed_catalog_lookup': return <>
       <Fld label={uiText('alpha10.catalog.catalog')} pointer={join(pointer, 'catalog_id')}>{p => <Input {...p} value={str(value.catalog_id)} onChange={e => set({ catalog_id: e.target.value })} />}</Fld>
       <NumberField label={uiText('editors.RegistryObjects.version_dd1679')} pointer={join(pointer, 'definition_version')} value={Number(value.definition_version ?? 1)} min={1} step={1} onChange={n => set({ definition_version: Math.max(1, Math.trunc(n)) })} />

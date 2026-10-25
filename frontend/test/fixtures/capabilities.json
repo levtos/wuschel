@@ -3,7 +3,8 @@
   "language_versions": [
     1,
     2,
-    3
+    3,
+    5
   ],
   "machine_deadline_v2": true,
   "api_protocol": 1,
@@ -1110,7 +1111,9 @@
                     "ref": "#/$defs/ReferenceRule",
                     "strip": "#/$defs/TextRule",
                     "temporal": "#/$defs/TemporalRule",
-                    "time_reached": "#/$defs/TimeReachedRule"
+                    "time_reached": "#/$defs/TimeReachedRule",
+                    "annual_curve": "#/$defs/AnnualCurveRule",
+                    "calendar_active": "#/$defs/CalendarActiveRule"
                   },
                   "propertyName": "op"
                 },
@@ -1168,6 +1171,12 @@
                   },
                   {
                     "$ref": "#/$defs/ConfigurationHintRule"
+                  },
+                  {
+                    "$ref": "#/$defs/AnnualCurveRule"
+                  },
+                  {
+                    "$ref": "#/$defs/CalendarActiveRule"
                   }
                 ]
               },
@@ -1233,7 +1242,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -1291,6 +1302,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "At"
@@ -1369,7 +1386,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -1427,6 +1446,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Arg"
@@ -1638,7 +1663,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -1696,6 +1723,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "When"
@@ -1727,7 +1760,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -1785,6 +1820,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Then"
@@ -1916,7 +1957,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -1974,6 +2017,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Left"
@@ -2005,7 +2054,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -2063,6 +2114,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Right"
@@ -2112,7 +2169,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -2170,6 +2229,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Arg"
@@ -2201,7 +2266,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -2259,6 +2326,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "When"
@@ -2400,7 +2473,8 @@
               "enum": [
                 1,
                 2,
-                3
+                3,
+                5
               ],
               "title": "Language Version",
               "type": "integer"
@@ -2490,7 +2564,9 @@
                       "ref": "#/$defs/ReferenceRule",
                       "strip": "#/$defs/TextRule",
                       "temporal": "#/$defs/TemporalRule",
-                      "time_reached": "#/$defs/TimeReachedRule"
+                      "time_reached": "#/$defs/TimeReachedRule",
+                      "annual_curve": "#/$defs/AnnualCurveRule",
+                      "calendar_active": "#/$defs/CalendarActiveRule"
                     },
                     "propertyName": "op"
                   },
@@ -2548,6 +2624,12 @@
                     },
                     {
                       "$ref": "#/$defs/ConfigurationHintRule"
+                    },
+                    {
+                      "$ref": "#/$defs/AnnualCurveRule"
+                    },
+                    {
+                      "$ref": "#/$defs/CalendarActiveRule"
                     }
                   ]
                 }
@@ -2586,7 +2668,9 @@
                       "ref": "#/$defs/ReferenceRule",
                       "strip": "#/$defs/TextRule",
                       "temporal": "#/$defs/TemporalRule",
-                      "time_reached": "#/$defs/TimeReachedRule"
+                      "time_reached": "#/$defs/TimeReachedRule",
+                      "annual_curve": "#/$defs/AnnualCurveRule",
+                      "calendar_active": "#/$defs/CalendarActiveRule"
                     },
                     "propertyName": "op"
                   },
@@ -2644,6 +2728,12 @@
                     },
                     {
                       "$ref": "#/$defs/ConfigurationHintRule"
+                    },
+                    {
+                      "$ref": "#/$defs/AnnualCurveRule"
+                    },
+                    {
+                      "$ref": "#/$defs/CalendarActiveRule"
                     }
                   ]
                 }
@@ -2923,7 +3013,9 @@
                         "ref": "#/$defs/ReferenceRule",
                         "strip": "#/$defs/TextRule",
                         "temporal": "#/$defs/TemporalRule",
-                        "time_reached": "#/$defs/TimeReachedRule"
+                        "time_reached": "#/$defs/TimeReachedRule",
+                        "annual_curve": "#/$defs/AnnualCurveRule",
+                        "calendar_active": "#/$defs/CalendarActiveRule"
                       },
                       "propertyName": "op"
                     },
@@ -2981,6 +3073,12 @@
                       },
                       {
                         "$ref": "#/$defs/ConfigurationHintRule"
+                      },
+                      {
+                        "$ref": "#/$defs/AnnualCurveRule"
+                      },
+                      {
+                        "$ref": "#/$defs/CalendarActiveRule"
                       }
                     ]
                   },
@@ -3015,7 +3113,9 @@
                           "ref": "#/$defs/ReferenceRule",
                           "strip": "#/$defs/TextRule",
                           "temporal": "#/$defs/TemporalRule",
-                          "time_reached": "#/$defs/TimeReachedRule"
+                          "time_reached": "#/$defs/TimeReachedRule",
+                          "annual_curve": "#/$defs/AnnualCurveRule",
+                          "calendar_active": "#/$defs/CalendarActiveRule"
                         },
                         "propertyName": "op"
                       },
@@ -3073,6 +3173,12 @@
                         },
                         {
                           "$ref": "#/$defs/ConfigurationHintRule"
+                        },
+                        {
+                          "$ref": "#/$defs/AnnualCurveRule"
+                        },
+                        {
+                          "$ref": "#/$defs/CalendarActiveRule"
                         }
                       ]
                     }
@@ -3295,7 +3401,9 @@
                     "ref": "#/$defs/ReferenceRule",
                     "strip": "#/$defs/TextRule",
                     "temporal": "#/$defs/TemporalRule",
-                    "time_reached": "#/$defs/TimeReachedRule"
+                    "time_reached": "#/$defs/TimeReachedRule",
+                    "annual_curve": "#/$defs/AnnualCurveRule",
+                    "calendar_active": "#/$defs/CalendarActiveRule"
                   },
                   "propertyName": "op"
                 },
@@ -3353,6 +3461,12 @@
                   },
                   {
                     "$ref": "#/$defs/ConfigurationHintRule"
+                  },
+                  {
+                    "$ref": "#/$defs/AnnualCurveRule"
+                  },
+                  {
+                    "$ref": "#/$defs/CalendarActiveRule"
                   }
                 ]
               },
@@ -3400,7 +3514,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -3458,6 +3574,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Lower"
@@ -3489,7 +3611,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -3547,6 +3671,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Upper"
@@ -3634,7 +3764,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -3692,6 +3824,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Arg"
@@ -3851,7 +3989,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -3909,6 +4049,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Reinitialize When"
@@ -3979,7 +4125,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -4037,6 +4185,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Arg"
@@ -4096,7 +4250,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -4154,6 +4310,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Arg"
@@ -4948,7 +5110,9 @@
                     "ref": "#/$defs/ReferenceRule",
                     "strip": "#/$defs/TextRule",
                     "temporal": "#/$defs/TemporalRule",
-                    "time_reached": "#/$defs/TimeReachedRule"
+                    "time_reached": "#/$defs/TimeReachedRule",
+                    "annual_curve": "#/$defs/AnnualCurveRule",
+                    "calendar_active": "#/$defs/CalendarActiveRule"
                   },
                   "propertyName": "op"
                 },
@@ -5006,6 +5170,12 @@
                   },
                   {
                     "$ref": "#/$defs/ConfigurationHintRule"
+                  },
+                  {
+                    "$ref": "#/$defs/AnnualCurveRule"
+                  },
+                  {
+                    "$ref": "#/$defs/CalendarActiveRule"
                   }
                 ]
               },
@@ -5113,7 +5283,9 @@
                     "ref": "#/$defs/ReferenceRule",
                     "strip": "#/$defs/TextRule",
                     "temporal": "#/$defs/TemporalRule",
-                    "time_reached": "#/$defs/TimeReachedRule"
+                    "time_reached": "#/$defs/TimeReachedRule",
+                    "annual_curve": "#/$defs/AnnualCurveRule",
+                    "calendar_active": "#/$defs/CalendarActiveRule"
                   },
                   "propertyName": "op"
                 },
@@ -5171,6 +5343,12 @@
                   },
                   {
                     "$ref": "#/$defs/ConfigurationHintRule"
+                  },
+                  {
+                    "$ref": "#/$defs/AnnualCurveRule"
+                  },
+                  {
+                    "$ref": "#/$defs/CalendarActiveRule"
                   }
                 ]
               },
@@ -5234,7 +5412,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -5292,6 +5472,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "At"
@@ -5502,7 +5688,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -5560,6 +5748,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Guard"
@@ -5624,6 +5818,392 @@
             "schema"
           ],
           "title": "TypedInput",
+          "type": "object"
+        },
+        "AnnualCurvePoint": {
+          "additionalProperties": false,
+          "properties": {
+            "day": {
+              "pattern": "^\\d{2}-\\d{2}$",
+              "title": "Day",
+              "type": "string"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/ParameterRule"
+                }
+              ],
+              "title": "Value"
+            }
+          },
+          "required": [
+            "day",
+            "value"
+          ],
+          "title": "AnnualCurvePoint",
+          "type": "object"
+        },
+        "AnnualCurveRule": {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "annual_curve",
+              "title": "Op",
+              "type": "string"
+            },
+            "at": {
+              "discriminator": {
+                "mapping": {
+                  "and": "#/$defs/BooleanRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "bucket": "#/$defs/BucketRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule",
+                  "compare": "#/$defs/CompareRule",
+                  "compound_key": "#/$defs/TextRule",
+                  "configuration_hint": "#/$defs/ConfigurationHintRule",
+                  "contains": "#/$defs/TextRule",
+                  "first_match": "#/$defs/FirstMatchRule",
+                  "formula": "#/$defs/FormulaRule",
+                  "fusion": "#/$defs/FusionRule",
+                  "input": "#/$defs/InputRule",
+                  "known_automatic": "#/$defs/KnownAutomaticRule",
+                  "literal": "#/$defs/LiteralRule",
+                  "lower": "#/$defs/TextRule",
+                  "machine": "#/$defs/MachineRule",
+                  "map": "#/$defs/MapRule",
+                  "matches": "#/$defs/TextRule",
+                  "normalize_key": "#/$defs/TextRule",
+                  "not": "#/$defs/BooleanRule",
+                  "not_applicable": "#/$defs/NotApplicableRule",
+                  "or": "#/$defs/BooleanRule",
+                  "parameter": "#/$defs/ParameterRule",
+                  "ref": "#/$defs/ReferenceRule",
+                  "strip": "#/$defs/TextRule",
+                  "temporal": "#/$defs/TemporalRule",
+                  "time_reached": "#/$defs/TimeReachedRule"
+                },
+                "propertyName": "op"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/InputRule"
+                },
+                {
+                  "$ref": "#/$defs/ParameterRule"
+                },
+                {
+                  "$ref": "#/$defs/ReferenceRule"
+                },
+                {
+                  "$ref": "#/$defs/LiteralRule"
+                },
+                {
+                  "$ref": "#/$defs/BooleanRule"
+                },
+                {
+                  "$ref": "#/$defs/CompareRule"
+                },
+                {
+                  "$ref": "#/$defs/MapRule"
+                },
+                {
+                  "$ref": "#/$defs/FirstMatchRule"
+                },
+                {
+                  "$ref": "#/$defs/BucketRule"
+                },
+                {
+                  "$ref": "#/$defs/FormulaRule"
+                },
+                {
+                  "$ref": "#/$defs/FusionRule"
+                },
+                {
+                  "$ref": "#/$defs/TemporalRule"
+                },
+                {
+                  "$ref": "#/$defs/MachineRule"
+                },
+                {
+                  "$ref": "#/$defs/NotApplicableRule"
+                },
+                {
+                  "$ref": "#/$defs/TimeReachedRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
+                },
+                {
+                  "$ref": "#/$defs/KnownAutomaticRule"
+                },
+                {
+                  "$ref": "#/$defs/TextRule"
+                },
+                {
+                  "$ref": "#/$defs/ConfigurationHintRule"
+                }
+              ],
+              "title": "At"
+            },
+            "points": {
+              "items": {
+                "$ref": "#/$defs/AnnualCurvePoint"
+              },
+              "maxItems": 64,
+              "minItems": 2,
+              "title": "Points",
+              "type": "array"
+            },
+            "leap_day": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "skip",
+                    "feb28",
+                    "mar01"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Leap Day"
+            }
+          },
+          "required": [
+            "op",
+            "at",
+            "points"
+          ],
+          "title": "AnnualCurveRule",
+          "type": "object"
+        },
+        "CalendarActiveRule": {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "calendar_active",
+              "title": "Op",
+              "type": "string"
+            },
+            "arg": {
+              "discriminator": {
+                "mapping": {
+                  "and": "#/$defs/BooleanRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "bucket": "#/$defs/BucketRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule",
+                  "compare": "#/$defs/CompareRule",
+                  "compound_key": "#/$defs/TextRule",
+                  "configuration_hint": "#/$defs/ConfigurationHintRule",
+                  "contains": "#/$defs/TextRule",
+                  "first_match": "#/$defs/FirstMatchRule",
+                  "formula": "#/$defs/FormulaRule",
+                  "fusion": "#/$defs/FusionRule",
+                  "input": "#/$defs/InputRule",
+                  "known_automatic": "#/$defs/KnownAutomaticRule",
+                  "literal": "#/$defs/LiteralRule",
+                  "lower": "#/$defs/TextRule",
+                  "machine": "#/$defs/MachineRule",
+                  "map": "#/$defs/MapRule",
+                  "matches": "#/$defs/TextRule",
+                  "normalize_key": "#/$defs/TextRule",
+                  "not": "#/$defs/BooleanRule",
+                  "not_applicable": "#/$defs/NotApplicableRule",
+                  "or": "#/$defs/BooleanRule",
+                  "parameter": "#/$defs/ParameterRule",
+                  "ref": "#/$defs/ReferenceRule",
+                  "strip": "#/$defs/TextRule",
+                  "temporal": "#/$defs/TemporalRule",
+                  "time_reached": "#/$defs/TimeReachedRule"
+                },
+                "propertyName": "op"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/InputRule"
+                },
+                {
+                  "$ref": "#/$defs/ParameterRule"
+                },
+                {
+                  "$ref": "#/$defs/ReferenceRule"
+                },
+                {
+                  "$ref": "#/$defs/LiteralRule"
+                },
+                {
+                  "$ref": "#/$defs/BooleanRule"
+                },
+                {
+                  "$ref": "#/$defs/CompareRule"
+                },
+                {
+                  "$ref": "#/$defs/MapRule"
+                },
+                {
+                  "$ref": "#/$defs/FirstMatchRule"
+                },
+                {
+                  "$ref": "#/$defs/BucketRule"
+                },
+                {
+                  "$ref": "#/$defs/FormulaRule"
+                },
+                {
+                  "$ref": "#/$defs/FusionRule"
+                },
+                {
+                  "$ref": "#/$defs/TemporalRule"
+                },
+                {
+                  "$ref": "#/$defs/MachineRule"
+                },
+                {
+                  "$ref": "#/$defs/NotApplicableRule"
+                },
+                {
+                  "$ref": "#/$defs/TimeReachedRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
+                },
+                {
+                  "$ref": "#/$defs/KnownAutomaticRule"
+                },
+                {
+                  "$ref": "#/$defs/TextRule"
+                },
+                {
+                  "$ref": "#/$defs/ConfigurationHintRule"
+                }
+              ],
+              "title": "Arg"
+            },
+            "pattern": {
+              "discriminator": {
+                "mapping": {
+                  "and": "#/$defs/BooleanRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "bucket": "#/$defs/BucketRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule",
+                  "compare": "#/$defs/CompareRule",
+                  "compound_key": "#/$defs/TextRule",
+                  "configuration_hint": "#/$defs/ConfigurationHintRule",
+                  "contains": "#/$defs/TextRule",
+                  "first_match": "#/$defs/FirstMatchRule",
+                  "formula": "#/$defs/FormulaRule",
+                  "fusion": "#/$defs/FusionRule",
+                  "input": "#/$defs/InputRule",
+                  "known_automatic": "#/$defs/KnownAutomaticRule",
+                  "literal": "#/$defs/LiteralRule",
+                  "lower": "#/$defs/TextRule",
+                  "machine": "#/$defs/MachineRule",
+                  "map": "#/$defs/MapRule",
+                  "matches": "#/$defs/TextRule",
+                  "normalize_key": "#/$defs/TextRule",
+                  "not": "#/$defs/BooleanRule",
+                  "not_applicable": "#/$defs/NotApplicableRule",
+                  "or": "#/$defs/BooleanRule",
+                  "parameter": "#/$defs/ParameterRule",
+                  "ref": "#/$defs/ReferenceRule",
+                  "strip": "#/$defs/TextRule",
+                  "temporal": "#/$defs/TemporalRule",
+                  "time_reached": "#/$defs/TimeReachedRule"
+                },
+                "propertyName": "op"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/InputRule"
+                },
+                {
+                  "$ref": "#/$defs/ParameterRule"
+                },
+                {
+                  "$ref": "#/$defs/ReferenceRule"
+                },
+                {
+                  "$ref": "#/$defs/LiteralRule"
+                },
+                {
+                  "$ref": "#/$defs/BooleanRule"
+                },
+                {
+                  "$ref": "#/$defs/CompareRule"
+                },
+                {
+                  "$ref": "#/$defs/MapRule"
+                },
+                {
+                  "$ref": "#/$defs/FirstMatchRule"
+                },
+                {
+                  "$ref": "#/$defs/BucketRule"
+                },
+                {
+                  "$ref": "#/$defs/FormulaRule"
+                },
+                {
+                  "$ref": "#/$defs/FusionRule"
+                },
+                {
+                  "$ref": "#/$defs/TemporalRule"
+                },
+                {
+                  "$ref": "#/$defs/MachineRule"
+                },
+                {
+                  "$ref": "#/$defs/NotApplicableRule"
+                },
+                {
+                  "$ref": "#/$defs/TimeReachedRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
+                },
+                {
+                  "$ref": "#/$defs/KnownAutomaticRule"
+                },
+                {
+                  "$ref": "#/$defs/TextRule"
+                },
+                {
+                  "$ref": "#/$defs/ConfigurationHintRule"
+                }
+              ],
+              "title": "Pattern"
+            },
+            "all_day_only": {
+              "default": false,
+              "title": "All Day Only",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "op",
+            "arg",
+            "pattern"
+          ],
+          "title": "CalendarActiveRule",
           "type": "object"
         }
       },
@@ -6090,7 +6670,9 @@
                     "ref": "#/$defs/ReferenceRule",
                     "strip": "#/$defs/TextRule",
                     "temporal": "#/$defs/TemporalRule",
-                    "time_reached": "#/$defs/TimeReachedRule"
+                    "time_reached": "#/$defs/TimeReachedRule",
+                    "annual_curve": "#/$defs/AnnualCurveRule",
+                    "calendar_active": "#/$defs/CalendarActiveRule"
                   },
                   "propertyName": "op"
                 },
@@ -6148,6 +6730,12 @@
                   },
                   {
                     "$ref": "#/$defs/ConfigurationHintRule"
+                  },
+                  {
+                    "$ref": "#/$defs/AnnualCurveRule"
+                  },
+                  {
+                    "$ref": "#/$defs/CalendarActiveRule"
                   }
                 ]
               },
@@ -6213,7 +6801,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -6271,6 +6861,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "At"
@@ -6349,7 +6945,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -6407,6 +7005,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Arg"
@@ -6513,7 +7117,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -6571,6 +7177,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "When"
@@ -6602,7 +7214,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -6660,6 +7274,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Then"
@@ -6736,7 +7356,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -6794,6 +7416,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Left"
@@ -6825,7 +7453,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -6883,6 +7513,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Right"
@@ -6932,7 +7568,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -6990,6 +7628,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Arg"
@@ -7021,7 +7665,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -7079,6 +7725,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "When"
@@ -7252,7 +7904,9 @@
                         "ref": "#/$defs/ReferenceRule",
                         "strip": "#/$defs/TextRule",
                         "temporal": "#/$defs/TemporalRule",
-                        "time_reached": "#/$defs/TimeReachedRule"
+                        "time_reached": "#/$defs/TimeReachedRule",
+                        "annual_curve": "#/$defs/AnnualCurveRule",
+                        "calendar_active": "#/$defs/CalendarActiveRule"
                       },
                       "propertyName": "op"
                     },
@@ -7310,6 +7964,12 @@
                       },
                       {
                         "$ref": "#/$defs/ConfigurationHintRule"
+                      },
+                      {
+                        "$ref": "#/$defs/AnnualCurveRule"
+                      },
+                      {
+                        "$ref": "#/$defs/CalendarActiveRule"
                       }
                     ]
                   },
@@ -7344,7 +8004,9 @@
                           "ref": "#/$defs/ReferenceRule",
                           "strip": "#/$defs/TextRule",
                           "temporal": "#/$defs/TemporalRule",
-                          "time_reached": "#/$defs/TimeReachedRule"
+                          "time_reached": "#/$defs/TimeReachedRule",
+                          "annual_curve": "#/$defs/AnnualCurveRule",
+                          "calendar_active": "#/$defs/CalendarActiveRule"
                         },
                         "propertyName": "op"
                       },
@@ -7402,6 +8064,12 @@
                         },
                         {
                           "$ref": "#/$defs/ConfigurationHintRule"
+                        },
+                        {
+                          "$ref": "#/$defs/AnnualCurveRule"
+                        },
+                        {
+                          "$ref": "#/$defs/CalendarActiveRule"
                         }
                       ]
                     }
@@ -7493,7 +8161,9 @@
                     "ref": "#/$defs/ReferenceRule",
                     "strip": "#/$defs/TextRule",
                     "temporal": "#/$defs/TemporalRule",
-                    "time_reached": "#/$defs/TimeReachedRule"
+                    "time_reached": "#/$defs/TimeReachedRule",
+                    "annual_curve": "#/$defs/AnnualCurveRule",
+                    "calendar_active": "#/$defs/CalendarActiveRule"
                   },
                   "propertyName": "op"
                 },
@@ -7551,6 +8221,12 @@
                   },
                   {
                     "$ref": "#/$defs/ConfigurationHintRule"
+                  },
+                  {
+                    "$ref": "#/$defs/AnnualCurveRule"
+                  },
+                  {
+                    "$ref": "#/$defs/CalendarActiveRule"
                   }
                 ]
               },
@@ -7598,7 +8274,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -7656,6 +8334,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Lower"
@@ -7687,7 +8371,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -7745,6 +8431,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Upper"
@@ -7813,7 +8505,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -7871,6 +8565,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Arg"
@@ -8030,7 +8730,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -8088,6 +8790,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Reinitialize When"
@@ -8158,7 +8866,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -8216,6 +8926,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Arg"
@@ -8275,7 +8991,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -8333,6 +9051,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Arg"
@@ -8619,7 +9343,9 @@
                     "ref": "#/$defs/ReferenceRule",
                     "strip": "#/$defs/TextRule",
                     "temporal": "#/$defs/TemporalRule",
-                    "time_reached": "#/$defs/TimeReachedRule"
+                    "time_reached": "#/$defs/TimeReachedRule",
+                    "annual_curve": "#/$defs/AnnualCurveRule",
+                    "calendar_active": "#/$defs/CalendarActiveRule"
                   },
                   "propertyName": "op"
                 },
@@ -8677,6 +9403,12 @@
                   },
                   {
                     "$ref": "#/$defs/ConfigurationHintRule"
+                  },
+                  {
+                    "$ref": "#/$defs/AnnualCurveRule"
+                  },
+                  {
+                    "$ref": "#/$defs/CalendarActiveRule"
                   }
                 ]
               },
@@ -8784,7 +9516,9 @@
                     "ref": "#/$defs/ReferenceRule",
                     "strip": "#/$defs/TextRule",
                     "temporal": "#/$defs/TemporalRule",
-                    "time_reached": "#/$defs/TimeReachedRule"
+                    "time_reached": "#/$defs/TimeReachedRule",
+                    "annual_curve": "#/$defs/AnnualCurveRule",
+                    "calendar_active": "#/$defs/CalendarActiveRule"
                   },
                   "propertyName": "op"
                 },
@@ -8842,6 +9576,12 @@
                   },
                   {
                     "$ref": "#/$defs/ConfigurationHintRule"
+                  },
+                  {
+                    "$ref": "#/$defs/AnnualCurveRule"
+                  },
+                  {
+                    "$ref": "#/$defs/CalendarActiveRule"
                   }
                 ]
               },
@@ -8905,7 +9645,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -8963,6 +9705,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "At"
@@ -9021,7 +9769,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -9079,6 +9829,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ],
               "title": "Guard"
@@ -9144,6 +9900,392 @@
           ],
           "title": "TypedInput",
           "type": "object"
+        },
+        "AnnualCurvePoint": {
+          "additionalProperties": false,
+          "properties": {
+            "day": {
+              "pattern": "^\\d{2}-\\d{2}$",
+              "title": "Day",
+              "type": "string"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/ParameterRule"
+                }
+              ],
+              "title": "Value"
+            }
+          },
+          "required": [
+            "day",
+            "value"
+          ],
+          "title": "AnnualCurvePoint",
+          "type": "object"
+        },
+        "AnnualCurveRule": {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "annual_curve",
+              "title": "Op",
+              "type": "string"
+            },
+            "at": {
+              "discriminator": {
+                "mapping": {
+                  "and": "#/$defs/BooleanRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "bucket": "#/$defs/BucketRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule",
+                  "compare": "#/$defs/CompareRule",
+                  "compound_key": "#/$defs/TextRule",
+                  "configuration_hint": "#/$defs/ConfigurationHintRule",
+                  "contains": "#/$defs/TextRule",
+                  "first_match": "#/$defs/FirstMatchRule",
+                  "formula": "#/$defs/FormulaRule",
+                  "fusion": "#/$defs/FusionRule",
+                  "input": "#/$defs/InputRule",
+                  "known_automatic": "#/$defs/KnownAutomaticRule",
+                  "literal": "#/$defs/LiteralRule",
+                  "lower": "#/$defs/TextRule",
+                  "machine": "#/$defs/MachineRule",
+                  "map": "#/$defs/MapRule",
+                  "matches": "#/$defs/TextRule",
+                  "normalize_key": "#/$defs/TextRule",
+                  "not": "#/$defs/BooleanRule",
+                  "not_applicable": "#/$defs/NotApplicableRule",
+                  "or": "#/$defs/BooleanRule",
+                  "parameter": "#/$defs/ParameterRule",
+                  "ref": "#/$defs/ReferenceRule",
+                  "strip": "#/$defs/TextRule",
+                  "temporal": "#/$defs/TemporalRule",
+                  "time_reached": "#/$defs/TimeReachedRule"
+                },
+                "propertyName": "op"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/InputRule"
+                },
+                {
+                  "$ref": "#/$defs/ParameterRule"
+                },
+                {
+                  "$ref": "#/$defs/ReferenceRule"
+                },
+                {
+                  "$ref": "#/$defs/LiteralRule"
+                },
+                {
+                  "$ref": "#/$defs/BooleanRule"
+                },
+                {
+                  "$ref": "#/$defs/CompareRule"
+                },
+                {
+                  "$ref": "#/$defs/MapRule"
+                },
+                {
+                  "$ref": "#/$defs/FirstMatchRule"
+                },
+                {
+                  "$ref": "#/$defs/BucketRule"
+                },
+                {
+                  "$ref": "#/$defs/FormulaRule"
+                },
+                {
+                  "$ref": "#/$defs/FusionRule"
+                },
+                {
+                  "$ref": "#/$defs/TemporalRule"
+                },
+                {
+                  "$ref": "#/$defs/MachineRule"
+                },
+                {
+                  "$ref": "#/$defs/NotApplicableRule"
+                },
+                {
+                  "$ref": "#/$defs/TimeReachedRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
+                },
+                {
+                  "$ref": "#/$defs/KnownAutomaticRule"
+                },
+                {
+                  "$ref": "#/$defs/TextRule"
+                },
+                {
+                  "$ref": "#/$defs/ConfigurationHintRule"
+                }
+              ],
+              "title": "At"
+            },
+            "points": {
+              "items": {
+                "$ref": "#/$defs/AnnualCurvePoint"
+              },
+              "maxItems": 64,
+              "minItems": 2,
+              "title": "Points",
+              "type": "array"
+            },
+            "leap_day": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "skip",
+                    "feb28",
+                    "mar01"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Leap Day"
+            }
+          },
+          "required": [
+            "op",
+            "at",
+            "points"
+          ],
+          "title": "AnnualCurveRule",
+          "type": "object"
+        },
+        "CalendarActiveRule": {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "calendar_active",
+              "title": "Op",
+              "type": "string"
+            },
+            "arg": {
+              "discriminator": {
+                "mapping": {
+                  "and": "#/$defs/BooleanRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "bucket": "#/$defs/BucketRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule",
+                  "compare": "#/$defs/CompareRule",
+                  "compound_key": "#/$defs/TextRule",
+                  "configuration_hint": "#/$defs/ConfigurationHintRule",
+                  "contains": "#/$defs/TextRule",
+                  "first_match": "#/$defs/FirstMatchRule",
+                  "formula": "#/$defs/FormulaRule",
+                  "fusion": "#/$defs/FusionRule",
+                  "input": "#/$defs/InputRule",
+                  "known_automatic": "#/$defs/KnownAutomaticRule",
+                  "literal": "#/$defs/LiteralRule",
+                  "lower": "#/$defs/TextRule",
+                  "machine": "#/$defs/MachineRule",
+                  "map": "#/$defs/MapRule",
+                  "matches": "#/$defs/TextRule",
+                  "normalize_key": "#/$defs/TextRule",
+                  "not": "#/$defs/BooleanRule",
+                  "not_applicable": "#/$defs/NotApplicableRule",
+                  "or": "#/$defs/BooleanRule",
+                  "parameter": "#/$defs/ParameterRule",
+                  "ref": "#/$defs/ReferenceRule",
+                  "strip": "#/$defs/TextRule",
+                  "temporal": "#/$defs/TemporalRule",
+                  "time_reached": "#/$defs/TimeReachedRule"
+                },
+                "propertyName": "op"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/InputRule"
+                },
+                {
+                  "$ref": "#/$defs/ParameterRule"
+                },
+                {
+                  "$ref": "#/$defs/ReferenceRule"
+                },
+                {
+                  "$ref": "#/$defs/LiteralRule"
+                },
+                {
+                  "$ref": "#/$defs/BooleanRule"
+                },
+                {
+                  "$ref": "#/$defs/CompareRule"
+                },
+                {
+                  "$ref": "#/$defs/MapRule"
+                },
+                {
+                  "$ref": "#/$defs/FirstMatchRule"
+                },
+                {
+                  "$ref": "#/$defs/BucketRule"
+                },
+                {
+                  "$ref": "#/$defs/FormulaRule"
+                },
+                {
+                  "$ref": "#/$defs/FusionRule"
+                },
+                {
+                  "$ref": "#/$defs/TemporalRule"
+                },
+                {
+                  "$ref": "#/$defs/MachineRule"
+                },
+                {
+                  "$ref": "#/$defs/NotApplicableRule"
+                },
+                {
+                  "$ref": "#/$defs/TimeReachedRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
+                },
+                {
+                  "$ref": "#/$defs/KnownAutomaticRule"
+                },
+                {
+                  "$ref": "#/$defs/TextRule"
+                },
+                {
+                  "$ref": "#/$defs/ConfigurationHintRule"
+                }
+              ],
+              "title": "Arg"
+            },
+            "pattern": {
+              "discriminator": {
+                "mapping": {
+                  "and": "#/$defs/BooleanRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "bucket": "#/$defs/BucketRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule",
+                  "compare": "#/$defs/CompareRule",
+                  "compound_key": "#/$defs/TextRule",
+                  "configuration_hint": "#/$defs/ConfigurationHintRule",
+                  "contains": "#/$defs/TextRule",
+                  "first_match": "#/$defs/FirstMatchRule",
+                  "formula": "#/$defs/FormulaRule",
+                  "fusion": "#/$defs/FusionRule",
+                  "input": "#/$defs/InputRule",
+                  "known_automatic": "#/$defs/KnownAutomaticRule",
+                  "literal": "#/$defs/LiteralRule",
+                  "lower": "#/$defs/TextRule",
+                  "machine": "#/$defs/MachineRule",
+                  "map": "#/$defs/MapRule",
+                  "matches": "#/$defs/TextRule",
+                  "normalize_key": "#/$defs/TextRule",
+                  "not": "#/$defs/BooleanRule",
+                  "not_applicable": "#/$defs/NotApplicableRule",
+                  "or": "#/$defs/BooleanRule",
+                  "parameter": "#/$defs/ParameterRule",
+                  "ref": "#/$defs/ReferenceRule",
+                  "strip": "#/$defs/TextRule",
+                  "temporal": "#/$defs/TemporalRule",
+                  "time_reached": "#/$defs/TimeReachedRule"
+                },
+                "propertyName": "op"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/InputRule"
+                },
+                {
+                  "$ref": "#/$defs/ParameterRule"
+                },
+                {
+                  "$ref": "#/$defs/ReferenceRule"
+                },
+                {
+                  "$ref": "#/$defs/LiteralRule"
+                },
+                {
+                  "$ref": "#/$defs/BooleanRule"
+                },
+                {
+                  "$ref": "#/$defs/CompareRule"
+                },
+                {
+                  "$ref": "#/$defs/MapRule"
+                },
+                {
+                  "$ref": "#/$defs/FirstMatchRule"
+                },
+                {
+                  "$ref": "#/$defs/BucketRule"
+                },
+                {
+                  "$ref": "#/$defs/FormulaRule"
+                },
+                {
+                  "$ref": "#/$defs/FusionRule"
+                },
+                {
+                  "$ref": "#/$defs/TemporalRule"
+                },
+                {
+                  "$ref": "#/$defs/MachineRule"
+                },
+                {
+                  "$ref": "#/$defs/NotApplicableRule"
+                },
+                {
+                  "$ref": "#/$defs/TimeReachedRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
+                },
+                {
+                  "$ref": "#/$defs/KnownAutomaticRule"
+                },
+                {
+                  "$ref": "#/$defs/TextRule"
+                },
+                {
+                  "$ref": "#/$defs/ConfigurationHintRule"
+                }
+              ],
+              "title": "Pattern"
+            },
+            "all_day_only": {
+              "default": false,
+              "title": "All Day Only",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "op",
+            "arg",
+            "pattern"
+          ],
+          "title": "CalendarActiveRule",
+          "type": "object"
         }
       },
       "additionalProperties": false,
@@ -9164,7 +10306,8 @@
           "enum": [
             1,
             2,
-            3
+            3,
+            5
           ],
           "title": "Language Version",
           "type": "integer"
@@ -9254,7 +10397,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -9312,6 +10457,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ]
             }
@@ -9350,7 +10501,9 @@
                   "ref": "#/$defs/ReferenceRule",
                   "strip": "#/$defs/TextRule",
                   "temporal": "#/$defs/TemporalRule",
-                  "time_reached": "#/$defs/TimeReachedRule"
+                  "time_reached": "#/$defs/TimeReachedRule",
+                  "annual_curve": "#/$defs/AnnualCurveRule",
+                  "calendar_active": "#/$defs/CalendarActiveRule"
                 },
                 "propertyName": "op"
               },
@@ -9408,6 +10561,12 @@
                 },
                 {
                   "$ref": "#/$defs/ConfigurationHintRule"
+                },
+                {
+                  "$ref": "#/$defs/AnnualCurveRule"
+                },
+                {
+                  "$ref": "#/$defs/CalendarActiveRule"
                 }
               ]
             }
@@ -9913,6 +11072,16 @@
       "op": "not_applicable",
       "stateful": false,
       "schema_ref": "#/$defs/NotApplicableRule"
+    },
+    {
+      "op": "annual_curve",
+      "stateful": false,
+      "schema_ref": "#/$defs/AnnualCurveRule"
+    },
+    {
+      "op": "calendar_active",
+      "stateful": false,
+      "schema_ref": "#/$defs/CalendarActiveRule"
     }
   ],
   "formulas": [
@@ -10182,5 +11351,30 @@
         "since_version": 1
       }
     ]
+  },
+  "calendar_rules": {
+    "language_version": 5,
+    "annual_curve": {
+      "points_min": 2,
+      "points_max": 64,
+      "date_format": "YYYY-MM-DD",
+      "anchor_format": "MM-DD",
+      "interpolation": "integer_calendar_days_circular_linear",
+      "point_values": "finite_number_or_numeric_parameter",
+      "leap_day": [
+        "skip",
+        "feb28",
+        "mar01"
+      ]
+    },
+    "calendar_active": {
+      "pattern_max": 256,
+      "events_max": 1000,
+      "bytes_max": 1048576,
+      "matching": "lower_strip_fnmatchcase",
+      "interval": "start_inclusive_end_exclusive_union",
+      "scheduling": "next_boolean_change_or_evidence_deadline_no_polling",
+      "output": "bool_and_opaque_event_keys_no_titles"
+    }
   }
 }
