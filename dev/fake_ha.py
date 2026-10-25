@@ -4,7 +4,9 @@ from aiohttp import web
 
 
 class FakeHA:
-    def __init__(self, states=None, protocol=1, missing=False, registries=None, v2=False):
+    def __init__(
+        self, states=None, protocol=1, missing=False, registries=None, v2=False, projection=False
+    ):
         self.states = states or {}
         self.protocol, self.missing = protocol, missing
         self.requests = []
@@ -14,6 +16,8 @@ class FakeHA:
         self.lifecycle_subscriptions = {}
         self.registries = registries or {}
         self.v2 = v2
+        self.projection = projection
+        self.projection_ack = True
 
     def application(self):
         app = web.Application()
@@ -64,8 +68,13 @@ class FakeHA:
                     result = {
                         "protocol_selected": 2,
                         "bridge_version": "test",
-                        "features": ["calendar_events"],
+                        "features": ["calendar_events"]
+                        + (["contract_projection"] if self.projection else []),
                     }
+                if kind == "traber/project_contracts":
+                    if not self.projection_ack:
+                        continue
+                    result = {"applied": True}
                 if kind == "traber/service_call":
                     result = {
                         "request_id": data["request_id"],
