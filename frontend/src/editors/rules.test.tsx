@@ -20,6 +20,16 @@ function mount(definition: JsonObject, locked = false) {
 const withEnumInput = (): JsonObject => ({ ...newDefinition('test.x', 1), inputs: [{ name: 'mode', schema: { ...newFieldSchema('enum'), value_catalog: ['on', 'off'] } }] });
 
 describe('operators beyond the example', () => {
+  it('offers first_usable in German and keeps the argument-order hint', async () => {
+    const result = mount({ ...newDefinition('test.priority', 1), outputs: { value: { op: 'fusion', strategy: 'first_healthy', args: [{ op: 'input', name: 'a' }] } } });
+    await user.click(screen.getByRole('tab', { name: /Ausgaben/ }));
+    const strategy = within(node(root)).getByRole('combobox', { name: /^Strategie/ });
+    await user.selectOptions(strategy, 'first_usable');
+    expect(within(strategy).getByRole('option', { name: 'Erster verwertbarer Wert (Reihenfolge)' })).toHaveProperty('selected', true);
+    expect((result().outputs as JsonObject).value).toMatchObject({ strategy: 'first_usable' });
+    expect(screen.getByText('Die Reihenfolge der Argumente ist die Priorität.')).toBeInTheDocument();
+  });
+
   it('preserves unknown members and a stateful node ID when changing the operator graphically', async () => {
     const result = mount({ ...newDefinition('test.preserve', 1), outputs: { value: { op: 'bucket', id: 'stable-node', initial: false, lower: 0, upper: 1, arg: { op: 'input', name: 'a' }, x_future: { keep: [null, 1] } } } });
     await user.click(screen.getByRole('tab', { name: /Ausgaben/ }));

@@ -342,7 +342,7 @@ async def test_attribute_has_no_entity_state_continuity_proof(runtime, config):
     )
 
 
-@pytest.mark.parametrize("timestamp", ["yesterday", "2026-01-01T12:00:00", 123, "999999999999"])
+@pytest.mark.parametrize("timestamp", ["yesterday", "2026-01-01T12:00:00", True, "999999999999"])
 async def test_malformed_external_timestamp_is_local_invalid_evidence(runtime, config, timestamp):
     config["bindings"][0]["adapter"]["ha_time_attribute"] = "device_timestamp"
     configuration = validate(config, runtime.types)

@@ -3262,6 +3262,7 @@
                 "all_true",
                 "any_true",
                 "first_healthy",
+                "first_usable",
                 "latest",
                 "test_agreement"
               ]
@@ -7459,6 +7460,7 @@
                 "all_true",
                 "any_true",
                 "first_healthy",
+                "first_usable",
                 "latest",
                 "test_agreement"
               ]
@@ -9939,6 +9941,11 @@
   "fusion": [
     {
       "strategy": "first_healthy",
+      "priority": "argument_order",
+      "conflict_detection": false
+    },
+    {
+      "strategy": "first_usable",
       "priority": "argument_order",
       "conflict_detection": false
     },

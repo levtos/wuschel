@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0b7 — Anwesenheitsvorlagen (A2, vor Review und Release)
+
+- Allgemeine Zusammenführung `first_usable`: Vorrang nach Argumentreihenfolge, ohne fehlenden Nachweis durch nicht zutreffende Fälle.
+- Explizite HA-Gerätezeiten unterstützen Unix-Sekunden; fehlende oder ungültige Gerätezeit wird auch als Lebenszeichen abgewiesen.
+- Neun importierbare Anwesenheitsvorlagen einschließlich freiem Ortsnamen; Zuhause und Eltern zählen für Ankunft, Abfahrt, Durchfahrt und Haushalt gleichwertig.
+- Synthetischer Paketnachbau und Prüfungen; private Verknüpfungen und Fahrtmessung gehören ausschließlich in den lokalen Ausgabeordner.
+- Traber bleibt unverändert auf 1.0.0b5. Kein automatischer Import oder Übernahme.
+- [Design und Freigabe](docs/beta/bereich-2/A1.md). Release und Installation erst nach zweitem Review und Benni-Go.
+
 ## 1.0.0b2 — HA-Verbindung (A1+A2, unveröffentlicht)
 
 - WebSocket-Anfragen verwenden streng steigende IDs je Verbindung; Reconnect beginnt neu.

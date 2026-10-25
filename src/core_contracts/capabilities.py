@@ -448,7 +448,7 @@ def capabilities(config: RegistryConfig | None, base: TypeRegistry) -> dict[str,
         "fusion": [
             {
                 "strategy": name,
-                "priority": "argument_order" if name == "first_healthy" else None,
+                "priority": "argument_order" if name in {"first_healthy", "first_usable"} else None,
                 "conflict_detection": name in {"latest", "test_agreement"},
             }
             for name in FUSION_INPUTS

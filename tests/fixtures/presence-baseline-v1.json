@@ -1,0 +1,626 @@
+{
+  "format": "wuschel.configuration",
+  "format_version": 1,
+  "scope": "configuration",
+  "producer": {
+    "name": "Wuschel",
+    "version": "1.0.0b6"
+  },
+  "config": {
+    "config_schema_version": 2,
+    "fingerprint_version": 2,
+    "dependencies": [
+      {
+        "dependency_id": "test.mqtt",
+        "kind": "mqtt",
+        "monitor": "internal",
+        "source_id": null
+      },
+      {
+        "dependency_id": "dependency.synthetic.ha",
+        "kind": "ha",
+        "monitor": "internal",
+        "source_id": null
+      }
+    ],
+    "sources": [
+      {
+        "source_id": "source.test.0.open",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "report_heartbeat",
+          "future_tolerance_s": 0.0,
+          "interval_s": 8400.0,
+          "liveness_source": null
+        },
+        "dependency_id": "test.mqtt",
+        "physical_source_key": "source.test.0.open",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.test.0.tilt",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "report_heartbeat",
+          "future_tolerance_s": 0.0,
+          "interval_s": 8400.0,
+          "liveness_source": null
+        },
+        "dependency_id": "test.mqtt",
+        "physical_source_key": "source.test.0.tilt",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.test.1.open",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "report_heartbeat",
+          "future_tolerance_s": 0.0,
+          "interval_s": 8400.0,
+          "liveness_source": null
+        },
+        "dependency_id": "test.mqtt",
+        "physical_source_key": "source.test.1.open",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.test.1.tilt",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "report_heartbeat",
+          "future_tolerance_s": 0.0,
+          "interval_s": 8400.0,
+          "liveness_source": null
+        },
+        "dependency_id": "test.mqtt",
+        "physical_source_key": "source.test.1.tilt",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.test.2.open",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "report_heartbeat",
+          "future_tolerance_s": 0.0,
+          "interval_s": 8400.0,
+          "liveness_source": null
+        },
+        "dependency_id": "test.mqtt",
+        "physical_source_key": "source.test.2.open",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.test.2.tilt",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "report_heartbeat",
+          "future_tolerance_s": 0.0,
+          "interval_s": 8400.0,
+          "liveness_source": null
+        },
+        "dependency_id": "test.mqtt",
+        "physical_source_key": "source.test.2.tilt",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.test.3.contact",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "report_heartbeat",
+          "future_tolerance_s": 0.0,
+          "interval_s": 8400.0,
+          "liveness_source": null
+        },
+        "dependency_id": "test.mqtt",
+        "physical_source_key": "source.test.3.contact",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.synthetic.connectivity",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "event_stateful",
+          "future_tolerance_s": 0.0,
+          "interval_s": null,
+          "liveness_source": null
+        },
+        "dependency_id": "dependency.synthetic.ha",
+        "physical_source_key": "synthetic.connectivity",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      }
+    ],
+    "bindings": [
+      {
+        "binding_id": "source.test.0.open",
+        "source_id": "source.test.0.open",
+        "adapter": {
+          "kind": "mqtt",
+          "ha_entity_id": null,
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": "test/beta/0/open",
+          "mqtt_value_path": "contact",
+          "mqtt_time_path": "last_seen"
+        },
+        "transform": {
+          "kind": "map_ref",
+          "target": null,
+          "factor": null,
+          "offset": null,
+          "catalog_id": "test.inversion"
+        },
+        "display_name": ""
+      },
+      {
+        "binding_id": "source.test.0.tilt",
+        "source_id": "source.test.0.tilt",
+        "adapter": {
+          "kind": "mqtt",
+          "ha_entity_id": null,
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": "test/beta/0/tilt",
+          "mqtt_value_path": "contact",
+          "mqtt_time_path": "last_seen"
+        },
+        "transform": {
+          "kind": "map_ref",
+          "target": null,
+          "factor": null,
+          "offset": null,
+          "catalog_id": "test.inversion"
+        },
+        "display_name": ""
+      },
+      {
+        "binding_id": "source.test.1.open",
+        "source_id": "source.test.1.open",
+        "adapter": {
+          "kind": "mqtt",
+          "ha_entity_id": null,
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": "test/beta/1/open",
+          "mqtt_value_path": "contact",
+          "mqtt_time_path": "last_seen"
+        },
+        "transform": {
+          "kind": "map_ref",
+          "target": null,
+          "factor": null,
+          "offset": null,
+          "catalog_id": "test.inversion"
+        },
+        "display_name": ""
+      },
+      {
+        "binding_id": "source.test.1.tilt",
+        "source_id": "source.test.1.tilt",
+        "adapter": {
+          "kind": "mqtt",
+          "ha_entity_id": null,
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": "test/beta/1/tilt",
+          "mqtt_value_path": "contact",
+          "mqtt_time_path": "last_seen"
+        },
+        "transform": {
+          "kind": "map_ref",
+          "target": null,
+          "factor": null,
+          "offset": null,
+          "catalog_id": "test.inversion"
+        },
+        "display_name": ""
+      },
+      {
+        "binding_id": "source.test.2.open",
+        "source_id": "source.test.2.open",
+        "adapter": {
+          "kind": "mqtt",
+          "ha_entity_id": null,
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": "test/beta/2/open",
+          "mqtt_value_path": "contact",
+          "mqtt_time_path": "last_seen"
+        },
+        "transform": {
+          "kind": "map_ref",
+          "target": null,
+          "factor": null,
+          "offset": null,
+          "catalog_id": "test.inversion"
+        },
+        "display_name": ""
+      },
+      {
+        "binding_id": "source.test.2.tilt",
+        "source_id": "source.test.2.tilt",
+        "adapter": {
+          "kind": "mqtt",
+          "ha_entity_id": null,
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": "test/beta/2/tilt",
+          "mqtt_value_path": "contact",
+          "mqtt_time_path": "last_seen"
+        },
+        "transform": {
+          "kind": "map_ref",
+          "target": null,
+          "factor": null,
+          "offset": null,
+          "catalog_id": "test.inversion"
+        },
+        "display_name": ""
+      },
+      {
+        "binding_id": "source.test.3.contact",
+        "source_id": "source.test.3.contact",
+        "adapter": {
+          "kind": "mqtt",
+          "ha_entity_id": null,
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": "test/beta/3/contact",
+          "mqtt_value_path": "contact",
+          "mqtt_time_path": "last_seen"
+        },
+        "transform": {
+          "kind": "map_ref",
+          "target": null,
+          "factor": null,
+          "offset": null,
+          "catalog_id": "test.inversion"
+        },
+        "display_name": ""
+      },
+      {
+        "binding_id": "binding.synthetic.connectivity",
+        "source_id": "source.synthetic.connectivity",
+        "adapter": {
+          "kind": "ha_state",
+          "ha_entity_id": "binary_sensor.synthetic_connected",
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": null,
+          "mqtt_value_path": null,
+          "mqtt_time_path": null
+        },
+        "transform": {
+          "kind": "type_cast",
+          "target": "bool",
+          "factor": null,
+          "offset": null,
+          "catalog_id": null
+        },
+        "display_name": ""
+      }
+    ],
+    "contracts": [
+      {
+        "contract_id": "test.opening0",
+        "type_id": "opening.dual_contact",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "open",
+            "ref": "source.test.0.open"
+          },
+          {
+            "name": "tilt",
+            "ref": "source.test.0.tilt"
+          }
+        ],
+        "parameters": {
+          "grace_s": 600
+        },
+        "display_name": "",
+        "description": ""
+      },
+      {
+        "contract_id": "test.opening1",
+        "type_id": "opening.dual_contact",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "open",
+            "ref": "source.test.1.open"
+          },
+          {
+            "name": "tilt",
+            "ref": "source.test.1.tilt"
+          }
+        ],
+        "parameters": {
+          "grace_s": 600
+        },
+        "display_name": "",
+        "description": ""
+      },
+      {
+        "contract_id": "test.opening2",
+        "type_id": "opening.dual_contact",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "open",
+            "ref": "source.test.2.open"
+          },
+          {
+            "name": "tilt",
+            "ref": "source.test.2.tilt"
+          }
+        ],
+        "parameters": {
+          "grace_s": 600
+        },
+        "display_name": "",
+        "description": ""
+      },
+      {
+        "contract_id": "test.opening3",
+        "type_id": "opening.single_contact",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "contact",
+            "ref": "source.test.3.contact"
+          }
+        ],
+        "parameters": {
+          "grace_s": 600
+        },
+        "display_name": "",
+        "description": ""
+      },
+      {
+        "contract_id": "test.zone.windows",
+        "type_id": "opening_zone.facts",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "member_1",
+            "ref": "test.opening0.value"
+          },
+          {
+            "name": "member_2",
+            "ref": "test.opening1.value"
+          }
+        ],
+        "parameters": {},
+        "display_name": "",
+        "description": ""
+      },
+      {
+        "contract_id": "test.zone.area",
+        "type_id": "opening_zone.facts",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "member_1",
+            "ref": "test.opening0.value"
+          },
+          {
+            "name": "member_2",
+            "ref": "test.opening1.value"
+          },
+          {
+            "name": "member_3",
+            "ref": "test.opening2.value"
+          }
+        ],
+        "parameters": {},
+        "display_name": "",
+        "description": ""
+      },
+      {
+        "contract_id": "test.zone.all",
+        "type_id": "opening_zone.facts",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "member_1",
+            "ref": "test.opening0.value"
+          },
+          {
+            "name": "member_2",
+            "ref": "test.opening1.value"
+          },
+          {
+            "name": "member_3",
+            "ref": "test.opening2.value"
+          },
+          {
+            "name": "member_4",
+            "ref": "test.opening3.value"
+          }
+        ],
+        "parameters": {},
+        "display_name": "",
+        "description": ""
+      },
+      {
+        "contract_id": "synthetic.connectivity",
+        "type_id": "synthetic.connectivity",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "online",
+            "ref": "source.synthetic.connectivity"
+          }
+        ],
+        "parameters": {},
+        "display_name": "",
+        "description": ""
+      }
+    ],
+    "catalogs": [
+      {
+        "catalog_id": "test.inversion",
+        "kind": "map",
+        "version": 1,
+        "entries": {
+          "True": false,
+          "False": true
+        }
+      }
+    ],
+    "definitions": [
+      {
+        "type_id": "synthetic.connectivity",
+        "type_version": 1,
+        "language_version": 1,
+        "display_name": "",
+        "description": "",
+        "inputs": [
+          {
+            "name": "online",
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          }
+        ],
+        "refresh_inputs": [],
+        "schema": {
+          "fields": {
+            "value": {
+              "type": "bool",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          },
+          "available_projection": [],
+          "grace_capable": false,
+          "grace_parameter": null,
+          "fixture": false
+        },
+        "rules": {},
+        "outputs": {
+          "value": {
+            "op": "input",
+            "name": "online"
+          }
+        },
+        "machine": null
+      }
+    ]
+  },
+  "editorial": [],
+  "catalog_contents": [],
+  "manifest": {
+    "roots": [],
+    "object_digests": {
+      "dependencies:test.mqtt": "ac94292d6eb60cc9b5f0e94a8142850d3fb472f32532418f6175c663d2008429",
+      "dependencies:dependency.synthetic.ha": "5e5febaa115c86cf1e42c28b91d857372ab516d445bfd269a0bfd367701b6155",
+      "sources:source.test.0.open": "22aa6939c52621a4e6cd4b53aa72665b089335cc68469270cdfcc3db723bb2ed",
+      "sources:source.test.0.tilt": "ee1e3b4e12bc0cb22b3c2e1524dbfcef4c89a36bfcc9e6c3335b75c80b672d4a",
+      "sources:source.test.1.open": "cd686c1129654de3391bc8d9a2131d3a31e881d58dd3d1d35313026b2d65fd7f",
+      "sources:source.test.1.tilt": "af2d65f2cc485f71a9f93fa6417cad8a372f0579abab97916bf161767b33513d",
+      "sources:source.test.2.open": "fe99dd8f17ddcd1e86d6dc722af3076d46a96c39016fa3eb32644ddf6579a3ff",
+      "sources:source.test.2.tilt": "b8eea11ade3601baa8986f71f81df45bb8965276099444dbb9d9f3984667b35e",
+      "sources:source.test.3.contact": "1ffbae9242b429f01d45494cacdcc406c1c80d090a618c67f2bc0088561ab3ac",
+      "sources:source.synthetic.connectivity": "2345d98fbc2ba742898539fdbefae94baeee2a16cce87dd91dd883a0f01fce26",
+      "bindings:source.test.0.open": "39feb71e18bacb8eea9f6d9cbd2cc0a21a37fc3bc30fd70e9eef3e18e10ed48f",
+      "bindings:source.test.0.tilt": "ee0b16b95b7361721b4582d5dcb2bb065148e64e52cc114cc094fba6bc8d6ff6",
+      "bindings:source.test.1.open": "f67c09578f849b343620300e087b219caf47d6a61875b0248ef7b80e5cb9b733",
+      "bindings:source.test.1.tilt": "83bffdb952319010cb07b24d63fb47d58ecddad007a6d60eb1b0993468531fe8",
+      "bindings:source.test.2.open": "b9add2b8a084bc0ca755a88b738560aceeb02f9d1d0ef76ee370513acf31cbd7",
+      "bindings:source.test.2.tilt": "6332d321a2f47be1cf99b0f672aef3ec60141aa12bf3c7ba8faa59142b115225",
+      "bindings:source.test.3.contact": "4973a41b0526ad30f8e1f5bd972d57fc7ea0f78c94a72fd2692b3ae891baec22",
+      "bindings:binding.synthetic.connectivity": "57bda77087f646da5f204c83057b6cac4aed386734dc23e194079006f0cd499c",
+      "contracts:test.opening0": "fb6d65fcfdd185a69ac2f7a065425bc0a64ba745a72362378db7c6e97b4c7a73",
+      "contracts:test.opening1": "082943efd97ba6a2f71c5b0994bd8a44bd26810d6553d4eb5537d09853965182",
+      "contracts:test.opening2": "8bbbb26349e3eaf209c1548ace82ebc2a9e0f39f27860d058fc56aca2052019d",
+      "contracts:test.opening3": "915e8610a65b65c5d2ad0b3eb79960de7e331151a45635680b3574403b59443a",
+      "contracts:test.zone.windows": "e45429e53e7825c5e65ca5111859c702427081d6982f1859fd125b6eb3ffc508",
+      "contracts:test.zone.area": "3f53d4a21937c939073247053902444f4fe3f60a8e8ef38062de242e488284e5",
+      "contracts:test.zone.all": "ca08dd7f32d94a4a901648f683691acd7ebce9923eaff23cee3566d16abeb7b4",
+      "contracts:synthetic.connectivity": "e806ddec4fe12e74eb15a6e506cdd2d3842ddb9d2ece0be7f319c11b031d092e",
+      "catalogs:test.inversion": "75f6323cf4c1e8ffa15bad368703be3ffb7afbf57ab1dafd1aec4b2aa91204e1",
+      "definitions:synthetic.connectivity@1": "92c61aebfb9e524115188852fd61ad7d166df9155d1dfa7310e38b8191e0950f"
+    },
+    "config_digest": "24feb9d34c6ea009f26f4ca234c7b204a94f8d38f3e8592385baab894831d765",
+    "payload_digest": "aa6b606526630dc0223fdcc551077384723cde41190f2886e162d3db5b88dd85"
+  }
+}

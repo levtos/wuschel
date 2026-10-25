@@ -680,7 +680,9 @@ class Evaluation:
             result = FUSION.evaluate(rule.strategy, args, now)
             usable = [index for index, arg in enumerate(args) if arg.usable(now)]
             selected: list[int] | None = None
-            if rule.strategy == "first_healthy":
+            if rule.strategy == "first_usable":
+                selected = usable[:1]
+            elif rule.strategy == "first_healthy":
                 selected = (
                     [next((i for i in usable if args[i].quality == "healthy"), usable[0])]
                     if usable

@@ -96,6 +96,8 @@ class Observation(Model):
 
     @property
     def measurement(self) -> datetime | None:
+        if self.invalid_timestamp:
+            return None
         if self.adapter == "manual" and self.manual:
             return self.manual.valid_from
         if self.device_time:
@@ -212,6 +214,7 @@ def assess(
     elif policy.mode == "liveness_source":
         if (
             liveness is None
+            or liveness.invalid_timestamp
             or liveness.measurement is None
             or liveness.ha_restored
             or liveness.mqtt_retained

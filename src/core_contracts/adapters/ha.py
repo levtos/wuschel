@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from math import isfinite
 from typing import Any
 from uuid import uuid4
@@ -68,6 +68,22 @@ def timestamp(value: Any) -> datetime | None:
     if value is None:
         return None
     return utc(datetime.fromisoformat(str(value)))
+
+
+def device_timestamp(value: Any) -> datetime:
+    """Only an explicitly selected device clock accepts Unix seconds."""
+    if value is None or isinstance(value, bool):
+        raise ValueError("device_time_required")
+    try:
+        seconds = float(value)
+    except ValueError, TypeError:
+        result = timestamp(value)
+        if result is None:
+            raise ValueError("device_time_required")
+        return result
+    if not isfinite(seconds):
+        raise ValueError("invalid_device_time")
+    return datetime.fromtimestamp(seconds, UTC)
 
 
 def transform(value: Any, binding: Binding, config: RegistryConfig) -> Any:
@@ -348,11 +364,19 @@ class BridgeAdapter:
             "ha_time_fired": event.get("time_fired"),
         }
         times: dict[str, datetime | None] = {}
-        invalid_timestamp = False
+        invalid_timestamp = bool(
+            binding.adapter.ha_time_attribute
+            and availability == "available"
+            and raw_times["device_time"] is None
+        )
         for key, raw_time in raw_times.items():
             try:
-                times[key] = timestamp(raw_time)
-            except ValueError, TypeError, OverflowError:
+                times[key] = (
+                    device_timestamp(raw_time)
+                    if key == "device_time" and raw_time is not None
+                    else timestamp(raw_time)
+                )
+            except ValueError, TypeError, OverflowError, OSError:
                 times[key] = None
                 invalid_timestamp = True
         context = None
