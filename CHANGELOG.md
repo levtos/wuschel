@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0b8 — HA-Neuverbindung nach Übernahme
+
+- Ausstehende Projektionsantworten einer beendeten HA-Verbindung lösen keine weitere Neuverbindung auf der Ersatzverbindung aus. Der erste Snapshot nach einer Konfigurationsübernahme wird wieder verarbeitet.
+- Zeitüberschreitungen der Projektion auf der aktuellen Verbindung lösen weiterhin eine Neuverbindung aus; beide Fälle sind synthetisch abgesichert.
+- Traber bleibt unverändert auf 1.0.0b5. Keine Änderung an Vorlagen, Wahrheitslogik oder Datenbankschema.
+
 ## 1.0.0b7 — Anwesenheitsvorlagen
 
 - Allgemeine Zusammenführung `first_usable`: Vorrang nach Argumentreihenfolge, ohne fehlenden Nachweis durch nicht zutreffende Fälle.

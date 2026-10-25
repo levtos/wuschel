@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0b8 — Stabile HA-Verbindung nach Übernahme
+
+- Eine noch offene HA-Projektion der vorherigen Verbindung kann nach dem Übernehmen keine endlose Neuverbindung mehr auslösen. HA-Quellen erhalten wieder ihren ersten Snapshot.
+- Eine Zeitüberschreitung auf der aktuellen Verbindung führt weiterhin zur Neuverbindung.
+- Traber bleibt unverändert auf 1.0.0b5. Keine Datenbankmigration und keine Änderung an Anwesenheitsvorlagen.
+
 ## 1.0.0b7 — Anwesenheit und Gerätezeit
 
 - „Erster verwertbarer Wert (Reihenfolge)“ ergänzt die Zusammenführungsstrategien; gehaltene Werte behalten ihre Frist.

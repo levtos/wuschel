@@ -724,8 +724,9 @@ class BridgeAdapter:
                                 raise ConnectionError("projection_not_acknowledged")
                             previous = payload
                         except TimeoutError, ConnectionError, aiohttp.ClientError:
-                            self.runtime.resubscribe.set()
-                            await self.projection_disconnected.wait()
+                            if connection is self.connection:
+                                self.runtime.resubscribe.set()
+                                await self.projection_disconnected.wait()
                             break
                         finally:
                             if identifier is not None:
