@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0b7 — Anwesenheitsvorlagen (A2, vor Review und Release)
+## 1.0.0b7 — Anwesenheitsvorlagen
 
 - Allgemeine Zusammenführung `first_usable`: Vorrang nach Argumentreihenfolge, ohne fehlenden Nachweis durch nicht zutreffende Fälle.
 - Explizite HA-Gerätezeiten unterstützen Unix-Sekunden; fehlende oder ungültige Gerätezeit wird auch als Lebenszeichen abgewiesen.

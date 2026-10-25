@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0b7 — Anwesenheit und Gerätezeit (vor Veröffentlichung)
+## 1.0.0b7 — Anwesenheit und Gerätezeit
 
 - „Erster verwertbarer Wert (Reihenfolge)“ ergänzt die Zusammenführungsstrategien; gehaltene Werte behalten ihre Frist.
 - Ausdrücklich gewählte Gerätezeitattribute akzeptieren Unix-Sekunden. Fehlende, ungültige und zukünftige Gerätezeiten liefern keinen Frischebeleg.
