@@ -154,6 +154,10 @@ console.log("Exportiert:", data.version, "Version,", data.entries?.length, "Eint
 - Fenster „Offene Bedingungen“ schließt sich nicht, wenn man darin einen Link anklickt.
 - Katalogpflege: Geltungsbereich/Medienart/Signalart sind freie Textfelder – Auswahllisten verwenden.
 - Katalogpflege steht unter „Entwürfe & Konfigurationen“, wirkt aber sofort – an passendere Stelle verschieben.
+- Import, „Aktualität zuordnen“ (25.10.2026, Bereich 2): Der Dialog zeigt alle Quellen eines vollständigen
+  Pakets, auch unveränderte aus früheren Bereichen. Außerdem fehlt ein passender Sensortyp für Quellen
+  wie Ortung, WLAN-Name oder HA-Verbindung (nur Kontakt/Temperatur/Bewegung/Zähler). Richtig wäre: nur
+  neue oder geänderte Quellen zuordnen; für alle übrigen „Einstellungen aus Datei behalten“ voreinstellen.
 
 **Betrieb**
 - Proxmox-Thin-Pool überwachen (eigener Claude-Code-Auftrag, nicht im Wuschel-Chat).
@@ -164,6 +168,23 @@ console.log("Exportiert:", data.version, "Version,", data.entries?.length, "Eint
 - Parameter-Audit Media (Volume-Matrix, Track-Boost/-Mute, Subwoofer, Denon-Nachlauf) – dort fehlte bisher
   die Stelle, an der „leiser“ aufgefallen wäre.
 - Apple-TV-Katalog: Zweck klären.
+- **Bewusster Schlafstart mit Ambient-Sounds** (Wunsch Benni, 25.10.2026; Bereich 4 Schlummer und
+  Bereich 5 Träller). Benni schläft meist mit Fernseher ein, möchte aber manchmal stattdessen
+  Ambient-Sounds über die HomePods. Aufteilung nach ADR 0028:
+  - Wuschel (Bereich 4): Der Schlaf-Ablauf bekommt einen Befehl „Schlafen bewusst starten“. Er setzt
+    Vor-Schlaf mit der Herkunft „bewusst gestartet“ (nicht „vermutet“); die 45-Minuten-Frist läuft wie gewohnt.
+  - Wuschel (Bereich 5): `tv_power` (Fernseher an/aus) als Media-Wahrheit, ohnehin geplant.
+  - Träller (Engine): Vor-Schlaf und Fernseher aus → Ambient-Sounds auf den HomePods; Fernseher an →
+    nichts tun. Sound, Lautstärke und Ausblenden beim Einschlafen sind Träller-Einstellungen.
+  - Offen, Bereich 4: Wie wird der Schlaf bewusst gestartet (HA-Knopf, iPhone-Kurzbefehl, Schalter am
+    Bett)? Prüfen, ob ein Befehl aus HA über Traber bei Wuschel ankommen kann.
+  - Offen, Bereich 5: Gilt die 45-Minuten-Frist auch mit Ambient-Sounds, und was passiert mit dem Sound
+    beim Übergang in „Schlaf“ (aus, leiser, weiterlaufen)?
+- **Besuch automatisch erkennen** (25.10.2026, Bereich 2, später): Heute gibt es nur die manuelle Quelle
+  „Besuch da“. Bekannte Geräte von Familie im eigenen WLAN (z. B. Apple Watches der Eltern an der
+  FRITZ!Box, belegt am 21.10.) könnten ein zusätzliches positives Signal liefern. Nur „da“ ist
+  belastbar, „weg“ nicht. Alternative: iOS-Kurzbefehl bei WLAN-Verbindung ruft einen HA-Webhook auf
+  (funktioniert auch bei geschlossener Companion-App). Erst umsetzen, wenn eine Engine es braucht (Regel 1).
 
 ## 10. Sicherheitsregeln (gelten weiter)
 
