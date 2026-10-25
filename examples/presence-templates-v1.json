@@ -1,0 +1,2009 @@
+[
+  {
+    "type_id": "presence.location",
+    "type_version": 1,
+    "language_version": 2,
+    "display_name": "Aufenthaltsbereich",
+    "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+    "inputs": [
+      {
+        "name": "icloud",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": true
+        }
+      },
+      {
+        "name": "app",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": true
+        }
+      },
+      {
+        "name": "router",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true
+        }
+      },
+      {
+        "name": "wifi",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": true
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [
+            "home",
+            "parents",
+            "away"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "temporal",
+        "id": "out_grace",
+        "operation": "grace",
+        "args": [
+          {
+            "op": "fusion",
+            "strategy": "first_usable",
+            "args": [
+              {
+                "op": "first_match",
+                "cases": [
+                  {
+                    "when": {
+                      "op": "and",
+                      "args": [
+                        {
+                          "op": "or",
+                          "args": [
+                            {
+                              "op": "compare",
+                              "comparison": "eq",
+                              "left": {
+                                "op": "input",
+                                "name": "wifi"
+                              },
+                              "right": {
+                                "op": "parameter",
+                                "name": "home_wifi_1"
+                              }
+                            },
+                            {
+                              "op": "compare",
+                              "comparison": "eq",
+                              "left": {
+                                "op": "input",
+                                "name": "wifi"
+                              },
+                              "right": {
+                                "op": "parameter",
+                                "name": "home_wifi_2"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "op": "not",
+                          "args": [
+                            {
+                              "op": "fusion",
+                              "strategy": "first_usable",
+                              "args": [
+                                {
+                                  "op": "compare",
+                                  "comparison": "ne",
+                                  "left": {
+                                    "op": "input",
+                                    "name": "icloud"
+                                  },
+                                  "right": {
+                                    "op": "literal",
+                                    "schema": {
+                                      "type": "text",
+                                      "required": true,
+                                      "physical_state": true
+                                    },
+                                    "value": "home"
+                                  }
+                                },
+                                {
+                                  "op": "literal",
+                                  "schema": {
+                                    "type": "bool",
+                                    "required": true,
+                                    "physical_state": true
+                                  },
+                                  "value": false
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "then": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "parents",
+                          "away"
+                        ]
+                      },
+                      "value": "home"
+                    }
+                  }
+                ]
+              },
+              {
+                "op": "first_match",
+                "cases": [
+                  {
+                    "when": {
+                      "op": "and",
+                      "args": [
+                        {
+                          "op": "compare",
+                          "comparison": "eq",
+                          "left": {
+                            "op": "input",
+                            "name": "wifi"
+                          },
+                          "right": {
+                            "op": "parameter",
+                            "name": "parents_wifi"
+                          }
+                        },
+                        {
+                          "op": "not",
+                          "args": [
+                            {
+                              "op": "fusion",
+                              "strategy": "first_usable",
+                              "args": [
+                                {
+                                  "op": "compare",
+                                  "comparison": "eq",
+                                  "left": {
+                                    "op": "input",
+                                    "name": "router"
+                                  },
+                                  "right": {
+                                    "op": "literal",
+                                    "schema": {
+                                      "type": "bool",
+                                      "required": true,
+                                      "physical_state": true
+                                    },
+                                    "value": false
+                                  }
+                                },
+                                {
+                                  "op": "literal",
+                                  "schema": {
+                                    "type": "bool",
+                                    "required": true,
+                                    "physical_state": true
+                                  },
+                                  "value": false
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "then": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "parents",
+                          "away"
+                        ]
+                      },
+                      "value": "parents"
+                    }
+                  }
+                ]
+              },
+              {
+                "op": "first_match",
+                "cases": [
+                  {
+                    "when": {
+                      "op": "input",
+                      "name": "router"
+                    },
+                    "then": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "parents",
+                          "away"
+                        ]
+                      },
+                      "value": "parents"
+                    }
+                  }
+                ]
+              },
+              {
+                "op": "first_match",
+                "cases": [
+                  {
+                    "when": {
+                      "op": "compare",
+                      "comparison": "eq",
+                      "left": {
+                        "op": "input",
+                        "name": "icloud"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": true
+                        },
+                        "value": "home"
+                      }
+                    },
+                    "then": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "parents",
+                          "away"
+                        ]
+                      },
+                      "value": "home"
+                    }
+                  }
+                ]
+              },
+              {
+                "op": "first_match",
+                "cases": [
+                  {
+                    "when": {
+                      "op": "compare",
+                      "comparison": "eq",
+                      "left": {
+                        "op": "input",
+                        "name": "app"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": true
+                        },
+                        "value": "home"
+                      }
+                    },
+                    "then": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "parents",
+                          "away"
+                        ]
+                      },
+                      "value": "home"
+                    }
+                  }
+                ]
+              },
+              {
+                "op": "first_match",
+                "cases": [
+                  {
+                    "when": {
+                      "op": "compare",
+                      "comparison": "ne",
+                      "left": {
+                        "op": "input",
+                        "name": "icloud"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": true
+                        },
+                        "value": "home"
+                      }
+                    },
+                    "then": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "parents",
+                          "away"
+                        ]
+                      },
+                      "value": "away"
+                    }
+                  }
+                ]
+              },
+              {
+                "op": "first_match",
+                "cases": [
+                  {
+                    "when": {
+                      "op": "compare",
+                      "comparison": "ne",
+                      "left": {
+                        "op": "input",
+                        "name": "app"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": true
+                        },
+                        "value": "home"
+                      }
+                    },
+                    "then": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "parents",
+                          "away"
+                        ]
+                      },
+                      "value": "away"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "duration_s": {
+          "op": "parameter",
+          "name": "grace_s"
+        }
+      }
+    },
+    "rules": {},
+    "parameter_schema": {
+      "grace_s": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": true,
+          "unit": "s"
+        },
+        "label": "Gnadenfrist",
+        "minimum": 0.001,
+        "maximum": 31536000
+      },
+      "home_wifi_1": {
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": true
+        },
+        "label": "Heim-WLAN 1"
+      },
+      "home_wifi_2": {
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": true
+        },
+        "label": "Heim-WLAN 2"
+      },
+      "parents_wifi": {
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": true
+        },
+        "label": "Eltern-WLAN"
+      }
+    }
+  },
+  {
+    "type_id": "presence.place",
+    "type_version": 1,
+    "language_version": 2,
+    "display_name": "Aktueller Ort",
+    "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+    "inputs": [
+      {
+        "name": "icloud",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": true
+        }
+      },
+      {
+        "name": "app",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": true
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "text",
+          "required": true,
+          "physical_state": true
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "temporal",
+        "id": "out_grace",
+        "operation": "grace",
+        "args": [
+          {
+            "op": "fusion",
+            "strategy": "first_usable",
+            "args": [
+              {
+                "op": "first_match",
+                "cases": [
+                  {
+                    "when": {
+                      "op": "compare",
+                      "comparison": "eq",
+                      "left": {
+                        "op": "input",
+                        "name": "icloud"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": true
+                        },
+                        "value": "home"
+                      }
+                    },
+                    "then": {
+                      "op": "parameter",
+                      "name": "home_label"
+                    }
+                  },
+                  {
+                    "when": {
+                      "op": "compare",
+                      "comparison": "eq",
+                      "left": {
+                        "op": "input",
+                        "name": "icloud"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": true
+                        },
+                        "value": "not_home"
+                      }
+                    },
+                    "then": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "text",
+                        "required": true,
+                        "physical_state": true
+                      },
+                      "value": "unterwegs"
+                    }
+                  },
+                  {
+                    "when": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "bool",
+                        "required": true,
+                        "physical_state": true
+                      },
+                      "value": true
+                    },
+                    "then": {
+                      "op": "input",
+                      "name": "icloud"
+                    }
+                  }
+                ]
+              },
+              {
+                "op": "first_match",
+                "cases": [
+                  {
+                    "when": {
+                      "op": "compare",
+                      "comparison": "eq",
+                      "left": {
+                        "op": "input",
+                        "name": "app"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": true
+                        },
+                        "value": "home"
+                      }
+                    },
+                    "then": {
+                      "op": "parameter",
+                      "name": "home_label"
+                    }
+                  },
+                  {
+                    "when": {
+                      "op": "compare",
+                      "comparison": "eq",
+                      "left": {
+                        "op": "input",
+                        "name": "app"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": true
+                        },
+                        "value": "not_home"
+                      }
+                    },
+                    "then": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "text",
+                        "required": true,
+                        "physical_state": true
+                      },
+                      "value": "unterwegs"
+                    }
+                  },
+                  {
+                    "when": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "bool",
+                        "required": true,
+                        "physical_state": true
+                      },
+                      "value": true
+                    },
+                    "then": {
+                      "op": "input",
+                      "name": "app"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "duration_s": {
+          "op": "parameter",
+          "name": "grace_s"
+        }
+      }
+    },
+    "rules": {},
+    "parameter_schema": {
+      "grace_s": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": true,
+          "unit": "s"
+        },
+        "label": "Gnadenfrist",
+        "minimum": 0.001,
+        "maximum": 31536000
+      },
+      "home_label": {
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": true
+        },
+        "label": "Name für Zuhause"
+      }
+    }
+  },
+  {
+    "type_id": "presence.distance_band",
+    "type_version": 1,
+    "language_version": 2,
+    "display_name": "Entfernungsbereich",
+    "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+    "inputs": [
+      {
+        "name": "distance",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": true,
+          "unit": "m"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [
+            "home",
+            "preheat",
+            "near",
+            "far"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "bucket",
+        "id": "distance",
+        "arg": {
+          "op": "input",
+          "name": "distance"
+        },
+        "classes": [
+          "home",
+          "preheat",
+          "near",
+          "far"
+        ],
+        "initial": {
+          "unknown": true
+        },
+        "boundaries": [
+          {
+            "at": {
+              "op": "parameter",
+              "name": "lower_1"
+            },
+            "hysteresis": {
+              "lower": {
+                "op": "parameter",
+                "name": "lower_1"
+              },
+              "upper": {
+                "op": "parameter",
+                "name": "upper_1"
+              }
+            }
+          },
+          {
+            "at": {
+              "op": "parameter",
+              "name": "lower_2"
+            },
+            "hysteresis": {
+              "lower": {
+                "op": "parameter",
+                "name": "lower_2"
+              },
+              "upper": {
+                "op": "parameter",
+                "name": "upper_2"
+              }
+            }
+          },
+          {
+            "at": {
+              "op": "parameter",
+              "name": "lower_3"
+            },
+            "hysteresis": {
+              "lower": {
+                "op": "parameter",
+                "name": "lower_3"
+              },
+              "upper": {
+                "op": "parameter",
+                "name": "upper_3"
+              }
+            }
+          }
+        ],
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [
+            "home",
+            "preheat",
+            "near",
+            "far"
+          ]
+        }
+      }
+    },
+    "rules": {},
+    "parameter_schema": {
+      "lower_1": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": true,
+          "unit": "m"
+        },
+        "label": "Innere Grenze 1",
+        "minimum": 0
+      },
+      "upper_1": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": true,
+          "unit": "m"
+        },
+        "label": "Äußere Grenze 1",
+        "minimum": 0
+      },
+      "lower_2": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": true,
+          "unit": "m"
+        },
+        "label": "Innere Grenze 2",
+        "minimum": 0
+      },
+      "upper_2": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": true,
+          "unit": "m"
+        },
+        "label": "Äußere Grenze 2",
+        "minimum": 0
+      },
+      "lower_3": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": true,
+          "unit": "m"
+        },
+        "label": "Innere Grenze 3",
+        "minimum": 0
+      },
+      "upper_3": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": true,
+          "unit": "m"
+        },
+        "label": "Äußere Grenze 3",
+        "minimum": 0
+      }
+    },
+    "parameter_relations": [
+      {
+        "left": "lower_1",
+        "comparison": "le",
+        "right": "upper_1"
+      },
+      {
+        "left": "lower_2",
+        "comparison": "le",
+        "right": "upper_2"
+      },
+      {
+        "left": "upper_1",
+        "comparison": "lt",
+        "right": "lower_2"
+      },
+      {
+        "left": "lower_3",
+        "comparison": "le",
+        "right": "upper_3"
+      },
+      {
+        "left": "upper_2",
+        "comparison": "lt",
+        "right": "lower_3"
+      }
+    ]
+  },
+  {
+    "type_id": "presence.direction",
+    "type_version": 1,
+    "language_version": 2,
+    "display_name": "Bewegungsrichtung",
+    "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+    "inputs": [
+      {
+        "name": "direction",
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [
+            "arrived",
+            "away_from",
+            "stationary",
+            "towards"
+          ]
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [
+            "arrived",
+            "away_from",
+            "stationary",
+            "towards"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "input",
+        "name": "direction"
+      }
+    },
+    "rules": {},
+    "parameter_schema": {}
+  },
+  {
+    "type_id": "presence.approaching",
+    "type_version": 1,
+    "language_version": 2,
+    "display_name": "Nähert sich",
+    "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+    "inputs": [
+      {
+        "name": "location",
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [
+            "home",
+            "parents",
+            "away"
+          ]
+        }
+      },
+      {
+        "name": "direction",
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [
+            "arrived",
+            "away_from",
+            "stationary",
+            "towards"
+          ]
+        }
+      },
+      {
+        "name": "band",
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [
+            "home",
+            "preheat",
+            "near",
+            "far"
+          ]
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "and",
+        "args": [
+          {
+            "op": "and",
+            "args": [
+              {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "parents",
+                      "away"
+                    ]
+                  },
+                  "value": "away"
+                }
+              },
+              {
+                "op": "or",
+                "args": [
+                  {
+                    "op": "compare",
+                    "comparison": "eq",
+                    "left": {
+                      "op": "input",
+                      "name": "band"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "preheat",
+                          "near",
+                          "far"
+                        ]
+                      },
+                      "value": "near"
+                    }
+                  },
+                  {
+                    "op": "compare",
+                    "comparison": "eq",
+                    "left": {
+                      "op": "input",
+                      "name": "band"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "preheat",
+                          "near",
+                          "far"
+                        ]
+                      },
+                      "value": "preheat"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "input",
+              "name": "direction"
+            },
+            "right": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": true,
+                "value_catalog": [
+                  "arrived",
+                  "away_from",
+                  "stationary",
+                  "towards"
+                ]
+              },
+              "value": "towards"
+            }
+          }
+        ]
+      }
+    },
+    "rules": {},
+    "parameter_schema": {}
+  },
+  {
+    "type_id": "presence.arrival",
+    "type_version": 1,
+    "language_version": 3,
+    "display_name": "Gerade angekommen",
+    "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+    "inputs": [
+      {
+        "name": "location",
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [
+            "home",
+            "parents",
+            "away"
+          ]
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "compare",
+        "comparison": "eq",
+        "left": {
+          "op": "machine"
+        },
+        "right": {
+          "op": "literal",
+          "schema": {
+            "type": "enum",
+            "required": true,
+            "physical_state": true,
+            "value_catalog": [
+              "idle",
+              "away_seen",
+              "arrived"
+            ]
+          },
+          "value": "arrived"
+        }
+      }
+    },
+    "rules": {},
+    "parameter_schema": {
+      "hold_s": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": true,
+          "unit": "s"
+        },
+        "label": "Anzeigedauer",
+        "minimum": 0.001,
+        "maximum": 31536000
+      }
+    },
+    "machine": {
+      "id": "flow",
+      "states": [
+        "idle",
+        "away_seen",
+        "arrived"
+      ],
+      "initial": "idle",
+      "reinitialize_when": {
+        "op": "and",
+        "args": [
+          {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "input",
+              "name": "location"
+            },
+            "right": {
+              "op": "input",
+              "name": "location"
+            }
+          }
+        ]
+      },
+      "unknown_deadline": "keep_and_block_transition",
+      "deadline_by_state": {
+        "arrived": {
+          "duration": {
+            "op": "parameter",
+            "name": "hold_s"
+          }
+        }
+      },
+      "transitions": [
+        {
+          "source": "idle",
+          "target": "away_seen",
+          "event": "input",
+          "guard": {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "input",
+              "name": "location"
+            },
+            "right": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": true,
+                "value_catalog": [
+                  "home",
+                  "parents",
+                  "away"
+                ]
+              },
+              "value": "away"
+            }
+          },
+          "reason": "observed_start"
+        },
+        {
+          "source": "away_seen",
+          "target": "arrived",
+          "event": "input",
+          "guard": {
+            "op": "compare",
+            "comparison": "ne",
+            "left": {
+              "op": "input",
+              "name": "location"
+            },
+            "right": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": true,
+                "value_catalog": [
+                  "home",
+                  "parents",
+                  "away"
+                ]
+              },
+              "value": "away"
+            }
+          },
+          "reason": "observed_transition"
+        },
+        {
+          "source": "arrived",
+          "target": "idle",
+          "event": "deadline",
+          "guard": {
+            "op": "literal",
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": true
+            },
+            "value": true
+          },
+          "reason": "hold_elapsed"
+        },
+        {
+          "source": "arrived",
+          "target": "away_seen",
+          "event": "input",
+          "guard": {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "input",
+              "name": "location"
+            },
+            "right": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": true,
+                "value_catalog": [
+                  "home",
+                  "parents",
+                  "away"
+                ]
+              },
+              "value": "away"
+            }
+          },
+          "reason": "observed_reentry"
+        }
+      ]
+    }
+  },
+  {
+    "type_id": "presence.departure",
+    "type_version": 1,
+    "language_version": 3,
+    "display_name": "Gerade weggegangen",
+    "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+    "inputs": [
+      {
+        "name": "location",
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [
+            "home",
+            "parents",
+            "away"
+          ]
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "compare",
+        "comparison": "eq",
+        "left": {
+          "op": "machine"
+        },
+        "right": {
+          "op": "literal",
+          "schema": {
+            "type": "enum",
+            "required": true,
+            "physical_state": true,
+            "value_catalog": [
+              "idle",
+              "here_seen",
+              "left"
+            ]
+          },
+          "value": "left"
+        }
+      }
+    },
+    "rules": {},
+    "parameter_schema": {
+      "hold_s": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": true,
+          "unit": "s"
+        },
+        "label": "Anzeigedauer",
+        "minimum": 0.001,
+        "maximum": 31536000
+      }
+    },
+    "machine": {
+      "id": "flow",
+      "states": [
+        "idle",
+        "here_seen",
+        "left"
+      ],
+      "initial": "idle",
+      "reinitialize_when": {
+        "op": "and",
+        "args": [
+          {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "input",
+              "name": "location"
+            },
+            "right": {
+              "op": "input",
+              "name": "location"
+            }
+          }
+        ]
+      },
+      "unknown_deadline": "keep_and_block_transition",
+      "deadline_by_state": {
+        "left": {
+          "duration": {
+            "op": "parameter",
+            "name": "hold_s"
+          }
+        }
+      },
+      "transitions": [
+        {
+          "source": "idle",
+          "target": "here_seen",
+          "event": "input",
+          "guard": {
+            "op": "compare",
+            "comparison": "ne",
+            "left": {
+              "op": "input",
+              "name": "location"
+            },
+            "right": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": true,
+                "value_catalog": [
+                  "home",
+                  "parents",
+                  "away"
+                ]
+              },
+              "value": "away"
+            }
+          },
+          "reason": "observed_start"
+        },
+        {
+          "source": "here_seen",
+          "target": "left",
+          "event": "input",
+          "guard": {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "input",
+              "name": "location"
+            },
+            "right": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": true,
+                "value_catalog": [
+                  "home",
+                  "parents",
+                  "away"
+                ]
+              },
+              "value": "away"
+            }
+          },
+          "reason": "observed_transition"
+        },
+        {
+          "source": "left",
+          "target": "idle",
+          "event": "deadline",
+          "guard": {
+            "op": "literal",
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": true
+            },
+            "value": true
+          },
+          "reason": "hold_elapsed"
+        },
+        {
+          "source": "left",
+          "target": "here_seen",
+          "event": "input",
+          "guard": {
+            "op": "compare",
+            "comparison": "ne",
+            "left": {
+              "op": "input",
+              "name": "location"
+            },
+            "right": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": true,
+                "value_catalog": [
+                  "home",
+                  "parents",
+                  "away"
+                ]
+              },
+              "value": "away"
+            }
+          },
+          "reason": "observed_reentry"
+        }
+      ]
+    }
+  },
+  {
+    "type_id": "presence.passing",
+    "type_version": 1,
+    "language_version": 3,
+    "display_name": "Gerade vorbeigefahren",
+    "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+    "inputs": [
+      {
+        "name": "location",
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [
+            "home",
+            "parents",
+            "away"
+          ]
+        }
+      },
+      {
+        "name": "band",
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [
+            "home",
+            "preheat",
+            "near",
+            "far"
+          ]
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "and",
+        "args": [
+          {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "machine"
+            },
+            "right": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": true,
+                "value_catalog": [
+                  "idle",
+                  "approach_seen",
+                  "done"
+                ]
+              },
+              "value": "done"
+            }
+          },
+          {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "input",
+              "name": "band"
+            },
+            "right": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": true,
+                "value_catalog": [
+                  "home",
+                  "preheat",
+                  "near",
+                  "far"
+                ]
+              },
+              "value": "far"
+            }
+          }
+        ]
+      }
+    },
+    "rules": {},
+    "parameter_schema": {
+      "hold_s": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": true,
+          "unit": "s"
+        },
+        "label": "Anzeigedauer",
+        "minimum": 0.001,
+        "maximum": 31536000
+      }
+    },
+    "machine": {
+      "id": "flow",
+      "states": [
+        "idle",
+        "approach_seen",
+        "done"
+      ],
+      "initial": "idle",
+      "reinitialize_when": {
+        "op": "and",
+        "args": [
+          {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "input",
+              "name": "location"
+            },
+            "right": {
+              "op": "input",
+              "name": "location"
+            }
+          },
+          {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "input",
+              "name": "band"
+            },
+            "right": {
+              "op": "input",
+              "name": "band"
+            }
+          }
+        ]
+      },
+      "unknown_deadline": "keep_and_block_transition",
+      "deadline_by_state": {
+        "done": {
+          "duration": {
+            "op": "parameter",
+            "name": "hold_s"
+          }
+        }
+      },
+      "transitions": [
+        {
+          "source": "idle",
+          "target": "approach_seen",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "parents",
+                      "away"
+                    ]
+                  },
+                  "value": "away"
+                }
+              },
+              {
+                "op": "or",
+                "args": [
+                  {
+                    "op": "compare",
+                    "comparison": "eq",
+                    "left": {
+                      "op": "input",
+                      "name": "band"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "preheat",
+                          "near",
+                          "far"
+                        ]
+                      },
+                      "value": "near"
+                    }
+                  },
+                  {
+                    "op": "compare",
+                    "comparison": "eq",
+                    "left": {
+                      "op": "input",
+                      "name": "band"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "preheat",
+                          "near",
+                          "far"
+                        ]
+                      },
+                      "value": "preheat"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "observed_start"
+        },
+        {
+          "source": "approach_seen",
+          "target": "done",
+          "event": "input",
+          "guard": {
+            "op": "or",
+            "args": [
+              {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "input",
+                  "name": "band"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "preheat",
+                      "near",
+                      "far"
+                    ]
+                  },
+                  "value": "far"
+                }
+              },
+              {
+                "op": "compare",
+                "comparison": "ne",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "parents",
+                      "away"
+                    ]
+                  },
+                  "value": "away"
+                }
+              }
+            ]
+          },
+          "reason": "observed_transition"
+        },
+        {
+          "source": "done",
+          "target": "idle",
+          "event": "deadline",
+          "guard": {
+            "op": "literal",
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": true
+            },
+            "value": true
+          },
+          "reason": "hold_elapsed"
+        },
+        {
+          "source": "done",
+          "target": "approach_seen",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "parents",
+                      "away"
+                    ]
+                  },
+                  "value": "away"
+                }
+              },
+              {
+                "op": "or",
+                "args": [
+                  {
+                    "op": "compare",
+                    "comparison": "eq",
+                    "left": {
+                      "op": "input",
+                      "name": "band"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "preheat",
+                          "near",
+                          "far"
+                        ]
+                      },
+                      "value": "near"
+                    }
+                  },
+                  {
+                    "op": "compare",
+                    "comparison": "eq",
+                    "left": {
+                      "op": "input",
+                      "name": "band"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "preheat",
+                          "near",
+                          "far"
+                        ]
+                      },
+                      "value": "preheat"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "observed_reentry"
+        }
+      ]
+    }
+  },
+  {
+    "type_id": "presence.household_occupied",
+    "type_version": 1,
+    "language_version": 2,
+    "display_name": "Jemand ist da",
+    "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+    "inputs": [
+      {
+        "name": "location",
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [
+            "home",
+            "parents",
+            "away"
+          ]
+        }
+      },
+      {
+        "name": "visitors",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "or",
+        "args": [
+          {
+            "op": "compare",
+            "comparison": "ne",
+            "left": {
+              "op": "input",
+              "name": "location"
+            },
+            "right": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": true,
+                "value_catalog": [
+                  "home",
+                  "parents",
+                  "away"
+                ]
+              },
+              "value": "away"
+            }
+          },
+          {
+            "op": "input",
+            "name": "visitors"
+          }
+        ]
+      }
+    },
+    "rules": {},
+    "parameter_schema": {}
+  }
+]

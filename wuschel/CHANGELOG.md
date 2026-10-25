@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0b7 — Anwesenheit und Gerätezeit
+
+- „Erster verwertbarer Wert (Reihenfolge)“ ergänzt die Zusammenführungsstrategien; gehaltene Werte behalten ihre Frist.
+- Ausdrücklich gewählte Gerätezeitattribute akzeptieren Unix-Sekunden. Fehlende, ungültige und zukünftige Gerätezeiten liefern keinen Frischebeleg.
+- Neun importierbare Anwesenheitsvorlagen einschließlich Ortsname, Ankunft, Abfahrt, Durchfahrt und Haushalt.
+- Erneute Ankunft, Abfahrt oder Durchfahrt innerhalb der Haltefrist beendet die alte Anzeige und bereitet den nächsten Zyklus vor.
+- Traber bleibt unverändert auf 1.0.0b5. Benni liest das private Konfigurationspaket selbst ein und übernimmt es.
+
 ## 1.0.0b6 — Programmversion und Beschreibung
 
 - Die API liest ihre Programmversion aus den installierten Paketmetadaten; ein übersehener Versionsliteral kann die Anzeige nicht mehr zurücksetzen.

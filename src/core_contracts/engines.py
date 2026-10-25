@@ -33,6 +33,7 @@ FORMULA_SCHEMAS: dict[tuple[str, int], FormulaSchema] = {}
 FUSION = Fusion()
 FUSION_INPUTS: dict[str, str | None] = {
     "first_healthy": None,
+    "first_usable": None,
     "latest": None,
     "any_true": "bool",
     "all_true": "bool",

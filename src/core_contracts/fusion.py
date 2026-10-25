@@ -14,7 +14,13 @@ class Fusion:
         self.strategies: dict[str, Strategy] = {}
 
     def register(self, name: str, strategy: Strategy) -> None:
-        if name in self.strategies or name in {"first_healthy", "latest", "any_true", "all_true"}:
+        if name in self.strategies or name in {
+            "first_healthy",
+            "first_usable",
+            "latest",
+            "any_true",
+            "all_true",
+        }:
             raise ValueError("duplicate strategy")
         self.strategies[name] = strategy
 
@@ -22,6 +28,33 @@ class Fusion:
         usable = [c for c in candidates if c.usable(now)]
         if strategy in self.strategies:
             return self.strategies[strategy](candidates, now)
+        if strategy == "first_usable":
+            missing: list[FieldValue] = []
+            for candidate in candidates:
+                if candidate.usable(now):
+                    if not missing:
+                        return candidate
+                    return candidate.model_copy(
+                        update={
+                            "quality": "healthy" if candidate.status == "held" else "degraded",
+                            "reasons": candidate.reasons
+                            + (
+                                Reason(
+                                    code=ReasonCode.PARTIAL_EVIDENCE, input="candidates", since=now
+                                ),
+                            )
+                            + tuple(reason for item in missing for reason in item.reasons),
+                        }
+                    )
+                if not candidate.reasons or any(
+                    reason.code != ReasonCode.NO_MATCH for reason in candidate.reasons
+                ):
+                    missing.append(candidate)
+            return (
+                derive(None, candidates, now)
+                if candidates
+                else unknown(ReasonCode.INPUT_UNKNOWN, "candidates", now)
+            )
         if strategy in {"any_true", "all_true"}:
             result = boolean("or" if strategy == "any_true" else "and", candidates, now)
         elif not usable:

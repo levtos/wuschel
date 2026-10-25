@@ -1,0 +1,3554 @@
+{
+  "format": "wuschel.configuration",
+  "format_version": 1,
+  "scope": "configuration",
+  "producer": {
+    "name": "Wuschel",
+    "version": "1.0.0b7"
+  },
+  "config": {
+    "config_schema_version": 2,
+    "fingerprint_version": 2,
+    "dependencies": [
+      {
+        "dependency_id": "test.mqtt",
+        "kind": "mqtt",
+        "monitor": "internal",
+        "source_id": null
+      },
+      {
+        "dependency_id": "dependency.synthetic.ha",
+        "kind": "ha",
+        "monitor": "internal",
+        "source_id": null
+      },
+      {
+        "dependency_id": "dependency.presence.manual",
+        "kind": "manual",
+        "monitor": "internal",
+        "source_id": null
+      }
+    ],
+    "sources": [
+      {
+        "source_id": "source.test.0.open",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "report_heartbeat",
+          "future_tolerance_s": 0.0,
+          "interval_s": 8400.0,
+          "liveness_source": null
+        },
+        "dependency_id": "test.mqtt",
+        "physical_source_key": "source.test.0.open",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.test.0.tilt",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "report_heartbeat",
+          "future_tolerance_s": 0.0,
+          "interval_s": 8400.0,
+          "liveness_source": null
+        },
+        "dependency_id": "test.mqtt",
+        "physical_source_key": "source.test.0.tilt",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.test.1.open",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "report_heartbeat",
+          "future_tolerance_s": 0.0,
+          "interval_s": 8400.0,
+          "liveness_source": null
+        },
+        "dependency_id": "test.mqtt",
+        "physical_source_key": "source.test.1.open",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.test.1.tilt",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "report_heartbeat",
+          "future_tolerance_s": 0.0,
+          "interval_s": 8400.0,
+          "liveness_source": null
+        },
+        "dependency_id": "test.mqtt",
+        "physical_source_key": "source.test.1.tilt",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.test.2.open",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "report_heartbeat",
+          "future_tolerance_s": 0.0,
+          "interval_s": 8400.0,
+          "liveness_source": null
+        },
+        "dependency_id": "test.mqtt",
+        "physical_source_key": "source.test.2.open",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.test.2.tilt",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "report_heartbeat",
+          "future_tolerance_s": 0.0,
+          "interval_s": 8400.0,
+          "liveness_source": null
+        },
+        "dependency_id": "test.mqtt",
+        "physical_source_key": "source.test.2.tilt",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.test.3.contact",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "report_heartbeat",
+          "future_tolerance_s": 0.0,
+          "interval_s": 8400.0,
+          "liveness_source": null
+        },
+        "dependency_id": "test.mqtt",
+        "physical_source_key": "source.test.3.contact",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.synthetic.connectivity",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "event_stateful",
+          "future_tolerance_s": 0.0,
+          "interval_s": null,
+          "liveness_source": null
+        },
+        "dependency_id": "dependency.synthetic.ha",
+        "physical_source_key": "synthetic.connectivity",
+        "display_name": "",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.example.phone.gps_icloud",
+        "source_type": "text",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "report_heartbeat",
+          "future_tolerance_s": 0.0,
+          "interval_s": 900.0,
+          "liveness_source": null
+        },
+        "dependency_id": "dependency.synthetic.ha",
+        "physical_source_key": "presence.gps_icloud",
+        "display_name": "Ortung über iCloud",
+        "value_schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.example.phone.gps_app",
+        "source_type": "text",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "event_stateful",
+          "future_tolerance_s": 0.0,
+          "interval_s": null,
+          "liveness_source": null
+        },
+        "dependency_id": "dependency.synthetic.ha",
+        "physical_source_key": "presence.gps_app",
+        "display_name": "Ortung über die App",
+        "value_schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.example.phone.parents_router",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "event_stateful",
+          "future_tolerance_s": 0.0,
+          "interval_s": null,
+          "liveness_source": null
+        },
+        "dependency_id": "dependency.synthetic.ha",
+        "physical_source_key": "presence.parents_router",
+        "display_name": "Telefon am Eltern-Router",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.example.phone.wifi_name",
+        "source_type": "text",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "event_stateful",
+          "future_tolerance_s": 0.0,
+          "interval_s": null,
+          "liveness_source": null
+        },
+        "dependency_id": "dependency.synthetic.ha",
+        "physical_source_key": "presence.wifi_name",
+        "display_name": "WLAN-Name",
+        "value_schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.example.phone.home_distance",
+        "source_type": "numeric",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "liveness_source",
+          "future_tolerance_s": 0.0,
+          "interval_s": 900.0,
+          "liveness_source": "source.example.phone.gps_icloud"
+        },
+        "dependency_id": "dependency.synthetic.ha",
+        "physical_source_key": "presence.home_distance",
+        "display_name": "Entfernung von Zuhause",
+        "value_schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": "m"
+        }
+      },
+      {
+        "source_id": "source.example.phone.home_direction",
+        "source_type": "state",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "liveness_source",
+          "future_tolerance_s": 0.0,
+          "interval_s": 900.0,
+          "liveness_source": "source.example.phone.gps_icloud"
+        },
+        "dependency_id": "dependency.synthetic.ha",
+        "physical_source_key": "presence.home_direction",
+        "display_name": "Bewegungsrichtung",
+        "value_schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [
+            "arrived",
+            "away_from",
+            "stationary",
+            "towards"
+          ],
+          "unit": null
+        }
+      },
+      {
+        "source_id": "source.household.visitors",
+        "source_type": "boolean",
+        "source_origin": "local",
+        "freshness": {
+          "mode": "event_stateful",
+          "future_tolerance_s": 0.0,
+          "interval_s": null,
+          "liveness_source": null
+        },
+        "dependency_id": "dependency.presence.manual",
+        "physical_source_key": "presence.visitors",
+        "display_name": "Besuch da",
+        "value_schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": true,
+          "value_catalog": [],
+          "unit": null
+        },
+        "origin": "manual"
+      }
+    ],
+    "bindings": [
+      {
+        "binding_id": "source.test.0.open",
+        "source_id": "source.test.0.open",
+        "adapter": {
+          "kind": "mqtt",
+          "ha_entity_id": null,
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": "test/beta/0/open",
+          "mqtt_value_path": "contact",
+          "mqtt_time_path": "last_seen"
+        },
+        "transform": {
+          "kind": "map_ref",
+          "target": null,
+          "factor": null,
+          "offset": null,
+          "catalog_id": "test.inversion"
+        },
+        "display_name": ""
+      },
+      {
+        "binding_id": "source.test.0.tilt",
+        "source_id": "source.test.0.tilt",
+        "adapter": {
+          "kind": "mqtt",
+          "ha_entity_id": null,
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": "test/beta/0/tilt",
+          "mqtt_value_path": "contact",
+          "mqtt_time_path": "last_seen"
+        },
+        "transform": {
+          "kind": "map_ref",
+          "target": null,
+          "factor": null,
+          "offset": null,
+          "catalog_id": "test.inversion"
+        },
+        "display_name": ""
+      },
+      {
+        "binding_id": "source.test.1.open",
+        "source_id": "source.test.1.open",
+        "adapter": {
+          "kind": "mqtt",
+          "ha_entity_id": null,
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": "test/beta/1/open",
+          "mqtt_value_path": "contact",
+          "mqtt_time_path": "last_seen"
+        },
+        "transform": {
+          "kind": "map_ref",
+          "target": null,
+          "factor": null,
+          "offset": null,
+          "catalog_id": "test.inversion"
+        },
+        "display_name": ""
+      },
+      {
+        "binding_id": "source.test.1.tilt",
+        "source_id": "source.test.1.tilt",
+        "adapter": {
+          "kind": "mqtt",
+          "ha_entity_id": null,
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": "test/beta/1/tilt",
+          "mqtt_value_path": "contact",
+          "mqtt_time_path": "last_seen"
+        },
+        "transform": {
+          "kind": "map_ref",
+          "target": null,
+          "factor": null,
+          "offset": null,
+          "catalog_id": "test.inversion"
+        },
+        "display_name": ""
+      },
+      {
+        "binding_id": "source.test.2.open",
+        "source_id": "source.test.2.open",
+        "adapter": {
+          "kind": "mqtt",
+          "ha_entity_id": null,
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": "test/beta/2/open",
+          "mqtt_value_path": "contact",
+          "mqtt_time_path": "last_seen"
+        },
+        "transform": {
+          "kind": "map_ref",
+          "target": null,
+          "factor": null,
+          "offset": null,
+          "catalog_id": "test.inversion"
+        },
+        "display_name": ""
+      },
+      {
+        "binding_id": "source.test.2.tilt",
+        "source_id": "source.test.2.tilt",
+        "adapter": {
+          "kind": "mqtt",
+          "ha_entity_id": null,
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": "test/beta/2/tilt",
+          "mqtt_value_path": "contact",
+          "mqtt_time_path": "last_seen"
+        },
+        "transform": {
+          "kind": "map_ref",
+          "target": null,
+          "factor": null,
+          "offset": null,
+          "catalog_id": "test.inversion"
+        },
+        "display_name": ""
+      },
+      {
+        "binding_id": "source.test.3.contact",
+        "source_id": "source.test.3.contact",
+        "adapter": {
+          "kind": "mqtt",
+          "ha_entity_id": null,
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": "test/beta/3/contact",
+          "mqtt_value_path": "contact",
+          "mqtt_time_path": "last_seen"
+        },
+        "transform": {
+          "kind": "map_ref",
+          "target": null,
+          "factor": null,
+          "offset": null,
+          "catalog_id": "test.inversion"
+        },
+        "display_name": ""
+      },
+      {
+        "binding_id": "binding.synthetic.connectivity",
+        "source_id": "source.synthetic.connectivity",
+        "adapter": {
+          "kind": "ha_state",
+          "ha_entity_id": "binary_sensor.synthetic_connected",
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": null,
+          "mqtt_value_path": null,
+          "mqtt_time_path": null
+        },
+        "transform": {
+          "kind": "type_cast",
+          "target": "bool",
+          "factor": null,
+          "offset": null,
+          "catalog_id": null
+        },
+        "display_name": ""
+      },
+      {
+        "binding_id": "binding.example.phone.gps_icloud",
+        "source_id": "source.example.phone.gps_icloud",
+        "adapter": {
+          "kind": "ha_state",
+          "ha_entity_id": "device_tracker.synthetic_gps_icloud",
+          "ha_attribute": null,
+          "ha_time_attribute": "last_timestamp",
+          "mqtt_topic": null,
+          "mqtt_value_path": null,
+          "mqtt_time_path": null
+        },
+        "transform": null,
+        "display_name": "Ortung über iCloud"
+      },
+      {
+        "binding_id": "binding.example.phone.gps_app",
+        "source_id": "source.example.phone.gps_app",
+        "adapter": {
+          "kind": "ha_state",
+          "ha_entity_id": "device_tracker.synthetic_gps_app",
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": null,
+          "mqtt_value_path": null,
+          "mqtt_time_path": null
+        },
+        "transform": null,
+        "display_name": "Ortung über die App"
+      },
+      {
+        "binding_id": "binding.example.phone.parents_router",
+        "source_id": "source.example.phone.parents_router",
+        "adapter": {
+          "kind": "ha_state",
+          "ha_entity_id": "device_tracker.synthetic_parents_router",
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": null,
+          "mqtt_value_path": null,
+          "mqtt_time_path": null
+        },
+        "transform": {
+          "kind": "map_ref",
+          "target": null,
+          "factor": null,
+          "offset": null,
+          "catalog_id": "catalog.presence.router"
+        },
+        "display_name": "Telefon am Eltern-Router"
+      },
+      {
+        "binding_id": "binding.example.phone.wifi_name",
+        "source_id": "source.example.phone.wifi_name",
+        "adapter": {
+          "kind": "ha_state",
+          "ha_entity_id": "sensor.synthetic_wifi_name",
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": null,
+          "mqtt_value_path": null,
+          "mqtt_time_path": null
+        },
+        "transform": null,
+        "display_name": "WLAN-Name"
+      },
+      {
+        "binding_id": "binding.example.phone.home_distance",
+        "source_id": "source.example.phone.home_distance",
+        "adapter": {
+          "kind": "ha_state",
+          "ha_entity_id": "sensor.synthetic_home_distance",
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": null,
+          "mqtt_value_path": null,
+          "mqtt_time_path": null
+        },
+        "transform": {
+          "kind": "type_cast",
+          "target": "number",
+          "factor": null,
+          "offset": null,
+          "catalog_id": null
+        },
+        "display_name": "Entfernung von Zuhause"
+      },
+      {
+        "binding_id": "binding.example.phone.home_direction",
+        "source_id": "source.example.phone.home_direction",
+        "adapter": {
+          "kind": "ha_state",
+          "ha_entity_id": "sensor.synthetic_home_direction",
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": null,
+          "mqtt_value_path": null,
+          "mqtt_time_path": null
+        },
+        "transform": null,
+        "display_name": "Bewegungsrichtung"
+      },
+      {
+        "binding_id": "binding.household.visitors",
+        "source_id": "source.household.visitors",
+        "adapter": {
+          "kind": "manual",
+          "ha_entity_id": null,
+          "ha_attribute": null,
+          "ha_time_attribute": null,
+          "mqtt_topic": null,
+          "mqtt_value_path": null,
+          "mqtt_time_path": null
+        },
+        "transform": null,
+        "display_name": "Besuch da"
+      }
+    ],
+    "contracts": [
+      {
+        "contract_id": "test.opening0",
+        "type_id": "opening.dual_contact",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "open",
+            "ref": "source.test.0.open"
+          },
+          {
+            "name": "tilt",
+            "ref": "source.test.0.tilt"
+          }
+        ],
+        "parameters": {
+          "grace_s": 600
+        },
+        "display_name": "",
+        "description": ""
+      },
+      {
+        "contract_id": "test.opening1",
+        "type_id": "opening.dual_contact",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "open",
+            "ref": "source.test.1.open"
+          },
+          {
+            "name": "tilt",
+            "ref": "source.test.1.tilt"
+          }
+        ],
+        "parameters": {
+          "grace_s": 600
+        },
+        "display_name": "",
+        "description": ""
+      },
+      {
+        "contract_id": "test.opening2",
+        "type_id": "opening.dual_contact",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "open",
+            "ref": "source.test.2.open"
+          },
+          {
+            "name": "tilt",
+            "ref": "source.test.2.tilt"
+          }
+        ],
+        "parameters": {
+          "grace_s": 600
+        },
+        "display_name": "",
+        "description": ""
+      },
+      {
+        "contract_id": "test.opening3",
+        "type_id": "opening.single_contact",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "contact",
+            "ref": "source.test.3.contact"
+          }
+        ],
+        "parameters": {
+          "grace_s": 600
+        },
+        "display_name": "",
+        "description": ""
+      },
+      {
+        "contract_id": "test.zone.windows",
+        "type_id": "opening_zone.facts",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "member_1",
+            "ref": "test.opening0.value"
+          },
+          {
+            "name": "member_2",
+            "ref": "test.opening1.value"
+          }
+        ],
+        "parameters": {},
+        "display_name": "",
+        "description": ""
+      },
+      {
+        "contract_id": "test.zone.area",
+        "type_id": "opening_zone.facts",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "member_1",
+            "ref": "test.opening0.value"
+          },
+          {
+            "name": "member_2",
+            "ref": "test.opening1.value"
+          },
+          {
+            "name": "member_3",
+            "ref": "test.opening2.value"
+          }
+        ],
+        "parameters": {},
+        "display_name": "",
+        "description": ""
+      },
+      {
+        "contract_id": "test.zone.all",
+        "type_id": "opening_zone.facts",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "member_1",
+            "ref": "test.opening0.value"
+          },
+          {
+            "name": "member_2",
+            "ref": "test.opening1.value"
+          },
+          {
+            "name": "member_3",
+            "ref": "test.opening2.value"
+          },
+          {
+            "name": "member_4",
+            "ref": "test.opening3.value"
+          }
+        ],
+        "parameters": {},
+        "display_name": "",
+        "description": ""
+      },
+      {
+        "contract_id": "synthetic.connectivity",
+        "type_id": "synthetic.connectivity",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "online",
+            "ref": "source.synthetic.connectivity"
+          }
+        ],
+        "parameters": {},
+        "display_name": "",
+        "description": ""
+      },
+      {
+        "contract_id": "presence.example.location",
+        "type_id": "presence.location",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "icloud",
+            "ref": "source.example.phone.gps_icloud"
+          },
+          {
+            "name": "app",
+            "ref": "source.example.phone.gps_app"
+          },
+          {
+            "name": "router",
+            "ref": "source.example.phone.parents_router"
+          },
+          {
+            "name": "wifi",
+            "ref": "source.example.phone.wifi_name"
+          }
+        ],
+        "parameters": {
+          "grace_s": 360,
+          "home_wifi_1": "SYNTHETIC_HOME_A",
+          "home_wifi_2": "SYNTHETIC_HOME_B",
+          "parents_wifi": "SYNTHETIC_PARENTS"
+        },
+        "display_name": "Aufenthaltsbereich",
+        "description": ""
+      },
+      {
+        "contract_id": "presence.example.place",
+        "type_id": "presence.place",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "icloud",
+            "ref": "source.example.phone.gps_icloud"
+          },
+          {
+            "name": "app",
+            "ref": "source.example.phone.gps_app"
+          }
+        ],
+        "parameters": {
+          "grace_s": 360,
+          "home_label": "Zuhause"
+        },
+        "display_name": "Aktueller Ort",
+        "description": ""
+      },
+      {
+        "contract_id": "presence.example.distance_band",
+        "type_id": "presence.distance_band",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "distance",
+            "ref": "source.example.phone.home_distance"
+          }
+        ],
+        "parameters": {
+          "lower_1": 100,
+          "upper_1": 150,
+          "lower_2": 800,
+          "upper_2": 850,
+          "lower_3": 3000,
+          "upper_3": 3050
+        },
+        "display_name": "Entfernungsbereich",
+        "description": ""
+      },
+      {
+        "contract_id": "presence.example.direction",
+        "type_id": "presence.direction",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "direction",
+            "ref": "source.example.phone.home_direction"
+          }
+        ],
+        "parameters": {},
+        "display_name": "Bewegungsrichtung",
+        "description": ""
+      },
+      {
+        "contract_id": "presence.example.approaching",
+        "type_id": "presence.approaching",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "location",
+            "ref": "presence.example.location.value"
+          },
+          {
+            "name": "direction",
+            "ref": "presence.example.direction.value"
+          },
+          {
+            "name": "band",
+            "ref": "presence.example.distance_band.value"
+          }
+        ],
+        "parameters": {},
+        "display_name": "Nähert sich",
+        "description": ""
+      },
+      {
+        "contract_id": "presence.example.arrived_recently",
+        "type_id": "presence.arrival",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "location",
+            "ref": "presence.example.location.value"
+          }
+        ],
+        "parameters": {
+          "hold_s": 120
+        },
+        "display_name": "Gerade angekommen",
+        "description": ""
+      },
+      {
+        "contract_id": "presence.example.left_recently",
+        "type_id": "presence.departure",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "location",
+            "ref": "presence.example.location.value"
+          }
+        ],
+        "parameters": {
+          "hold_s": 120
+        },
+        "display_name": "Gerade weggegangen",
+        "description": ""
+      },
+      {
+        "contract_id": "presence.example.passed_recently",
+        "type_id": "presence.passing",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "location",
+            "ref": "presence.example.location.value"
+          },
+          {
+            "name": "band",
+            "ref": "presence.example.distance_band.value"
+          }
+        ],
+        "parameters": {
+          "hold_s": 120
+        },
+        "display_name": "Gerade vorbeigefahren",
+        "description": ""
+      },
+      {
+        "contract_id": "presence.household.occupied",
+        "type_id": "presence.household_occupied",
+        "type_version": 1,
+        "enabled": true,
+        "inputs": [
+          {
+            "name": "location",
+            "ref": "presence.example.location.value"
+          },
+          {
+            "name": "visitors",
+            "ref": "source.household.visitors"
+          }
+        ],
+        "parameters": {},
+        "display_name": "Jemand ist da",
+        "description": ""
+      }
+    ],
+    "catalogs": [
+      {
+        "catalog_id": "test.inversion",
+        "kind": "map",
+        "version": 1,
+        "entries": {
+          "True": false,
+          "False": true
+        }
+      },
+      {
+        "catalog_id": "catalog.presence.router",
+        "kind": "map",
+        "version": 1,
+        "entries": {
+          "home": true,
+          "not_home": false
+        }
+      }
+    ],
+    "definitions": [
+      {
+        "type_id": "synthetic.connectivity",
+        "type_version": 1,
+        "language_version": 1,
+        "display_name": "",
+        "description": "",
+        "inputs": [
+          {
+            "name": "online",
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          }
+        ],
+        "refresh_inputs": [],
+        "schema": {
+          "fields": {
+            "value": {
+              "type": "bool",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          },
+          "available_projection": [],
+          "grace_capable": false,
+          "grace_parameter": null,
+          "fixture": false
+        },
+        "rules": {},
+        "outputs": {
+          "value": {
+            "op": "input",
+            "name": "online"
+          }
+        },
+        "machine": null
+      },
+      {
+        "type_id": "presence.location",
+        "type_version": 1,
+        "language_version": 2,
+        "display_name": "Aufenthaltsbereich",
+        "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+        "inputs": [
+          {
+            "name": "icloud",
+            "schema": {
+              "type": "text",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          },
+          {
+            "name": "app",
+            "schema": {
+              "type": "text",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          },
+          {
+            "name": "router",
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          },
+          {
+            "name": "wifi",
+            "schema": {
+              "type": "text",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          }
+        ],
+        "refresh_inputs": [],
+        "schema": {
+          "fields": {
+            "value": {
+              "type": "enum",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [
+                "home",
+                "parents",
+                "away"
+              ],
+              "unit": null
+            }
+          },
+          "available_projection": [
+            "value"
+          ],
+          "grace_capable": false,
+          "grace_parameter": null,
+          "fixture": false
+        },
+        "rules": {},
+        "outputs": {
+          "value": {
+            "op": "temporal",
+            "id": "out_grace",
+            "operation": "grace",
+            "args": [
+              {
+                "op": "fusion",
+                "strategy": "first_usable",
+                "args": [
+                  {
+                    "op": "first_match",
+                    "cases": [
+                      {
+                        "when": {
+                          "op": "and",
+                          "args": [
+                            {
+                              "op": "or",
+                              "args": [
+                                {
+                                  "op": "compare",
+                                  "comparison": "eq",
+                                  "left": {
+                                    "op": "input",
+                                    "name": "wifi"
+                                  },
+                                  "right": {
+                                    "op": "parameter",
+                                    "name": "home_wifi_1"
+                                  }
+                                },
+                                {
+                                  "op": "compare",
+                                  "comparison": "eq",
+                                  "left": {
+                                    "op": "input",
+                                    "name": "wifi"
+                                  },
+                                  "right": {
+                                    "op": "parameter",
+                                    "name": "home_wifi_2"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "op": "not",
+                              "args": [
+                                {
+                                  "op": "fusion",
+                                  "strategy": "first_usable",
+                                  "args": [
+                                    {
+                                      "op": "compare",
+                                      "comparison": "ne",
+                                      "left": {
+                                        "op": "input",
+                                        "name": "icloud"
+                                      },
+                                      "right": {
+                                        "op": "literal",
+                                        "schema": {
+                                          "type": "text",
+                                          "required": true,
+                                          "physical_state": true,
+                                          "value_catalog": [],
+                                          "unit": null
+                                        },
+                                        "value": "home"
+                                      }
+                                    },
+                                    {
+                                      "op": "literal",
+                                      "schema": {
+                                        "type": "bool",
+                                        "required": true,
+                                        "physical_state": true,
+                                        "value_catalog": [],
+                                        "unit": null
+                                      },
+                                      "value": false
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "then": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [
+                              "home",
+                              "parents",
+                              "away"
+                            ],
+                            "unit": null
+                          },
+                          "value": "home"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "op": "first_match",
+                    "cases": [
+                      {
+                        "when": {
+                          "op": "and",
+                          "args": [
+                            {
+                              "op": "compare",
+                              "comparison": "eq",
+                              "left": {
+                                "op": "input",
+                                "name": "wifi"
+                              },
+                              "right": {
+                                "op": "parameter",
+                                "name": "parents_wifi"
+                              }
+                            },
+                            {
+                              "op": "not",
+                              "args": [
+                                {
+                                  "op": "fusion",
+                                  "strategy": "first_usable",
+                                  "args": [
+                                    {
+                                      "op": "compare",
+                                      "comparison": "eq",
+                                      "left": {
+                                        "op": "input",
+                                        "name": "router"
+                                      },
+                                      "right": {
+                                        "op": "literal",
+                                        "schema": {
+                                          "type": "bool",
+                                          "required": true,
+                                          "physical_state": true,
+                                          "value_catalog": [],
+                                          "unit": null
+                                        },
+                                        "value": false
+                                      }
+                                    },
+                                    {
+                                      "op": "literal",
+                                      "schema": {
+                                        "type": "bool",
+                                        "required": true,
+                                        "physical_state": true,
+                                        "value_catalog": [],
+                                        "unit": null
+                                      },
+                                      "value": false
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "then": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [
+                              "home",
+                              "parents",
+                              "away"
+                            ],
+                            "unit": null
+                          },
+                          "value": "parents"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "op": "first_match",
+                    "cases": [
+                      {
+                        "when": {
+                          "op": "input",
+                          "name": "router"
+                        },
+                        "then": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [
+                              "home",
+                              "parents",
+                              "away"
+                            ],
+                            "unit": null
+                          },
+                          "value": "parents"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "op": "first_match",
+                    "cases": [
+                      {
+                        "when": {
+                          "op": "compare",
+                          "comparison": "eq",
+                          "left": {
+                            "op": "input",
+                            "name": "icloud"
+                          },
+                          "right": {
+                            "op": "literal",
+                            "schema": {
+                              "type": "text",
+                              "required": true,
+                              "physical_state": true,
+                              "value_catalog": [],
+                              "unit": null
+                            },
+                            "value": "home"
+                          }
+                        },
+                        "then": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [
+                              "home",
+                              "parents",
+                              "away"
+                            ],
+                            "unit": null
+                          },
+                          "value": "home"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "op": "first_match",
+                    "cases": [
+                      {
+                        "when": {
+                          "op": "compare",
+                          "comparison": "eq",
+                          "left": {
+                            "op": "input",
+                            "name": "app"
+                          },
+                          "right": {
+                            "op": "literal",
+                            "schema": {
+                              "type": "text",
+                              "required": true,
+                              "physical_state": true,
+                              "value_catalog": [],
+                              "unit": null
+                            },
+                            "value": "home"
+                          }
+                        },
+                        "then": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [
+                              "home",
+                              "parents",
+                              "away"
+                            ],
+                            "unit": null
+                          },
+                          "value": "home"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "op": "first_match",
+                    "cases": [
+                      {
+                        "when": {
+                          "op": "compare",
+                          "comparison": "ne",
+                          "left": {
+                            "op": "input",
+                            "name": "icloud"
+                          },
+                          "right": {
+                            "op": "literal",
+                            "schema": {
+                              "type": "text",
+                              "required": true,
+                              "physical_state": true,
+                              "value_catalog": [],
+                              "unit": null
+                            },
+                            "value": "home"
+                          }
+                        },
+                        "then": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [
+                              "home",
+                              "parents",
+                              "away"
+                            ],
+                            "unit": null
+                          },
+                          "value": "away"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "op": "first_match",
+                    "cases": [
+                      {
+                        "when": {
+                          "op": "compare",
+                          "comparison": "ne",
+                          "left": {
+                            "op": "input",
+                            "name": "app"
+                          },
+                          "right": {
+                            "op": "literal",
+                            "schema": {
+                              "type": "text",
+                              "required": true,
+                              "physical_state": true,
+                              "value_catalog": [],
+                              "unit": null
+                            },
+                            "value": "home"
+                          }
+                        },
+                        "then": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [
+                              "home",
+                              "parents",
+                              "away"
+                            ],
+                            "unit": null
+                          },
+                          "value": "away"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "duration_s": {
+              "op": "parameter",
+              "name": "grace_s"
+            },
+            "accepts_held": false
+          }
+        },
+        "machine": null,
+        "parameter_schema": {
+          "grace_s": {
+            "schema": {
+              "type": "number",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": "s"
+            },
+            "minimum": 0.001,
+            "maximum": 31536000.0,
+            "label": "Gnadenfrist",
+            "description": ""
+          },
+          "home_wifi_1": {
+            "schema": {
+              "type": "text",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            },
+            "minimum": null,
+            "maximum": null,
+            "label": "Heim-WLAN 1",
+            "description": ""
+          },
+          "home_wifi_2": {
+            "schema": {
+              "type": "text",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            },
+            "minimum": null,
+            "maximum": null,
+            "label": "Heim-WLAN 2",
+            "description": ""
+          },
+          "parents_wifi": {
+            "schema": {
+              "type": "text",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            },
+            "minimum": null,
+            "maximum": null,
+            "label": "Eltern-WLAN",
+            "description": ""
+          }
+        }
+      },
+      {
+        "type_id": "presence.place",
+        "type_version": 1,
+        "language_version": 2,
+        "display_name": "Aktueller Ort",
+        "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+        "inputs": [
+          {
+            "name": "icloud",
+            "schema": {
+              "type": "text",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          },
+          {
+            "name": "app",
+            "schema": {
+              "type": "text",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          }
+        ],
+        "refresh_inputs": [],
+        "schema": {
+          "fields": {
+            "value": {
+              "type": "text",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          },
+          "available_projection": [
+            "value"
+          ],
+          "grace_capable": false,
+          "grace_parameter": null,
+          "fixture": false
+        },
+        "rules": {},
+        "outputs": {
+          "value": {
+            "op": "temporal",
+            "id": "out_grace",
+            "operation": "grace",
+            "args": [
+              {
+                "op": "fusion",
+                "strategy": "first_usable",
+                "args": [
+                  {
+                    "op": "first_match",
+                    "cases": [
+                      {
+                        "when": {
+                          "op": "compare",
+                          "comparison": "eq",
+                          "left": {
+                            "op": "input",
+                            "name": "icloud"
+                          },
+                          "right": {
+                            "op": "literal",
+                            "schema": {
+                              "type": "text",
+                              "required": true,
+                              "physical_state": true,
+                              "value_catalog": [],
+                              "unit": null
+                            },
+                            "value": "home"
+                          }
+                        },
+                        "then": {
+                          "op": "parameter",
+                          "name": "home_label"
+                        }
+                      },
+                      {
+                        "when": {
+                          "op": "compare",
+                          "comparison": "eq",
+                          "left": {
+                            "op": "input",
+                            "name": "icloud"
+                          },
+                          "right": {
+                            "op": "literal",
+                            "schema": {
+                              "type": "text",
+                              "required": true,
+                              "physical_state": true,
+                              "value_catalog": [],
+                              "unit": null
+                            },
+                            "value": "not_home"
+                          }
+                        },
+                        "then": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "text",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [],
+                            "unit": null
+                          },
+                          "value": "unterwegs"
+                        }
+                      },
+                      {
+                        "when": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "bool",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [],
+                            "unit": null
+                          },
+                          "value": true
+                        },
+                        "then": {
+                          "op": "input",
+                          "name": "icloud"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "op": "first_match",
+                    "cases": [
+                      {
+                        "when": {
+                          "op": "compare",
+                          "comparison": "eq",
+                          "left": {
+                            "op": "input",
+                            "name": "app"
+                          },
+                          "right": {
+                            "op": "literal",
+                            "schema": {
+                              "type": "text",
+                              "required": true,
+                              "physical_state": true,
+                              "value_catalog": [],
+                              "unit": null
+                            },
+                            "value": "home"
+                          }
+                        },
+                        "then": {
+                          "op": "parameter",
+                          "name": "home_label"
+                        }
+                      },
+                      {
+                        "when": {
+                          "op": "compare",
+                          "comparison": "eq",
+                          "left": {
+                            "op": "input",
+                            "name": "app"
+                          },
+                          "right": {
+                            "op": "literal",
+                            "schema": {
+                              "type": "text",
+                              "required": true,
+                              "physical_state": true,
+                              "value_catalog": [],
+                              "unit": null
+                            },
+                            "value": "not_home"
+                          }
+                        },
+                        "then": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "text",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [],
+                            "unit": null
+                          },
+                          "value": "unterwegs"
+                        }
+                      },
+                      {
+                        "when": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "bool",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [],
+                            "unit": null
+                          },
+                          "value": true
+                        },
+                        "then": {
+                          "op": "input",
+                          "name": "app"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "duration_s": {
+              "op": "parameter",
+              "name": "grace_s"
+            },
+            "accepts_held": false
+          }
+        },
+        "machine": null,
+        "parameter_schema": {
+          "grace_s": {
+            "schema": {
+              "type": "number",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": "s"
+            },
+            "minimum": 0.001,
+            "maximum": 31536000.0,
+            "label": "Gnadenfrist",
+            "description": ""
+          },
+          "home_label": {
+            "schema": {
+              "type": "text",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            },
+            "minimum": null,
+            "maximum": null,
+            "label": "Name für Zuhause",
+            "description": ""
+          }
+        }
+      },
+      {
+        "type_id": "presence.distance_band",
+        "type_version": 1,
+        "language_version": 2,
+        "display_name": "Entfernungsbereich",
+        "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+        "inputs": [
+          {
+            "name": "distance",
+            "schema": {
+              "type": "number",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": "m"
+            }
+          }
+        ],
+        "refresh_inputs": [],
+        "schema": {
+          "fields": {
+            "value": {
+              "type": "enum",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [
+                "home",
+                "preheat",
+                "near",
+                "far"
+              ],
+              "unit": null
+            }
+          },
+          "available_projection": [
+            "value"
+          ],
+          "grace_capable": false,
+          "grace_parameter": null,
+          "fixture": false
+        },
+        "rules": {},
+        "outputs": {
+          "value": {
+            "op": "bucket",
+            "id": "distance",
+            "arg": {
+              "op": "input",
+              "name": "distance"
+            },
+            "initial": {
+              "unknown": true
+            },
+            "classes": [
+              "home",
+              "preheat",
+              "near",
+              "far"
+            ],
+            "boundaries": [
+              {
+                "at": {
+                  "op": "parameter",
+                  "name": "lower_1"
+                },
+                "hysteresis": {
+                  "lower": {
+                    "op": "parameter",
+                    "name": "lower_1"
+                  },
+                  "upper": {
+                    "op": "parameter",
+                    "name": "upper_1"
+                  }
+                }
+              },
+              {
+                "at": {
+                  "op": "parameter",
+                  "name": "lower_2"
+                },
+                "hysteresis": {
+                  "lower": {
+                    "op": "parameter",
+                    "name": "lower_2"
+                  },
+                  "upper": {
+                    "op": "parameter",
+                    "name": "upper_2"
+                  }
+                }
+              },
+              {
+                "at": {
+                  "op": "parameter",
+                  "name": "lower_3"
+                },
+                "hysteresis": {
+                  "lower": {
+                    "op": "parameter",
+                    "name": "lower_3"
+                  },
+                  "upper": {
+                    "op": "parameter",
+                    "name": "upper_3"
+                  }
+                }
+              }
+            ],
+            "schema": {
+              "type": "enum",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [
+                "home",
+                "preheat",
+                "near",
+                "far"
+              ],
+              "unit": null
+            }
+          }
+        },
+        "machine": null,
+        "parameter_schema": {
+          "lower_1": {
+            "schema": {
+              "type": "number",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": "m"
+            },
+            "minimum": 0.0,
+            "maximum": null,
+            "label": "Innere Grenze 1",
+            "description": ""
+          },
+          "upper_1": {
+            "schema": {
+              "type": "number",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": "m"
+            },
+            "minimum": 0.0,
+            "maximum": null,
+            "label": "Äußere Grenze 1",
+            "description": ""
+          },
+          "lower_2": {
+            "schema": {
+              "type": "number",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": "m"
+            },
+            "minimum": 0.0,
+            "maximum": null,
+            "label": "Innere Grenze 2",
+            "description": ""
+          },
+          "upper_2": {
+            "schema": {
+              "type": "number",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": "m"
+            },
+            "minimum": 0.0,
+            "maximum": null,
+            "label": "Äußere Grenze 2",
+            "description": ""
+          },
+          "lower_3": {
+            "schema": {
+              "type": "number",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": "m"
+            },
+            "minimum": 0.0,
+            "maximum": null,
+            "label": "Innere Grenze 3",
+            "description": ""
+          },
+          "upper_3": {
+            "schema": {
+              "type": "number",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": "m"
+            },
+            "minimum": 0.0,
+            "maximum": null,
+            "label": "Äußere Grenze 3",
+            "description": ""
+          }
+        },
+        "parameter_relations": [
+          {
+            "left": "lower_1",
+            "comparison": "le",
+            "right": "upper_1"
+          },
+          {
+            "left": "lower_2",
+            "comparison": "le",
+            "right": "upper_2"
+          },
+          {
+            "left": "upper_1",
+            "comparison": "lt",
+            "right": "lower_2"
+          },
+          {
+            "left": "lower_3",
+            "comparison": "le",
+            "right": "upper_3"
+          },
+          {
+            "left": "upper_2",
+            "comparison": "lt",
+            "right": "lower_3"
+          }
+        ]
+      },
+      {
+        "type_id": "presence.direction",
+        "type_version": 1,
+        "language_version": 2,
+        "display_name": "Bewegungsrichtung",
+        "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+        "inputs": [
+          {
+            "name": "direction",
+            "schema": {
+              "type": "enum",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [
+                "arrived",
+                "away_from",
+                "stationary",
+                "towards"
+              ],
+              "unit": null
+            }
+          }
+        ],
+        "refresh_inputs": [],
+        "schema": {
+          "fields": {
+            "value": {
+              "type": "enum",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [
+                "arrived",
+                "away_from",
+                "stationary",
+                "towards"
+              ],
+              "unit": null
+            }
+          },
+          "available_projection": [
+            "value"
+          ],
+          "grace_capable": false,
+          "grace_parameter": null,
+          "fixture": false
+        },
+        "rules": {},
+        "outputs": {
+          "value": {
+            "op": "input",
+            "name": "direction"
+          }
+        },
+        "machine": null
+      },
+      {
+        "type_id": "presence.approaching",
+        "type_version": 1,
+        "language_version": 2,
+        "display_name": "Nähert sich",
+        "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+        "inputs": [
+          {
+            "name": "location",
+            "schema": {
+              "type": "enum",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [
+                "home",
+                "parents",
+                "away"
+              ],
+              "unit": null
+            }
+          },
+          {
+            "name": "direction",
+            "schema": {
+              "type": "enum",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [
+                "arrived",
+                "away_from",
+                "stationary",
+                "towards"
+              ],
+              "unit": null
+            }
+          },
+          {
+            "name": "band",
+            "schema": {
+              "type": "enum",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [
+                "home",
+                "preheat",
+                "near",
+                "far"
+              ],
+              "unit": null
+            }
+          }
+        ],
+        "refresh_inputs": [],
+        "schema": {
+          "fields": {
+            "value": {
+              "type": "bool",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          },
+          "available_projection": [
+            "value"
+          ],
+          "grace_capable": false,
+          "grace_parameter": null,
+          "fixture": false
+        },
+        "rules": {},
+        "outputs": {
+          "value": {
+            "op": "and",
+            "args": [
+              {
+                "op": "and",
+                "args": [
+                  {
+                    "op": "compare",
+                    "comparison": "eq",
+                    "left": {
+                      "op": "input",
+                      "name": "location"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "parents",
+                          "away"
+                        ],
+                        "unit": null
+                      },
+                      "value": "away"
+                    }
+                  },
+                  {
+                    "op": "or",
+                    "args": [
+                      {
+                        "op": "compare",
+                        "comparison": "eq",
+                        "left": {
+                          "op": "input",
+                          "name": "band"
+                        },
+                        "right": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [
+                              "home",
+                              "preheat",
+                              "near",
+                              "far"
+                            ],
+                            "unit": null
+                          },
+                          "value": "near"
+                        }
+                      },
+                      {
+                        "op": "compare",
+                        "comparison": "eq",
+                        "left": {
+                          "op": "input",
+                          "name": "band"
+                        },
+                        "right": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [
+                              "home",
+                              "preheat",
+                              "near",
+                              "far"
+                            ],
+                            "unit": null
+                          },
+                          "value": "preheat"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "input",
+                  "name": "direction"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "arrived",
+                      "away_from",
+                      "stationary",
+                      "towards"
+                    ],
+                    "unit": null
+                  },
+                  "value": "towards"
+                }
+              }
+            ]
+          }
+        },
+        "machine": null
+      },
+      {
+        "type_id": "presence.arrival",
+        "type_version": 1,
+        "language_version": 3,
+        "display_name": "Gerade angekommen",
+        "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+        "inputs": [
+          {
+            "name": "location",
+            "schema": {
+              "type": "enum",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [
+                "home",
+                "parents",
+                "away"
+              ],
+              "unit": null
+            }
+          }
+        ],
+        "refresh_inputs": [],
+        "schema": {
+          "fields": {
+            "value": {
+              "type": "bool",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          },
+          "available_projection": [
+            "value"
+          ],
+          "grace_capable": false,
+          "grace_parameter": null,
+          "fixture": false
+        },
+        "rules": {},
+        "outputs": {
+          "value": {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "machine"
+            },
+            "right": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": true,
+                "value_catalog": [
+                  "idle",
+                  "away_seen",
+                  "arrived"
+                ],
+                "unit": null
+              },
+              "value": "arrived"
+            }
+          }
+        },
+        "machine": {
+          "id": "flow",
+          "states": [
+            "idle",
+            "away_seen",
+            "arrived"
+          ],
+          "initial": "idle",
+          "transitions": [
+            {
+              "source": "idle",
+              "target": "away_seen",
+              "event": "input",
+              "guard": {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "parents",
+                      "away"
+                    ],
+                    "unit": null
+                  },
+                  "value": "away"
+                }
+              },
+              "reason": "observed_start",
+              "new_episode": false,
+              "ends_episode": false,
+              "argument_equals": {}
+            },
+            {
+              "source": "away_seen",
+              "target": "arrived",
+              "event": "input",
+              "guard": {
+                "op": "compare",
+                "comparison": "ne",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "parents",
+                      "away"
+                    ],
+                    "unit": null
+                  },
+                  "value": "away"
+                }
+              },
+              "reason": "observed_transition",
+              "new_episode": false,
+              "ends_episode": false,
+              "argument_equals": {}
+            },
+            {
+              "source": "arrived",
+              "target": "idle",
+              "event": "deadline",
+              "guard": {
+                "op": "literal",
+                "schema": {
+                  "type": "bool",
+                  "required": true,
+                  "physical_state": true,
+                  "value_catalog": [],
+                  "unit": null
+                },
+                "value": true
+              },
+              "reason": "hold_elapsed",
+              "new_episode": false,
+              "ends_episode": false,
+              "argument_equals": {}
+            },
+            {
+              "source": "arrived",
+              "target": "away_seen",
+              "event": "input",
+              "guard": {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "parents",
+                      "away"
+                    ],
+                    "unit": null
+                  },
+                  "value": "away"
+                }
+              },
+              "reason": "observed_reentry",
+              "new_episode": false,
+              "ends_episode": false,
+              "argument_equals": {}
+            }
+          ],
+          "commands": {},
+          "deadline_s": null,
+          "deadline_by_state": {
+            "arrived": {
+              "duration": {
+                "op": "parameter",
+                "name": "hold_s"
+              }
+            }
+          },
+          "unknown_deadline": "keep_and_block_transition",
+          "sessions": false,
+          "reinitialize_when": {
+            "op": "and",
+            "args": [
+              {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "input",
+                  "name": "location"
+                }
+              }
+            ]
+          }
+        },
+        "parameter_schema": {
+          "hold_s": {
+            "schema": {
+              "type": "number",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": "s"
+            },
+            "minimum": 0.001,
+            "maximum": 31536000.0,
+            "label": "Anzeigedauer",
+            "description": ""
+          }
+        }
+      },
+      {
+        "type_id": "presence.departure",
+        "type_version": 1,
+        "language_version": 3,
+        "display_name": "Gerade weggegangen",
+        "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+        "inputs": [
+          {
+            "name": "location",
+            "schema": {
+              "type": "enum",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [
+                "home",
+                "parents",
+                "away"
+              ],
+              "unit": null
+            }
+          }
+        ],
+        "refresh_inputs": [],
+        "schema": {
+          "fields": {
+            "value": {
+              "type": "bool",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          },
+          "available_projection": [
+            "value"
+          ],
+          "grace_capable": false,
+          "grace_parameter": null,
+          "fixture": false
+        },
+        "rules": {},
+        "outputs": {
+          "value": {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "machine"
+            },
+            "right": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": true,
+                "value_catalog": [
+                  "idle",
+                  "here_seen",
+                  "left"
+                ],
+                "unit": null
+              },
+              "value": "left"
+            }
+          }
+        },
+        "machine": {
+          "id": "flow",
+          "states": [
+            "idle",
+            "here_seen",
+            "left"
+          ],
+          "initial": "idle",
+          "transitions": [
+            {
+              "source": "idle",
+              "target": "here_seen",
+              "event": "input",
+              "guard": {
+                "op": "compare",
+                "comparison": "ne",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "parents",
+                      "away"
+                    ],
+                    "unit": null
+                  },
+                  "value": "away"
+                }
+              },
+              "reason": "observed_start",
+              "new_episode": false,
+              "ends_episode": false,
+              "argument_equals": {}
+            },
+            {
+              "source": "here_seen",
+              "target": "left",
+              "event": "input",
+              "guard": {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "parents",
+                      "away"
+                    ],
+                    "unit": null
+                  },
+                  "value": "away"
+                }
+              },
+              "reason": "observed_transition",
+              "new_episode": false,
+              "ends_episode": false,
+              "argument_equals": {}
+            },
+            {
+              "source": "left",
+              "target": "idle",
+              "event": "deadline",
+              "guard": {
+                "op": "literal",
+                "schema": {
+                  "type": "bool",
+                  "required": true,
+                  "physical_state": true,
+                  "value_catalog": [],
+                  "unit": null
+                },
+                "value": true
+              },
+              "reason": "hold_elapsed",
+              "new_episode": false,
+              "ends_episode": false,
+              "argument_equals": {}
+            },
+            {
+              "source": "left",
+              "target": "here_seen",
+              "event": "input",
+              "guard": {
+                "op": "compare",
+                "comparison": "ne",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "parents",
+                      "away"
+                    ],
+                    "unit": null
+                  },
+                  "value": "away"
+                }
+              },
+              "reason": "observed_reentry",
+              "new_episode": false,
+              "ends_episode": false,
+              "argument_equals": {}
+            }
+          ],
+          "commands": {},
+          "deadline_s": null,
+          "deadline_by_state": {
+            "left": {
+              "duration": {
+                "op": "parameter",
+                "name": "hold_s"
+              }
+            }
+          },
+          "unknown_deadline": "keep_and_block_transition",
+          "sessions": false,
+          "reinitialize_when": {
+            "op": "and",
+            "args": [
+              {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "input",
+                  "name": "location"
+                }
+              }
+            ]
+          }
+        },
+        "parameter_schema": {
+          "hold_s": {
+            "schema": {
+              "type": "number",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": "s"
+            },
+            "minimum": 0.001,
+            "maximum": 31536000.0,
+            "label": "Anzeigedauer",
+            "description": ""
+          }
+        }
+      },
+      {
+        "type_id": "presence.passing",
+        "type_version": 1,
+        "language_version": 3,
+        "display_name": "Gerade vorbeigefahren",
+        "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+        "inputs": [
+          {
+            "name": "location",
+            "schema": {
+              "type": "enum",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [
+                "home",
+                "parents",
+                "away"
+              ],
+              "unit": null
+            }
+          },
+          {
+            "name": "band",
+            "schema": {
+              "type": "enum",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [
+                "home",
+                "preheat",
+                "near",
+                "far"
+              ],
+              "unit": null
+            }
+          }
+        ],
+        "refresh_inputs": [],
+        "schema": {
+          "fields": {
+            "value": {
+              "type": "bool",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          },
+          "available_projection": [
+            "value"
+          ],
+          "grace_capable": false,
+          "grace_parameter": null,
+          "fixture": false
+        },
+        "rules": {},
+        "outputs": {
+          "value": {
+            "op": "and",
+            "args": [
+              {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "machine"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "idle",
+                      "approach_seen",
+                      "done"
+                    ],
+                    "unit": null
+                  },
+                  "value": "done"
+                }
+              },
+              {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "input",
+                  "name": "band"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "preheat",
+                      "near",
+                      "far"
+                    ],
+                    "unit": null
+                  },
+                  "value": "far"
+                }
+              }
+            ]
+          }
+        },
+        "machine": {
+          "id": "flow",
+          "states": [
+            "idle",
+            "approach_seen",
+            "done"
+          ],
+          "initial": "idle",
+          "transitions": [
+            {
+              "source": "idle",
+              "target": "approach_seen",
+              "event": "input",
+              "guard": {
+                "op": "and",
+                "args": [
+                  {
+                    "op": "compare",
+                    "comparison": "eq",
+                    "left": {
+                      "op": "input",
+                      "name": "location"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "parents",
+                          "away"
+                        ],
+                        "unit": null
+                      },
+                      "value": "away"
+                    }
+                  },
+                  {
+                    "op": "or",
+                    "args": [
+                      {
+                        "op": "compare",
+                        "comparison": "eq",
+                        "left": {
+                          "op": "input",
+                          "name": "band"
+                        },
+                        "right": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [
+                              "home",
+                              "preheat",
+                              "near",
+                              "far"
+                            ],
+                            "unit": null
+                          },
+                          "value": "near"
+                        }
+                      },
+                      {
+                        "op": "compare",
+                        "comparison": "eq",
+                        "left": {
+                          "op": "input",
+                          "name": "band"
+                        },
+                        "right": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [
+                              "home",
+                              "preheat",
+                              "near",
+                              "far"
+                            ],
+                            "unit": null
+                          },
+                          "value": "preheat"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "reason": "observed_start",
+              "new_episode": false,
+              "ends_episode": false,
+              "argument_equals": {}
+            },
+            {
+              "source": "approach_seen",
+              "target": "done",
+              "event": "input",
+              "guard": {
+                "op": "or",
+                "args": [
+                  {
+                    "op": "compare",
+                    "comparison": "eq",
+                    "left": {
+                      "op": "input",
+                      "name": "band"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "preheat",
+                          "near",
+                          "far"
+                        ],
+                        "unit": null
+                      },
+                      "value": "far"
+                    }
+                  },
+                  {
+                    "op": "compare",
+                    "comparison": "ne",
+                    "left": {
+                      "op": "input",
+                      "name": "location"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "parents",
+                          "away"
+                        ],
+                        "unit": null
+                      },
+                      "value": "away"
+                    }
+                  }
+                ]
+              },
+              "reason": "observed_transition",
+              "new_episode": false,
+              "ends_episode": false,
+              "argument_equals": {}
+            },
+            {
+              "source": "done",
+              "target": "idle",
+              "event": "deadline",
+              "guard": {
+                "op": "literal",
+                "schema": {
+                  "type": "bool",
+                  "required": true,
+                  "physical_state": true,
+                  "value_catalog": [],
+                  "unit": null
+                },
+                "value": true
+              },
+              "reason": "hold_elapsed",
+              "new_episode": false,
+              "ends_episode": false,
+              "argument_equals": {}
+            },
+            {
+              "source": "done",
+              "target": "approach_seen",
+              "event": "input",
+              "guard": {
+                "op": "and",
+                "args": [
+                  {
+                    "op": "compare",
+                    "comparison": "eq",
+                    "left": {
+                      "op": "input",
+                      "name": "location"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "parents",
+                          "away"
+                        ],
+                        "unit": null
+                      },
+                      "value": "away"
+                    }
+                  },
+                  {
+                    "op": "or",
+                    "args": [
+                      {
+                        "op": "compare",
+                        "comparison": "eq",
+                        "left": {
+                          "op": "input",
+                          "name": "band"
+                        },
+                        "right": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [
+                              "home",
+                              "preheat",
+                              "near",
+                              "far"
+                            ],
+                            "unit": null
+                          },
+                          "value": "near"
+                        }
+                      },
+                      {
+                        "op": "compare",
+                        "comparison": "eq",
+                        "left": {
+                          "op": "input",
+                          "name": "band"
+                        },
+                        "right": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [
+                              "home",
+                              "preheat",
+                              "near",
+                              "far"
+                            ],
+                            "unit": null
+                          },
+                          "value": "preheat"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "reason": "observed_reentry",
+              "new_episode": false,
+              "ends_episode": false,
+              "argument_equals": {}
+            }
+          ],
+          "commands": {},
+          "deadline_s": null,
+          "deadline_by_state": {
+            "done": {
+              "duration": {
+                "op": "parameter",
+                "name": "hold_s"
+              }
+            }
+          },
+          "unknown_deadline": "keep_and_block_transition",
+          "sessions": false,
+          "reinitialize_when": {
+            "op": "and",
+            "args": [
+              {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "input",
+                  "name": "location"
+                }
+              },
+              {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "input",
+                  "name": "band"
+                },
+                "right": {
+                  "op": "input",
+                  "name": "band"
+                }
+              }
+            ]
+          }
+        },
+        "parameter_schema": {
+          "hold_s": {
+            "schema": {
+              "type": "number",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": "s"
+            },
+            "minimum": 0.001,
+            "maximum": 31536000.0,
+            "label": "Anzeigedauer",
+            "description": ""
+          }
+        }
+      },
+      {
+        "type_id": "presence.household_occupied",
+        "type_version": 1,
+        "language_version": 2,
+        "display_name": "Jemand ist da",
+        "description": "Beschreibt die Anwesenheit mit austauschbaren Quellen.",
+        "inputs": [
+          {
+            "name": "location",
+            "schema": {
+              "type": "enum",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [
+                "home",
+                "parents",
+                "away"
+              ],
+              "unit": null
+            }
+          },
+          {
+            "name": "visitors",
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          }
+        ],
+        "refresh_inputs": [],
+        "schema": {
+          "fields": {
+            "value": {
+              "type": "bool",
+              "required": true,
+              "physical_state": true,
+              "value_catalog": [],
+              "unit": null
+            }
+          },
+          "available_projection": [
+            "value"
+          ],
+          "grace_capable": false,
+          "grace_parameter": null,
+          "fixture": false
+        },
+        "rules": {},
+        "outputs": {
+          "value": {
+            "op": "or",
+            "args": [
+              {
+                "op": "compare",
+                "comparison": "ne",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "parents",
+                      "away"
+                    ],
+                    "unit": null
+                  },
+                  "value": "away"
+                }
+              },
+              {
+                "op": "input",
+                "name": "visitors"
+              }
+            ]
+          }
+        },
+        "machine": null
+      }
+    ]
+  },
+  "editorial": [
+    {
+      "object": {
+        "kind": "contract",
+        "id": "presence.example.location"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "template",
+        "id": "presence.location"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "contract",
+        "id": "presence.example.place"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "template",
+        "id": "presence.place"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "contract",
+        "id": "presence.example.distance_band"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "template",
+        "id": "presence.distance_band"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "contract",
+        "id": "presence.example.direction"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "template",
+        "id": "presence.direction"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "contract",
+        "id": "presence.example.approaching"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "template",
+        "id": "presence.approaching"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "contract",
+        "id": "presence.example.arrived_recently"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "template",
+        "id": "presence.arrival"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "contract",
+        "id": "presence.example.left_recently"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "template",
+        "id": "presence.departure"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "contract",
+        "id": "presence.example.passed_recently"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "template",
+        "id": "presence.passing"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "contract",
+        "id": "presence.household.occupied"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    },
+    {
+      "object": {
+        "kind": "template",
+        "id": "presence.household_occupied"
+      },
+      "category": "presence",
+      "room": {
+        "mode": "none"
+      }
+    }
+  ],
+  "catalog_contents": [],
+  "manifest": {
+    "roots": [],
+    "object_digests": {
+      "dependencies:test.mqtt": "ac94292d6eb60cc9b5f0e94a8142850d3fb472f32532418f6175c663d2008429",
+      "dependencies:dependency.synthetic.ha": "5e5febaa115c86cf1e42c28b91d857372ab516d445bfd269a0bfd367701b6155",
+      "dependencies:dependency.presence.manual": "b577365bce9953ad051785d3e80e104339096f94d198a35860a1cf4983d020bc",
+      "sources:source.test.0.open": "22aa6939c52621a4e6cd4b53aa72665b089335cc68469270cdfcc3db723bb2ed",
+      "sources:source.test.0.tilt": "ee1e3b4e12bc0cb22b3c2e1524dbfcef4c89a36bfcc9e6c3335b75c80b672d4a",
+      "sources:source.test.1.open": "cd686c1129654de3391bc8d9a2131d3a31e881d58dd3d1d35313026b2d65fd7f",
+      "sources:source.test.1.tilt": "af2d65f2cc485f71a9f93fa6417cad8a372f0579abab97916bf161767b33513d",
+      "sources:source.test.2.open": "fe99dd8f17ddcd1e86d6dc722af3076d46a96c39016fa3eb32644ddf6579a3ff",
+      "sources:source.test.2.tilt": "b8eea11ade3601baa8986f71f81df45bb8965276099444dbb9d9f3984667b35e",
+      "sources:source.test.3.contact": "1ffbae9242b429f01d45494cacdcc406c1c80d090a618c67f2bc0088561ab3ac",
+      "sources:source.synthetic.connectivity": "2345d98fbc2ba742898539fdbefae94baeee2a16cce87dd91dd883a0f01fce26",
+      "sources:source.example.phone.gps_icloud": "bdabe3ec268601b2d30338d127f43834b59052cfb69cb9571358d1de578b4c79",
+      "sources:source.example.phone.gps_app": "1e0ac6a156b9f674023267d70c496ae5a4b9ec5c7758b8c9717850524f2f44c0",
+      "sources:source.example.phone.parents_router": "c621756cd74e99cf31bc6e1c427eb95ef6fec17f6418b7a3bf58986050fa6a2d",
+      "sources:source.example.phone.wifi_name": "528ead64257305e160dbd2e9afde412f8597cf3531741c0da2fb943d1ee41303",
+      "sources:source.example.phone.home_distance": "fd00a9e38049ee279b0fd37f9f86717c9fd6814d8161a7b6c0110cef0257a8e7",
+      "sources:source.example.phone.home_direction": "0214943e1756406e534ba1b4b4bfd84d527f20677bc13b497cd9e03e60eb9d45",
+      "sources:source.household.visitors": "420e1ff8cade8129021cbd16b2e8f3a0b4daab44795d8384eb6efff44068842c",
+      "bindings:source.test.0.open": "39feb71e18bacb8eea9f6d9cbd2cc0a21a37fc3bc30fd70e9eef3e18e10ed48f",
+      "bindings:source.test.0.tilt": "ee0b16b95b7361721b4582d5dcb2bb065148e64e52cc114cc094fba6bc8d6ff6",
+      "bindings:source.test.1.open": "f67c09578f849b343620300e087b219caf47d6a61875b0248ef7b80e5cb9b733",
+      "bindings:source.test.1.tilt": "83bffdb952319010cb07b24d63fb47d58ecddad007a6d60eb1b0993468531fe8",
+      "bindings:source.test.2.open": "b9add2b8a084bc0ca755a88b738560aceeb02f9d1d0ef76ee370513acf31cbd7",
+      "bindings:source.test.2.tilt": "6332d321a2f47be1cf99b0f672aef3ec60141aa12bf3c7ba8faa59142b115225",
+      "bindings:source.test.3.contact": "4973a41b0526ad30f8e1f5bd972d57fc7ea0f78c94a72fd2692b3ae891baec22",
+      "bindings:binding.synthetic.connectivity": "57bda77087f646da5f204c83057b6cac4aed386734dc23e194079006f0cd499c",
+      "bindings:binding.example.phone.gps_icloud": "b688feff3bb30cb112a6489a56d66d97b01ba3bde057d03bbbb02c0d706e4349",
+      "bindings:binding.example.phone.gps_app": "8e730d281907025f9403ea754c9b17094717695c5a9f5efcd62456775dacf90b",
+      "bindings:binding.example.phone.parents_router": "589d30c327ed437877cfc5fba8caa3d01cab4f717dae07051ef6480f78d0e06d",
+      "bindings:binding.example.phone.wifi_name": "7b8b9d5085373283c0677af75623b801c6b92b31d26a4b5e05724edee560f000",
+      "bindings:binding.example.phone.home_distance": "b6b27cfd8ad43f9b6c1e61b0a585518446f79035f5c034aa125198c90426e629",
+      "bindings:binding.example.phone.home_direction": "e2c3dc23b7b0a8e84c06f77dd58c28843949d794efb15334459925689a6133f9",
+      "bindings:binding.household.visitors": "a0bc7a3a2f6295aeb5ebe5b57661513d2cbdf3074106dcf85c35692c562d4da7",
+      "contracts:test.opening0": "fb6d65fcfdd185a69ac2f7a065425bc0a64ba745a72362378db7c6e97b4c7a73",
+      "contracts:test.opening1": "082943efd97ba6a2f71c5b0994bd8a44bd26810d6553d4eb5537d09853965182",
+      "contracts:test.opening2": "8bbbb26349e3eaf209c1548ace82ebc2a9e0f39f27860d058fc56aca2052019d",
+      "contracts:test.opening3": "915e8610a65b65c5d2ad0b3eb79960de7e331151a45635680b3574403b59443a",
+      "contracts:test.zone.windows": "e45429e53e7825c5e65ca5111859c702427081d6982f1859fd125b6eb3ffc508",
+      "contracts:test.zone.area": "3f53d4a21937c939073247053902444f4fe3f60a8e8ef38062de242e488284e5",
+      "contracts:test.zone.all": "ca08dd7f32d94a4a901648f683691acd7ebce9923eaff23cee3566d16abeb7b4",
+      "contracts:synthetic.connectivity": "e806ddec4fe12e74eb15a6e506cdd2d3842ddb9d2ece0be7f319c11b031d092e",
+      "contracts:presence.example.location": "4d6c57e8ccc5beeb2739f1f82280f3dfebdf43533a74469946fe065e078b56a2",
+      "contracts:presence.example.place": "de6a57cfb41e1a8c93f0776a84135b31c8e945efe8831dff1caaea2456caa2b5",
+      "contracts:presence.example.distance_band": "4f281021c9c32cfdb8dd1e0b14b8f8c4089d619f370d1673955a39a7f846aa67",
+      "contracts:presence.example.direction": "310a699cf66943a78c16942afc94b4d1aca0ea39d82384710b24e3af0adc664c",
+      "contracts:presence.example.approaching": "89276c9085711d46b522bc4d368842512a077f2d6aeeee68a52d40e59fbc1a67",
+      "contracts:presence.example.arrived_recently": "990d0bb0f6c413246a2f794d0e3b3b63a198b3309e1b4853dd85a8b160a70007",
+      "contracts:presence.example.left_recently": "ee050ce60f6f144a273110e8a421aa686a556ee909573772bd864053ed01a735",
+      "contracts:presence.example.passed_recently": "05354cf7cbad1e3ef577b0d58da1baf761c81f9068d974e8217f0447b29dcd7a",
+      "contracts:presence.household.occupied": "f25da9242be0ed2d0660b7aac27bfa5e15605b0311f91816d376b19c04ca0ad6",
+      "catalogs:test.inversion": "75f6323cf4c1e8ffa15bad368703be3ffb7afbf57ab1dafd1aec4b2aa91204e1",
+      "catalogs:catalog.presence.router": "df521f2666c07c65c2fb8d23bf2708f7e4425ea5ad0e5a54bbb08a1e4d817608",
+      "definitions:synthetic.connectivity@1": "92c61aebfb9e524115188852fd61ad7d166df9155d1dfa7310e38b8191e0950f",
+      "definitions:presence.location@1": "2b595965779810a6f2b1c7bcd36b523a6598fa4074970422dc9b65e172a24eb1",
+      "definitions:presence.place@1": "d028b09c2e689fc1d270527446bd7403cc6ce0e17113e66134cd3f08a3f2a7a0",
+      "definitions:presence.distance_band@1": "81b04f366d2c472d8957e9685279cc435b6c731779a5373ca46651050ac488e3",
+      "definitions:presence.direction@1": "d9d9481063de81ada73311da77d19c067c6cecf158943ce2c70877537c16ddf8",
+      "definitions:presence.approaching@1": "210b5daa2e230b7cc7ebb698ae867ee4bbdd9e1a62c4d7a8250202ec413ac74c",
+      "definitions:presence.arrival@1": "942a43c3cf257c400b3338284310cecb1655489347adcce94fc82e9ae1a728b0",
+      "definitions:presence.departure@1": "9360edfa7d5ba7414b3ed69ec2314ec75def0dc9b8a43c505d72bb514ce9f4b7",
+      "definitions:presence.passing@1": "8fb58ceee1faaa030c7c6121eacce0a495a11914481a7da3a2797d980eedfa7f",
+      "definitions:presence.household_occupied@1": "f9b2078f7af56d016fdda144ed968b54297677d10bc34ac5e66a838fe1e4177a"
+    },
+    "config_digest": "dc93aae0dc1a531096245dd102368e7089af681c9747995cf7947c73cb88cfce",
+    "payload_digest": "a30d047514193575d50353739a580e9e609d7c8bfe444aa2d1160e7d38fb2160"
+  }
+}
