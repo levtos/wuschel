@@ -42,7 +42,12 @@ def action(request):
             or not 0 < (end - start).total_seconds() <= 31 * 86400 + 3600
         ):
             raise Rejected("invalid_arguments")
-        return "calendar", "get_events", {"entity_id": target, **args}, True
+        return (
+            "calendar",
+            "get_events",
+            {"entity_id": target, "start_date_time": args["start"], "end_date_time": args["end"]},
+            True,
+        )
     if operation.startswith("problem_notice_"):
         if not re.fullmatch(r"wuschel_[0-9a-f-]{36}_(signal|configuration)", target):
             raise Rejected("not_allowed")

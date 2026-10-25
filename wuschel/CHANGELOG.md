@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0b10 — Kalenderabruf und Importdialog
+
+- Kalender werden über die richtigen HA-Dienstparameter gelesen. Traber 1.0.0b10 benötigt einen HA-Neustart.
+- Die Kalenderquelle zeigt „Zuletzt gelesen“, „Gültig bis“ und einen sicheren Fehlercode. Warnungen wiederholen sich erst nach einem zwischenzeitlich erfolgreichen Abruf.
+- Nach der Aktualitätsauswahl prüft Wuschel die Importvorschau automatisch erneut. Unveränderte Quellen benötigen keine Zuordnung; ohne Sensortyp-Auswahl bleiben die Regeln aus der Datei erhalten.
+- Keine Datenbankmigration und keine Änderungen an Vorlagen oder Importpaketen.
+
 ## 1.0.0b9 — Zeit, Tag und Sonne (Kandidat)
 
 - „Wert im Jahresverlauf“ berechnet saisonale Werte aus Datum und bearbeitbaren Stützpunkten.

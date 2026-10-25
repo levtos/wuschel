@@ -12,6 +12,44 @@ from .persistence import State
 from .registry import Binding, RegistryConfig
 
 
+def calendar_error_code(value: Any) -> str:
+    """Expose only fixed transport codes, never provider text or calendar contents."""
+    return (
+        value
+        if isinstance(value, str)
+        and value
+        in {
+            "invalid_arguments",
+            "not_allowed",
+            "unsupported_operation",
+            "ha_unavailable",
+            "request_conflict",
+            "busy",
+            "timeout",
+            "calendar_response_invalid",
+        }
+        else "calendar_fetch_failed"
+    )
+
+
+def calendar_status(state: State, config: RegistryConfig | None) -> list[dict[str, Any]]:
+    """Cache metadata for the source view, deliberately excluding event data."""
+    return [
+        {
+            "binding_id": binding.binding_id,
+            "source_id": binding.source_id,
+            "fetched_at": row.get("fetched_at"),
+            "expires_at": row.get("expires_at"),
+            "error_code": calendar_error_code(row.get("error_code"))
+            if row.get("failures")
+            else None,
+        }
+        for binding in (config.bindings if config else [])
+        if binding.adapter.kind == "ha_calendar"
+        for row in [state.tables["service_state"].get(f"calendar:{binding.binding_id}", {})]
+    ]
+
+
 def calendar_key(
     binding: Binding, config: RegistryConfig, now: datetime
 ) -> tuple[str, datetime, datetime]:
@@ -53,6 +91,7 @@ def plan_calendars(state: State, config: RegistryConfig, now: datetime) -> None:
                 "next_at": now.isoformat(),
                 "day_change_at": datetime.combine(tomorrow, time(), zone).isoformat(),
                 "failures": 0,
+                "failure_warning_emitted": row.get("failure_warning_emitted", False),
             }
         job = jobs.get(row.get("job_id", ""), {})
         if (
@@ -133,6 +172,7 @@ def complete_calendar(
                     "expires_at": (now + timedelta(seconds=adapter.max_age_s)).isoformat(),
                     "events": events,
                     "failures": 0,
+                    "failure_warning_emitted": False,
                     "next_at": (now + timedelta(seconds=adapter.refresh_s)).isoformat(),
                 }
             )
@@ -172,7 +212,9 @@ def complete_calendar(
         row["next_at"] = (now + timedelta(seconds=delay)).isoformat()
     # Diagnostic only: never store raw errors, calendar contents, or source timestamps from ACKs.
     row["last_outcome"] = response.get("outcome", "indeterminate")
-    row["error_code"] = response.get("error_code")
+    row["error_code"] = (
+        calendar_error_code(response.get("error_code")) if observation is None else None
+    )
     return observation
 
 

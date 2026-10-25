@@ -28,6 +28,24 @@ async def api_client(runtime, aiohttp_client, tmp_path):
     return api, client, headers
 
 
+async def test_calendar_source_status_excludes_event_contents_and_requires_admin(
+    runtime, config, aiohttp_client, tmp_path
+):
+    from .test_alpha9_calendar import calendar_config, fetch
+
+    await activate(runtime, calendar_config(config))
+    await fetch(runtime)
+    api, client, headers = await api_client(runtime, aiohttp_client, tmp_path)
+    response = await client.get("/api/v1/sources/calendar-status", headers=headers)
+    assert response.status == 200
+    rows = await response.json()
+    assert len(rows) == 1
+    assert set(rows[0]) == {"binding_id", "source_id", "fetched_at", "expires_at", "error_code"}
+    assert rows[0]["fetched_at"] and rows[0]["expires_at"] and rows[0]["error_code"] is None
+    consumer = {"Authorization": "Bearer " + api.tokens.values["consumer"]}
+    assert (await client.get("/api/v1/sources/calendar-status", headers=consumer)).status == 403
+
+
 async def test_schema_capabilities_and_reason_catalog(runtime, aiohttp_client, tmp_path):
     api, client, headers = await api_client(runtime, aiohttp_client, tmp_path)
     response = await client.get("/api/v1/capabilities", headers=headers)

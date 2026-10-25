@@ -5,6 +5,21 @@ import { durationText } from '@/lib/duration';
 import { t } from '@/i18n';
 
 export const SENSOR_KINDS = ['contact', 'temperature', 'motion', 'counter'] as const;
+
+export function importFreshnessSources(config: Registry, target: Registry): JsonObject[] {
+  const existing = new Map(asArray(target.sources).filter(isObject).map(source => [source.source_id, source]));
+  const signature = (registry: Registry, source: JsonObject) => {
+    const selection = asObject(source.freshness_selection);
+    const rule = effectiveRule(registry, source);
+    return JSON.stringify([selection.kind ?? 'own', selection.template_id ?? null,
+      ...['mode', 'interval_s', 'future_tolerance_s', 'liveness_source'].map(key => rule[key] ?? null)]);
+  };
+  return asArray(config.sources).filter(isObject).filter(source => {
+    if (source.origin === 'manual') return false;
+    const before = existing.get(source.source_id);
+    return !before || signature(config, source) !== signature(target, before);
+  });
+}
 export function freshnessChoiceLabel(config: Registry, value: unknown): string | null {
   if (!isObject(value) || !['own', 'shared'].includes(str(value.kind))) return null;
   const template = asArray(config.freshness_templates).filter(isObject).find(row => row.template_id === value.template_id);

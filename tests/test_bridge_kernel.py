@@ -4,6 +4,8 @@ Runs in the dedicated HA CI job. This is not a Supervisor installation test.
 """
 
 import json
+import logging
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -37,6 +39,76 @@ def forward_platforms(monkeypatch):
     forward = AsyncMock()
     monkeypatch.setattr(ConfigEntries, "async_forward_entry_setups", forward)
     return forward
+
+
+@pytest.mark.ha
+async def test_calendar_events_crosses_real_ha_calendar_service_schema(tmp_path, monkeypatch):
+    from homeassistant import bootstrap
+    from homeassistant.components.calendar import CalendarEntity, CalendarEvent
+    from homeassistant.components.calendar.const import DATA_COMPONENT as CALENDAR_COMPONENT
+    from homeassistant.components.calendar.services import async_setup_services
+    from homeassistant.helpers.entity_component import EntityComponent
+
+    hass = kernel(tmp_path)
+    loader.async_setup(hass)
+    assert await bootstrap.async_load_base_functionality(hass)
+    # Use HA's actual entity service registration and schema, with a synthetic provider.
+    component = hass.data[CALENDAR_COMPONENT] = EntityComponent(
+        logging.getLogger(__name__), "calendar", hass
+    )
+    await component.async_setup({})
+    async_setup_services(hass)
+    calls = []
+
+    class FixtureCalendar(CalendarEntity):
+        _attr_name = "Synthetic calendar"
+        _attr_should_poll = False
+        entity_id = "calendar.synthetic"
+
+        @property
+        def event(self):
+            return None
+
+        async def async_get_events(self, hass, start_date, end_date):
+            calls.append((start_date, end_date))
+            return [CalendarEvent(start=start_date, end=end_date, summary="Synthetic fixture")]
+
+    await component.async_add_entities([FixtureCalendar()])
+    commands, results, errors = {}, {}, []
+    monkeypatch.setattr(
+        websocket_api,
+        "async_register_command",
+        lambda hass, handler: commands.update({handler.__name__: handler}),
+    )
+    await async_setup_entry(hass, SimpleNamespace(async_on_unload=lambda callback: None))
+    connection = SimpleNamespace(
+        user=SimpleNamespace(is_admin=True),
+        subscriptions={},
+        send_result=lambda identifier, result=None: results.update({identifier: result}),
+        send_error=lambda *args: errors.append(args),
+    )
+    commands["negotiate"](hass, connection, {"id": 1, "supported_versions": [2]})
+    arguments = {"start": "2026-10-24T00:00:00+02:00", "end": "2026-10-26T00:00:00+01:00"}
+    commands["service_call"](
+        hass,
+        connection,
+        {
+            "id": 2,
+            "protocol_version": 2,
+            "request_id": str(uuid4()),
+            "operation": "calendar_events",
+            "target_ids": ["calendar.synthetic"],
+            "arguments": arguments,
+        },
+    )
+    await hass.async_block_till_done()
+    assert not errors
+    assert results[2]["outcome"] == "completed"
+    assert results[2]["data"]["calendar.synthetic"]["events"][0]["summary"] == "Synthetic fixture"
+    assert calls == [
+        (datetime.fromisoformat(arguments["start"]), datetime.fromisoformat(arguments["end"]))
+    ]
+    await component.async_remove_entity("calendar.synthetic")
 
 
 @pytest.mark.ha
