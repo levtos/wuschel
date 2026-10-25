@@ -1,0 +1,1131 @@
+[
+  {
+    "type_id": "day.phase",
+    "type_version": 1,
+    "language_version": 5,
+    "display_name": "Tagesphase",
+    "inputs": [
+      {
+        "name": "date",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "minute",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "early_night",
+            "late_night",
+            "early_morning",
+            "forenoon",
+            "midday",
+            "afternoon",
+            "late_afternoon",
+            "evening",
+            "late_evening"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "map",
+        "arg": {
+          "op": "bucket",
+          "id": "phase",
+          "arg": {
+            "op": "input",
+            "name": "minute"
+          },
+          "classes": [
+            "previous_late_evening",
+            "early_night",
+            "late_night",
+            "early_morning",
+            "forenoon",
+            "midday",
+            "afternoon",
+            "late_afternoon",
+            "evening",
+            "late_evening"
+          ],
+          "boundaries": [
+            {
+              "at": {
+                "op": "ref",
+                "name": "early_night"
+              }
+            },
+            {
+              "at": {
+                "op": "ref",
+                "name": "late_night"
+              }
+            },
+            {
+              "at": {
+                "op": "ref",
+                "name": "early_morning"
+              }
+            },
+            {
+              "at": {
+                "op": "ref",
+                "name": "forenoon"
+              }
+            },
+            {
+              "at": {
+                "op": "ref",
+                "name": "midday"
+              }
+            },
+            {
+              "at": {
+                "op": "ref",
+                "name": "afternoon"
+              }
+            },
+            {
+              "at": {
+                "op": "ref",
+                "name": "late_afternoon"
+              }
+            },
+            {
+              "at": {
+                "op": "ref",
+                "name": "evening"
+              }
+            },
+            {
+              "at": {
+                "op": "ref",
+                "name": "late_evening"
+              }
+            }
+          ],
+          "initial": {
+            "unknown": true
+          },
+          "schema": {
+            "type": "enum",
+            "required": true,
+            "physical_state": false,
+            "value_catalog": [
+              "previous_late_evening",
+              "early_night",
+              "late_night",
+              "early_morning",
+              "forenoon",
+              "midday",
+              "afternoon",
+              "late_afternoon",
+              "evening",
+              "late_evening"
+            ]
+          }
+        },
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "early_night",
+            "late_night",
+            "early_morning",
+            "forenoon",
+            "midday",
+            "afternoon",
+            "late_afternoon",
+            "evening",
+            "late_evening"
+          ]
+        },
+        "entries": {
+          "\"previous_late_evening\"": "late_evening",
+          "\"early_night\"": "early_night",
+          "\"late_night\"": "late_night",
+          "\"early_morning\"": "early_morning",
+          "\"forenoon\"": "forenoon",
+          "\"midday\"": "midday",
+          "\"afternoon\"": "afternoon",
+          "\"late_afternoon\"": "late_afternoon",
+          "\"evening\"": "evening",
+          "\"late_evening\"": "late_evening"
+        }
+      }
+    },
+    "rules": {
+      "early_night": {
+        "op": "annual_curve",
+        "at": {
+          "op": "input",
+          "name": "date"
+        },
+        "points": [
+          {
+            "day": "03-21",
+            "value": 54.6
+          },
+          {
+            "day": "06-21",
+            "value": 109.2
+          },
+          {
+            "day": "09-23",
+            "value": 54.6
+          },
+          {
+            "day": "12-21",
+            "value": 0.0
+          }
+        ]
+      },
+      "late_night": {
+        "op": "annual_curve",
+        "at": {
+          "op": "input",
+          "name": "date"
+        },
+        "points": [
+          {
+            "day": "03-21",
+            "value": 233.93333333333334
+          },
+          {
+            "day": "06-21",
+            "value": 227.86666666666667
+          },
+          {
+            "day": "09-23",
+            "value": 233.93333333333334
+          },
+          {
+            "day": "12-21",
+            "value": 240.0
+          }
+        ]
+      },
+      "early_morning": {
+        "op": "annual_curve",
+        "at": {
+          "op": "input",
+          "name": "date"
+        },
+        "points": [
+          {
+            "day": "03-21",
+            "value": 323.6
+          },
+          {
+            "day": "06-21",
+            "value": 287.2
+          },
+          {
+            "day": "09-23",
+            "value": 323.6
+          },
+          {
+            "day": "12-21",
+            "value": 360.0
+          }
+        ]
+      },
+      "forenoon": {
+        "op": "annual_curve",
+        "at": {
+          "op": "input",
+          "name": "date"
+        },
+        "points": [
+          {
+            "day": "03-21",
+            "value": 516.6
+          },
+          {
+            "day": "06-21",
+            "value": 493.2
+          },
+          {
+            "day": "09-23",
+            "value": 516.6
+          },
+          {
+            "day": "12-21",
+            "value": 540.0
+          }
+        ]
+      },
+      "midday": {
+        "op": "annual_curve",
+        "at": {
+          "op": "input",
+          "name": "date"
+        },
+        "points": [
+          {
+            "day": "03-21",
+            "value": 709.6
+          },
+          {
+            "day": "06-21",
+            "value": 699.2
+          },
+          {
+            "day": "09-23",
+            "value": 709.6
+          },
+          {
+            "day": "12-21",
+            "value": 720.0
+          }
+        ]
+      },
+      "afternoon": {
+        "op": "annual_curve",
+        "at": {
+          "op": "input",
+          "name": "date"
+        },
+        "points": [
+          {
+            "day": "03-21",
+            "value": 842.6
+          },
+          {
+            "day": "06-21",
+            "value": 845.2
+          },
+          {
+            "day": "09-23",
+            "value": 842.6
+          },
+          {
+            "day": "12-21",
+            "value": 840.0
+          }
+        ]
+      },
+      "late_afternoon": {
+        "op": "annual_curve",
+        "at": {
+          "op": "input",
+          "name": "date"
+        },
+        "points": [
+          {
+            "day": "03-21",
+            "value": 975.6
+          },
+          {
+            "day": "06-21",
+            "value": 991.2
+          },
+          {
+            "day": "09-23",
+            "value": 975.6
+          },
+          {
+            "day": "12-21",
+            "value": 960.0
+          }
+        ]
+      },
+      "evening": {
+        "op": "annual_curve",
+        "at": {
+          "op": "input",
+          "name": "date"
+        },
+        "points": [
+          {
+            "day": "03-21",
+            "value": 1108.6
+          },
+          {
+            "day": "06-21",
+            "value": 1137.2
+          },
+          {
+            "day": "09-23",
+            "value": 1108.6
+          },
+          {
+            "day": "12-21",
+            "value": 1080.0
+          }
+        ]
+      },
+      "late_evening": {
+        "op": "annual_curve",
+        "at": {
+          "op": "input",
+          "name": "date"
+        },
+        "points": [
+          {
+            "day": "03-21",
+            "value": 1301.6
+          },
+          {
+            "day": "06-21",
+            "value": 1343.2
+          },
+          {
+            "day": "09-23",
+            "value": 1301.6
+          },
+          {
+            "day": "12-21",
+            "value": 1260.0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "day.context",
+    "type_version": 1,
+    "language_version": 5,
+    "display_name": "Tagesart",
+    "inputs": [
+      {
+        "name": "weekday",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "holiday",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "calendar",
+        "schema": {
+          "type": "object",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "frei",
+            "wochenende",
+            "werktag"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "ref",
+              "name": "free"
+            },
+            "then": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "frei"
+                ]
+              },
+              "value": "frei"
+            }
+          },
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "ref",
+                  "name": "free"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "input",
+                "name": "weekday"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "wochenende",
+                  "werktag"
+                ]
+              },
+              "entries": {
+                "1": "werktag",
+                "2": "werktag",
+                "3": "werktag",
+                "4": "werktag",
+                "5": "werktag",
+                "6": "wochenende",
+                "7": "wochenende"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "rules": {
+      "free": {
+        "op": "or",
+        "args": [
+          {
+            "op": "fusion",
+            "strategy": "first_usable",
+            "args": [
+              {
+                "op": "input",
+                "name": "holiday"
+              },
+              {
+                "op": "literal",
+                "schema": {
+                  "type": "bool",
+                  "required": true,
+                  "physical_state": false
+                },
+                "value": false
+              }
+            ]
+          },
+          {
+            "op": "fusion",
+            "strategy": "first_usable",
+            "args": [
+              {
+                "op": "calendar_active",
+                "arg": {
+                  "op": "input",
+                  "name": "calendar"
+                },
+                "pattern": {
+                  "op": "parameter",
+                  "name": "vacation_pattern"
+                },
+                "all_day_only": true
+              },
+              {
+                "op": "literal",
+                "schema": {
+                  "type": "bool",
+                  "required": true,
+                  "physical_state": false
+                },
+                "value": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "parameter_schema": {
+      "vacation_pattern": {
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        },
+        "label": "Urlaubsmuster",
+        "description": "Platzhaltermuster; Groß- und Kleinschreibung spielen keine Rolle."
+      }
+    }
+  },
+  {
+    "type_id": "season.meteorological",
+    "type_version": 1,
+    "language_version": 5,
+    "display_name": "Meteorologische Jahreszeit",
+    "inputs": [
+      {
+        "name": "season",
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "spring",
+            "summer",
+            "autumn",
+            "winter"
+          ]
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "spring",
+            "summer",
+            "autumn",
+            "winter"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "input",
+        "name": "season"
+      }
+    }
+  },
+  {
+    "type_id": "sun.elevation",
+    "type_version": 1,
+    "language_version": 5,
+    "display_name": "Sonnenhöhe",
+    "inputs": [
+      {
+        "name": "measurement",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°"
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "input",
+        "name": "measurement"
+      }
+    }
+  },
+  {
+    "type_id": "sun.azimuth",
+    "type_version": 1,
+    "language_version": 5,
+    "display_name": "Sonnenrichtung",
+    "inputs": [
+      {
+        "name": "measurement",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°"
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "input",
+        "name": "measurement"
+      }
+    }
+  },
+  {
+    "type_id": "outdoor.illuminance",
+    "type_version": 1,
+    "language_version": 5,
+    "display_name": "Beleuchtungsstärke draußen",
+    "inputs": [
+      {
+        "name": "measurement",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "lx"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "lx"
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "input",
+        "name": "measurement"
+      }
+    }
+  },
+  {
+    "type_id": "outdoor.brightness",
+    "type_version": 1,
+    "language_version": 5,
+    "display_name": "Helligkeit draußen",
+    "inputs": [
+      {
+        "name": "lux",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "lx"
+        }
+      },
+      {
+        "name": "season",
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "spring",
+            "summer",
+            "autumn",
+            "winter"
+          ]
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "dark",
+            "bright"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "bucket",
+        "id": "brightness",
+        "arg": {
+          "op": "input",
+          "name": "lux"
+        },
+        "classes": [
+          "dark",
+          "bright"
+        ],
+        "boundaries": [
+          {
+            "at": {
+              "op": "ref",
+              "name": "bright"
+            },
+            "hysteresis": {
+              "lower": {
+                "op": "ref",
+                "name": "dark"
+              },
+              "upper": {
+                "op": "ref",
+                "name": "bright"
+              }
+            }
+          }
+        ],
+        "initial": {
+          "unknown": true
+        },
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "dark",
+            "bright"
+          ]
+        }
+      }
+    },
+    "rules": {
+      "dark": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "compare",
+              "comparison": "eq",
+              "left": {
+                "op": "input",
+                "name": "season"
+              },
+              "right": {
+                "op": "literal",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                },
+                "value": "spring"
+              }
+            },
+            "then": {
+              "op": "parameter",
+              "name": "spring_dark"
+            }
+          },
+          {
+            "when": {
+              "op": "compare",
+              "comparison": "eq",
+              "left": {
+                "op": "input",
+                "name": "season"
+              },
+              "right": {
+                "op": "literal",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                },
+                "value": "summer"
+              }
+            },
+            "then": {
+              "op": "parameter",
+              "name": "summer_dark"
+            }
+          },
+          {
+            "when": {
+              "op": "compare",
+              "comparison": "eq",
+              "left": {
+                "op": "input",
+                "name": "season"
+              },
+              "right": {
+                "op": "literal",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                },
+                "value": "autumn"
+              }
+            },
+            "then": {
+              "op": "parameter",
+              "name": "autumn_dark"
+            }
+          },
+          {
+            "when": {
+              "op": "compare",
+              "comparison": "eq",
+              "left": {
+                "op": "input",
+                "name": "season"
+              },
+              "right": {
+                "op": "literal",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                },
+                "value": "winter"
+              }
+            },
+            "then": {
+              "op": "parameter",
+              "name": "winter_dark"
+            }
+          }
+        ]
+      },
+      "bright": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "compare",
+              "comparison": "eq",
+              "left": {
+                "op": "input",
+                "name": "season"
+              },
+              "right": {
+                "op": "literal",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                },
+                "value": "spring"
+              }
+            },
+            "then": {
+              "op": "parameter",
+              "name": "spring_bright"
+            }
+          },
+          {
+            "when": {
+              "op": "compare",
+              "comparison": "eq",
+              "left": {
+                "op": "input",
+                "name": "season"
+              },
+              "right": {
+                "op": "literal",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                },
+                "value": "summer"
+              }
+            },
+            "then": {
+              "op": "parameter",
+              "name": "summer_bright"
+            }
+          },
+          {
+            "when": {
+              "op": "compare",
+              "comparison": "eq",
+              "left": {
+                "op": "input",
+                "name": "season"
+              },
+              "right": {
+                "op": "literal",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                },
+                "value": "autumn"
+              }
+            },
+            "then": {
+              "op": "parameter",
+              "name": "autumn_bright"
+            }
+          },
+          {
+            "when": {
+              "op": "compare",
+              "comparison": "eq",
+              "left": {
+                "op": "input",
+                "name": "season"
+              },
+              "right": {
+                "op": "literal",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                },
+                "value": "winter"
+              }
+            },
+            "then": {
+              "op": "parameter",
+              "name": "winter_bright"
+            }
+          }
+        ]
+      }
+    },
+    "parameter_schema": {
+      "spring_dark": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "lx"
+        },
+        "minimum": 0,
+        "label": "Frühling / dunkel"
+      },
+      "spring_bright": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "lx"
+        },
+        "minimum": 0,
+        "label": "Frühling / hell"
+      },
+      "summer_dark": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "lx"
+        },
+        "minimum": 0,
+        "label": "Sommer / dunkel"
+      },
+      "summer_bright": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "lx"
+        },
+        "minimum": 0,
+        "label": "Sommer / hell"
+      },
+      "autumn_dark": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "lx"
+        },
+        "minimum": 0,
+        "label": "Herbst / dunkel"
+      },
+      "autumn_bright": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "lx"
+        },
+        "minimum": 0,
+        "label": "Herbst / hell"
+      },
+      "winter_dark": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "lx"
+        },
+        "minimum": 0,
+        "label": "Winter / dunkel"
+      },
+      "winter_bright": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "lx"
+        },
+        "minimum": 0,
+        "label": "Winter / hell"
+      }
+    },
+    "parameter_relations": [
+      {
+        "left": "spring_dark",
+        "comparison": "lt",
+        "right": "spring_bright"
+      },
+      {
+        "left": "summer_dark",
+        "comparison": "lt",
+        "right": "summer_bright"
+      },
+      {
+        "left": "autumn_dark",
+        "comparison": "lt",
+        "right": "autumn_bright"
+      },
+      {
+        "left": "winter_dark",
+        "comparison": "lt",
+        "right": "winter_bright"
+      }
+    ]
+  }
+]

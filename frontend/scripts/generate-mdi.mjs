@@ -16,7 +16,7 @@ for (const [key, value] of Object.entries(paths)) shards[shardFor(key)][key] = v
 const target = resolve(root, 'src/assets/mdi');
 await mkdir(target, { recursive: true });
 for (let index = 0; index < shards.length; index++) await writeFile(resolve(target, `${index.toString(16).padStart(2, '0')}.json`), JSON.stringify(shards[index])+'\n');
-const small = Object.fromEntries(['thermometer', 'lightbulb', 'account-check', 'sleep', 'play-circle', 'shape', 'home', 'window-open-variant'].map(name => [`mdi:${name}`, paths['mdi'+name.split('-').map(part => part[0].toUpperCase()+part.slice(1)).join('')]]));
+const small = Object.fromEntries(['thermometer', 'lightbulb', 'account-check', 'sleep', 'play-circle', 'shape', 'home', 'window-open-variant', 'weather-sunset'].map(name => [`mdi:${name}`, paths['mdi'+name.split('-').map(part => part[0].toUpperCase()+part.slice(1)).join('')]]));
 await writeFile(resolve(root, 'src/assets/mdi-categories.json'), JSON.stringify(small)+'\n');
 await mkdir(resolve(root, 'public/licenses'), { recursive: true });
 await writeFile(resolve(root, 'public/licenses/material-design-icons.txt'), await readFile(resolve(packageRoot, 'LICENSE'), 'utf8'));

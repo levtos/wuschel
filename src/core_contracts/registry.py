@@ -269,7 +269,7 @@ class RegistryConfig(Model):
             raise ValueError("ha_projection_limit")
         if (
             any(isinstance(c, ManagedCatalog) for c in self.catalogs)
-            or any(d.language_version == 4 for d in self.definitions)
+            or any(d.language_version >= 4 for d in self.definitions)
         ) and (self.config_schema_version < 3 or self.fingerprint_version < 3):
             raise ValueError("registry_schema_3_required")
         if len({producer.producer_id for producer in self.context_producers}) != len(

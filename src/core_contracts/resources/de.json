@@ -254,5 +254,11 @@
   "codes.editorial_scope_conflict": "Der Vertrag oder die Vorlage wurde inzwischen übernommen. Lade die Angaben neu.",
   "codes.editorial_object_not_found": "Der Vertrag oder die Vorlage wurde nicht gefunden.",
   "codes.editorial_draft_limit": "Zu diesem Entwurf sind zu viele Angaben gespeichert. Entferne nicht mehr benötigte Entwürfe.",
-  "codes.editorial_restore_conflict": "Zwei gespeicherte Stände enthalten widersprüchliche Angaben zu Kategorie oder Raum."
+  "codes.editorial_restore_conflict": "Zwei gespeicherte Stände enthalten widersprüchliche Angaben zu Kategorie oder Raum.",
+  "codes.annual_curve": "Wert im Jahresverlauf",
+  "codes.calendar_active": "Passender Termin aktiv",
+  "codes.language_version_5_required": "Diese Regel benötigt Regelsprache 5.",
+  "codes.annual_curve_points_order": "Stützpunkte müssen eindeutig und nach Datum geordnet sein.",
+  "codes.annual_curve_leap_day_required": "Wähle den Umgang mit dem 29. Februar.",
+  "codes.annual_curve_points_collision": "Stützpunkte müssen auch in normalen Jahren verschieden sein."
 }

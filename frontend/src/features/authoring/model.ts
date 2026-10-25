@@ -103,6 +103,10 @@ export function newRule(op: string, ctx: RuleContext, defaults: OperatorDefaults
       return { op, name: ctx.ruleNames[0] ?? '' };
     case 'literal':
       return literal('bool');
+    case 'annual_curve':
+      return { op, at: inputRule(), points: [{ day: '01-01', value: 0 }, { day: '07-01', value: 1 }] };
+    case 'calendar_active':
+      return { op, arg: inputRule(), pattern: literal('text', '*'), all_day_only: false };
     case 'and':
     case 'or':
       return { op, args: [inputRule(), inputRule()] };
@@ -143,7 +147,7 @@ export function convertRule(old: Rule, op: string, ctx: RuleContext, defaults: O
     const args = op === 'not' ? old.args.slice(0, 1) : old.args.length >= 1 ? old.args : newRule(op, ctx, defaults).args!;
     return { ...old, op, args };
   }
-  const known = new Set(['op', 'name', 'schema', 'value', 'args', 'comparison', 'left', 'right', 'arg', 'entries', 'cases', 'id', 'initial', 'lower', 'upper', 'version', 'strategy', 'operation', 'duration_s', 'accepts_held']);
+  const known = new Set(['op', 'name', 'schema', 'value', 'args', 'comparison', 'left', 'right', 'arg', 'entries', 'cases', 'id', 'initial', 'lower', 'upper', 'version', 'strategy', 'operation', 'duration_s', 'accepts_held', 'at', 'points', 'leap_day', 'pattern', 'all_day_only']);
   const extra = Object.fromEntries(Object.entries(old).filter(([key]) => !known.has(key)));
   const next = newRule(op, ctx, defaults);
   return { ...extra, ...next, ...(next.id !== undefined && old.id !== undefined ? { id: old.id } : {}) };
@@ -155,7 +159,8 @@ export function ruleChildren(rule: Rule): { key: (string | number)[]; rule: Rule
   const add = (key: (string | number)[], value: Json | undefined) => {
     if (isObject(value) && typeof value.op === 'string') out.push({ key, rule: value as Rule });
   };
-  for (const name of ['arg', 'left', 'right', 'at', 'when', 'duration_s']) add([name], rule[name]);
+  for (const name of ['arg', 'left', 'right', 'at', 'when', 'duration_s', 'pattern']) add([name], rule[name]);
+  if (Array.isArray(rule.points)) rule.points.forEach((point, i) => { if (isObject(point)) add(['points', i, 'value'], point.value); });
   if (Array.isArray(rule.args)) rule.args.forEach((arg, i) => add(['args', i], arg));
   else if (isObject(rule.args)) Object.entries(rule.args).forEach(([name, arg]) => add(['args', name], arg));
   if (Array.isArray(rule.boundaries)) rule.boundaries.forEach((boundary, i) => {
@@ -201,6 +206,7 @@ export function withMinimumLanguage(definition: JsonObject): JsonObject {
   if (Object.keys(asObject(definition.output_origins)).length || machine.unknown_deadline || machine.absolute_transition || Object.keys(asObject(machine.deadline_by_state)).length) version = Math.max(version, 3);
   for (const { rule } of definitionRoots(definition)) walkRule(rule, node => {
     if (node.op === 'known_automatic') version = Math.max(version, 3);
+    if (node.op === 'annual_curve' || node.op === 'calendar_active') version = Math.max(version, 5);
   });
   return version > Number(definition.language_version ?? 1) ? { ...definition, language_version: version } : definition;
 }
@@ -252,7 +258,7 @@ export function renameKey<T extends Json>(object: { [key: string]: T }, from: st
 }
 
 /** Rewrite every reference to a renamed rule/input name within a definition. */
-export function renameReferences(definition: JsonObject, kind: 'ref' | 'input', from: string, to: string): JsonObject {
+export function renameReferences(definition: JsonObject, kind: 'ref' | 'input' | 'parameter', from: string, to: string): JsonObject {
   const next = clone(definition);
   for (const { rule } of definitionRoots(next)) {
     walkRule(rule, (node) => {
@@ -262,7 +268,7 @@ export function renameReferences(definition: JsonObject, kind: 'ref' | 'input', 
   return next;
 }
 
-export function referencedNames(definition: JsonObject, kind: 'ref' | 'input'): Map<string, number> {
+export function referencedNames(definition: JsonObject, kind: 'ref' | 'input' | 'parameter'): Map<string, number> {
   const count = new Map<string, number>();
   for (const { rule } of definitionRoots(definition)) {
     walkRule(rule, (node) => {

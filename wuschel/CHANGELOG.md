@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0b9 — Zeit, Tag und Sonne (Kandidat)
+
+- „Wert im Jahresverlauf“ berechnet saisonale Werte aus Datum und bearbeitbaren Stützpunkten.
+- „Passender Termin aktiv“ erkennt passende Kalendertermine und plant Beginn, Ende und Gültigkeitsgrenzen ohne neuen Abfragetakt.
+- Sieben importierbare Vorlagen für Tagesphase, Tagesart, Jahreszeit, Sonne und Außenhelligkeit; Kategorie „Zeit, Tag und Sonne“.
+- Kalenderinhalte bleiben privat. Vorhandene Vorlagen und Traber 1.0.0b5 bleiben unverändert; keine Datenbankmigration.
+
 ## 1.0.0b8 — Stabile HA-Verbindung nach Übernahme
 
 - Eine noch offene HA-Projektion der vorherigen Verbindung kann nach dem Übernehmen keine endlose Neuverbindung mehr auslösen. HA-Quellen erhalten wieder ihren ersten Snapshot.
