@@ -2455,6 +2455,38 @@
               "new_episode": false,
               "ends_episode": false,
               "argument_equals": {}
+            },
+            {
+              "source": "arrived",
+              "target": "away_seen",
+              "event": "input",
+              "guard": {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "parents",
+                      "away"
+                    ],
+                    "unit": null
+                  },
+                  "value": "away"
+                }
+              },
+              "reason": "observed_reentry",
+              "new_episode": false,
+              "ends_episode": false,
+              "argument_equals": {}
             }
           ],
           "commands": {},
@@ -2657,6 +2689,38 @@
                 "value": true
               },
               "reason": "hold_elapsed",
+              "new_episode": false,
+              "ends_episode": false,
+              "argument_equals": {}
+            },
+            {
+              "source": "left",
+              "target": "here_seen",
+              "event": "input",
+              "guard": {
+                "op": "compare",
+                "comparison": "ne",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "parents",
+                      "away"
+                    ],
+                    "unit": null
+                  },
+                  "value": "away"
+                }
+              },
+              "reason": "observed_reentry",
               "new_episode": false,
               "ends_episode": false,
               "argument_equals": {}
@@ -2993,6 +3057,96 @@
                 "value": true
               },
               "reason": "hold_elapsed",
+              "new_episode": false,
+              "ends_episode": false,
+              "argument_equals": {}
+            },
+            {
+              "source": "done",
+              "target": "approach_seen",
+              "event": "input",
+              "guard": {
+                "op": "and",
+                "args": [
+                  {
+                    "op": "compare",
+                    "comparison": "eq",
+                    "left": {
+                      "op": "input",
+                      "name": "location"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "parents",
+                          "away"
+                        ],
+                        "unit": null
+                      },
+                      "value": "away"
+                    }
+                  },
+                  {
+                    "op": "or",
+                    "args": [
+                      {
+                        "op": "compare",
+                        "comparison": "eq",
+                        "left": {
+                          "op": "input",
+                          "name": "band"
+                        },
+                        "right": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [
+                              "home",
+                              "preheat",
+                              "near",
+                              "far"
+                            ],
+                            "unit": null
+                          },
+                          "value": "near"
+                        }
+                      },
+                      {
+                        "op": "compare",
+                        "comparison": "eq",
+                        "left": {
+                          "op": "input",
+                          "name": "band"
+                        },
+                        "right": {
+                          "op": "literal",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": true,
+                            "value_catalog": [
+                              "home",
+                              "preheat",
+                              "near",
+                              "far"
+                            ],
+                            "unit": null
+                          },
+                          "value": "preheat"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "reason": "observed_reentry",
               "new_episode": false,
               "ends_episode": false,
               "argument_equals": {}
@@ -3389,12 +3543,12 @@
       "definitions:presence.distance_band@1": "81b04f366d2c472d8957e9685279cc435b6c731779a5373ca46651050ac488e3",
       "definitions:presence.direction@1": "d9d9481063de81ada73311da77d19c067c6cecf158943ce2c70877537c16ddf8",
       "definitions:presence.approaching@1": "210b5daa2e230b7cc7ebb698ae867ee4bbdd9e1a62c4d7a8250202ec413ac74c",
-      "definitions:presence.arrival@1": "490233b0cedbaf4ec4b0b0f0122119ded4a4650122764438257e35738cce226c",
-      "definitions:presence.departure@1": "773dedad04be7b0885bff5ee6e3ebf49a188c27e69dda37fdf362d13e063dfff",
-      "definitions:presence.passing@1": "8978b0d8974271624ea6ee56e1896cbf453709a8092ccf4dce96fdf850a7e5dd",
+      "definitions:presence.arrival@1": "942a43c3cf257c400b3338284310cecb1655489347adcce94fc82e9ae1a728b0",
+      "definitions:presence.departure@1": "9360edfa7d5ba7414b3ed69ec2314ec75def0dc9b8a43c505d72bb514ce9f4b7",
+      "definitions:presence.passing@1": "8fb58ceee1faaa030c7c6121eacce0a495a11914481a7da3a2797d980eedfa7f",
       "definitions:presence.household_occupied@1": "f9b2078f7af56d016fdda144ed968b54297677d10bc34ac5e66a838fe1e4177a"
     },
-    "config_digest": "7922e67204ad78571db12b367e2a030bad5fedae582d10a1d1c9e9e40ebf3c78",
-    "payload_digest": "876ab499db2cf4a658a4c83547031e83d64ba54be6bc7d20123d5f8b3aa0f81d"
+    "config_digest": "dc93aae0dc1a531096245dd102368e7089af681c9747995cf7947c73cb88cfce",
+    "payload_digest": "a30d047514193575d50353739a580e9e609d7c8bfe444aa2d1160e7d38fb2160"
   }
 }

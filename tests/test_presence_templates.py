@@ -2,7 +2,7 @@
 
 import copy
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -249,6 +249,45 @@ def test_unknown_keeps_due_machine_deadline_until_valid_evidence_returns():
     assert h.evaluate(origin="tick", location=None).status == "unknown"
     assert h.node["machine"]["deadline"] == original
     assert h.evaluate(location="parents").value is False
+
+
+@pytest.mark.parametrize(
+    "name,first,second",
+    [
+        ("arrival", {"location": "away"}, {"location": "home"}),
+        ("arrival", {"location": "away"}, {"location": "parents"}),
+        ("departure", {"location": "home"}, {"location": "away"}),
+        ("departure", {"location": "parents"}, {"location": "away"}),
+        ("passing", {"location": "away", "band": "near"}, {"location": "away", "band": "far"}),
+        ("passing", {"location": "away", "band": "preheat"}, {"location": "away", "band": "far"}),
+    ],
+)
+def test_reentry_during_hold_cancels_old_deadline_and_rearms_following_cycles(name, first, second):
+    h = Harness(name)
+    assert h.evaluate(**first).value is False
+    h.clock.advance(1)
+    assert h.evaluate(**second).value is True
+    old_deadline = copy.deepcopy(h.node["machine"]["deadline"])
+    h.clock.advance(30)
+    assert h.evaluate(**first).value is False
+    waiting = copy.deepcopy(h.node["machine"])
+    assert waiting["deadline"] is None
+    h.clock.advance(90)
+    assert h.evaluate(origin="tick", **first).value is False
+    assert h.node["machine"]["state"] == waiting["state"]
+    assert h.node["machine"]["deadline"] is None
+    h.clock.advance(3480)
+    assert h.evaluate(**second).value is True
+    new_deadline = h.node["machine"]["deadline"]
+    assert new_deadline["deadline_id"] != old_deadline["deadline_id"]
+    assert datetime.fromisoformat(new_deadline["at"]) == h.clock.now_utc() + timedelta(seconds=120)
+    h.clock.advance(120)
+    assert h.evaluate(origin="tick", **second).value is False
+    assert h.node["machine"]["state"] == "idle"
+    h.clock.advance(1)
+    assert h.evaluate(**first).value is False
+    h.clock.advance(1)
+    assert h.evaluate(**second).value is True
 
 
 @pytest.mark.parametrize(

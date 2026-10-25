@@ -1286,6 +1286,34 @@
             "value": true
           },
           "reason": "hold_elapsed"
+        },
+        {
+          "source": "arrived",
+          "target": "away_seen",
+          "event": "input",
+          "guard": {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "input",
+              "name": "location"
+            },
+            "right": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": true,
+                "value_catalog": [
+                  "home",
+                  "parents",
+                  "away"
+                ]
+              },
+              "value": "away"
+            }
+          },
+          "reason": "observed_reentry"
         }
       ]
     }
@@ -1466,6 +1494,34 @@
             "value": true
           },
           "reason": "hold_elapsed"
+        },
+        {
+          "source": "left",
+          "target": "here_seen",
+          "event": "input",
+          "guard": {
+            "op": "compare",
+            "comparison": "ne",
+            "left": {
+              "op": "input",
+              "name": "location"
+            },
+            "right": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": true,
+                "value_catalog": [
+                  "home",
+                  "parents",
+                  "away"
+                ]
+              },
+              "value": "away"
+            }
+          },
+          "reason": "observed_reentry"
         }
       ]
     }
@@ -1784,6 +1840,90 @@
             "value": true
           },
           "reason": "hold_elapsed"
+        },
+        {
+          "source": "done",
+          "target": "approach_seen",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "compare",
+                "comparison": "eq",
+                "left": {
+                  "op": "input",
+                  "name": "location"
+                },
+                "right": {
+                  "op": "literal",
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": true,
+                    "value_catalog": [
+                      "home",
+                      "parents",
+                      "away"
+                    ]
+                  },
+                  "value": "away"
+                }
+              },
+              {
+                "op": "or",
+                "args": [
+                  {
+                    "op": "compare",
+                    "comparison": "eq",
+                    "left": {
+                      "op": "input",
+                      "name": "band"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "preheat",
+                          "near",
+                          "far"
+                        ]
+                      },
+                      "value": "near"
+                    }
+                  },
+                  {
+                    "op": "compare",
+                    "comparison": "eq",
+                    "left": {
+                      "op": "input",
+                      "name": "band"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "schema": {
+                        "type": "enum",
+                        "required": true,
+                        "physical_state": true,
+                        "value_catalog": [
+                          "home",
+                          "preheat",
+                          "near",
+                          "far"
+                        ]
+                      },
+                      "value": "preheat"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "observed_reentry"
         }
       ]
     }
