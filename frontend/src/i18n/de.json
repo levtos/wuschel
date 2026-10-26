@@ -2899,5 +2899,6 @@
   "codes.warn_only": "Nur auf den Konflikt hinweisen",
   "codes.wake_earlier": "Wegen des Termins früher wecken",
   "codes.first_in_episode": "Erster Eintritt der Episode",
-  "sleep.machine.timeRule": "Zeitpunkt aus einer Regel"
+  "sleep.machine.timeRule": "Zeitpunkt aus einer Regel",
+  "sleep.exception.form": "Weckausnahme für einen Tag"
 }

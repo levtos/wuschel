@@ -195,6 +195,7 @@ export function SourceEditor({ value, onChange, pointer, dependencyIds, sourceId
       </Collapsible>
       {manual && <section className="space-y-3">
         <p className="text-sm text-muted">{uiText('alpha9.manual.origin')}</p>
+        {asObject(value.value_schema).type === 'object' && <Fld label={uiText('fields.manual_structured_schema')} pointer={join(pointer, 'manual_structured_schema')}>{props => <Select {...props} value={str(value.manual_structured_schema)} onChange={event => set({ manual_structured_schema: event.target.value || undefined })}><option value="">{uiText('editors.RegistryObjects.keine_db028e')}</option><option value="wake_exception_v1">{uiText('sleep.exception.form')}</option></Select>}</Fld>}
         <Switch label={uiText('alpha9.manual.future')} checked={value.manual_allow_future === true} onCheckedChange={on => set({ manual_allow_future: on || undefined })} />
         {asObject(value.value_schema).type === 'number' && <div className="grid gap-3 sm:grid-cols-2">{(['manual_minimum', 'manual_maximum'] as const).map(key => <Fld key={key} label={uiText(`alpha9.manual.${key}`)} pointer={join(pointer, key)}>{props => <Input {...props} type="number" step="any" value={typeof value[key] === 'number' ? Number(value[key]) : ''} onChange={event => set({ [key]: event.target.value === '' ? undefined : event.target.valueAsNumber })} />}</Fld>)}</div>}
       </section>}

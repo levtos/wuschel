@@ -23,3 +23,11 @@ it('edits manual limits without JSON and offers only valid manual freshness mode
   await user.click(screen.getByRole('switch', { name: t('alpha9.manual.future') }));
   expect(result.manual_allow_future).toBe(true);
 });
+
+it('offers the date-bound form only for a manual object source', async () => {
+  let result: JsonObject = {};
+  wrap(<Stateful initial={{ source_id: 'source.exception', source_type: 'state', origin: 'manual', value_schema: { type: 'object', required: true, physical_state: false }, freshness: { mode: 'event_stateful', future_tolerance_s: 0 } }} onValue={value => { result = value; }}>{(value, onChange) => <SourceEditor value={value} onChange={onChange} pointer="/sources/0" dependencyIds={[]} sourceIds={['source.exception']} />}</Stateful>);
+  await userEvent.selectOptions(screen.getByLabelText(t('fields.manual_structured_schema')), 'wake_exception_v1');
+  expect(result.manual_structured_schema).toBe('wake_exception_v1');
+  expect(screen.queryByTestId('extras-Source')).toBeNull();
+});
