@@ -72,6 +72,8 @@ class JsonFormatter(logging.Formatter):
                         "previous_status",
                         "status",
                         "writer_pid",
+                        "binding_id",
+                        "error_code",
                     )
                     if k in record.__dict__
                 },

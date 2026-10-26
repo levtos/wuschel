@@ -2830,5 +2830,16 @@
   "codes.language_version_5_required": "Diese Regel benötigt Regelsprache 5.",
   "codes.annual_curve_points_order": "Stützpunkte müssen eindeutig und nach Datum geordnet sein.",
   "codes.annual_curve_leap_day_required": "Wähle den Umgang mit dem 29. Februar.",
-  "codes.annual_curve_points_collision": "Stützpunkte müssen auch in normalen Jahren verschieden sein."
+  "codes.annual_curve_points_collision": "Stützpunkte müssen auch in normalen Jahren verschieden sein.",
+  "b10.keepFileRules": "Regeln aus Datei beibehalten",
+  "b10.unchangedSources": "{count} bestehende Quellen bleiben unverändert",
+  "b10.optionalKind": "Den Sensortyp kannst du optional bestätigen. Ohne Auswahl bleiben die Regeln aus der Datei erhalten.",
+  "b10.previewUpdating": "Auswahl geändert – Vorschau wird aktualisiert",
+  "b10.previewFailed": "Die Vorschau konnte nicht aktualisiert werden. Prüfe den Fehler und versuche es erneut.",
+  "b10.retryPreview": "Vorschau erneut prüfen",
+  "b10.calendarStatus": "Kalenderabruf",
+  "b10.calendarLoading": "Kalenderabruf wird geladen …",
+  "b10.calendarFetched": "Zuletzt gelesen",
+  "b10.calendarExpires": "Gültig bis",
+  "b10.calendarFailed": "Kalender konnte nicht gelesen werden"
 }

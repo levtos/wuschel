@@ -20,6 +20,7 @@ import { useCapabilities } from '@/lib/queries';
 import { describeError } from '@/lib/api';
 import { DeviceWizard } from './DeviceWizard';
 import { CalendarSourceDialog } from './CalendarSourceDialog';
+import { CalendarSourceStatus } from './CalendarSourceStatus';
 import { ManualSourceDialog } from './ManualSourceDialog';
 import { ManualSourcePanel } from './ManualSourcePanel';
 import { codeLabel } from '@/i18n/codes';
@@ -120,6 +121,7 @@ function Collection({ name, idKey, singular, make, render, subtitle, usage, onMo
               )}
             </div>
             <div className="text-xs text-muted">{usage(current, config)}</div>
+            {name === 'sources' && !src.editable && asArray(config.bindings).filter(isObject).some(binding => binding.source_id === current.source_id && asObject(binding.adapter).kind === 'ha_calendar') && <CalendarSourceStatus sourceId={str(current.source_id)} />}
             {name === 'sources' && current.origin === 'manual' && !src.editable ? <>
               <ManualSourcePanel key={str(current.source_id)} sourceId={str(current.source_id)} />
               <Collapsible title={uiText('alpha9.manual.configuration')}><fieldset disabled={!src.editable} className="min-w-0">

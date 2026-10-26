@@ -5,6 +5,7 @@ import pytest
 from core_contracts.calendar_cache import CalendarWindow, normalize_events
 from core_contracts.persistence import PersistenceUnavailable
 from core_contracts.registry import validate
+from core_contracts.service_jobs import calendar_status, plan_calendars
 
 from .conftest import activate
 
@@ -127,6 +128,71 @@ async def test_missing_calendar_is_not_valid_empty_and_backoff_is_bounded(runtim
         )
         runtime.clock.advance(delay)
         await runtime.submit("tick")
+
+
+async def test_failure_series_logs_once_resets_on_success_and_exposes_metadata_only(
+    runtime, config, caplog
+):
+    await activate(runtime, calendar_config(config))
+    caplog.set_level("WARNING", logger="core_contracts.runtime")
+
+    async def fail(code):
+        runtime.bridge, runtime.bridge_protocol_selected = "connected", 2
+        job = await runtime.submit("service_claim")
+        assert job
+        await runtime.submit(
+            "service_complete",
+            {
+                "job_id": job["job_id"],
+                "response": {
+                    "outcome": "failed",
+                    "error_code": code,
+                    "data": {"summary": "PRIVATE PROVIDER TEXT"},
+                },
+            },
+        )
+
+    await fail("PRIVATE PROVIDER TEXT")
+    runtime.clock.advance(5)
+    await runtime.submit("tick")
+    await fail("ha_unavailable")
+    warnings = [row for row in caplog.records if row.message == "calendar_fetch_failed"]
+    assert len(warnings) == 1
+    assert warnings[0].binding_id == "binding.a"
+    assert warnings[0].error_code == "calendar_fetch_failed"
+    assert "PRIVATE PROVIDER TEXT" not in str([vars(row) for row in caplog.records])
+    from core_contracts.app import JsonFormatter, TextFormatter
+
+    for formatter in (JsonFormatter(), TextFormatter()):
+        rendered = formatter.format(warnings[0])
+        assert "binding.a" in rendered and "calendar_fetch_failed" in rendered
+        assert "PRIVATE PROVIDER TEXT" not in rendered
+    status = calendar_status(runtime.state, runtime.config)
+    assert status == [
+        {
+            "binding_id": "binding.a",
+            "source_id": "source.a",
+            "fetched_at": None,
+            "expires_at": None,
+            "error_code": "ha_unavailable",
+        }
+    ]
+    runtime.clock.advance(30)
+    await runtime.submit("tick")
+    await fetch(runtime)
+    healthy = calendar_status(runtime.state, runtime.config)[0]
+    assert healthy["error_code"] is None
+    assert datetime.fromisoformat(healthy["expires_at"]) > runtime.clock.now_utc()
+    runtime.clock.advance(900)
+    await runtime.submit("tick")
+    await fail("timeout")
+    assert len([row for row in caplog.records if row.message == "calendar_fetch_failed"]) == 2
+    assert calendar_status(runtime.state, runtime.config)[0]["expires_at"] == healthy["expires_at"]
+    plan_calendars(runtime.state, runtime.config, runtime.clock.now_utc() + timedelta(days=1))
+    assert (
+        runtime.state.tables["service_state"]["calendar:binding.a"]["failure_warning_emitted"]
+        is True
+    )
 
 
 async def test_commit_failure_prevents_dispatch_and_late_result_cannot_replace_new_generation(

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0b10 — Kalenderabruf und Importdialog
+
+- Traber übersetzt Kalenderfenster an der HA-Grenze in `start_date_time` und `end_date_time`; das Drahtprotokoll bleibt unverändert. Regression gegen den echten HA-Kalenderdienst.
+- Fehlgeschlagene Abrufe melden einmal je Fehlerserie einen statischen Code; die Quellenansicht zeigt Abrufzeit, Ablaufzeit und Fehler ohne Termininhalt.
+- Aktualitätsauswahl aktualisiert die Importvorschau automatisch. Unveränderte Quellen bleiben implizit erhalten; Sensortyp und Zuordnung sind optional.
+- Wuschel und Traber tragen 1.0.0b10. Keine Datenbankmigration, Vorlagen- oder Paketänderung.
+
 ## 1.0.0b9 — Zeit, Tag und Sonne (Kandidat)
 
 - Regelsprache 5 ergänzt Jahreskurven mit echten Kalendertagen und Kalendertreffer mit genauer Terminplanung ohne Abfragetakt.

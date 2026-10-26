@@ -546,8 +546,8 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await waitFor(() => expect(importPreview).toBeEnabled());
     await user.click(importPreview);
     await screen.findByRole('heading', { name: 'Aktualität zuordnen' });
-    await user.selectOptions(screen.getByLabelText('Aktualität zuordnen'), 'own');
-    await clickReadyButton(user, screen.getByRole('button', { name: 'Datei prüfen und Vorschau anzeigen' }), 'Datei prüfen und Vorschau anzeigen');
+    await screen.findByText('2 bestehende Quellen bleiben unverändert');
+    expect(screen.queryByLabelText('Aktualität zuordnen')).not.toBeInTheDocument();
     await screen.findByText('0 Quellen haben gegenüber der Datei eine andere wirksame Aktualitätsregel.');
     await user.click(screen.getByRole('button', { name: 'Als Entwurf einlesen' }));
     await waitFor(() => expect(window.location.hash).toBe(`#/changes/drafts/${target.draft_id}`));
@@ -556,7 +556,11 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     expect(importedResponse.status).toBe(200);
     const imported = importedResponse.body;
     expect(imported.draft_version).toBe(2);
-    expect((imported.config.sources as JsonObject[]).filter(source => (source.freshness_selection as JsonObject).kind === 'own')).toHaveLength(2);
+    const importedSources = imported.config.sources as JsonObject[];
+    expect(importedSources).toHaveLength(7);
+    for (const original of activated.config.sources as JsonObject[]) {
+      expect(importedSources.find(source => source.source_id === original.source_id)?.freshness_selection).toEqual(original.freshness_selection);
+    }
     expect((await raw<RevisionRow>('registry/active')).body.checksum).toBe(activated.checksum);
   }, 240_000);
 });

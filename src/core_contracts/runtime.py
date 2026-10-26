@@ -1088,7 +1088,24 @@ class Runtime:
                     origin="input" if service_observation else "timer",
                     trigger_source=service_observation.source_id if service_observation else None,
                 )
+            calendar_row = state.tables["service_state"].get(job.get("state_key", ""), {})
+            warn_calendar_failure = (
+                job["kind"] == "calendar"
+                and bool(calendar_row.get("failures"))
+                and not calendar_row.get("failure_warning_emitted", False)
+                and calendar_row.get("job_id") == job["job_id"]
+            )
+            if warn_calendar_failure:
+                calendar_row["failure_warning_emitted"] = True
             await self._commit(state, publication=True)
+            if warn_calendar_failure:
+                LOGGER.warning(
+                    "calendar_fetch_failed",
+                    extra={
+                        "binding_id": job["binding_id"],
+                        "error_code": calendar_row["error_code"],
+                    },
+                )
             return None
         if operation in {
             "draft_preview",

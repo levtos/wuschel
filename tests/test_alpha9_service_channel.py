@@ -40,7 +40,16 @@ async def test_calendar_response_replay_conflict_expiry_and_connection_boundary(
     result = await channel.call(msg)
     assert result["outcome"] == "completed"
     assert calls == [
-        ("calendar", "get_events", {"entity_id": "calendar.example", **msg["arguments"]}, True)
+        (
+            "calendar",
+            "get_events",
+            {
+                "entity_id": "calendar.example",
+                "start_date_time": msg["arguments"]["start"],
+                "end_date_time": msg["arguments"]["end"],
+            },
+            True,
+        )
     ]
     assert await channel.call(msg) == result
     assert len(calls) == 1

@@ -541,6 +541,10 @@ class API:
             if result is None:
                 raise web.HTTPNotFound()
             result = result["result"]
+        elif path == "sources/calendar-status" and method == "GET":
+            from .service_jobs import calendar_status
+
+            result = calendar_status(state, config)
         elif path == "diagnostics/problems" and method == "GET":
             result = {
                 "configuration_problems": [
