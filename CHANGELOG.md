@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0b11 — Schlaf und Weckplanung (Kandidat)
+
+- Regelsprache 6 ergänzt geordnete Übergänge, einzeln belegte Ereignisse, lokale Zeitspeicher und datumsabhängige Kalenderregeln. Alte Sprachversionen bleiben erhalten.
+- Importierbare Schlaf- und Weckvorlagen samt originalgleichem Weckplan-Port; Mindestschlaf und manuelle Tagesausnahme werden darüber ausgewertet.
+- Traber bietet `send_command` für einzelne HA-Befehle mit Wiederholungsschutz und ohne Offline-Warteschlange. Profile und Regeln sind über dieselben strukturierten Parameterformulare änderbar.
+- Programm und Traber sind als b11-Kandidat vorbereitet; das Store-Angebot bleibt b10. Registry/Fingerabdruck 4, Paket/Protokoll 2 bleiben; keine Datenbankmigration.
+- [A2 und Nachweise](docs/beta/bereich-4/A2.md). Zweites Review und Benni-Go vor Merge und Veröffentlichung.
+
 ## 1.0.0b10 — Kalenderabruf und Importdialog
 
 - Traber übersetzt Kalenderfenster an der HA-Grenze in `start_date_time` und `end_date_time`; das Drahtprotokoll bleibt unverändert. Regression gegen den echten HA-Kalenderdienst.

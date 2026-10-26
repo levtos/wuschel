@@ -1,7 +1,7 @@
 # ADR 0032 – Geordnete Übergänge und belegte Fristreset-Ereignisse
 
 - Datum: 26.10.2026
-- Status: **vorgeschlagen, nur A1; Review und Benni-Go ausstehend**
+- Status: **angenommen für A2 am 26.10.2026; technisches Review vor Veröffentlichung offen**
 - Auftrag: [wuschel#61](https://github.com/Levtos/wuschel/issues/61)
 - Ausarbeitung und Testmatrix: [Bereich 4 A1](../beta/bereich-4/A1.md)
 - Ergänzt nach Freigabe ADRs [0015](0015-state-machine-deadlines.md) und
@@ -18,7 +18,7 @@ unterscheidet zwei schnell aufeinanderfolgende Eingangsereignisse nicht sicher.
 Die bestehenden `command_log`- und Processor-Grenzen sind dagegen bereits
 wiederholsicher und atomar nutzbar.
 
-## Vorgeschlagenes Modell und Format
+## Beschlossenes Modell und Format
 
 Nur Sprachversion 6 darf `transition_selection:ordered` setzen. Die deklarierte
 Arrayreihenfolge ist die Priorität und Teil der Semantik-Prüfsumme. Für zum
@@ -108,5 +108,10 @@ vor Push den vorhandenen HA-Kernel-Test mit den CI-identischen Versionen.
 
 P4 benötigt keine neue Fristoperation: `clear` funktioniert bereits. Die
 synthetische Probe ist im A1 verlinkt. Kein Schlafzustand und kein Geräte-
-oder Gestenname wird in den Plattformkern aufgenommen. In diesem A1-PR
-wird die vorgeschlagene Entscheidung weder implementiert noch aktiviert.
+oder Gestenname wird in den Plattformkern aufgenommen. Die A2-Umsetzung ist in [A2.md](../beta/bereich-4/A2.md) dokumentiert;
+Aktivierung und Veröffentlichung benötigen das zweite Review und Benni-Go.
+
+
+A2 übernimmt K1–K5 aus Claudes Review sowie die gemeinsame Kalenderquelle
+und das unveränderte Fensterlimit aus dem [Issue-Nachtrag](https://github.com/Levtos/wuschel/issues/61#issuecomment-6415883723).
+Regex wird begrenzt inline ausgewertet; kein eigener Prozess.

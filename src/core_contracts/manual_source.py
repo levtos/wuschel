@@ -115,6 +115,22 @@ async def enter(runtime: Runtime, state: State, payload: dict[str, Any]) -> dict
         except ValueError, TypeError, KeyError:
             origin_error = True
     values = [point.value for point in origin_fields.get("forecast", ())] or [normalized]
+    end = request.valid_until
+    if source and source.manual_structured_schema and request.action == "set":
+        from .wake.operator import local_start
+        from .wake.settings import WakeException
+
+        try:
+            from datetime import date
+
+            exception = WakeException.model_validate(normalized)
+            maximum_end = utc(local_start(date.fromisoformat(exception.date) + timedelta(days=1)))
+            if maximum_end <= now or (end is not None and end != maximum_end):
+                raise ValueError("exception_expiry")
+            end = maximum_end
+            normalized = exception.model_dump(mode="json", exclude_none=True)
+        except ValueError, TypeError:
+            origin_error = True
     reason = (
         "active_revision_conflict"
         if state.active_revision != request.expected_active_revision
@@ -149,11 +165,11 @@ async def enter(runtime: Runtime, state: State, payload: dict[str, Any]) -> dict
         else "manual_begin_in_past"
         if request.valid_from and start < now - timedelta(seconds=5)
         else "manual_validity_interval"
-        if request.valid_until and (request.valid_until <= start or request.valid_until <= now)
+        if end and (end <= start or end <= now)
         else "manual_unbounded_confirmation"
         if request.action == "set"
         and source.freshness.mode == "event_stateful"
-        and request.valid_until is None
+        and end is None
         and not request.confirm_unbounded
         else None
     )
@@ -172,7 +188,7 @@ async def enter(runtime: Runtime, state: State, payload: dict[str, Any]) -> dict
             source_fingerprint=fingerprints(config, runtime.types)[source_id],
             recorded_at=now,
             valid_from=start,
-            valid_until=request.valid_until,
+            valid_until=end,
             actor=payload["_actor"],
             note=request.note,
             revoked=request.action == "retract",

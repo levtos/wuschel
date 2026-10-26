@@ -56,10 +56,13 @@ class ParameterDefinition(DeclarativeModel):
     maximum: float | None = None
     label: str = ""
     description: str = ""
+    structured_schema: Literal["wake_planning_v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def coherent(self) -> Self:
-        if self.field_schema.type == "object":
+        if (self.field_schema.type == "object") != bool(self.structured_schema):
             raise ValueError("scalar_parameter_required")
         if self.field_schema.type == "enum" and not self.field_schema.value_catalog:
             raise ValueError("enum_catalog_required")
@@ -258,6 +261,89 @@ class MachineRule(Model):
     op: Literal["machine"]
 
 
+class MachineMemoryRule(Model):
+    op: Literal["machine_memory"]
+    slot: Identifier
+
+
+class MachineFieldRule(Model):
+    op: Literal["machine_field"]
+    field: Literal[
+        "since_at",
+        "entry_label",
+        "episode_id",
+        "episode_started_at",
+        "episode_active",
+        "deadline_at",
+        "last_action_origin",
+    ]
+
+
+class EventMatchRule(Model):
+    op: Literal["event_match"]
+    id: Identifier
+    arg: Rule
+    mode: Literal["changed", "rising", "falling"] = "changed"
+    after_state_entry: bool = False
+
+
+class CalendarAtRule(Model):
+    op: Literal["calendar_at"]
+    at: Rule
+    offset_days: int = Field(default=0, ge=-1, le=30, strict=True)
+    field: Literal["date", "weekday", "start", "end"]
+
+
+class DailyWindowRule(Model):
+    op: Literal["daily_window"]
+    at: Rule
+    before_workday: Rule
+    current_workday: Rule
+    start_kind: Rule
+    start_phase: Rule
+    start_time: Rule
+    otherwise_kind: Rule
+    otherwise_phase: Rule
+    otherwise_time: Rule
+    phase_curves: dict[Identifier, tuple[AnnualCurvePoint, ...]] = Field(
+        min_length=1, max_length=16
+    )
+    end_phase: Identifier
+
+    @model_validator(mode="after")
+    def bounded_curves(self) -> Self:
+        if self.end_phase not in self.phase_curves:
+            raise ValueError("daily_window_end_phase")
+        for points in self.phase_curves.values():
+            if not 2 <= len(points) <= 64 or any(
+                not isinstance(p.value, (int, float)) for p in points
+            ):
+                raise ValueError("daily_window_curve")
+            AnnualCurveRule(op="annual_curve", at=self.at, points=points)
+        return self
+
+
+class WakePlanRule(Model):
+    op: Literal["wake_plan"]
+    id: Identifier
+    settings_parameter: Identifier
+    date_input: Identifier
+    calendar_input: Identifier
+    holidays_input: Identifier
+    exception_input: Identifier | None = None
+    sleep_since: Rule
+    field: Literal[
+        "status",
+        "next_wake_start",
+        "plan_date",
+        "window_start",
+        "window_end",
+        "candidate_key",
+        "decision",
+        "minimum_sleep_applied",
+    ]
+
+
 class NotApplicableRule(Model):
     op: Literal["not_applicable"]
     arg: Rule
@@ -309,6 +395,7 @@ class CalendarActiveRule(Model):
     arg: Rule
     pattern: Rule
     all_day_only: bool = False
+    on_date: Rule | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class KnownAutomaticRule(Model):
@@ -365,6 +452,12 @@ Rule = Annotated[
     | FusionRule
     | TemporalRule
     | MachineRule
+    | MachineMemoryRule
+    | MachineFieldRule
+    | EventMatchRule
+    | CalendarAtRule
+    | DailyWindowRule
+    | WakePlanRule
     | NotApplicableRule
     | TimeReachedRule
     | AnnualCurveRule
@@ -400,6 +493,8 @@ class TransitionDefinition(Model):
     deadline_action: Literal["keep", "reset", "clear"] = Field(
         default="keep", exclude_if=lambda value: value == "keep"
     )
+    reset_trigger: Literal["event"] | None = Field(default=None, exclude_if=lambda v: v is None)
+    entry_label: Identifier | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 class StateDeadline(Model):
@@ -409,10 +504,23 @@ class StateDeadline(Model):
 class AbsoluteTransition(Model):
     states: tuple[Identifier, ...] = Field(min_length=1, max_length=64)
     target: Identifier
-    at_input: Identifier
+    at_input: Identifier | None = Field(default=None, exclude_if=lambda v: v is None)
+    at_rule: Rule | None = Field(default=None, exclude_if=lambda v: v is None)
+    entry_label: Identifier | None = Field(default=None, exclude_if=lambda v: v is None)
     priority: Literal["absolute", "duration"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+
+    @model_validator(mode="after")
+    def one_time(self) -> Self:
+        if (self.at_input is None) == (self.at_rule is None):
+            raise ValueError("exactly_one_absolute_time_required")
+        return self
+
+
+class CaptureDefinition(Model):
+    on_enter: Identifier
+    mode: Literal["first_in_episode"] = "first_in_episode"
 
 
 class MachineDefinition(Model):
@@ -437,6 +545,15 @@ class MachineDefinition(Model):
     allow_manual_restart: bool = Field(
         default=False, strict=True, exclude_if=lambda value: not value
     )
+    transition_selection: Literal["ordered"] | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
+    required_inputs_by_state: dict[Identifier, tuple[Identifier, ...]] = Field(
+        default_factory=dict, max_length=64, exclude_if=lambda v: not v
+    )
+    captures: dict[Identifier, CaptureDefinition] = Field(
+        default_factory=dict, max_length=16, exclude_if=lambda v: not v
+    )
 
     @model_validator(mode="after")
     def coherent(self) -> Self:
@@ -449,6 +566,10 @@ class MachineDefinition(Model):
             raise ValueError("explicit_deadline_v2_required")
         if self.deadline_by_state.keys() - set(self.states):
             raise ValueError("unknown_deadline_state")
+        if self.required_inputs_by_state.keys() - set(self.states) or any(
+            item.on_enter not in self.states for item in self.captures.values()
+        ):
+            raise ValueError("unknown_machine_state")
         absolute = self.absolute_transition
         if absolute:
             if (
@@ -487,7 +608,8 @@ class MachineDefinition(Model):
             ):
                 raise ValueError("ambiguous_deadline_action")
             if transition.deadline_action == "reset" and (
-                transition.event != "input" or transition.target not in self.deadline_by_state
+                (transition.event != "input" and self.transition_selection != "ordered")
+                or transition.target not in self.deadline_by_state
             ):
                 raise ValueError("reset_duration_required")
             command = self.commands.get(transition.event)
@@ -502,7 +624,7 @@ class MachineDefinition(Model):
 class DeclarativeDefinition(DeclarativeModel):
     type_id: str = Field(pattern=r"^[a-zA-Z][a-zA-Z0-9_-]*\.[a-zA-Z0-9_.-]+$", max_length=128)
     type_version: int = Field(ge=1)
-    language_version: Literal[1, 2, 3, 4, 5] = 1
+    language_version: Literal[1, 2, 3, 4, 5, 6] = 1
     display_name: str = ""
     description: str = ""
     inputs: tuple[TypedInput, ...] = Field(default=(), max_length=MAX_INPUTS)
@@ -527,6 +649,26 @@ class DeclarativeDefinition(DeclarativeModel):
 
     @model_validator(mode="after")
     def coherent(self) -> Self:
+        machine = self.machine
+        if self.language_version < 6 and (
+            any(p.structured_schema for p in self.parameter_schema.values())
+            or machine
+            and (
+                machine.transition_selection
+                or machine.captures
+                or machine.required_inputs_by_state
+                or machine.absolute_transition
+                and (machine.absolute_transition.at_rule or machine.absolute_transition.entry_label)
+                or any(t.reset_trigger or t.entry_label for t in machine.transitions)
+            )
+        ):
+            raise ValueError("language_version_6_required")
+        if machine and any(
+            name not in {item.name for item in self.inputs}
+            for names in machine.required_inputs_by_state.values()
+            for name in names
+        ):
+            raise ValueError("unknown_required_input")
         if self.output_origins and (
             self.language_version < 3
             or self.output_origins.keys() - self.outputs.keys()
@@ -556,7 +698,11 @@ class DeclarativeDefinition(DeclarativeModel):
             and self.language_version < 3
         ):
             raise ValueError("language_version_3_required")
-        if self.machine and self.machine.absolute_transition:
+        if (
+            self.machine
+            and self.machine.absolute_transition
+            and self.machine.absolute_transition.at_input
+        ):
             declared = next(
                 (
                     item
@@ -612,5 +758,10 @@ for _model in (
     ConfigurationHintRule,
     ManagedCatalogRule,
     DeclarativeDefinition,
+    EventMatchRule,
+    CalendarAtRule,
+    DailyWindowRule,
+    WakePlanRule,
+    AbsoluteTransition,
 ):
     _model.model_rebuild()

@@ -114,7 +114,7 @@ export function MachineEditor({
           {hasDeadline && !extended && (isObject(value.deadline_s) ? <Fld label={uiText('alpha8.parameters.deadlineName')} pointer={join(pointer, 'deadline_s', 'name')}>{props => <Input {...props} value={str(asObject(value.deadline_s).name)} onChange={event => set({ deadline_s: { op: 'parameter', name: event.target.value } })} />}</Fld> : <NumberField label={uiText("editors.MachineEditor.deadline_s_5ebf14")} pointer={join(pointer, 'deadline_s')} value={Number(value.deadline_s)} min={0} hint={minuteHint(Number(value.deadline_s))} onChange={(n) => set({ deadline_s: n })} />)}
         </section>
 
-        <MachineDeadlinesEditor value={value} definition={definition} onChange={onChange} />
+        <MachineDeadlinesEditor value={value} definition={definition} onChange={onChange} pointer={pointer} />
 
         <section className="space-y-2">
           <Checkbox checked={value.allow_manual_restart === true} onCheckedChange={on => set({ allow_manual_restart: on ? true : undefined })} label={uiText('alpha7.restart.allow')} />

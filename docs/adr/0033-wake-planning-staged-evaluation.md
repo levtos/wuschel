@@ -1,7 +1,7 @@
 # ADR 0033 – Weckplan-Port und lokale Auswertungsphasen ohne Vertragszyklus
 
 - Datum: 26.10.2026
-- Status: **vorgeschlagen, nur A1; Review und Benni-Go ausstehend**
+- Status: **angenommen für A2 am 26.10.2026; technisches Review vor Veröffentlichung offen**
 - Auftrag: [wuschel#61](https://github.com/Levtos/wuschel/issues/61)
 - Normativer Fachumfang/Testmatrix: [Bereich 4 A1](../beta/bereich-4/A1.md)
 - Bezüge: [0013](0013-calendar-cache.md), [0015](0015-state-machine-deadlines.md),
@@ -18,7 +18,7 @@ eine zweite Berechnung in einer Engine würde diese Kopplung verbergen.
 Außerdem kann G19 bisher keine Listen von Planregeln als strukturierte
 Vertragsparameter beschreiben; Kalenderprojektionen beziehen sich auf heute.
 
-## Vorgeschlagene allgemeine Erweiterungen
+## Beschlossene allgemeine Erweiterungen
 
 Nur Sprachversion 6 ergänzt:
 
@@ -142,3 +142,8 @@ beide Zeitumstellungen, Tag +30, heutiger Skip mit künftigem Termin, verlorene
 Evidence, Commitfehler/Restore und alte Sprache/Prüfsummen. Lokale Tests bleiben
 gezielt, die volle Suite läuft ausschließlich in CI. Die spätere Oberfläche
 bearbeitet dieselben Parameter; sie enthält keine eigene Planberechnung.
+
+
+A2 übernimmt K1–K5 aus Claudes Review sowie die gemeinsame Kalenderquelle
+und das unveränderte Fensterlimit aus dem [Issue-Nachtrag](https://github.com/Levtos/wuschel/issues/61#issuecomment-6415883723).
+Regex wird begrenzt inline ausgewertet; kein eigener Prozess.

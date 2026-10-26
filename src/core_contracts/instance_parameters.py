@@ -50,14 +50,19 @@ def parameter_model(definition: dm.DeclarativeDefinition) -> type[BaseModel]:
             "text": str,
             "enum": str,
             "timestamp": str,
+            "object": dict[str, Any],
         }[schema.type]
+        if declaration.structured_schema == "wake_planning_v1":
+            from .wake.settings import WakeSettings
+
+            annotation = WakeSettings
         if schema.value_catalog:
             annotation = Literal[tuple(schema.value_catalog)]
         fields[name] = (
             annotation,
             Field(
                 default=... if schema.required else None,
-                strict=True,
+                strict=None if schema.value_catalog else True,
                 title=declaration.label or name,
                 description=declaration.description,
                 ge=declaration.minimum,

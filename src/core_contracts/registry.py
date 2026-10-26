@@ -62,6 +62,9 @@ class Source(Model):
     )
     manual_minimum: float | None = Field(default=None, exclude_if=lambda value: value is None)
     manual_maximum: float | None = Field(default=None, exclude_if=lambda value: value is None)
+    manual_structured_schema: Literal["wake_exception_v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_serializer(mode="wrap")
     def selection_document(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
@@ -72,6 +75,10 @@ class Source(Model):
 
     @model_validator(mode="after")
     def manual_declaration(self) -> Self:
+        if self.manual_structured_schema and (
+            self.origin != "manual" or not self.value_schema or self.value_schema.type != "object"
+        ):
+            raise ValueError("manual_object_schema_required")
         if self.sensor_profile:
             if (
                 self.origin == "manual"

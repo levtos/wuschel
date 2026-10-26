@@ -42,6 +42,8 @@ export interface Capabilities {
   types: TypeDescription[];
   schemas: { registry: JsonSchema; definition: JsonSchema; history_query: JsonSchema };
   operators: Operator[];
+  structured_parameter_schemas?: Record<string, JsonObject>;
+  manual_structured_schemas?: Record<string, JsonObject>;
   formulas: { name: string; version: number; input_schema: FieldSchemaValue; output_schema: FieldSchemaValue; inputs?: { name: string; schema: FieldSchemaValue; quantity: string; required: boolean }[]; category?: string; lifecycle?: string }[];
   fusion: { strategy: string; priority: string | null; conflict_detection: boolean }[];
   temporal: { operation: string; arguments: number; stateful: boolean; restores_absolute_deadlines: boolean }[];

@@ -3,7 +3,7 @@
 import json
 from collections.abc import Callable
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from math import isfinite
 from typing import Any, Literal
@@ -21,7 +21,7 @@ from .producer import temporal as evaluate_temporal
 from .quality import ConfigurationHint, ConfigurationStatus, FieldValue, ReasonCode, derive, unknown
 from .resolver import Bucket, boolean, compare, first_match
 from .schema import ContractType, FieldSchema, InputDeclaration
-from .statemachine import Definition, Guard, Machine, Transition
+from .statemachine import Definition, Guard, Machine, MachineState, Transition
 from .text_rules import evaluate_text
 
 
@@ -63,7 +63,30 @@ def rule_children(rule: dm.Rule) -> list[tuple[str, dm.Rule]]:
             if isinstance(point.value, dm.ParameterRule)
         ]
     if isinstance(rule, dm.CalendarActiveRule):
-        return [("arg", rule.arg), ("pattern", rule.pattern)]
+        return [("arg", rule.arg), ("pattern", rule.pattern)] + (
+            [("on_date", rule.on_date)] if rule.on_date else []
+        )
+    if isinstance(rule, dm.EventMatchRule):
+        return [("arg", rule.arg)]
+    if isinstance(rule, dm.CalendarAtRule):
+        return [("at", rule.at)]
+    if isinstance(rule, dm.WakePlanRule):
+        return [("sleep_since", rule.sleep_since)]
+    if isinstance(rule, dm.DailyWindowRule):
+        return [
+            (name, getattr(rule, name))
+            for name in (
+                "at",
+                "before_workday",
+                "current_workday",
+                "start_kind",
+                "start_phase",
+                "start_time",
+                "otherwise_kind",
+                "otherwise_phase",
+                "otherwise_time",
+            )
+        ]
     if isinstance(rule, dm.ManagedCatalogRule):
         return [
             (name, getattr(rule, name)) for name in ("scope", "media_type", "signal_type", "key")
@@ -105,7 +128,7 @@ def rule_children(rule: dm.Rule) -> list[tuple[str, dm.Rule]]:
     return []
 
 
-def scalar(kind: Literal["bool", "number", "text", "enum"]) -> FieldSchema:
+def scalar(kind: Literal["bool", "number", "text", "enum", "timestamp", "object"]) -> FieldSchema:
     return FieldSchema(type=kind, required=True, physical_state=False)
 
 
@@ -148,6 +171,11 @@ def all_rules(definition: dm.DeclarativeDefinition) -> list[dm.Rule]:
     if definition.machine:
         roots += [t.guard for t in definition.machine.transitions]
         roots.append(definition.machine.reinitialize_when)
+        if (
+            definition.machine.absolute_transition
+            and definition.machine.absolute_transition.at_rule
+        ):
+            roots.append(definition.machine.absolute_transition.at_rule)
     result: list[dm.Rule] = []
 
     def visit(rule: dm.Rule, depth: int) -> None:
@@ -190,6 +218,14 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
             locate(rule, f"/{group}/{name}")
     if definition.machine:
         locate(definition.machine.reinitialize_when, "/machine/reinitialize_when")
+        if (
+            definition.machine.absolute_transition
+            and definition.machine.absolute_transition.at_rule
+        ):
+            locate(
+                definition.machine.absolute_transition.at_rule,
+                "/machine/absolute_transition/at_rule",
+            )
         for index, transition in enumerate(definition.machine.transitions):
             locate(transition.guard, f"/machine/transitions/{index}/guard")
     identifiers = [r.id for r in rules if isinstance(r, (dm.BucketRule, dm.TemporalRule))]
@@ -234,8 +270,37 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
     def infer_rule(rule: dm.Rule, *, guard: bool = False, depth: int = 0) -> FieldSchema:
         if depth > dm.MAX_DEPTH:
             raise ValueError("definition_resource_limit")
-        if guard and isinstance(rule, (dm.MachineRule, dm.TemporalRule, dm.BucketRule)):
+        if guard and isinstance(
+            rule, (dm.MachineRule, dm.MachineFieldRule, dm.TemporalRule, dm.BucketRule)
+        ):
             raise ValueError("stateful_guard_requires_contract_input")
+        if isinstance(
+            rule,
+            (
+                dm.MachineMemoryRule,
+                dm.MachineFieldRule,
+                dm.EventMatchRule,
+                dm.CalendarAtRule,
+                dm.DailyWindowRule,
+                dm.WakePlanRule,
+            ),
+        ):
+            if definition.language_version < 6:
+                raise ValueError("language_version_6_required")
+            if isinstance(rule, dm.MachineMemoryRule):
+                if not definition.machine or rule.slot not in definition.machine.captures:
+                    raise ValueError("unknown_capture")
+                return scalar("timestamp")
+            if isinstance(rule, dm.MachineFieldRule):
+                if not definition.machine:
+                    raise ValueError("machine_definition_required")
+                return scalar(
+                    "bool"
+                    if rule.field == "episode_active"
+                    else "timestamp"
+                    if rule.field in {"since_at", "episode_started_at", "deadline_at"}
+                    else "text"
+                )
         if isinstance(rule, dm.InputRule):
             if rule.name not in inputs:
                 raise ValueError("unknown_rule_input")
@@ -265,6 +330,53 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
         if isinstance(rule, dm.LiteralRule):
             return rule.field_schema
         args = [infer(child, guard=guard, depth=depth + 1) for child in children(rule)]
+        if isinstance(rule, dm.EventMatchRule):
+            if args[0].type == "object":
+                raise ValueError("event_scalar_required")
+            if rule.mode != "changed":
+                require(args[0], scalar("bool"))
+            return scalar("bool")
+        if isinstance(rule, dm.CalendarAtRule):
+            if args[0].type not in {"timestamp", "text"}:
+                raise ValueError("calendar_date_required")
+            return scalar(
+                "number"
+                if rule.field == "weekday"
+                else "timestamp"
+                if rule.field in {"start", "end"}
+                else "text"
+            )
+        if isinstance(rule, dm.DailyWindowRule):
+            require(args[0], scalar("text"))
+            require(args[1], scalar("bool"))
+            require(args[2], scalar("bool"))
+            for arg in args[3:]:
+                if arg.type not in {"text", "enum"}:
+                    raise ValueError("daily_window_choice_required")
+            return scalar("bool")
+        if isinstance(rule, dm.WakePlanRule):
+            wake_declaration = definition.parameter_schema.get(rule.settings_parameter)
+            if not wake_declaration or wake_declaration.structured_schema != "wake_planning_v1":
+                raise ValueError("wake_settings_parameter_required")
+            for name, wake_kind in (
+                (rule.date_input, "text"),
+                (rule.calendar_input, "object"),
+                (rule.holidays_input, "object"),
+            ):
+                if name not in inputs or inputs[name].type != wake_kind:
+                    raise ValueError("wake_input_required")
+            if rule.exception_input and (
+                rule.exception_input not in inputs or inputs[rule.exception_input].type != "object"
+            ):
+                raise ValueError("wake_exception_input_required")
+            require(args[0], scalar("timestamp"))
+            return scalar(
+                "timestamp"
+                if rule.field in {"next_wake_start", "window_start", "window_end"}
+                else "bool"
+                if rule.field == "minimum_sleep_applied"
+                else "text"
+            )
         if isinstance(rule, (dm.AnnualCurveRule, dm.CalendarActiveRule)):
             if definition.language_version < 5:
                 raise ValueError("language_version_5_required")
@@ -275,6 +387,10 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
                 return scalar("number")
             require(args[0], FieldSchema(type="object", required=True, physical_state=False))
             require(args[1], scalar("text"))
+            if isinstance(rule, dm.CalendarActiveRule) and rule.on_date:
+                if definition.language_version < 6:
+                    raise ValueError("language_version_6_required")
+                require(args[2], scalar("text"))
             return scalar("bool")
         if isinstance(rule, dm.KnownAutomaticRule):
             if definition.language_version < 3:
@@ -423,13 +539,17 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
         seen: set[tuple[str, str]] = set()
         for index, transition in enumerate(definition.machine.transitions):
             pair = (transition.source, transition.event)
-            if pair in seen:
+            if pair in seen and definition.machine.transition_selection != "ordered":
                 issues.append(
                     RuleValidationError(
                         "duplicate_transition_event", f"/machine/transitions/{index}/event"
                     )
                 )
             seen.add(pair)
+            if transition.reset_trigger and (
+                transition.event != "input" or transition.deadline_action != "reset"
+            ):
+                issues.append(RuleValidationError("event_reset_required", "/machine/transitions"))
 
         reachable: dict[str, bool] = {}
 
@@ -450,6 +570,39 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
             t.guard for t in definition.machine.transitions
         ]:
             check(rule, scalar("bool"), guard=True)
+        absolute = definition.machine.absolute_transition
+        if absolute and absolute.at_rule:
+            check(absolute.at_rule, scalar("timestamp"), guard=True)
+        if definition.machine.captures and definition.machine.transition_selection != "ordered":
+            issues.append(RuleValidationError("ordered_machine_required", "/machine/captures"))
+    plans: dict[str, str] = {}
+    event_ids: dict[str, int] = {}
+    for rule in rules:
+        if isinstance(rule, dm.EventMatchRule):
+            if rule.id in event_ids and event_ids[rule.id] != id(rule):
+                issues.append(RuleValidationError("duplicate_event_id", "/rules"))
+            event_ids[rule.id] = id(rule)
+        if isinstance(rule, dm.WakePlanRule):
+            from .model import canonical
+
+            identity = canonical(rule.model_dump(exclude={"field"}))
+            if rule.id in plans and plans[rule.id] != identity:
+                issues.append(RuleValidationError("conflicting_plan_id", "/rules"))
+            plans[rule.id] = identity
+    if definition.machine:
+
+        def has_event(rule: dm.Rule, seen: frozenset[str] = frozenset()) -> bool:
+            if isinstance(rule, dm.EventMatchRule):
+                return True
+            if isinstance(rule, dm.ReferenceRule):
+                if rule.name in seen or rule.name not in definition.rules:
+                    return False
+                return has_event(definition.rules[rule.name], seen | {rule.name})
+            return any(has_event(child, seen) for child in children(rule))
+
+        for transition in definition.machine.transitions:
+            if transition.reset_trigger and not has_event(transition.guard):
+                issues.append(RuleValidationError("event_reset_required", "/machine/transitions"))
     if issues:
         raise DefinitionValidationErrors(issues)
 
@@ -477,11 +630,27 @@ class Evaluation:
                     ReasonCode.INVALID_VALUE, declaration.name, now
                 )
         self.memo: dict[str, FieldValue] = {}
+        self.memory_state: MachineState | None = None
+        self.plans: dict[str, dict[str, FieldValue]] = {}
+        self.events: dict[str, FieldValue] = {}
         self.machine_reads: list[FieldValue] = []
         if context is not None:
             context.node.pop("catalog_lookups", None)
         self.trace: list[dict[str, Any]] = []
         self.cost = 0
+
+    def set_machine_state(self, state: MachineState) -> None:
+        if self.memory_state == state:
+            return
+        self.memory_state = state
+        self.memo = {key: value for key, value in self.memo.items() if key == "$machine"}
+        self.plans.clear()
+
+    def machine_snapshot(self) -> MachineState | None:
+        if self.memory_state is not None:
+            return self.memory_state
+        data = self.context.node.get("machine") if self.context else None
+        return MachineState.model_validate(data) if data else None
 
     def machine_evidence(self, value: FieldValue) -> None:
         from .managed_catalog import dependencies, suspend_machine
@@ -524,6 +693,77 @@ class Evaluation:
 
     def _evaluate(self, rule: dm.Rule) -> FieldValue:
         now = self.now
+        if isinstance(rule, (dm.MachineMemoryRule, dm.MachineFieldRule)):
+            outcome = self.memo.get("$machine")
+            if outcome and not outcome.usable(now):
+                return outcome
+            state = self.machine_snapshot()
+            if state is None:
+                return unknown(ReasonCode.RESTORE_MISSING, "machine", now)
+            if isinstance(rule, dm.MachineMemoryRule):
+                memory_value: Any = state.captures.get(rule.slot)
+            elif rule.field == "deadline_at":
+                memory_value = (
+                    state.deadline.at if state.deadline and not state.deadline.fired else None
+                )
+            else:
+                memory_value = getattr(state, rule.field)
+            if memory_value is None:
+                return FieldValue(
+                    status="not_applicable", quality="healthy", positively_not_applicable=True
+                )
+            return FieldValue(
+                status="valid",
+                quality="healthy",
+                value=memory_value.isoformat()
+                if isinstance(memory_value, datetime)
+                else memory_value,
+                evidence=state.evidence,
+                since_at=state.since_at,
+            )
+        if isinstance(rule, dm.EventMatchRule):
+            from .machine_events import event_match
+
+            if rule.id not in self.events:
+                assert self.context is not None
+                self.events[rule.id] = event_match(
+                    rule, self.evaluate(rule.arg), self.context, self.machine_snapshot()
+                )
+            return self.events[rule.id]
+        if isinstance(rule, dm.WakePlanRule):
+            from .wake.operator import build_plan
+            from .wake.settings import WakeSettings
+
+            if rule.id not in self.plans:
+                state = self.machine_snapshot()
+                self.plans[rule.id] = build_plan(
+                    WakeSettings.model_validate(self.parameters[rule.settings_parameter]),
+                    now,
+                    self.inputs[rule.calendar_input],
+                    self.inputs[rule.holidays_input],
+                    self.inputs[rule.date_input],
+                    self.evaluate(rule.sleep_since),
+                    self.inputs.get(rule.exception_input) if rule.exception_input else None,
+                    state.consumed_absolute if state else (),
+                )
+            plan = self.plans[rule.id]
+            if self.context:
+                due = self.context.node.setdefault("clock_due", [])
+                planned = plan.get("next_wake_start")
+                if planned and planned.usable(now):
+                    at = datetime.fromisoformat(planned.value) + timedelta(microseconds=1)
+                    if at > now and at.isoformat() not in due:
+                        due.append(at.isoformat())
+                for name in (rule.calendar_input, rule.holidays_input):
+                    cache = self.inputs[name]
+                    if cache.usable(now) and isinstance(cache.value, dict):
+                        expires = cache.value.get("expires_at")
+                        if isinstance(expires, str) and datetime.fromisoformat(expires) > now:
+                            if expires not in due:
+                                due.append(expires)
+            return plan.get(rule.field, plan.get("all")) or unknown(
+                ReasonCode.EVALUATION_ERROR, "wake_plan", now
+            )
         if isinstance(rule, dm.InputRule):
             return self.inputs.get(rule.name, unknown(ReasonCode.INPUT_ABSENT, rule.name, now))
         if isinstance(rule, dm.ParameterRule):
@@ -625,6 +865,11 @@ class Evaluation:
                 )
             return self.memo["$machine"]
         args = [self.evaluate(child) for child in children(rule)]
+        if isinstance(rule, (dm.CalendarAtRule, dm.DailyWindowRule)):
+            from .dated_rules import dated_rule
+
+            due = self.context.node.setdefault("clock_due", []) if self.context else []
+            return dated_rule(rule, args, now, due)
         if isinstance(rule, dm.AnnualCurveRule):
             from .calendar_rules import annual_curve
 
@@ -803,7 +1048,22 @@ def compile_machine(
     machine = definition.machine
     assert machine is not None
 
-    def guard(rule: dm.Rule) -> Guard:
+    def absolute_value(state: MachineState) -> tuple[FieldValue, str | None]:
+        assert evaluation is not None and machine.absolute_transition is not None
+        assert machine.absolute_transition.at_rule is not None
+        evaluation.set_machine_state(state)
+        value = evaluation.evaluate(machine.absolute_transition.at_rule)
+        key = next(
+            (
+                plan["candidate_key"].value
+                for plan in evaluation.plans.values()
+                if "candidate_key" in plan and plan["candidate_key"].usable(evaluation.now)
+            ),
+            None,
+        )
+        return value, key
+
+    def guard(rule: dm.Rule, *, event_required: bool = False) -> Guard:
         def evaluate(inputs: dict[str, FieldValue], now: datetime) -> bool | None:
             try:
                 value = (
@@ -821,6 +1081,8 @@ def compile_machine(
                         "decision": value.value if value.usable(now) else None,
                     }
                 )
+            if event_required and value.usable(now) and value.value is True:
+                return any(e.startswith("event:") for e in value.evidence)
             return value.value is True if value.usable(now) else None
 
         return evaluate
@@ -869,18 +1131,29 @@ def compile_machine(
             required_inputs=tuple(
                 item.name for item in definition.inputs if item.field_schema.required
             ),
+            ordered=machine.transition_selection == "ordered",
+            required_inputs_by_state=machine.required_inputs_by_state,
+            captures={name: item.on_enter for name, item in machine.captures.items()},
+            on_state=evaluation.set_machine_state
+            if evaluation and definition.language_version == 6
+            else None,
+            absolute_value=absolute_value
+            if evaluation and machine.absolute_transition and machine.absolute_transition.at_rule
+            else None,
             transitions=tuple(
                 Transition(
                     source=t.source,
                     target=t.target,
                     event=t.event,
-                    guard=guard(t.guard),
+                    guard=guard(t.guard, event_required=t.reset_trigger == "event"),
                     reason=t.reason,
                     new_episode=t.new_episode,
                     ends_episode=t.ends_episode,
                     argument_guard=argument_guard(t.argument_equals) if t.argument_equals else None,
                     data_confirmation=data_confirmation(t.guard),
                     deadline_action=t.deadline_action,
+                    reset_trigger=t.reset_trigger,
+                    entry_label=t.entry_label,
                 )
                 for t in machine.transitions
             ),
@@ -926,7 +1199,16 @@ def compile_definition(definition: dm.DeclarativeDefinition) -> ContractType:
 
     def evaluate(ctx: Context) -> dict[str, FieldValue]:
         if any(
-            isinstance(r, (dm.TimeReachedRule, dm.CalendarActiveRule))
+            isinstance(
+                r,
+                (
+                    dm.TimeReachedRule,
+                    dm.CalendarActiveRule,
+                    dm.CalendarAtRule,
+                    dm.DailyWindowRule,
+                    dm.WakePlanRule,
+                ),
+            )
             for r in all_rules(definition)
         ):
             ctx.node["clock_due"] = []
@@ -938,6 +1220,11 @@ def compile_definition(definition: dm.DeclarativeDefinition) -> ContractType:
                 ctx.request_refresh(name)
                 requested[name] = True
         evaluation = Evaluation(definition, ctx.inputs, ctx.now, ctx)
+        if definition.language_version == 6 and definition.machine:
+            for event_rule in all_rules(definition):
+                if isinstance(event_rule, dm.EventMatchRule):
+                    evaluation.evaluate(event_rule)
+            evaluation.evaluate(dm.MachineRule(op="machine"))
         values = {name: evaluation.evaluate(rule) for name, rule in definition.outputs.items()}
         from .value_origin import ValueOrigin, contributions
 

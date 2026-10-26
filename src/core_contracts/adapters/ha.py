@@ -2,10 +2,10 @@
 
 import asyncio
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from math import isfinite
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import aiohttp
 
@@ -603,6 +603,16 @@ class BridgeAdapter:
             self.runtime.bridge_protocol_selected = self.protocol_selected
             self.runtime.bridge_features = features
             self.projection_supported = "contract_projection" in features
+            command_subscription = None
+            if "command_ingress_v1" in features and self.runtime.installation_id:
+                response = await self._response(
+                    connection,
+                    {
+                        "type": "traber/command_subscribe",
+                        "installation_id": self.runtime.installation_id,
+                    },
+                )
+                command_subscription = response["id"]
             await self._result(connection, {"type": "get_config"})
             for event_type in ("homeassistant_started", "homeassistant_stop"):
                 await self._result(
@@ -683,7 +693,16 @@ class BridgeAdapter:
                             )
                         continue
                     if message.get("type") == "event":
-                        if message["id"] == subscription_id:
+                        if message["id"] == command_subscription:
+                            result = await self.incoming_command(message["event"])
+                            await connection.send(
+                                {
+                                    "type": "traber/command_result",
+                                    "request_id": message["event"].get("request_id", ""),
+                                    "result": result,
+                                }
+                            )
+                        elif message["id"] == subscription_id:
                             await self.event(message["event"], config, revision)
                         else:
                             event_type = message.get("event", {}).get("event_type")
@@ -701,6 +720,55 @@ class BridgeAdapter:
                         if not task.done():
                             task.cancel()
                     await asyncio.gather(*pending, return_exceptions=True)
+
+    async def incoming_command(self, event: dict[str, Any]) -> dict[str, Any]:
+        try:
+            identity = str(UUID(event["request_id"]))
+            issued, expires = (
+                utc(datetime.fromisoformat(event[key])) for key in ("issued_at", "valid_until")
+            )
+            now = self.runtime.clock.now_utc()
+            if (
+                event["installation_id"] != self.runtime.installation_id
+                or event["ha_epoch_id"] != self.contexts.epoch
+                or event.get("kind") != "command_request"
+                or not timedelta(0) < expires - issued <= timedelta(seconds=30)
+                or issued > now
+                or expires <= now
+            ):
+                raise ValueError("command_session_conflict")
+            old = await self.runtime.store.get("command_log", identity)
+            if old:
+                command = old["command"]
+                if (
+                    command["contract_id"],
+                    command["command"],
+                    command["args"],
+                    command["origin"]["kind"],
+                ) != (event["contract_id"], event["command"], event["arguments"], "ha_command"):
+                    return {"status": "command_id_conflict"}
+                return dict(old["result"])
+            return dict(
+                await self.runtime.submit(
+                    "command",
+                    {
+                        "command_id": identity,
+                        "contract_id": event["contract_id"],
+                        "command": event["command"],
+                        "args": event["arguments"],
+                        "issued_at": issued.isoformat(),
+                        "valid_until": expires.isoformat(),
+                        "expected_registry_revision": self.runtime.state.active_revision,
+                        "origin": {
+                            "kind": "ha_command",
+                            "actor": "traber",
+                            "client_name": "traber",
+                        },
+                    },
+                )
+            )
+        except ValueError, KeyError, TypeError:
+            return {"status": "rejected", "reason": "command_session_conflict"}
 
     async def projection_worker(self) -> None:
         from ..ha_projection import snapshot
