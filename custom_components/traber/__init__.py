@@ -7,12 +7,14 @@ from uuid import uuid4
 import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.const import __version__ as HA_VERSION
-from homeassistant.core import callback
+from homeassistant.core import SupportsResponse, callback
 from homeassistant.helpers.event import (
     async_track_state_change_event,
     async_track_state_report_event,
 )
+from homeassistant.util import dt as dt_util
 
+from .command_ingress import CommandIngress
 from .projection import Projection
 from .service_channel import OPERATIONS, ServiceChannel
 from .source_metadata import refresh_action, source_metadata
@@ -30,9 +32,30 @@ async def async_setup_entry(hass, entry):
     hass.data[DOMAIN] = active
     projection = Projection()
     hass.data["traber_projection"] = projection
+    ingress = CommandIngress(HA_EPOCH_ID, dt_util.utcnow)
+
+    async def send_command(call):
+        return await ingress.call(dict(call.data))
+
+    hass.services.async_register(
+        DOMAIN,
+        "send_command",
+        send_command,
+        schema=vol.Schema(
+            {
+                vol.Required("contract_id"): str,
+                vol.Required("command"): str,
+                vol.Optional("arguments", default={}): dict,
+                vol.Optional("request_id"): str,
+            }
+        ),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
 
     @callback
     def unload():
+        ingress.detach(ingress.owner)
+        hass.services.async_remove(DOMAIN, "send_command")
         hass.data.pop(DOMAIN, None)
         hass.data.pop("traber_projection", None)
         projection.disconnect(projection.owner)
@@ -71,6 +94,7 @@ async def async_setup_entry(hass, entry):
             connection.send_error(msg["id"], "unsupported_protocol", "No common protocol")
             return
         old = channels.pop(id(connection), None)
+        ingress.detach(connection)
         if old:
             old.close()
             projection.disconnect(connection)
@@ -86,6 +110,7 @@ async def async_setup_entry(hass, entry):
 
             @callback
             def disconnected():
+                ingress.detach(connection)
                 channel.close()
                 projection.disconnect(connection)
                 if channels.get(id(connection)) is channel:
@@ -99,7 +124,7 @@ async def async_setup_entry(hass, entry):
                 "bridge_version": VERSION,
                 "ha_epoch_id": HA_EPOCH_ID,
                 "features": list(OPERATIONS)
-                + ["ha_context", "area_metadata", "contract_projection"]
+                + ["ha_context", "area_metadata", "contract_projection", "command_ingress_v1"]
                 if selected == 2
                 else [],
             },
@@ -124,6 +149,48 @@ async def async_setup_entry(hass, entry):
             return
         request = {key: msg[key] for key in ("request_id", "operation", "target_ids", "arguments")}
         connection.send_result(msg["id"], await channel.call(request))
+
+    @callback
+    @websocket_api.websocket_command(
+        {vol.Required("type"): f"{DOMAIN}/command_subscribe", vol.Required("installation_id"): str}
+    )
+    @websocket_api.require_admin
+    def command_subscribe(hass, connection, msg):
+        channel = channels.get(id(connection))
+        if channel is None or channel.installation_id != msg["installation_id"]:
+            connection.send_error(
+                msg["id"], "command_session_required", "Negotiate installation first"
+            )
+            return
+        try:
+            ingress.attach(
+                connection,
+                msg["installation_id"],
+                lambda event: connection.send_event(msg["id"], event),
+            )
+        except ValueError:
+            connection.send_error(msg["id"], "command_owner_busy", "Command channel unavailable")
+            return
+        connection.subscriptions[msg["id"]] = lambda: ingress.detach(connection)
+        connection.send_result(msg["id"])
+
+    @callback
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): f"{DOMAIN}/command_result",
+            vol.Required("request_id"): str,
+            vol.Required("result"): dict,
+        }
+    )
+    @websocket_api.require_admin
+    def command_result(hass, connection, msg):
+        if not ingress.complete(connection, msg["request_id"], msg["result"]):
+            connection.send_error(msg["id"], "command_request_missing", "Request unavailable")
+            return
+        connection.send_result(msg["id"])
+
+    websocket_api.async_register_command(hass, command_subscribe)
+    websocket_api.async_register_command(hass, command_result)
 
     @callback
     @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/info"})

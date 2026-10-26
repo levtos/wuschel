@@ -3,9 +3,10 @@
 Runs in the dedicated HA CI job. This is not a Supervisor installation test.
 """
 
+import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -25,6 +26,74 @@ from homeassistant.setup import async_setup_component
 from custom_components.traber import async_setup_entry
 from custom_components.traber.service_channel import Rejected
 from custom_components.traber.source_metadata import refresh_action, source_metadata
+
+
+@pytest.mark.ha
+async def test_reverse_command_service_uses_real_ha_service_and_admin_session(
+    tmp_path, monkeypatch
+):
+    hass = kernel(tmp_path)
+    commands, results, events, errors, unload = {}, {}, [], [], []
+    arrived = asyncio.Event()
+
+    def receive(identifier, event):
+        events.append(event)
+        arrived.set()
+
+    monkeypatch.setattr(
+        websocket_api,
+        "async_register_command",
+        lambda hass, handler: commands.update({handler.__name__: handler}),
+    )
+    await async_setup_entry(hass, SimpleNamespace(async_on_unload=unload.append))
+    connection = SimpleNamespace(
+        user=SimpleNamespace(is_admin=True),
+        subscriptions={},
+        send_result=lambda i, result=None: results.update({i: result}),
+        send_event=receive,
+        send_error=lambda *args: errors.append(args),
+    )
+    installation = str(uuid4())
+    commands["command_subscribe"](hass, connection, {"id": 1, "installation_id": installation})
+    assert errors[-1][1] == "command_session_required"
+    commands["negotiate"](
+        hass, connection, {"id": 2, "supported_versions": [2], "installation_id": installation}
+    )
+    assert "command_ingress_v1" in results[2]["features"]
+    commands["command_subscribe"](hass, connection, {"id": 3, "installation_id": installation})
+    data = {"contract_id": "fixture.sleep", "command": "confirm_sleep"}
+    task = asyncio.create_task(
+        hass.services.async_call(
+            "traber", "send_command", data, blocking=True, return_response=True
+        )
+    )
+    await asyncio.wait_for(arrived.wait(), 5)
+    assert len(events) == 1 and events[0]["kind"] == "command_request"
+    assert events[0]["installation_id"] == installation
+    connection.user.is_admin = False
+    with pytest.raises(Unauthorized):
+        commands["command_result"](
+            hass,
+            connection,
+            {"id": 4, "request_id": events[0]["request_id"], "result": {"status": "accepted"}},
+        )
+    connection.user.is_admin = True
+    commands["command_result"](
+        hass,
+        connection,
+        {"id": 5, "request_id": events[0]["request_id"], "result": {"status": "accepted"}},
+    )
+    assert (await task)["status"] == "accepted"
+    connection.subscriptions[3]()
+    assert (
+        await hass.services.async_call(
+            "traber", "send_command", data, blocking=True, return_response=True
+        )
+    )["status"] == "disconnected"
+    # Switch Manager can invoke the same service without asking for a response.
+    assert await hass.services.async_call("traber", "send_command", data, blocking=True) is None
+    unload[0]()
+    assert not hass.services.has_service("traber", "send_command")
 
 
 def kernel(tmp_path):
@@ -71,7 +140,14 @@ async def test_calendar_events_crosses_real_ha_calendar_service_schema(tmp_path,
 
         async def async_get_events(self, hass, start_date, end_date):
             calls.append((start_date, end_date))
-            return [CalendarEvent(start=start_date, end=end_date, summary="Synthetic fixture")]
+            return [
+                CalendarEvent(start=start_date, end=end_date, summary="Synthetic fixture"),
+                CalendarEvent(
+                    start=start_date.date() - timedelta(days=1),
+                    end=start_date.date() + timedelta(days=2),
+                    summary="Synthetischer Urlaub",
+                ),
+            ]
 
     await component.async_add_entities([FixtureCalendar()])
     commands, results, errors = {}, {}, []
@@ -105,6 +181,8 @@ async def test_calendar_events_crosses_real_ha_calendar_service_schema(tmp_path,
     assert not errors
     assert results[2]["outcome"] == "completed"
     assert results[2]["data"]["calendar.synthetic"]["events"][0]["summary"] == "Synthetic fixture"
+    overlapping = results[2]["data"]["calendar.synthetic"]["events"][1]
+    assert overlapping["start"] < arguments["start"][:10] < overlapping["end"]
     assert calls == [
         (datetime.fromisoformat(arguments["start"]), datetime.fromisoformat(arguments["end"]))
     ]

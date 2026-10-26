@@ -9,6 +9,7 @@ from .quality import ReasonCode
 from .registry import RegistryConfig, registry_types
 from .schema import TypeRegistry
 from .statemachine import Machine
+from .wake.settings import WakeException, WakeSettings
 
 SEMANTIC_RULES = {
     "document_object_required": "configuration is a JSON object",
@@ -340,7 +341,11 @@ def capabilities(config: RegistryConfig | None, base: TypeRegistry) -> dict[str,
         "draft_lifecycle": True,
         "continuation": True,
         "activation_receipts": True,
-        "language_versions": [1, 2, 3, 4, 5],
+        "language_versions": [1, 2, 3, 4, 5, 6],
+        "machine_ordered_v1": True,
+        "command_ingress_v1": True,
+        "structured_parameter_schemas": {"wake_planning_v1": WakeSettings.model_json_schema()},
+        "manual_structured_schemas": {"wake_exception_v1": WakeException.model_json_schema()},
         "calendar_rules": {
             "language_version": 5,
             "annual_curve": {
@@ -419,6 +424,12 @@ def capabilities(config: RegistryConfig | None, base: TypeRegistry) -> dict[str,
                 ("time_reached", "TimeReachedRule"),
                 ("annual_curve", "AnnualCurveRule"),
                 ("calendar_active", "CalendarActiveRule"),
+                ("calendar_at", "CalendarAtRule"),
+                ("daily_window", "DailyWindowRule"),
+                ("event_match", "EventMatchRule"),
+                ("machine_memory", "MachineMemoryRule"),
+                ("machine_field", "MachineFieldRule"),
+                ("wake_plan", "WakePlanRule"),
                 ("known_automatic", "KnownAutomaticRule"),
                 ("configuration_hint", "ConfigurationHintRule"),
                 *(

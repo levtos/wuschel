@@ -20,6 +20,7 @@ export function ManualSourcePanel({ sourceId }: { sourceId: string }) {
   const source = asArray(config?.sources).filter(isObject).find(item => item.source_id === sourceId && item.origin === 'manual');
   const schema = asObject(source?.value_schema) as FieldSchema;
   const declaredOrigin = asObject(source?.value_origin);
+  const wakeException = source?.manual_structured_schema === 'wake_exception_v1';
   const [originMetadata, setOriginMetadata] = useState<JsonObject>({});
   const current = useQuery({ queryKey: ['evidence', sourceId], queryFn: () => api<JsonObject[]>(`evidence/${encodeURIComponent(sourceId)}`), enabled: !!source, retry: false });
   const entry = asObject(current.data?.[0]?.manual);
@@ -44,7 +45,7 @@ export function ManualSourcePanel({ sourceId }: { sourceId: string }) {
   }
   const affected = contracts.filter(contract => reached.has(str(contract.contract_id)));
   if (!source) return null;
-  const unbounded = rule.mode === 'event_stateful' && !until;
+  const unbounded = rule.mode === 'event_stateful' && !until && !wakeException;
   const settled = (response: JsonObject) => { setResult(t(response.status === 'accepted' ? 'alpha9.manual.recorded' : 'alpha9.manual.failed')); setPending(null); setRetryAvailable(false); void client.invalidateQueries({ queryKey: ['evidence', sourceId] }); };
   const submit = async (body: JsonObject) => {
     setRetryAvailable(false);
@@ -76,10 +77,10 @@ export function ManualSourcePanel({ sourceId }: { sourceId: string }) {
     {entry.revoked === true || end <= now ? <p>{t('alpha9.manual.expired')}</p> : null}
     <p className="text-sm text-muted">{affected.length ? t('alpha9.manual.affected', { names: affected.map(item => str(item.display_name) || str(item.contract_id)).join(', ') }) : t('alpha9.manual.inactive')}</p>
     <fieldset disabled={busy || !!pending || !affected.length} className="space-y-3">
-      {declaredOrigin.kind === 'forecast' ? <ForecastValuesEditor value={value} schema={schema} origin={declaredOrigin} onChange={setValue} /> : <><TypedValueEditor label={t('alpha9.manual.value')} pointer="/manual/value" schema={schema} value={value} onChange={setValue} />{!!declaredOrigin.kind && <OriginIntervalFields value={originMetadata} onChange={setOriginMetadata} />}</>}
+      {wakeException ? <WakeExceptionFields value={asObject(value)} onChange={setValue} /> : declaredOrigin.kind === 'forecast' ? <ForecastValuesEditor value={value} schema={schema} origin={declaredOrigin} onChange={setValue} /> : <><TypedValueEditor label={t('alpha9.manual.value')} pointer="/manual/value" schema={schema} value={value} onChange={setValue} />{!!declaredOrigin.kind && <OriginIntervalFields value={originMetadata} onChange={setOriginMetadata} />}</>}
       {typeof schema.unit === 'string' && schema.unit && <p className="text-xs text-muted">{t('alpha9.manual.unit')}: {schema.unit}</p>}
       {source.manual_allow_future === true && <Field label={t('alpha9.manual.validFrom')}>{props => <Input {...props} type="datetime-local" value={from} onChange={event => setFrom(event.target.value)} />}</Field>}
-      <Field label={t('alpha9.manual.validUntil')}>{props => <Input {...props} type="datetime-local" value={until} onChange={event => setUntil(event.target.value)} />}</Field>
+      {!wakeException && <Field label={t('alpha9.manual.validUntil')}>{props => <Input {...props} type="datetime-local" value={until} onChange={event => setUntil(event.target.value)} />}</Field>}
       {unbounded && <Checkbox checked={confirm} onCheckedChange={setConfirm} label={t('alpha9.manual.unboundedConfirm')} />}
       <div className="flex gap-3"><Button disabled={unbounded && !confirm} onClick={() => void send('set')}>{t('alpha9.manual.enter')}</Button><Button disabled={!entry.request_id} onClick={() => void send('retract')}>{t('alpha9.manual.retract')}</Button></div>
     </fieldset>
@@ -87,4 +88,13 @@ export function ManualSourcePanel({ sourceId }: { sourceId: string }) {
     {pending && retryAvailable && <Button disabled={busy} onClick={() => { setBusy(true); void submit(pending); }}>{t('alpha9.manual.retrySame')}</Button>}
     {result && <p role="status">{result}</p>}
   </div></Panel>;
+}
+
+export function WakeExceptionFields({ value, onChange }: { value: JsonObject; onChange: (value: Json) => void }) {
+  return <div className="space-y-3">
+    <Field label={t('sleep.exception.date')}>{props => <Input {...props} type="date" value={str(value.date)} onChange={event => onChange({ ...value, date: event.target.value })} />}</Field>
+    <Checkbox checked={value.skip === true} label={t('sleep.exception.skip')} onCheckedChange={skip => onChange(skip ? { date: value.date ?? '', skip: true } : { date: value.date ?? '', wake_time: '' })} />
+    {value.skip !== true && <Field label={t('sleep.exception.time')}>{props => <Input {...props} type="time" value={str(value.wake_time)} onChange={event => onChange({ date: value.date ?? '', wake_time: event.target.value })} />}</Field>}
+    <p className="text-sm text-muted">{t('sleep.exception.hint')}</p>
+  </div>;
 }

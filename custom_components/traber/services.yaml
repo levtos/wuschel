@@ -1,0 +1,26 @@
+send_command:
+  name: Befehl an Wuschel senden
+  description: Sendet einen einzelnen Befehl an die verbundene Wuschel-Installation. Ohne Verbindung wird nichts vorgemerkt. Jeder neue Tastendruck braucht eine neue oder keine Anfrage-ID.
+  fields:
+    contract_id:
+      name: Vertrag
+      description: Technische Kennung des Vertrags in Wuschel.
+      required: true
+      selector:
+        text:
+    command:
+      name: Befehl
+      description: Ein vom Vertrag angebotener Befehl.
+      required: true
+      selector:
+        text:
+    arguments:
+      name: Argumente
+      description: Argumente des Befehls, falls erforderlich.
+      selector:
+        object:
+    request_id:
+      name: Anfrage-ID
+      description: Optionale UUID zur Wiederholung derselben Anfrage. Für einen neuen Tastendruck weglassen.
+      selector:
+        text:

@@ -43,7 +43,7 @@ export function typeCatalog(caps: Capabilities | undefined, config: JsonObject |
       machine: isObject(raw.machine),
       lifecycle: str(raw.lifecycle) || 'active',
       fields,
-      parameterSchema: declarativeParameterSchema(raw),
+      parameterSchema: declarativeParameterSchema(raw, caps?.structured_parameter_schemas),
       inputs: asArray(raw.inputs)
         .filter(isObject)
         .map((i) => {
@@ -71,13 +71,21 @@ function fromDescription(t: TypeDescription): TypeEntry {
   };
 }
 
-export function declarativeParameterSchema(definition: JsonObject): JsonObject {
+export function declarativeParameterSchema(definition: JsonObject, structured?: Record<string, JsonObject>): JsonObject {
   const properties: JsonObject = {};
+  const definitions: JsonObject = {};
   const required: string[] = [];
   for (const [name, declaration] of Object.entries(asObject(definition.parameter_schema))) {
     if (!isObject(declaration)) continue;
     const schema = asObject(declaration.schema);
     if (schema.required === true) required.push(name);
+    const model = structured?.[str(declaration.structured_schema)];
+    if (model) {
+      const { $defs, ...body } = model;
+      Object.assign(definitions, asObject($defs));
+      properties[name] = { ...body, title: str(declaration.label) || name };
+      continue;
+    }
     properties[name] = {
       type: schema.type === 'bool' ? 'boolean' : schema.type === 'number' ? 'number' : 'string',
       title: schema.unit ? uiText('alpha8.parameters.unitHint', { description: str(declaration.label) || name, unit: str(schema.unit) }) : str(declaration.label) || name,
@@ -88,7 +96,7 @@ export function declarativeParameterSchema(definition: JsonObject): JsonObject {
       ...(typeof declaration.maximum === 'number' ? { maximum: declaration.maximum } : {}),
     };
   }
-  return { type: 'object', properties, required, additionalProperties: false };
+  return { type: 'object', properties, required, additionalProperties: false, ...(Object.keys(definitions).length ? { $defs: definitions } : {}) };
 }
 
 /** Reference candidates for an instance input: sources and `contract.field` outputs. */

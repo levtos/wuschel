@@ -508,6 +508,17 @@ class Runtime:
         if config is None:
             return False
         needed = required_sources(config)
+        command_types = {
+            (definition.type_id, definition.type_version)
+            for definition in config.definitions
+            if definition.language_version == 6
+            and definition.machine
+            and definition.machine.commands
+        }
+        if any(
+            c.enabled and (c.type_id, c.type_version) in command_types for c in config.contracts
+        ):
+            return True
         if any(
             contract.enabled and (contract.refresh_plan or contract.ha_projection)
             for contract in config.contracts
@@ -1740,6 +1751,18 @@ class Runtime:
         plan_calendars(state, config, self.clock.now_utc())
         calendar_changed = self._calendar_observations(state, config, origin)
         now, seq = self.clock.now_utc(), state.publication_seq + 1
+        input_event = (
+            next(
+                (
+                    Observation.model_validate(row)
+                    for row in state.tables["source_observation_current"].values()
+                    if row["source_id"] == trigger_source
+                ),
+                None,
+            )
+            if origin == "input"
+            else None
+        )
         self.pending_latches = copy.deepcopy(
             self.latches if initial_latches is None else initial_latches
         )
@@ -1845,7 +1868,7 @@ class Runtime:
                     case,
                     (machine_override or {}).get(key),
                     **(
-                        {"reassessment": reassessment}
+                        {"reassessment": reassessment, "event": input_event}
                         if isinstance(declaration.evaluate, Producer)
                         else {}
                     ),

@@ -1,12 +1,13 @@
 """Bounded calendar operators; dates use days, event intervals use UTC instants."""
 
 import re
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from fnmatch import fnmatchcase
 from fractions import Fraction
 from typing import Any
 
 from . import declarative_models as dm
+from .clock import berlin_utc
 from .model import canonical, utc
 from .quality import FieldValue, ReasonCode, derive, unknown
 
@@ -92,6 +93,11 @@ def calendar_active(
             raise ValueError
         if not isinstance(events, list) or len(events) > 1000:
             raise ValueError
+        day_start = day_end = None
+        if rule.on_date:
+            day = date.fromisoformat(args[2].value)
+            day_start = berlin_utc(datetime.combine(day, time()))
+            day_end = berlin_utc(datetime.combine(day + timedelta(days=1), time()))
         intervals = []
         evidence = []
         for event in events:
@@ -114,7 +120,7 @@ def calendar_active(
                 title.strip().lower(), pattern.strip().lower()
             ):
                 intervals.append((a, b))
-                if a <= now < b:
+                if (a < day_end and b > day_start) if day_start and day_end else a <= now < b:
                     evidence.append(key)
         for deadline in (
             end,
@@ -129,6 +135,16 @@ def calendar_active(
             return unknown(ReasonCode.INPUT_NOT_YET_VALID, "calendar_active", now)
         if now >= min(end, expires):
             return unknown(ReasonCode.INPUT_STALE, "calendar_active", now)
+        if day_start and day_end:
+            if start > day_start or end < day_end:
+                return unknown(ReasonCode.INPUT_NOT_YET_VALID, "calendar_active", now)
+            result = derive(bool(evidence), args, now)
+            return result.model_copy(
+                update={
+                    "evidence": tuple(dict.fromkeys((*result.evidence, *evidence))),
+                    "valid_until": min(end, expires, result.valid_until or expires),
+                }
+            )
         union: list[tuple[datetime, datetime]] = []
         for a, b in sorted(intervals):
             if union and a <= union[-1][1]:

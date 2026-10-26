@@ -12,6 +12,7 @@ from typing import Any, Literal
 from pydantic import Field, ValidationError
 
 from .clock import Clock
+from .evidence import Observation
 from .model import Model
 from .persistence import State
 from .quality import FieldValue, Reason, ReasonCode, unknown
@@ -39,6 +40,7 @@ class Context:
     case: str
     override: MachineState | None
     reassessment: bool = False
+    event: Observation | None = None
 
     @property
     def now(self) -> datetime:
@@ -100,9 +102,20 @@ class Producer:
         override: MachineState | None,
         *,
         reassessment: bool = False,
+        event: Observation | None = None,
     ) -> tuple[dict[str, FieldValue], dict[str, Any], MachineState | None]:
         ctx = Context(
-            clock, latches, contract, inputs, node, state, origin, case, override, reassessment
+            clock,
+            latches,
+            contract,
+            inputs,
+            node,
+            state,
+            origin,
+            case,
+            override,
+            reassessment,
+            event,
         )
         if node.get("producer_epoch") != state.epoch_id:
             self.init(ctx)
@@ -253,7 +266,33 @@ def state_machine(
                 "evidence": tuple(node.get("machine_recovery", {}).get("evidence", ())),
             }
         )
-    if ctx.override is None:
+    if machine.definition.ordered:
+        current = machine.prepare(
+            current, ctx.inputs, now, baseline=ctx.origin in {"restore", "snapshot", "revision"}
+        )
+        if ctx.override is None:
+            if ctx.origin == "input":
+                current, _ = machine.step(
+                    current, "input", ctx.inputs, now, ctx.state.active_revision
+                )
+                current = machine.prepare(current, ctx.inputs, now)
+            # Static validation forbids backward local dependencies; time steps are bounded.
+            for _ in range(2):
+                event = machine.due_event(current, now)
+                if event is None:
+                    break
+                current, outcome = machine.step(
+                    current, event, ctx.inputs, now, ctx.state.active_revision
+                )
+                if outcome == "guard_unknown":
+                    node["machine"] = current.model_dump(mode="json")
+                    return unknown(ReasonCode.DEADLINE_OVERDUE, ctx.contract.contract_id, now)
+                current = machine.prepare(current, ctx.inputs, now)
+                if outcome != "accepted":
+                    break
+        if ctx.origin == "restore":
+            current = current.model_copy(update={"origin": "restore"})
+    elif ctx.override is None:
         current = machine.prepare(
             current, ctx.inputs, now, baseline=ctx.origin in {"restore", "snapshot", "revision"}
         )

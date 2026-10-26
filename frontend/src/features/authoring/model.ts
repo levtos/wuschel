@@ -159,7 +159,7 @@ export function ruleChildren(rule: Rule): { key: (string | number)[]; rule: Rule
   const add = (key: (string | number)[], value: Json | undefined) => {
     if (isObject(value) && typeof value.op === 'string') out.push({ key, rule: value as Rule });
   };
-  for (const name of ['arg', 'left', 'right', 'at', 'when', 'duration_s', 'pattern']) add([name], rule[name]);
+  for (const name of ['arg', 'left', 'right', 'at', 'when', 'duration_s', 'pattern', 'on_date', 'sleep_since', 'before_workday', 'current_workday', 'start_kind', 'start_phase', 'start_time', 'otherwise_kind', 'otherwise_phase', 'otherwise_time']) add([name], rule[name]);
   if (Array.isArray(rule.points)) rule.points.forEach((point, i) => { if (isObject(point)) add(['points', i, 'value'], point.value); });
   if (Array.isArray(rule.args)) rule.args.forEach((arg, i) => add(['args', i], arg));
   else if (isObject(rule.args)) Object.entries(rule.args).forEach(([name, arg]) => add(['args', name], arg));
@@ -195,6 +195,7 @@ export function definitionRoots(definition: JsonObject): { path: (string | numbe
   for (const [name, rule] of Object.entries(asObject(definition.outputs))) add(['outputs', name], rule);
   const machine = asObject(definition.machine);
   add(['machine', 'reinitialize_when'], machine.reinitialize_when);
+  add(['machine', 'absolute_transition', 'at_rule'], asObject(machine.absolute_transition).at_rule);
   asArray(machine.transitions).forEach((t, i) => add(['machine', 'transitions', i, 'guard'], asObject(t).guard));
   return roots;
 }
@@ -203,10 +204,12 @@ export function definitionRoots(definition: JsonObject): { path: (string | numbe
 export function withMinimumLanguage(definition: JsonObject): JsonObject {
   let version = Number(definition.language_version ?? 1);
   const machine = asObject(definition.machine);
+  if (machine.transition_selection || Object.keys(asObject(machine.captures)).length || Object.keys(asObject(machine.required_inputs_by_state)).length || asObject(machine.absolute_transition).at_rule || asArray(machine.transitions).some(raw => asObject(raw).entry_label || asObject(raw).reset_trigger) || Object.values(asObject(definition.parameter_schema)).some(raw => asObject(raw).structured_schema)) version = Math.max(version, 6);
   if (Object.keys(asObject(definition.output_origins)).length || machine.unknown_deadline || machine.absolute_transition || Object.keys(asObject(machine.deadline_by_state)).length) version = Math.max(version, 3);
   for (const { rule } of definitionRoots(definition)) walkRule(rule, node => {
     if (node.op === 'known_automatic') version = Math.max(version, 3);
     if (node.op === 'annual_curve' || node.op === 'calendar_active') version = Math.max(version, 5);
+    if (['calendar_at', 'daily_window', 'event_match', 'machine_memory', 'machine_field', 'wake_plan'].includes(node.op) || node.on_date) version = Math.max(version, 6);
   });
   return version > Number(definition.language_version ?? 1) ? { ...definition, language_version: version } : definition;
 }
