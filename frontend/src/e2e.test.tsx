@@ -595,14 +595,23 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     const draftsBefore = (await raw<Draft[]>('registry/drafts')).body;
     const uiFetch = globalThis.fetch;
     const stageCalls: unknown[] = [];
-    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => { if (String(input).endsWith('/portable/stage')) stageCalls.push(init); return uiFetch(input, init); });
+    const previews: { status: number; body: { editorial_changed: Record<string, boolean>; unresolved: string[] } }[] = [];
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/portable/stage')) stageCalls.push(init);
+      const response = await uiFetch(input, init);
+      if (String(input).endsWith('/portable/preview')) previews.push({ status: response.status, body: await response.clone().json() });
+      return response;
+    });
     window.location.hash = '#/import-export';
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Workbench onSetup={() => {}} live={store} /></QueryClientProvider>);
     const text = JSON.stringify(exported.body);
     const file = new File([text], 'synthetic-b12-full.json', { type: 'application/json' });
     Object.defineProperty(file, 'text', { value: async () => text });
     await user.upload(await screen.findByLabelText('Datei auswählen'), file);
-    await user.click(screen.getByRole('button', { name: 'Datei prüfen und Vorschau anzeigen' }));
+    await clickReadyButton(user, screen.getByRole('button', { name: 'Datei prüfen und Vorschau anzeigen' }), 'Datei prüfen und Vorschau anzeigen');
+    await waitFor(() => expect(previews.length).toBeGreaterThan(0));
+    expect(previews[0]!.status, JSON.stringify(previews[0]!.body)).toBe(200);
+    expect(Object.values(previews[0]!.body.editorial_changed).filter(changed => !changed)).toHaveLength(40);
     await screen.findByText('40 Objekte behalten Kategorie und Raum');
     expect(screen.queryByText(/Vertrag: synthetic.b12.existing.1 ·/)).not.toBeInTheDocument();
     expect(screen.getByText(/Vertrag: synthetic.b12.shared/)).toBeVisible();
