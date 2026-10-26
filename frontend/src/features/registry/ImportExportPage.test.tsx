@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { Workbench } from '@/Workbench';
@@ -15,7 +15,7 @@ const existing = Array.from({ length: 28 }, (_, index) => source(`source.existin
 const target = { ...emptyRegistry(), sources: existing, freshness_templates: [{ template_id: 'freshness.contact', display_name: 'Kontakte', sensor_kind: 'contact', rule: rule() }] };
 const incoming = { ...target, sources: [...existing, source('source.new')] };
 const packageText = JSON.stringify({ scope: 'config', config: incoming });
-const preview = (digest = 'first') => ({ config: incoming, plan_digest: digest, added: 1, reused: 28, conflicts: [], unresolved: [], editorial_versions: {}, package: { config: incoming, editorial: [] } });
+const preview = (digest = 'first') => ({ config: incoming, plan_digest: digest, added: 1, reused: 28, conflicts: [], unresolved: [], editorial_versions: {}, editorial_changed: {}, package: { config: incoming, editorial: [] } });
 
 beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -73,12 +73,59 @@ it('shows a failed recheck beside staging, keeps it blocked and ignores an older
   await user.selectOptions(screen.getByLabelText('Aktualität zuordnen'), '');
   await screen.findByText('Die Vorschau konnte nicht aktualisiert werden. Prüfe den Fehler und versuche es erneut.');
   expect(stage).toBeDisabled();
-  const retry = screen.getByRole('button', { name: 'Vorschau erneut prüfen' });
-  expect(retry.compareDocumentPosition(stage) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+  const retry = screen.getByRole('button', { name: 'Vorschau neu prüfen' });
+  expect(retry.parentElement).toBe(stage.parentElement);
   await act(async () => resolveOld(reply(200, preview('obsolete'))));
   expect(stage).toBeDisabled();
   await user.click(retry);
   await waitFor(() => expect(stage).toBeEnabled());
+});
+
+it('always offers a visible recheck beside staging and blocks a failed manual recheck until success', async () => {
+  let count = 0; let finish!: (value: Response) => void;
+  const { user, stage } = await openImport(() => ++count === 2 ? new Promise(resolve => { finish = resolve; }) : reply(200, preview(`digest-${count}`)));
+  await user.click(screen.getByRole('button', { name: 'Vorschau neu prüfen' }));
+  expect(stage).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Vorschau wird geprüft …' })).toBeDisabled();
+  await act(async () => finish(reply(409, { error: 'draft_version_conflict' })));
+  expect(stage).toBeDisabled();
+  expect(screen.getByText('Die Vorschau konnte nicht aktualisiert werden. Prüfe den Fehler und versuche es erneut.')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Vorschau neu prüfen' }));
+  await waitFor(() => expect(stage).toBeEnabled());
+});
+
+it('puts compact conflicts first, explains the blocked action with a working jump and resolves same IDs from the file', async () => {
+  const keys = ['bindings:binding.synthetic', 'contracts:day.synthetic'];
+  const { fake, user, stage } = await openImport(body => reply(200, { ...preview('resolved'), conflicts: keys, unresolved: keys.filter(key => body.resolutions[key] !== 'file') }));
+  expect(stage).toBeDisabled();
+  const first = document.getElementById('import-conflict-0')!;
+  const scroll = vi.fn(); first.scrollIntoView = scroll;
+  await user.click(screen.getByRole('link', { name: '2 Konflikte noch nicht entschieden' }));
+  expect(scroll).toHaveBeenCalled(); expect(first).toHaveFocus();
+  const conflicts = screen.getByRole('region', { name: 'Konflikte (2)' });
+  expect(conflicts.compareDocumentPosition(screen.getByRole('heading', { name: 'Aktualität zuordnen' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  for (const select of within(conflicts).getAllByLabelText('Umgang mit dem vorhandenen Objekt')) await user.selectOptions(select, 'file');
+  await user.click(screen.getByRole('button', { name: 'Vorschau neu prüfen' }));
+  await waitFor(() => expect(stage).toBeEnabled());
+  expect(screen.queryByRole('link', { name: /Konflikte noch nicht entschieden/ })).not.toBeInTheDocument();
+  await user.click(stage);
+  await waitFor(() => expect(fake.calls.some(call => call.path === 'portable/stage')).toBe(true));
+  expect(fake.calls.find(call => call.path === 'portable/stage')?.body).toMatchObject({ resolutions: Object.fromEntries(keys.map(key => [key, 'file'])), plan_digest: 'resolved' });
+  expect(fake.activations).toHaveLength(0);
+});
+
+it('shows only changed or new organization rows among forty unchanged objects and distinguishes contract from template', async () => {
+  const unchanged = Array.from({ length: 40 }, (_, i) => ({ object: { kind: 'contract', id: `same.${i}` }, category: 'other', room: { name: '' } }));
+  const rows = [...unchanged, { object: { kind: 'contract', id: 'shared.name' }, category: 'time', room: { name: '' } }, { object: { kind: 'template', id: 'shared.name' }, category: 'time', room: { name: '' } }];
+  const { fake, user, stage } = await openImport(() => reply(200, { ...preview(), editorial_versions: Object.fromEntries(rows.slice(0, 41).map(row => [`${row.object.kind}:${row.object.id}`, 1])), editorial_changed: Object.fromEntries(rows.map((row, i) => [`${row.object.kind}:${row.object.id}`, i >= 40])), package: { config: incoming, editorial: rows } }));
+  expect(screen.getByText('40 Objekte behalten Kategorie und Raum')).toBeInTheDocument();
+  expect(screen.queryByText(/same\.0 ·/)).not.toBeInTheDocument();
+  expect(screen.getByText(/Vertrag: shared.name/)).toBeInTheDocument();
+  expect(screen.getByText(/Vorlage: shared.name/)).toBeInTheDocument();
+  expect(screen.getAllByLabelText('Kategorie und Raum')).toHaveLength(1);
+  await user.click(stage);
+  await waitFor(() => expect(fake.calls.some(call => call.path === 'portable/stage')).toBe(true));
+  expect(fake.calls.find(call => call.path === 'portable/stage')?.body).toMatchObject({ editorial_choices: {} });
 });
 
 it('includes changed rules and new sources, compares template rules, and ignores names or object key order', () => {

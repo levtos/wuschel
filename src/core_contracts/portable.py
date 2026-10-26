@@ -388,7 +388,6 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
         or not (
             value == "keep"
             or value == "file"
-            and key.startswith("freshness_templates:")
             and package["scope"] == "configuration"
             or isinstance(value, dict)
             and set(value) == {"new_id"}
@@ -604,7 +603,7 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
             if previous and previous != row:
                 conflict = f"catalog-entry:{head_key(content_catalog)}:{key}"
                 conflicts.append(conflict)
-                if resolutions.get(conflict) != "keep":
+                if resolutions.get(conflict) not in ("keep", "file"):
                     unresolved.append(conflict)
     editorial_versions = {
         ObjectRef.model_validate(row["object"]).key: state.tables["editorial_current"]
@@ -612,6 +611,14 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
         .get("editorial_version", 0)
         for row in package["editorial"]
     }
+    editorial_changed = {}
+    for row in package["editorial"]:
+        key = ObjectRef.model_validate(row["object"]).key
+        current = state.tables["editorial_current"].get(key)
+        editorial_changed[key] = current is None or (
+            row["category"] != current["category"]
+            or Room.model_validate(row["room"]) != Room.model_validate(current["room"])
+        )
     result = {
         "config": document,
         "package": package,
@@ -622,6 +629,7 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
         "expected_active_revision": state.active_revision,
         "catalog_heads": heads,
         "editorial_versions": editorial_versions,
+        "editorial_changed": editorial_changed,
         "editorial_choices": request.get("editorial_choices", {}),
         "resolutions": resolutions,
         "freshness_choices": freshness_choices,

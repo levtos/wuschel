@@ -563,4 +563,78 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     }
     expect((await raw<RevisionRow>('registry/active')).body.checksum).toBe(activated.checksum);
   }, 240_000);
+  it('b12 previews a full configuration with forty unchanged organization rows, resolves conflicts and stops before staging', async () => {
+    const field = { type: 'bool', required: true, physical_state: false };
+    const shared = 'synthetic.b12.shared';
+    const config: JsonObject = {
+      config_schema_version: 4, fingerprint_version: 4,
+      dependencies: [{ dependency_id: 'dep.b12', kind: 'mqtt', monitor: 'internal' }],
+      sources: [{ source_id: 'source.b12', source_type: 'boolean', source_origin: 'local', dependency_id: 'dep.b12', physical_source_key: 'synthetic.b12', freshness_selection: { kind: 'own', rule: { mode: 'report_heartbeat', interval_s: 8400, future_tolerance_s: 0 } } }],
+      bindings: [{ binding_id: 'binding.b12', source_id: 'source.b12', adapter: { kind: 'mqtt', mqtt_topic: 'test/b12/original' } }],
+      contracts: Array.from({ length: 41 }, (_, i) => ({ contract_id: i === 0 ? shared : `synthetic.b12.existing.${i}`, type_id: shared, type_version: 1, enabled: true, inputs: [{ name: 'a', ref: 'source.b12' }], parameters: {} })),
+      definitions: [{ type_id: shared, type_version: 1, inputs: [{ name: 'a', schema: field }], schema: { fields: { value: field } }, outputs: { value: { op: 'input', name: 'a' } } }],
+      catalogs: [],
+    };
+    const previous = (await raw<RevisionRow>('registry/active')).body;
+    const seed = await raw<Draft>('registry/drafts', json('POST', { config }));
+    expect(seed.status).toBe(200);
+    expect((await raw(`registry/drafts/${seed.body.draft_id}/activate`, json('POST', await activationInput(seed.body, previous?.revision ?? 0)))).status).toBe(200);
+    const baseline = (await raw<RevisionRow>('registry/active')).body;
+    const refs = [...(config.contracts as JsonObject[]).map(row => ({ kind: 'contract', id: String(row.contract_id) })), { kind: 'template', id: shared }];
+    for (const object of refs) expect((await raw('editorial', json('PUT', { object, category: object.id === shared ? 'time' : 'other', room: { mode: 'none' }, expected_editorial_version: 0 }))).status).toBe(200);
+    const incoming = structuredClone(config);
+    (incoming.bindings as JsonObject[])[0]!.adapter = { kind: 'mqtt', mqtt_topic: 'test/b12/file' };
+    (incoming.contracts as JsonObject[])[0]!.enabled = false;
+    (incoming.contracts as JsonObject[]).push({ ...(config.contracts as JsonObject[])[1]!, contract_id: 'synthetic.b12.new' });
+    const candidate = (await raw<Draft>('registry/drafts', json('POST', { config: incoming }))).body;
+    expect((await raw('editorial', json('PUT', { object: { kind: 'contract', id: 'synthetic.b12.new' }, category: 'other', room: { mode: 'none' }, expected_editorial_version: 0, draft_id: candidate.draft_id, draft_version: candidate.draft_version }))).status).toBe(200);
+    const exported = await raw<JsonObject>('portable/export', json('POST', { expected_active_revision: baseline.revision, draft_id: candidate.draft_id, draft_version: candidate.draft_version }));
+    expect(exported.status).toBe(200);
+    expect(exported.body.scope).toBe('configuration');
+    for (const object of refs.filter(ref => ref.id === shared)) expect((await raw('editorial', json('PUT', { object, category: 'other', room: { mode: 'none' }, expected_editorial_version: 1 }))).status).toBe(200);
+    const draftsBefore = (await raw<Draft[]>('registry/drafts')).body;
+    const uiFetch = globalThis.fetch;
+    const stageCalls: unknown[] = [];
+    const previews: { status: number; body: { editorial_changed: Record<string, boolean>; unresolved: string[] } }[] = [];
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/portable/stage')) stageCalls.push(init);
+      const response = await uiFetch(input, init);
+      if (String(input).endsWith('/portable/preview')) previews.push({ status: response.status, body: await response.clone().json() });
+      return response;
+    });
+    window.location.hash = '#/import-export';
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Workbench onSetup={() => {}} live={store} /></QueryClientProvider>);
+    const text = JSON.stringify(exported.body);
+    const file = new File([text], 'synthetic-b12-full.json', { type: 'application/json' });
+    Object.defineProperty(file, 'text', { value: async () => text });
+    await user.upload(await screen.findByLabelText('Datei auswählen'), file);
+    await clickReadyButton(user, screen.getByRole('button', { name: 'Datei prüfen und Vorschau anzeigen' }), 'Datei prüfen und Vorschau anzeigen');
+    await waitFor(() => expect(previews.length).toBeGreaterThan(0));
+    expect(previews[0]!.status, JSON.stringify(previews[0]!.body)).toBe(200);
+    expect(Object.values(previews[0]!.body.editorial_changed).filter(changed => !changed)).toHaveLength(40);
+    await screen.findByText('40 Objekte behalten Kategorie und Raum');
+    expect(screen.queryByText(/Vertrag: synthetic.b12.existing.1 ·/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Vertrag: synthetic.b12.shared/)).toBeVisible();
+    expect(screen.getByText(/Vorlage: synthetic.b12.shared/)).toBeVisible();
+    expect(screen.getByText(/Vertrag: synthetic.b12.new/)).toBeVisible();
+    expect(screen.getAllByLabelText('Kategorie und Raum')).toHaveLength(2);
+    const conflicts = screen.getByRole('region', { name: 'Konflikte (2)' });
+    const stage = screen.getByRole('button', { name: 'Als Entwurf einlesen' });
+    const recheck = screen.getByRole('button', { name: 'Vorschau neu prüfen' });
+    expect(stage).toBeDisabled(); expect(recheck).toBeVisible();
+    expect(recheck.parentElement).toBe(stage.parentElement);
+    expect(recheck.parentElement).toHaveClass('sticky', 'bottom-0');
+    const first = document.getElementById('import-conflict-0')!;
+    first.scrollIntoView = vi.fn();
+    await user.click(screen.getByRole('link', { name: '2 Konflikte noch nicht entschieden' }));
+    expect(first.scrollIntoView).toHaveBeenCalled(); expect(first).toHaveFocus();
+    for (const select of within(conflicts).getAllByLabelText('Umgang mit dem vorhandenen Objekt')) await user.selectOptions(select, 'file');
+    await clickReadyButton(user, recheck, 'Vorschau neu prüfen');
+    await waitFor(() => expect(stage).toBeEnabled());
+    expect(screen.queryByRole('link', { name: /Konflikte noch nicht entschieden/ })).not.toBeInTheDocument();
+    expect(stageCalls).toEqual([]);
+    expect((await raw<Draft[]>('registry/drafts')).body).toEqual(draftsBefore);
+    expect((await raw<RevisionRow>('registry/active')).body.checksum).toBe(baseline.checksum);
+    cleanup();
+  }, 240_000);
 });

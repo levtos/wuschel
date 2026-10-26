@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0b12 — Importvorschau verständlich entscheiden
+
+- Die Importvorschau bietet unten dauerhaft „Vorschau neu prüfen“ und erklärt direkt beim Einlesen, welche Entscheidung oder Prüfung noch fehlt. Offene Konflikte sind über einen Sprung erreichbar.
+- Vollständige Konfigurationspakete können vorhandene Objekte unter derselben Kennung ausdrücklich aus der Datei übernehmen. Plan-Prüfsumme, Revisionsbindung und bewusste Übernahme des Entwurfs bleiben erhalten.
+- Kategorie und Raum erscheinen nur für neue oder abweichende Angaben; unveränderte Angaben bleiben automatisch erhalten. Vertrag und Vorlage gleichen Namens sind unterscheidbar.
+- Wuschel 1.0.0b12; Traber bleibt unverändert auf 1.0.0b11. Keine Datenbankmigration, Änderung der Aktualitätslogik oder Lockerung von Prüfsummen.
+
 ## 1.0.0b11 — Schlaf und Weckplanung (Kandidat)
 
 - Regelsprache 6 ergänzt geordnete Übergänge, einzeln belegte Ereignisse, lokale Zeitspeicher und datumsabhängige Kalenderregeln. Alte Sprachversionen bleiben erhalten.
