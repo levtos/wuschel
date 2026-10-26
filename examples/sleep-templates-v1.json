@@ -1,0 +1,2682 @@
+[
+  {
+    "type_id": "device.power",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "device.power",
+    "inputs": [
+      {
+        "name": "power",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "input",
+        "name": "power"
+      }
+    }
+  },
+  {
+    "type_id": "device.power_state",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "device.power_state",
+    "inputs": [
+      {
+        "name": "state",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "map",
+        "arg": {
+          "op": "input",
+          "name": "state"
+        },
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        },
+        "entries": {
+          "\"on\"": true,
+          "\"playing\"": true,
+          "\"paused\"": true,
+          "\"idle\"": true,
+          "\"off\"": false,
+          "\"standby\"": false
+        }
+      }
+    }
+  },
+  {
+    "type_id": "device.active",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "device.active",
+    "inputs": [
+      {
+        "name": "power",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "W"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "compare",
+        "comparison": "gt",
+        "left": {
+          "op": "input",
+          "name": "power"
+        },
+        "right": {
+          "op": "parameter",
+          "name": "threshold_w"
+        }
+      }
+    },
+    "parameter_schema": {
+      "threshold_w": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "W"
+        },
+        "minimum": 0,
+        "maximum": 100000,
+        "label": "Aktiv ab Leistung über"
+      }
+    }
+  },
+  {
+    "type_id": "sleep.flow",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "sleep.flow",
+    "inputs": [
+      {
+        "name": "tv",
+        "schema": {
+          "type": "bool",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "pc",
+        "schema": {
+          "type": "bool",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "location",
+        "schema": {
+          "type": "enum",
+          "required": false,
+          "physical_state": false,
+          "value_catalog": [
+            "home",
+            "parents",
+            "away"
+          ]
+        }
+      },
+      {
+        "name": "permission",
+        "schema": {
+          "type": "bool",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "local_date",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "appointments",
+        "schema": {
+          "type": "object",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "holiday_days",
+        "schema": {
+          "type": "object",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "manual_exception",
+        "schema": {
+          "type": "object",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "hallway",
+        "schema": {
+          "type": "bool",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "coffee",
+        "schema": {
+          "type": "bool",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "toilet",
+        "schema": {
+          "type": "bool",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "bathlight",
+        "schema": {
+          "type": "bool",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "kitchen",
+        "schema": {
+          "type": "bool",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "volume",
+        "schema": {
+          "type": "number",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "terrace",
+        "schema": {
+          "type": "enum",
+          "required": false,
+          "physical_state": false,
+          "value_catalog": [
+            "closed",
+            "open",
+            "tilted"
+          ]
+        }
+      },
+      {
+        "name": "window_1",
+        "schema": {
+          "type": "enum",
+          "required": false,
+          "physical_state": false,
+          "value_catalog": [
+            "closed",
+            "open",
+            "tilted"
+          ]
+        }
+      },
+      {
+        "name": "window_2",
+        "schema": {
+          "type": "enum",
+          "required": false,
+          "physical_state": false,
+          "value_catalog": [
+            "closed",
+            "open",
+            "tilted"
+          ]
+        }
+      },
+      {
+        "name": "window_3",
+        "schema": {
+          "type": "enum",
+          "required": false,
+          "physical_state": false,
+          "value_catalog": [
+            "closed",
+            "open",
+            "tilted"
+          ]
+        }
+      },
+      {
+        "name": "window_4",
+        "schema": {
+          "type": "enum",
+          "required": false,
+          "physical_state": false,
+          "value_catalog": [
+            "closed",
+            "open",
+            "tilted"
+          ]
+        }
+      },
+      {
+        "name": "window_5",
+        "schema": {
+          "type": "enum",
+          "required": false,
+          "physical_state": false,
+          "value_catalog": [
+            "closed",
+            "open",
+            "tilted"
+          ]
+        }
+      },
+      {
+        "name": "window_6",
+        "schema": {
+          "type": "enum",
+          "required": false,
+          "physical_state": false,
+          "value_catalog": [
+            "closed",
+            "open",
+            "tilted"
+          ]
+        }
+      },
+      {
+        "name": "window_7",
+        "schema": {
+          "type": "enum",
+          "required": false,
+          "physical_state": false,
+          "value_catalog": [
+            "closed",
+            "open",
+            "tilted"
+          ]
+        }
+      },
+      {
+        "name": "window_8",
+        "schema": {
+          "type": "enum",
+          "required": false,
+          "physical_state": false,
+          "value_catalog": [
+            "closed",
+            "open",
+            "tilted"
+          ]
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "awake",
+            "pre_sleep",
+            "sleep",
+            "waking"
+          ]
+        },
+        "sleep_context_active": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        },
+        "entry_origin": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        },
+        "since_at": {
+          "type": "timestamp",
+          "required": true,
+          "physical_state": false
+        },
+        "episode_id": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        },
+        "episode_started_at": {
+          "type": "timestamp",
+          "required": true,
+          "physical_state": false
+        },
+        "episode_active": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        },
+        "deadline_at": {
+          "type": "timestamp",
+          "required": false,
+          "physical_state": false
+        },
+        "sleep_started_at": {
+          "type": "timestamp",
+          "required": false,
+          "physical_state": false
+        },
+        "last_action_origin": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        },
+        "wake_status": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        },
+        "wake_next_wake_start": {
+          "type": "timestamp",
+          "required": false,
+          "physical_state": false
+        },
+        "wake_plan_date": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        },
+        "wake_window_start": {
+          "type": "timestamp",
+          "required": false,
+          "physical_state": false
+        },
+        "wake_window_end": {
+          "type": "timestamp",
+          "required": false,
+          "physical_state": false
+        },
+        "wake_decision": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        },
+        "wake_minimum_sleep_applied": {
+          "type": "bool",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "machine"
+      },
+      "sleep_context_active": {
+        "op": "or",
+        "args": [
+          {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "machine"
+            },
+            "right": {
+              "op": "literal",
+              "value": "pre_sleep",
+              "schema": {
+                "type": "text",
+                "required": true,
+                "physical_state": false
+              }
+            }
+          },
+          {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "machine"
+            },
+            "right": {
+              "op": "literal",
+              "value": "sleep",
+              "schema": {
+                "type": "text",
+                "required": true,
+                "physical_state": false
+              }
+            }
+          }
+        ]
+      },
+      "entry_origin": {
+        "op": "machine_field",
+        "field": "entry_label"
+      },
+      "sleep_started_at": {
+        "op": "machine_memory",
+        "slot": "first_sleep_at"
+      },
+      "since_at": {
+        "op": "machine_field",
+        "field": "since_at"
+      },
+      "episode_id": {
+        "op": "machine_field",
+        "field": "episode_id"
+      },
+      "episode_started_at": {
+        "op": "machine_field",
+        "field": "episode_started_at"
+      },
+      "episode_active": {
+        "op": "machine_field",
+        "field": "episode_active"
+      },
+      "deadline_at": {
+        "op": "machine_field",
+        "field": "deadline_at"
+      },
+      "last_action_origin": {
+        "op": "machine_field",
+        "field": "last_action_origin"
+      },
+      "wake_status": {
+        "op": "wake_plan",
+        "id": "plan",
+        "settings_parameter": "wake_settings",
+        "date_input": "local_date",
+        "calendar_input": "appointments",
+        "holidays_input": "holiday_days",
+        "exception_input": "manual_exception",
+        "sleep_since": {
+          "op": "machine_memory",
+          "slot": "first_sleep_at"
+        },
+        "field": "status"
+      },
+      "wake_next_wake_start": {
+        "op": "wake_plan",
+        "id": "plan",
+        "settings_parameter": "wake_settings",
+        "date_input": "local_date",
+        "calendar_input": "appointments",
+        "holidays_input": "holiday_days",
+        "exception_input": "manual_exception",
+        "sleep_since": {
+          "op": "machine_memory",
+          "slot": "first_sleep_at"
+        },
+        "field": "next_wake_start"
+      },
+      "wake_plan_date": {
+        "op": "wake_plan",
+        "id": "plan",
+        "settings_parameter": "wake_settings",
+        "date_input": "local_date",
+        "calendar_input": "appointments",
+        "holidays_input": "holiday_days",
+        "exception_input": "manual_exception",
+        "sleep_since": {
+          "op": "machine_memory",
+          "slot": "first_sleep_at"
+        },
+        "field": "plan_date"
+      },
+      "wake_window_start": {
+        "op": "wake_plan",
+        "id": "plan",
+        "settings_parameter": "wake_settings",
+        "date_input": "local_date",
+        "calendar_input": "appointments",
+        "holidays_input": "holiday_days",
+        "exception_input": "manual_exception",
+        "sleep_since": {
+          "op": "machine_memory",
+          "slot": "first_sleep_at"
+        },
+        "field": "window_start"
+      },
+      "wake_window_end": {
+        "op": "wake_plan",
+        "id": "plan",
+        "settings_parameter": "wake_settings",
+        "date_input": "local_date",
+        "calendar_input": "appointments",
+        "holidays_input": "holiday_days",
+        "exception_input": "manual_exception",
+        "sleep_since": {
+          "op": "machine_memory",
+          "slot": "first_sleep_at"
+        },
+        "field": "window_end"
+      },
+      "wake_decision": {
+        "op": "wake_plan",
+        "id": "plan",
+        "settings_parameter": "wake_settings",
+        "date_input": "local_date",
+        "calendar_input": "appointments",
+        "holidays_input": "holiday_days",
+        "exception_input": "manual_exception",
+        "sleep_since": {
+          "op": "machine_memory",
+          "slot": "first_sleep_at"
+        },
+        "field": "decision"
+      },
+      "wake_minimum_sleep_applied": {
+        "op": "wake_plan",
+        "id": "plan",
+        "settings_parameter": "wake_settings",
+        "date_input": "local_date",
+        "calendar_input": "appointments",
+        "holidays_input": "holiday_days",
+        "exception_input": "manual_exception",
+        "sleep_since": {
+          "op": "machine_memory",
+          "slot": "first_sleep_at"
+        },
+        "field": "minimum_sleep_applied"
+      }
+    },
+    "rules": {
+      "away": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "input",
+              "name": "location"
+            },
+            "right": {
+              "op": "literal",
+              "value": "away",
+              "schema": {
+                "type": "text",
+                "required": true,
+                "physical_state": false
+              }
+            }
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_pc": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_pc",
+            "arg": {
+              "op": "input",
+              "name": "pc"
+            },
+            "mode": "rising",
+            "after_state_entry": true
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_hallway": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_hallway",
+            "arg": {
+              "op": "input",
+              "name": "hallway"
+            },
+            "mode": "rising",
+            "after_state_entry": true
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_coffee": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_coffee",
+            "arg": {
+              "op": "input",
+              "name": "coffee"
+            },
+            "mode": "rising",
+            "after_state_entry": true
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_toilet": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_toilet",
+            "arg": {
+              "op": "input",
+              "name": "toilet"
+            },
+            "mode": "changed",
+            "after_state_entry": true
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_bathlight": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_bathlight",
+            "arg": {
+              "op": "input",
+              "name": "bathlight"
+            },
+            "mode": "changed",
+            "after_state_entry": true
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_kitchen": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_kitchen",
+            "arg": {
+              "op": "input",
+              "name": "kitchen"
+            },
+            "mode": "changed",
+            "after_state_entry": true
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_volume": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "and",
+            "args": [
+              {
+                "op": "event_match",
+                "id": "event_volume",
+                "arg": {
+                  "op": "input",
+                  "name": "volume"
+                },
+                "mode": "changed",
+                "after_state_entry": true
+              },
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "known_automatic",
+                    "arg": {
+                      "op": "input",
+                      "name": "volume"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_terrace": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_terrace",
+            "arg": {
+              "op": "input",
+              "name": "terrace"
+            },
+            "mode": "changed",
+            "after_state_entry": true
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_window_1": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_window_1",
+            "arg": {
+              "op": "input",
+              "name": "window_1"
+            },
+            "mode": "changed",
+            "after_state_entry": true
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_window_2": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_window_2",
+            "arg": {
+              "op": "input",
+              "name": "window_2"
+            },
+            "mode": "changed",
+            "after_state_entry": true
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_window_3": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_window_3",
+            "arg": {
+              "op": "input",
+              "name": "window_3"
+            },
+            "mode": "changed",
+            "after_state_entry": true
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_window_4": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_window_4",
+            "arg": {
+              "op": "input",
+              "name": "window_4"
+            },
+            "mode": "changed",
+            "after_state_entry": true
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_window_5": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_window_5",
+            "arg": {
+              "op": "input",
+              "name": "window_5"
+            },
+            "mode": "changed",
+            "after_state_entry": true
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_window_6": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_window_6",
+            "arg": {
+              "op": "input",
+              "name": "window_6"
+            },
+            "mode": "changed",
+            "after_state_entry": true
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_window_7": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_window_7",
+            "arg": {
+              "op": "input",
+              "name": "window_7"
+            },
+            "mode": "changed",
+            "after_state_entry": true
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_window_8": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_window_8",
+            "arg": {
+              "op": "input",
+              "name": "window_8"
+            },
+            "mode": "changed",
+            "after_state_entry": true
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "interaction": {
+        "op": "or",
+        "args": [
+          {
+            "op": "ref",
+            "name": "event_hallway"
+          },
+          {
+            "op": "ref",
+            "name": "event_terrace"
+          },
+          {
+            "op": "ref",
+            "name": "event_toilet"
+          },
+          {
+            "op": "ref",
+            "name": "event_coffee"
+          },
+          {
+            "op": "ref",
+            "name": "event_bathlight"
+          },
+          {
+            "op": "ref",
+            "name": "event_kitchen"
+          },
+          {
+            "op": "ref",
+            "name": "event_volume"
+          }
+        ]
+      },
+      "wake_signal": {
+        "op": "or",
+        "args": [
+          {
+            "op": "ref",
+            "name": "event_terrace"
+          },
+          {
+            "op": "ref",
+            "name": "event_coffee"
+          },
+          {
+            "op": "ref",
+            "name": "event_pc"
+          },
+          {
+            "op": "ref",
+            "name": "event_window_1"
+          },
+          {
+            "op": "ref",
+            "name": "event_window_2"
+          },
+          {
+            "op": "ref",
+            "name": "event_window_3"
+          },
+          {
+            "op": "ref",
+            "name": "event_window_4"
+          },
+          {
+            "op": "ref",
+            "name": "event_window_5"
+          },
+          {
+            "op": "ref",
+            "name": "event_window_6"
+          },
+          {
+            "op": "ref",
+            "name": "event_window_7"
+          },
+          {
+            "op": "ref",
+            "name": "event_window_8"
+          }
+        ]
+      },
+      "automatic_start": {
+        "op": "and",
+        "args": [
+          {
+            "op": "input",
+            "name": "permission"
+          },
+          {
+            "op": "input",
+            "name": "tv"
+          },
+          {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "input",
+              "name": "pc"
+            },
+            "right": {
+              "op": "literal",
+              "value": false,
+              "schema": {
+                "type": "bool",
+                "required": true,
+                "physical_state": false
+              }
+            }
+          },
+          {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "input",
+              "name": "location"
+            },
+            "right": {
+              "op": "literal",
+              "value": "home",
+              "schema": {
+                "type": "text",
+                "required": true,
+                "physical_state": false
+              }
+            }
+          }
+        ]
+      },
+      "planned_start": {
+        "op": "wake_plan",
+        "id": "plan",
+        "settings_parameter": "wake_settings",
+        "date_input": "local_date",
+        "calendar_input": "appointments",
+        "holidays_input": "holiday_days",
+        "exception_input": "manual_exception",
+        "sleep_since": {
+          "op": "machine_memory",
+          "slot": "first_sleep_at"
+        },
+        "field": "next_wake_start"
+      }
+    },
+    "machine": {
+      "id": "flow",
+      "states": [
+        "awake",
+        "pre_sleep",
+        "sleep",
+        "waking"
+      ],
+      "initial": "awake",
+      "transition_selection": "ordered",
+      "required_inputs_by_state": {
+        "pre_sleep": [
+          "tv",
+          "pc"
+        ]
+      },
+      "unknown_deadline": "keep_and_block_transition",
+      "deadline_by_state": {
+        "pre_sleep": {
+          "duration": 2700
+        },
+        "sleep": {
+          "duration": 2700
+        },
+        "waking": {
+          "duration": 3600
+        }
+      },
+      "commands": {
+        "confirm_sleep": {},
+        "start_pre_sleep": {}
+      },
+      "transitions": [
+        {
+          "source": "awake",
+          "target": "pre_sleep",
+          "event": "input",
+          "guard": {
+            "op": "ref",
+            "name": "automatic_start"
+          },
+          "reason": "suspected",
+          "entry_label": "suspected",
+          "new_episode": true
+        },
+        {
+          "source": "pre_sleep",
+          "target": "awake",
+          "event": "input",
+          "guard": {
+            "op": "ref",
+            "name": "event_pc"
+          },
+          "reason": "pc_on",
+          "entry_label": "pc_on",
+          "ends_episode": true
+        },
+        {
+          "source": "pre_sleep",
+          "target": "awake",
+          "event": "input",
+          "guard": {
+            "op": "ref",
+            "name": "away"
+          },
+          "reason": "presence_away",
+          "entry_label": "presence_away",
+          "ends_episode": true
+        },
+        {
+          "source": "pre_sleep",
+          "target": "pre_sleep",
+          "event": "input",
+          "guard": {
+            "op": "ref",
+            "name": "interaction"
+          },
+          "reason": "interaction",
+          "entry_label": "interaction",
+          "deadline_action": "reset",
+          "reset_trigger": "event"
+        },
+        {
+          "source": "pre_sleep",
+          "target": "sleep",
+          "event": "deadline",
+          "guard": {
+            "op": "literal",
+            "value": true,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "reason": "timeout",
+          "entry_label": "timeout",
+          "deadline_action": "clear"
+        },
+        {
+          "source": "sleep",
+          "target": "awake",
+          "event": "input",
+          "guard": {
+            "op": "ref",
+            "name": "wake_signal"
+          },
+          "reason": "wake_signal",
+          "entry_label": "wake_signal",
+          "ends_episode": true
+        },
+        {
+          "source": "sleep",
+          "target": "awake",
+          "event": "input",
+          "guard": {
+            "op": "ref",
+            "name": "away"
+          },
+          "reason": "presence_away",
+          "entry_label": "presence_away",
+          "ends_episode": true
+        },
+        {
+          "source": "waking",
+          "target": "awake",
+          "event": "input",
+          "guard": {
+            "op": "ref",
+            "name": "wake_signal"
+          },
+          "reason": "wake_signal",
+          "entry_label": "wake_signal",
+          "ends_episode": true
+        },
+        {
+          "source": "waking",
+          "target": "awake",
+          "event": "input",
+          "guard": {
+            "op": "ref",
+            "name": "away"
+          },
+          "reason": "presence_away",
+          "entry_label": "presence_away",
+          "ends_episode": true
+        },
+        {
+          "source": "waking",
+          "target": "awake",
+          "event": "deadline",
+          "guard": {
+            "op": "literal",
+            "value": true,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "reason": "timeout",
+          "entry_label": "timeout",
+          "ends_episode": true
+        },
+        {
+          "source": "awake",
+          "target": "sleep",
+          "event": "confirm_sleep",
+          "guard": {
+            "op": "literal",
+            "value": true,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "reason": "confirmed",
+          "entry_label": "confirmed",
+          "new_episode": true
+        },
+        {
+          "source": "awake",
+          "target": "pre_sleep",
+          "event": "start_pre_sleep",
+          "guard": {
+            "op": "literal",
+            "value": true,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "reason": "intentional",
+          "entry_label": "intentional",
+          "new_episode": true
+        },
+        {
+          "source": "pre_sleep",
+          "target": "sleep",
+          "event": "confirm_sleep",
+          "guard": {
+            "op": "literal",
+            "value": true,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "reason": "confirmed",
+          "entry_label": "confirmed"
+        },
+        {
+          "source": "pre_sleep",
+          "target": "pre_sleep",
+          "event": "start_pre_sleep",
+          "guard": {
+            "op": "literal",
+            "value": true,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "reason": "intentional",
+          "entry_label": "intentional",
+          "deadline_action": "reset"
+        },
+        {
+          "source": "sleep",
+          "target": "sleep",
+          "event": "confirm_sleep",
+          "guard": {
+            "op": "literal",
+            "value": true,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "reason": "confirmed",
+          "entry_label": "confirmed",
+          "deadline_action": "reset"
+        },
+        {
+          "source": "sleep",
+          "target": "pre_sleep",
+          "event": "start_pre_sleep",
+          "guard": {
+            "op": "literal",
+            "value": true,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "reason": "intentional",
+          "entry_label": "intentional",
+          "new_episode": true
+        },
+        {
+          "source": "waking",
+          "target": "sleep",
+          "event": "confirm_sleep",
+          "guard": {
+            "op": "literal",
+            "value": true,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "reason": "confirmed",
+          "entry_label": "confirmed"
+        },
+        {
+          "source": "waking",
+          "target": "pre_sleep",
+          "event": "start_pre_sleep",
+          "guard": {
+            "op": "literal",
+            "value": true,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "reason": "intentional",
+          "entry_label": "intentional"
+        }
+      ],
+      "captures": {
+        "first_sleep_at": {
+          "on_enter": "sleep",
+          "mode": "first_in_episode"
+        }
+      },
+      "absolute_transition": {
+        "states": [
+          "pre_sleep",
+          "sleep"
+        ],
+        "target": "waking",
+        "at_rule": {
+          "op": "ref",
+          "name": "planned_start"
+        },
+        "priority": "absolute",
+        "entry_label": "schedule"
+      },
+      "reinitialize_when": {
+        "op": "and",
+        "args": [
+          {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "input",
+              "name": "pc"
+            },
+            "right": {
+              "op": "literal",
+              "value": false,
+              "schema": {
+                "type": "bool",
+                "required": true,
+                "physical_state": false
+              }
+            }
+          },
+          {
+            "op": "compare",
+            "comparison": "eq",
+            "left": {
+              "op": "input",
+              "name": "tv"
+            },
+            "right": {
+              "op": "literal",
+              "value": false,
+              "schema": {
+                "type": "bool",
+                "required": true,
+                "physical_state": false
+              }
+            }
+          }
+        ]
+      }
+    },
+    "parameter_schema": {
+      "wake_settings": {
+        "schema": {
+          "type": "object",
+          "required": true,
+          "physical_state": false
+        },
+        "structured_schema": "wake_planning_v1",
+        "label": "Weckplanung"
+      }
+    }
+  },
+  {
+    "type_id": "sleep.state_view",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "sleep.state_view",
+    "inputs": [
+      {
+        "name": "value",
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "awake",
+            "pre_sleep",
+            "sleep",
+            "waking"
+          ]
+        }
+      },
+      {
+        "name": "sleep_context_active",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "entry_origin",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "since_at",
+        "schema": {
+          "type": "timestamp",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "episode_id",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "episode_started_at",
+        "schema": {
+          "type": "timestamp",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "episode_active",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "deadline_at",
+        "schema": {
+          "type": "timestamp",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "sleep_started_at",
+        "schema": {
+          "type": "timestamp",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "last_action_origin",
+        "schema": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "awake",
+            "pre_sleep",
+            "sleep",
+            "waking"
+          ]
+        },
+        "sleep_context_active": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        },
+        "entry_origin": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        },
+        "since_at": {
+          "type": "timestamp",
+          "required": true,
+          "physical_state": false
+        },
+        "episode_id": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        },
+        "episode_started_at": {
+          "type": "timestamp",
+          "required": true,
+          "physical_state": false
+        },
+        "episode_active": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        },
+        "deadline_at": {
+          "type": "timestamp",
+          "required": false,
+          "physical_state": false
+        },
+        "sleep_started_at": {
+          "type": "timestamp",
+          "required": false,
+          "physical_state": false
+        },
+        "last_action_origin": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "input",
+        "name": "value"
+      },
+      "sleep_context_active": {
+        "op": "input",
+        "name": "sleep_context_active"
+      },
+      "entry_origin": {
+        "op": "input",
+        "name": "entry_origin"
+      },
+      "since_at": {
+        "op": "input",
+        "name": "since_at"
+      },
+      "episode_id": {
+        "op": "input",
+        "name": "episode_id"
+      },
+      "episode_started_at": {
+        "op": "input",
+        "name": "episode_started_at"
+      },
+      "episode_active": {
+        "op": "input",
+        "name": "episode_active"
+      },
+      "deadline_at": {
+        "op": "input",
+        "name": "deadline_at"
+      },
+      "sleep_started_at": {
+        "op": "input",
+        "name": "sleep_started_at"
+      },
+      "last_action_origin": {
+        "op": "input",
+        "name": "last_action_origin"
+      }
+    }
+  },
+  {
+    "type_id": "wake.plan_view",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "wake.plan_view",
+    "inputs": [
+      {
+        "name": "status",
+        "schema": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "next_wake_start",
+        "schema": {
+          "type": "timestamp",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "plan_date",
+        "schema": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "window_start",
+        "schema": {
+          "type": "timestamp",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "window_end",
+        "schema": {
+          "type": "timestamp",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "decision",
+        "schema": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "minimum_sleep_applied",
+        "schema": {
+          "type": "bool",
+          "required": false,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "status": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        },
+        "next_wake_start": {
+          "type": "timestamp",
+          "required": false,
+          "physical_state": false
+        },
+        "plan_date": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        },
+        "window_start": {
+          "type": "timestamp",
+          "required": false,
+          "physical_state": false
+        },
+        "window_end": {
+          "type": "timestamp",
+          "required": false,
+          "physical_state": false
+        },
+        "decision": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        },
+        "minimum_sleep_applied": {
+          "type": "bool",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "status"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "status": {
+        "op": "input",
+        "name": "status"
+      },
+      "next_wake_start": {
+        "op": "input",
+        "name": "next_wake_start"
+      },
+      "plan_date": {
+        "op": "input",
+        "name": "plan_date"
+      },
+      "window_start": {
+        "op": "input",
+        "name": "window_start"
+      },
+      "window_end": {
+        "op": "input",
+        "name": "window_end"
+      },
+      "decision": {
+        "op": "input",
+        "name": "decision"
+      },
+      "minimum_sleep_applied": {
+        "op": "input",
+        "name": "minimum_sleep_applied"
+      }
+    }
+  },
+  {
+    "type_id": "day.context_at",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "day.context_at",
+    "inputs": [
+      {
+        "name": "date",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "holidays",
+        "schema": {
+          "type": "object",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "appointments",
+        "schema": {
+          "type": "object",
+          "required": false,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "or",
+              "args": [
+                {
+                  "op": "calendar_active",
+                  "arg": {
+                    "op": "input",
+                    "name": "holidays"
+                  },
+                  "pattern": {
+                    "op": "literal",
+                    "value": "*",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  },
+                  "all_day_only": true,
+                  "on_date": {
+                    "op": "input",
+                    "name": "date"
+                  }
+                },
+                {
+                  "op": "calendar_active",
+                  "arg": {
+                    "op": "input",
+                    "name": "appointments"
+                  },
+                  "pattern": {
+                    "op": "parameter",
+                    "name": "vacation_pattern"
+                  },
+                  "all_day_only": true,
+                  "on_date": {
+                    "op": "input",
+                    "name": "date"
+                  }
+                }
+              ]
+            },
+            "then": {
+              "op": "literal",
+              "value": "frei",
+              "schema": {
+                "type": "text",
+                "required": true,
+                "physical_state": false
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "or",
+                  "args": [
+                    {
+                      "op": "calendar_active",
+                      "arg": {
+                        "op": "input",
+                        "name": "holidays"
+                      },
+                      "pattern": {
+                        "op": "literal",
+                        "value": "*",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": false
+                        }
+                      },
+                      "all_day_only": true,
+                      "on_date": {
+                        "op": "input",
+                        "name": "date"
+                      }
+                    },
+                    {
+                      "op": "calendar_active",
+                      "arg": {
+                        "op": "input",
+                        "name": "appointments"
+                      },
+                      "pattern": {
+                        "op": "parameter",
+                        "name": "vacation_pattern"
+                      },
+                      "all_day_only": true,
+                      "on_date": {
+                        "op": "input",
+                        "name": "date"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "then": {
+              "op": "first_match",
+              "cases": [
+                {
+                  "when": {
+                    "op": "map",
+                    "arg": {
+                      "op": "calendar_at",
+                      "at": {
+                        "op": "input",
+                        "name": "date"
+                      },
+                      "field": "weekday"
+                    },
+                    "schema": {
+                      "type": "bool",
+                      "required": true,
+                      "physical_state": false
+                    },
+                    "entries": {
+                      "1": true,
+                      "2": true,
+                      "3": true,
+                      "4": true,
+                      "5": true,
+                      "6": false,
+                      "7": false
+                    }
+                  },
+                  "then": {
+                    "op": "literal",
+                    "value": "werktag",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  }
+                },
+                {
+                  "when": {
+                    "op": "not",
+                    "args": [
+                      {
+                        "op": "map",
+                        "arg": {
+                          "op": "calendar_at",
+                          "at": {
+                            "op": "input",
+                            "name": "date"
+                          },
+                          "field": "weekday"
+                        },
+                        "schema": {
+                          "type": "bool",
+                          "required": true,
+                          "physical_state": false
+                        },
+                        "entries": {
+                          "1": true,
+                          "2": true,
+                          "3": true,
+                          "4": true,
+                          "5": true,
+                          "6": false,
+                          "7": false
+                        }
+                      }
+                    ]
+                  },
+                  "then": {
+                    "op": "literal",
+                    "value": "wochenende",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "parameter_schema": {
+      "vacation_pattern": {
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        },
+        "label": "Ganztägiger Urlaub"
+      }
+    }
+  },
+  {
+    "type_id": "day.holiday_at",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "day.holiday_at",
+    "inputs": [
+      {
+        "name": "date",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "holidays",
+        "schema": {
+          "type": "object",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "calendar_active",
+        "arg": {
+          "op": "input",
+          "name": "holidays"
+        },
+        "pattern": {
+          "op": "literal",
+          "value": "*",
+          "schema": {
+            "type": "text",
+            "required": true,
+            "physical_state": false
+          }
+        },
+        "all_day_only": true,
+        "on_date": {
+          "op": "input",
+          "name": "date"
+        }
+      }
+    }
+  },
+  {
+    "type_id": "day.date_offset",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "day.date_offset",
+    "inputs": [
+      {
+        "name": "date",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "calendar_at",
+        "at": {
+          "op": "input",
+          "name": "date"
+        },
+        "offset_days": 1,
+        "field": "date"
+      }
+    }
+  },
+  {
+    "type_id": "day.is_workday",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "day.is_workday",
+    "inputs": [
+      {
+        "name": "context",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "compare",
+        "comparison": "eq",
+        "left": {
+          "op": "input",
+          "name": "context"
+        },
+        "right": {
+          "op": "literal",
+          "value": "werktag",
+          "schema": {
+            "type": "text",
+            "required": true,
+            "physical_state": false
+          }
+        }
+      }
+    }
+  },
+  {
+    "type_id": "daily.window",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "daily.window",
+    "inputs": [
+      {
+        "name": "date",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "today_workday",
+        "schema": {
+          "type": "bool",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "tomorrow_workday",
+        "schema": {
+          "type": "bool",
+          "required": false,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "daily_window",
+        "at": {
+          "op": "input",
+          "name": "date"
+        },
+        "before_workday": {
+          "op": "input",
+          "name": "tomorrow_workday"
+        },
+        "current_workday": {
+          "op": "input",
+          "name": "today_workday"
+        },
+        "start_kind": {
+          "op": "parameter",
+          "name": "work_kind"
+        },
+        "start_phase": {
+          "op": "parameter",
+          "name": "work_phase"
+        },
+        "start_time": {
+          "op": "parameter",
+          "name": "work_time"
+        },
+        "otherwise_kind": {
+          "op": "parameter",
+          "name": "other_kind"
+        },
+        "otherwise_phase": {
+          "op": "parameter",
+          "name": "other_phase"
+        },
+        "otherwise_time": {
+          "op": "parameter",
+          "name": "other_time"
+        },
+        "phase_curves": {
+          "early_night": [
+            {
+              "day": "03-21",
+              "value": 54.6
+            },
+            {
+              "day": "06-21",
+              "value": 109.2
+            },
+            {
+              "day": "09-23",
+              "value": 54.6
+            },
+            {
+              "day": "12-21",
+              "value": 0.0
+            }
+          ],
+          "late_night": [
+            {
+              "day": "03-21",
+              "value": 233.93333333333334
+            },
+            {
+              "day": "06-21",
+              "value": 227.86666666666667
+            },
+            {
+              "day": "09-23",
+              "value": 233.93333333333334
+            },
+            {
+              "day": "12-21",
+              "value": 240.0
+            }
+          ],
+          "early_morning": [
+            {
+              "day": "03-21",
+              "value": 323.6
+            },
+            {
+              "day": "06-21",
+              "value": 287.2
+            },
+            {
+              "day": "09-23",
+              "value": 323.6
+            },
+            {
+              "day": "12-21",
+              "value": 360.0
+            }
+          ],
+          "forenoon": [
+            {
+              "day": "03-21",
+              "value": 516.6
+            },
+            {
+              "day": "06-21",
+              "value": 493.2
+            },
+            {
+              "day": "09-23",
+              "value": 516.6
+            },
+            {
+              "day": "12-21",
+              "value": 540.0
+            }
+          ],
+          "midday": [
+            {
+              "day": "03-21",
+              "value": 709.6
+            },
+            {
+              "day": "06-21",
+              "value": 699.2
+            },
+            {
+              "day": "09-23",
+              "value": 709.6
+            },
+            {
+              "day": "12-21",
+              "value": 720.0
+            }
+          ],
+          "afternoon": [
+            {
+              "day": "03-21",
+              "value": 842.6
+            },
+            {
+              "day": "06-21",
+              "value": 845.2
+            },
+            {
+              "day": "09-23",
+              "value": 842.6
+            },
+            {
+              "day": "12-21",
+              "value": 840.0
+            }
+          ],
+          "late_afternoon": [
+            {
+              "day": "03-21",
+              "value": 975.6
+            },
+            {
+              "day": "06-21",
+              "value": 991.2
+            },
+            {
+              "day": "09-23",
+              "value": 975.6
+            },
+            {
+              "day": "12-21",
+              "value": 960.0
+            }
+          ],
+          "evening": [
+            {
+              "day": "03-21",
+              "value": 1108.6
+            },
+            {
+              "day": "06-21",
+              "value": 1137.2
+            },
+            {
+              "day": "09-23",
+              "value": 1108.6
+            },
+            {
+              "day": "12-21",
+              "value": 1080.0
+            }
+          ],
+          "late_evening": [
+            {
+              "day": "03-21",
+              "value": 1301.6
+            },
+            {
+              "day": "06-21",
+              "value": 1343.2
+            },
+            {
+              "day": "09-23",
+              "value": 1301.6
+            },
+            {
+              "day": "12-21",
+              "value": 1260.0
+            }
+          ]
+        },
+        "end_phase": "forenoon"
+      }
+    },
+    "parameter_schema": {
+      "work_kind": {
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "phase",
+            "time"
+          ]
+        },
+        "label": "Abend vor einem Arbeitstag · Beginn wählen"
+      },
+      "work_phase": {
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "early_night",
+            "late_night",
+            "early_morning",
+            "forenoon",
+            "midday",
+            "afternoon",
+            "late_afternoon",
+            "evening",
+            "late_evening"
+          ]
+        },
+        "label": "Abend vor einem Arbeitstag · Tagesphase"
+      },
+      "work_time": {
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        },
+        "label": "Abend vor einem Arbeitstag · Uhrzeit"
+      },
+      "other_kind": {
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "phase",
+            "time"
+          ]
+        },
+        "label": "Sonst · Beginn wählen"
+      },
+      "other_phase": {
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "early_night",
+            "late_night",
+            "early_morning",
+            "forenoon",
+            "midday",
+            "afternoon",
+            "late_afternoon",
+            "evening",
+            "late_evening"
+          ]
+        },
+        "label": "Sonst · Tagesphase"
+      },
+      "other_time": {
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        },
+        "label": "Sonst · Uhrzeit"
+      }
+    }
+  }
+]
