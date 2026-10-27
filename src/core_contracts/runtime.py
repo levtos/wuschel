@@ -21,6 +21,7 @@ from .evidence import Observation, assess, is_new, is_older
 from .ha_context import ContextIndex
 from .lifecycle import EDITORIAL, transition_allowed
 from .model import Model, canonical, checksum, semantic_fingerprint, utc
+from .numeric_equivalence import preserve_config, preserve_numbers
 from .persistence import State, Store
 from .producer import Context, Producer
 from .quality import FieldValue, ReasonCode, unknown
@@ -282,6 +283,47 @@ class Runtime:
             **details,
         }
 
+    async def _restore_numbers(
+        self, document: dict[str, Any], previous: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        # Validate the submitted types first; preservation must not repair invalid input.
+        checked = validate(document, self.types)
+        result = preserve_config(document, previous or {})
+        active = self._config(self.state)
+        if active:
+            result = preserve_config(result, storage_document(active))
+        for group, identity, version, getter in (
+            ("definitions", "type_id", "type_version", self.store.definition),
+            ("catalogs", "catalog_id", "version", self.store.catalog),
+        ):
+            for index, row in enumerate(result.get(group, [])):
+                declaration = getattr(checked, group)[index]
+                stored = await getter(getattr(declaration, identity), getattr(declaration, version))
+                if stored:
+                    restored = preserve_numbers(row, stored)
+                    row.clear()
+                    row.update(restored)
+        for index, row in enumerate(result.get("sources", [])):
+            profile = row.get("sensor_profile")
+            if profile:
+                declaration = checked.sources[index].sensor_profile
+                assert declaration is not None
+                stored = await self.store.sensor_profile(declaration.id, declaration.version)
+                if stored:
+                    row["sensor_profile"] = preserve_numbers(profile, stored)
+        return result
+
+    async def _portable_numbers(self, request: dict[str, Any]) -> dict[str, Any]:
+        from .portable import read_package, strict_json
+
+        package = read_package(
+            strict_json(request["package_text"])
+            if "package_text" in request
+            else request["package"]
+        )
+        target = self.state.tables["registry_draft"].get(request.get("target_draft_id", ""))
+        return await self._restore_numbers(package["config"], target["config"] if target else None)
+
     async def _definition_versions(self, config: RegistryConfig) -> None:
         from .validation import RegistryValidationError, ValidationIssue
 
@@ -291,7 +333,7 @@ class Runtime:
             if profile:
                 previous = await self.store.sensor_profile(profile.id, profile.version)
                 if previous and semantic_fingerprint(previous) != semantic_fingerprint(
-                    profile.model_dump(mode="json")
+                    preserve_numbers(profile.model_dump(mode="json"), previous)
                 ):
                     issues.append(
                         ValidationIssue(
@@ -309,6 +351,8 @@ class Runtime:
                 document = item.model_dump(mode="json")
                 identity = document[identity_key]
                 previous = await getter(identity, document[version_key])
+                if previous:
+                    document = preserve_numbers(document, previous)
                 if previous and checksum(
                     {k: v for k, v in previous.items() if k not in EDITORIAL}
                 ) != checksum({k: v for k, v in document.items() if k not in EDITORIAL}):
@@ -869,7 +913,9 @@ class Runtime:
         if operation == "portable_preview":
             from .portable import preview as portable_preview
 
-            return portable_preview(self, state, payload)
+            return portable_preview(
+                self, state, payload, restored=await self._portable_numbers(payload)
+            )
         if operation == "portable_stage":
             from uuid import UUID
 
@@ -882,7 +928,14 @@ class Runtime:
                 if import_previous["digest"] != import_digest:
                     raise ValueError("import_plan_conflict")
                 return import_previous["result"]
-            result = stage(self, state, payload, payload.get("_actor"), now)
+            result = stage(
+                self,
+                state,
+                payload,
+                payload.get("_actor"),
+                now,
+                restored=await self._portable_numbers(payload),
+            )
             state.tables["catalog_import"][import_record] = {
                 "digest": import_digest,
                 "result": result,
@@ -1138,7 +1191,7 @@ class Runtime:
             draft = state.tables["registry_draft"][payload["draft_id"]]
             result = authoring.comparison(self, state, draft)
             if operation == "draft_preview":
-                checked_config = validate(draft["config"], self.types)
+                checked_config = validate(await self._restore_numbers(draft["config"]), self.types)
                 await self._definition_versions(checked_config)
                 await self._source_types(checked_config)
                 return result
@@ -1194,6 +1247,13 @@ class Runtime:
                 old is None or payload["draft_version"] != old["draft_version"]
             ):
                 raise ValueError("draft_version_conflict")
+            from .validation import RegistryValidationError
+
+            try:
+                document = await self._restore_numbers(document, old["config"] if old else None)
+            except RegistryValidationError:
+                # Incomplete/invalid drafts remain editable, with their errors intact.
+                pass
             result = {
                 **(old or base_fields(state)),
                 "draft_id": key,
@@ -1258,7 +1318,7 @@ class Runtime:
             await self._commit(state)
             return None
         if operation == "validate":
-            candidate = validate(payload, self.types)
+            candidate = validate(await self._restore_numbers(payload), self.types)
             await self._definition_versions(candidate)
             await self._source_types(candidate)
             from .capabilities import machine_description
@@ -1317,7 +1377,10 @@ class Runtime:
                 if historical is None:
                     raise ValueError("revision_not_found")
                 document = historical["config"]
-            new_config = validate(document, self.types)
+            new_config = validate(
+                await self._restore_numbers(document) if operation == "activate" else document,
+                self.types,
+            )
             await self._definition_versions(new_config)
             await self._source_types(new_config)
             if operation == "activate":
@@ -1327,6 +1390,7 @@ class Runtime:
                 from .portable import apply
 
                 imported_latches = apply(self, state, draft, new_config, now)
+                draft["config"] = storage_document(new_config)
             revision = max((int(r) for r in state.tables["registry_revision"]), default=0) + 1
             state.active_revision = revision
             state.tables["registry_revision"][str(revision)] = {

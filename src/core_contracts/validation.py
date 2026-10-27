@@ -9,6 +9,7 @@ from .declarative import DefinitionValidationErrors, RuleValidationError, all_ru
 from .declarative_models import DeclarativeDefinition
 from .instance_parameters import validate_slots
 from .model import Model, canonical, semantic_fingerprint
+from .numeric_equivalence import preserve_numbers
 from .registry import (
     Binding,
     Catalog,
@@ -334,7 +335,12 @@ def validate_document(
                 other.sensor_profile
                 and (other.sensor_profile.id, other.sensor_profile.version)
                 == (profile.id, profile.version)
-                and semantic_fingerprint(other.sensor_profile.model_dump(mode="json"))
+                and semantic_fingerprint(
+                    preserve_numbers(
+                        other.sensor_profile.model_dump(mode="json"),
+                        profile.model_dump(mode="json"),
+                    )
+                )
                 != semantic_fingerprint(profile.model_dump(mode="json"))
                 for other in config.sources
             ):

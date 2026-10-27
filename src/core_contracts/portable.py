@@ -10,6 +10,7 @@ from .catalog_models import CatalogWrite, EntryChange, ManagedCatalog
 from .editorial import EditorialWrite, ObjectRef, Room
 from .managed_catalog import definition_digest, head, head_key, identity, invalidate, prepare
 from .model import canonical, checksum
+from .numeric_equivalence import equivalent, preserve_config, preserve_numbers
 from .registry import RegistryConfig, resolve_ref, safe_document, storage_document, validate
 
 GROUPS = {
@@ -346,7 +347,13 @@ def read_package(value: Any) -> dict[str, Any]:
     return value
 
 
-def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]:
+def preview(
+    runtime: Any,
+    state: Any,
+    request: dict[str, Any],
+    *,
+    restored: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     package = copy.deepcopy(
         read_package(
             strict_json(request["package_text"])
@@ -355,6 +362,23 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
         )
     )
     incoming = validate(package["config"], runtime.types)
+    # Verify the original declared digests before adapting a plan to stored numbers.
+    for content in package["catalog_contents"]:
+        original_catalog = next(
+            (
+                catalog
+                for catalog in incoming.catalogs
+                if isinstance(catalog, ManagedCatalog)
+                and (catalog.catalog_id, catalog.version)
+                == (content["catalog_id"], content["definition_version"])
+            ),
+            None,
+        )
+        if (
+            original_catalog is None
+            or definition_digest(original_catalog) != content["definition_digest"]
+        ):
+            raise ValueError("import_catalog_definition")
     active = runtime._config(state)
     existing = storage_document(active) if active else {}
     target = None
@@ -371,6 +395,9 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
             raise ValueError("import_target_has_plan")
         existing = storage_document(validate(target["config"], runtime.types))
     incoming_doc = storage_document(incoming)
+    incoming_doc = preserve_config(incoming_doc, existing)
+    if restored is not None:
+        incoming_doc = preserve_config(incoming_doc, restored)
     if incoming.config_schema_version == 4 or existing.get("config_schema_version") == 4:
         from .freshness_templates import upgrade_document
 
@@ -380,7 +407,7 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
     conflicts = [
         key
         for key, row in new_objects.items()
-        if key in old_objects and checksum(row) != checksum(old_objects[key])
+        if key in old_objects and not equivalent(row, old_objects[key])
     ]
     resolutions = request.get("resolutions", {})
     if not isinstance(resolutions, dict) or any(
@@ -458,15 +485,13 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
     package["catalog_contents"] = remap(package["catalog_contents"])
     incoming = validate(incoming_doc, runtime.types)
     for content in package["catalog_contents"]:
-        if content["catalog_id"] in remaps.values():
-            catalog = next(
-                c
-                for c in incoming.catalogs
-                if c.catalog_id == content["catalog_id"]
-                and c.version == content["definition_version"]
-            )
-            assert isinstance(catalog, ManagedCatalog)
-            content["definition_digest"] = definition_digest(catalog)
+        catalog = next(
+            c
+            for c in incoming.catalogs
+            if c.catalog_id == content["catalog_id"] and c.version == content["definition_version"]
+        )
+        assert isinstance(catalog, ManagedCatalog)
+        content["definition_digest"] = definition_digest(catalog)
     unresolved = [
         key
         for key in conflicts
@@ -600,7 +625,11 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                 raise ValueError("import_catalog_duplicate")
             seen.add(key)
             previous = head(state, content_catalog)["entries"].get(key)
-            if previous and previous != row:
+            if previous:
+                restored_entry = preserve_numbers(row, previous)
+                row.clear()
+                row.update(restored_entry)
+            if previous and not equivalent(previous, row):
                 conflict = f"catalog-entry:{head_key(content_catalog)}:{key}"
                 conflicts.append(conflict)
                 if resolutions.get(conflict) not in ("keep", "file"):
@@ -625,7 +654,7 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
         "conflicts": conflicts,
         "unresolved": unresolved,
         "added": len(new_objects.keys() - old_objects.keys()),
-        "reused": sum(row == old_objects.get(key) for key, row in new_objects.items()),
+        "reused": sum(equivalent(row, old_objects.get(key)) for key, row in new_objects.items()),
         "expected_active_revision": state.active_revision,
         "catalog_heads": heads,
         "editorial_versions": editorial_versions,
@@ -666,9 +695,15 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
 
 
 def stage(
-    runtime: Any, state: Any, request: dict[str, Any], actor: Any, now: Any
+    runtime: Any,
+    state: Any,
+    request: dict[str, Any],
+    actor: Any,
+    now: Any,
+    *,
+    restored: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    plan = preview(runtime, state, request)
+    plan = preview(runtime, state, request, restored=restored)
     if request.get("plan_digest") != plan["plan_digest"]:
         raise ValueError("import_plan_conflict")
     if plan["unresolved"]:
