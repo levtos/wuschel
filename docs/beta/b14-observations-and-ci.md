@@ -42,6 +42,8 @@ Zustände, Eintrittsgründe und Weckentscheidungen werden nur für diese Typen
 übersetzt; beliebiger Nutzertext bleibt unverändert. Unbekannt bleibt unbekannt.
 Verlauf, Feldüberschriften und Werttexte verwenden dieselbe Darstellung.
 Öffentliche Beispiele ändern ausschließlich deutsche Anzeigenamen.
+Die Typauswertung liest das veröffentlichte Format `type.id/version` und
+versteht weiterhin die ältere Testdatenform `type_id/type_version`.
 
 Die zusätzliche CI-E2E prüft Liste und Detail mit synthetischen Verträgen gegen
 die echte isolierte Engine. Anschließend prüft sie die Vorschau einer reinen
@@ -62,6 +64,10 @@ Vorhandene Räume bleiben erhalten, wenn keine sichere Zuordnung vorliegt.
 Namensänderungen sind in der Importvorschau ausdrücklich sichtbar. Echte
 Fachänderungen erfordern weiterhin eine Konfliktentscheidung. Das Einlesen und
 Übernehmen macht Benni nach der Installation von b14.
+Kommt die aktive Revision erst während der ersten Vorschauantwort an, bleibt
+deren veraltetes Ergebnis als solches sichtbar und löst eine neue Prüfung aus.
+Einlesen bleibt bis zur Bestätigung der aktuellen Vorschau gesperrt. Eine
+gezielte Regression belegt diese bisher zufällige Reihenfolge ausdrücklich.
 
 ## CI-Nachweise
 
