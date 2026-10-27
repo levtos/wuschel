@@ -116,10 +116,12 @@ async def test_health_http_request_concurrent_with_cold_validation(
 
     def validate_with_concurrent_request(document, types):
         nonlocal started
-        started = perf_counter()
         # An independent, already connected HTTP socket sends while the POST's
-        # synchronous validator runs. No mocked health handler or cached definition.
-        writer.write(b"GET /health/live HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+        # synchronous validator runs. Preservation may validate again; measure from
+        # the FIRST pass and send one request on this Connection: close socket.
+        if started is None:
+            started = perf_counter()
+            writer.write(b"GET /health/live HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
         return original(document, types)
 
     async def health_response():
