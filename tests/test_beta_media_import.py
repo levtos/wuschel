@@ -319,6 +319,25 @@ async def test_existing_catalog_entry_is_preserved_when_an_extra_form_collides(r
     assert entries[canonical(["Synthetic Artist", "Song"])]["classification"] == "boost"
 
 
+@pytest.mark.parametrize("master_key", ["Synthetic Master", "---"])
+async def test_excluding_a_master_never_promotes_its_variant_to_an_independent_class(
+    runtime, config, master_key
+):
+    await activate(runtime, document(config))
+    master = flat_row(master_key, normalized_key="legacy-master")
+    child = flat_row("Synthetic Variant", parent_key=master["normalized_key"], enum=2)
+    plan = await runtime.submit(
+        "title_preview", request(runtime, [master, child], excluded_rows=[1])
+    )
+    assert plan["unresolved"]
+    assert plan["report"]["target_entries"] == 0
+    assert any(
+        e["row"] == 2 and "class_or_master_mapping_required" in e["reasons"]
+        for e in plan["report"]["errors"]
+    )
+    assert not head(runtime.state, runtime.config.catalogs[0])["entries"]
+
+
 async def test_multiple_contexts_unknown_mapping_and_hidden_master(runtime, config):
     doc = document(config)
     second = copy.deepcopy(doc["catalogs"][0])

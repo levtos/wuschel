@@ -195,6 +195,9 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                 if candidate["parent_identity"]
                 else None
             )
+            if candidate["parent_identity"] and parent is None:
+                errors.append({"row": row_number, "reasons": ["class_or_master_mapping_required"]})
+                continue
             if parent and parent["hidden_at"] and not include_hidden:
                 errors.append({"row": row_number, "reasons": ["hidden_master_required"]})
                 continue
