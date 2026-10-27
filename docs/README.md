@@ -4,6 +4,7 @@
 
 | Dokument | Freigabestand |
 |---|---|
+| [beta/bereich-5/A1.md](beta/bereich-5/A1.md) | Medienwahrheiten für #75: A1-Vorschlag, Laufzeitproben und offene Reviewpunkte; Claude-Review und Benni-Go vor A2 |
 | [beta/bereich-4/A1.md](beta/bereich-4/A1.md) | Schlaf und Weckplanung für #61: A1-Vorschlag mit synthetischen Ist-Proben; Review und Benni-Go vor A2 |
 | [adr/0032-ordered-machine-commands.md](adr/0032-ordered-machine-commands.md) | Vorgeschlagen: geordnete Übergänge, belegte Ereignisse und Command-Fristreset |
 | [adr/0033-wake-planning-staged-evaluation.md](adr/0033-wake-planning-staged-evaluation.md) | Vorgeschlagen: Weckplan-Port, lokale Auswertungsphasen und strukturierte Parameter |
