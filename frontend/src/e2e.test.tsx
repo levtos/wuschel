@@ -626,7 +626,9 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     expect(recheck.parentElement).toHaveClass('sticky', 'bottom-0');
     const first = document.getElementById('import-conflict-0')!;
     first.scrollIntoView = vi.fn();
-    await user.click(screen.getByRole('link', { name: '2 Konflikte noch nicht entschieden' }));
+    // The asynchronously loaded active revision can trigger a fresh preview.
+    // Its rows remain visible while the jump link waits for that acknowledgement.
+    await user.click(await screen.findByRole('link', { name: '2 Konflikte noch nicht entschieden' }));
     expect(first.scrollIntoView).toHaveBeenCalled(); expect(first).toHaveFocus();
     for (const select of within(conflicts).getAllByLabelText('Umgang mit dem vorhandenen Objekt')) await user.selectOptions(select, 'file');
     await clickReadyButton(user, recheck, 'Vorschau neu prüfen');
