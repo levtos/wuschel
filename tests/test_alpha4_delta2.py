@@ -121,7 +121,9 @@ async def test_health_http_request_concurrent_with_cold_validation(
         # the FIRST pass and send one request on this Connection: close socket.
         if started is None:
             started = perf_counter()
-            writer.write(b"GET /health/live HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+            writer.write(
+                b"GET /health/live HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+            )
         return original(document, types)
 
     async def health_response():
