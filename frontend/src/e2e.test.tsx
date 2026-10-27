@@ -637,4 +637,49 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     expect((await raw<RevisionRow>('registry/active')).body.checksum).toBe(baseline.checksum);
     cleanup();
   }, 240_000);
+  it('b13 loads, checks and saves a browser-rounded published annual curve while the server retains its float bytes', async () => {
+    const field = { type: 'number', required: true, physical_state: false };
+    const config: JsonObject = {
+      config_schema_version: 4, fingerprint_version: 4, dependencies: [], sources: [], bindings: [], catalogs: [],
+      definitions: [{ type_id: 'synthetic.b13.curve', type_version: 1, language_version: 5, inputs: [], schema: { fields: { value: field }, available_projection: ['value'] }, outputs: { value: { op: 'annual_curve', at: { op: 'literal', value: '2030-01-01', schema: { type: 'text', required: true, physical_state: false } }, points: [{ day: '01-01', value: 840.5 }, { day: '07-01', value: 900 }] } } }],
+      contracts: [{ contract_id: 'synthetic.b13.value', type_id: 'synthetic.b13.curve', type_version: 1, enabled: true, inputs: [], parameters: {} }],
+    };
+    const head = (await raw<RevisionRow>('registry/active')).body;
+    // Seed an actual JSON float token. The normal JS fixture helper would erase .0.
+    const seedText = JSON.stringify({ config, expected_active_revision: head?.revision ?? 0 }).replace('"value":840.5', '"value":840.0');
+    await reserveRequest();
+    const seedResponse = await realFetch(`${base}/api/v1/registry/drafts`, { ...json('POST', {}), body: seedText });
+    expect(seedResponse.status).toBe(200);
+    const seededText = await seedResponse.text();
+    expect(seededText).toMatch(/"value"\s*:\s*840\.0[,}]/);
+    const seed = JSON.parse(seededText) as Draft;
+    expect((await raw(`registry/drafts/${seed.draft_id}/activate`, json('POST', await activationInput(seed, head?.revision ?? 0)))).status).toBe(200);
+    const active = (await raw<RevisionRow>('registry/active')).body;
+    const working = (await raw<Draft>('registry/drafts', json('POST', { config: active.config, display_name: 'Synthetic b13 browser' }))).body;
+    sessionStorage.setItem('terra.workingDraft', working.draft_id);
+    window.location.hash = `#/changes/drafts/${working.draft_id}`;
+    const uiFetch = globalThis.fetch;
+    const saves: string[] = [];
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith(`/registry/drafts/${working.draft_id}`) && init?.method === 'PUT') saves.push(String(init.body));
+      return uiFetch(input, init);
+    });
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Workbench onSetup={() => {}} live={store} /></QueryClientProvider>);
+    await screen.findByDisplayValue('Synthetic b13 browser');
+    await clickReadyButton(user, await screen.findByRole('button', { name: 'Prüfen' }), 'Prüfen');
+    await screen.findByText('Keine Fehler gefunden');
+    await f.type(screen.getByLabelText('Name des Entwurfs'), 'Synthetic b13 saved');
+    await clickReadyButton(user, await f.saveButton(), 'Speichern');
+    await screen.findByText('Im Entwurf gespeichert');
+    expect(saves).toHaveLength(1);
+    expect(saves[0]).toMatch(/"value":840[,}]/);
+    await reserveRequest();
+    const savedResponse = await realFetch(`${base}/api/v1/registry/drafts/${working.draft_id}`);
+    expect(savedResponse.status).toBe(200);
+    expect(await savedResponse.text()).toMatch(/"value"\s*:\s*840\.0[,}]/);
+    await clickReadyButton(user, screen.getByRole('button', { name: 'Prüfen' }), 'Prüfen');
+    await screen.findByText('Keine Fehler gefunden');
+    expect((await raw<RevisionRow>('registry/active')).body.checksum).toBe(active.checksum);
+    cleanup();
+  }, 240_000);
 });

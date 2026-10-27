@@ -17,6 +17,7 @@ from .ha_context import ContextProducer
 from .lifecycle import Lifecycle
 from .model import Model, canonical, semantic_fingerprint
 from .notifications import Notifications
+from .numeric_equivalence import equivalent, preserve_config
 from .refresh_plan import RefreshCapability, RefreshPlan
 from .retention import RetentionPolicy
 from .schema import ContractType, FieldSchema, TypeRegistry
@@ -618,7 +619,7 @@ def context_compatibility(config: RegistryConfig, types: TypeRegistry) -> dict[s
 
 
 def changed_paths(before: Any, after: Any, path: str = "") -> Iterator[str]:
-    if before == after:
+    if equivalent(before, after):
         return
     if isinstance(before, dict) and isinstance(after, dict):
         for key in sorted(before.keys() | after.keys()):
@@ -640,12 +641,20 @@ def changed_paths(before: Any, after: Any, path: str = "") -> Iterator[str]:
 def diff(
     before: RegistryConfig | None, after: RegistryConfig, types: TypeRegistry | None = None
 ) -> dict[str, Any]:
+    if before:
+        after = RegistryConfig.model_validate(
+            preserve_config(storage_document(after), storage_document(before))
+        )
     old = {c.contract_id: c for c in before.contracts} if before else {}
     new = {c.contract_id: c for c in after.contracts}
     result: dict[str, Any] = {
         "added": sorted(new.keys() - old.keys()),
         "removed": sorted(old.keys() - new.keys()),
-        "changed": sorted(k for k in new.keys() & old.keys() if old[k] != new[k]),
+        "changed": sorted(
+            k
+            for k in new.keys() & old.keys()
+            if not equivalent(old[k].model_dump(mode="json"), new[k].model_dump(mode="json"))
+        ),
     }
     objects: dict[str, Any] = {}
     changed_sources: set[str] = set()
@@ -674,7 +683,9 @@ def diff(
             )
 
         previous, current = entries(before), entries(after)
-        changed = sorted(k for k in previous.keys() & current.keys() if previous[k] != current[k])
+        changed = sorted(
+            k for k in previous.keys() & current.keys() if not equivalent(previous[k], current[k])
+        )
         objects[group] = {
             "added": sorted(current.keys() - previous.keys()),
             "removed": sorted(previous.keys() - current.keys()),
@@ -683,7 +694,7 @@ def diff(
                 key: sorted(
                     name
                     for name in previous[key].keys() | current[key].keys()
-                    if previous[key].get(name) != current[key].get(name)
+                    if not equivalent(previous[key].get(name), current[key].get(name))
                 )
                 for key in changed
             },

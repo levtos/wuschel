@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0b13 — Zahlendarstellung bei Bearbeitung erhalten
+
+- Gleichwertige JSON-Zahlen wie `840` und `840.0` werden beim Validieren, Speichern, Importieren und Übernehmen auf die gespeicherte Darstellung zurückgeführt. Bereits veröffentlichte Vorlagen bleiben dadurch auch nach dem Browser-Rundlauf unverändert gültig.
+- Unveränderlichkeits- und Importvergleich sowie „Was sich ändert“ verwenden dieselbe typbewusste Gleichheit. Echte Wertänderungen, Bool- und Textwechsel bleiben verschieden; die Schema-Prüfung bleibt erhalten.
+- `canonical`, `checksum`, gespeicherte Fingerabdrücke und Restore-Identitäten bleiben unverändert. Keine Datenbankmigration; Traber bleibt auf 1.0.0b11.
+- [Verhalten und Nachweise](docs/beta/b13-numeric-equivalence.md). Der vorhandene Importentwurf benötigt keinen Neuimport; tatsächliches Übernehmen bleibt Benni vorbehalten.
+
 ## 1.0.0b12 — Importvorschau verständlich entscheiden
 
 - Die Importvorschau bietet unten dauerhaft „Vorschau neu prüfen“ und erklärt direkt beim Einlesen, welche Entscheidung oder Prüfung noch fehlt. Offene Konflikte sind über einen Sprung erreichbar.

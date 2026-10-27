@@ -9,6 +9,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from .model import checksum
+from .numeric_equivalence import equivalent, preserve_config, preserve_numbers
 from .persistence import PersistenceUnavailable
 from .registry import RegistryConfig, storage_document, validate
 
@@ -121,7 +122,13 @@ def effects_match(runtime: Any, state: Any, plan: dict[str, Any]) -> bool:
 
 def comparison(runtime: Any, state: Any, draft: dict[str, Any]) -> dict[str, Any]:
     guard(state, draft)
+    active = runtime._config(state)
+    # Validate submitted types before restoring their stored numeric spelling.
     config = validate(draft["config"], runtime.types)
+    if active:
+        config = validate(
+            preserve_config(storage_document(config), storage_document(active)), runtime.types
+        )
     from .editorial import apply_draft
     from .portable import apply
 
@@ -129,7 +136,6 @@ def comparison(runtime: Any, state: Any, draft: dict[str, Any]) -> dict[str, Any
     apply_draft(probe, draft, runtime)
     if draft.get("portable"):
         apply(runtime, probe, draft, config, runtime.clock.now_utc())
-    active = runtime._config(state)
     # RetentionPolicy supplies the effective defaults on both sides.
     before = (
         active.history_retention.model_dump(mode="json")
@@ -142,7 +148,7 @@ def comparison(runtime: Any, state: Any, draft: dict[str, Any]) -> dict[str, Any
         for k, v in (after or {}).items()
         if k.endswith("days") and (before is None or v < before[k])
     ]
-    same = active is not None and storage_document(active) == storage_document(config)
+    same = active is not None and equivalent(storage_document(active), storage_document(config))
     pending_editorial = [
         r for r in state.tables["editorial_draft"].values() if r["draft_id"] == draft["draft_id"]
     ]
@@ -434,9 +440,13 @@ def merge(
             and len({value.get("kind") for value in (b, d, c) if isinstance(value, dict)}) > 1
         )
         has_forced_child = any(p.startswith(path + "/") for p in forced)
-        if path not in forced and not has_forced_child and (d == c or b == c):
-            return deepcopy(d)
-        if path not in forced and not has_forced_child and b == d:
+        if path not in forced and not has_forced_child and (equivalent(d, c) or equivalent(b, c)):
+            return (
+                preserve_config(d, c)
+                if not path and isinstance(d, dict) and isinstance(c, dict)
+                else preserve_numbers(d, c)
+            )
+        if path not in forced and not has_forced_child and equivalent(b, d):
             return deepcopy(c)
         if b == UNKNOWN and not selection_switch and all(isinstance(v, dict) for v in (d, c)):
             return {
@@ -703,6 +713,13 @@ async def continuation(
     # Unknown bases are explicitly a two-way choice, never claimed as historical proof.
     b = UNKNOWN if session["manual"] else session["base"]
     candidate, conflicts = merge(b, session["draft"], current_doc, session["decisions"])
+    if not conflicts:
+        from .validation import RegistryValidationError
+
+        try:
+            candidate = await runtime._restore_numbers(candidate)
+        except RegistryValidationError:
+            pass  # Keep invalid drafts editable; the finish path still validates them.
     plan = deepcopy(draft.get("portable"))
     if plan and plan.get("status") != "consumed" and not conflicts:
         plan, plan_conflicts = await rebuild_plan(
