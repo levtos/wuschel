@@ -24,6 +24,10 @@ export function fieldsForContract(contract: JsonObject, config: Registry | null,
 
 const SLEEP_TYPES = new Set(['sleep.flow', 'sleep.state_view', 'wake.plan_view']);
 
+export function contractTypeId(envelope: Envelope): string {
+  return str(envelope.type?.id ?? envelope.type?.type_id);
+}
+
 export function contractTitle(contract: JsonObject | undefined, fallback = ''): string {
   return contract?.type_id === 'sleep.flow' ? t('b14.sleep.internal') : str(contract?.display_name) || fallback;
 }
@@ -47,7 +51,7 @@ export function contractFieldValue(typeId: string | undefined, name: string, fie
 
 export function contractValue(envelope: Envelope | null, fields: Record<string, FieldSchema>): string {
   if (!envelope) return t('alpha7.contract.noValue');
-  const typeId = envelope.type?.type_id;
+  const typeId = contractTypeId(envelope);
   const value = (name: string) => envelope.fields[name] ? contractFieldValue(typeId, name, envelope.fields[name]!, fields[name]) : t('alpha7.contract.noValue');
   if (typeId === 'sleep.flow') return t('b14.sleep.internalValue');
   if (typeId === 'sleep.state_view') {

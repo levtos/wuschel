@@ -44,7 +44,12 @@ export default function ImportExportPage() {
     setChecking(true); setError('');
     try {
       const result = await api<Preview>('portable/preview', { method: 'POST', body: JSON.parse(bodyText) });
-      if (sequence !== requestSequence.current || latestKey.current !== previewKey) return;
+      if (sequence !== requestSequence.current) return;
+      if (latestKey.current !== previewKey) {
+        // Keep a stale first result visible so the existing recheck effect runs.
+        // Its old key and stale flag still prohibit staging until acknowledgement.
+        setPreview(result); setCheckedKey(previewKey); setStale(true); return;
+      }
       setPreview(result); setCheckedKey(previewKey); setRequestId(crypto.randomUUID()); setStale(false);
     } catch (failure) {
       if (sequence === requestSequence.current && latestKey.current === previewKey) setError(describeError(failure));

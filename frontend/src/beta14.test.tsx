@@ -13,7 +13,7 @@ import { episodeId, sleepRegistry } from '../test/b14-fixtures';
 const valid = (value: Json): FieldValue => ({ status: 'valid', quality: 'healthy', value, evidence: [], reasons: [] });
 function envelope(id: string, type: string): Envelope {
   const definition = (sleepRegistry.definitions as JsonObject[]).find(row => row.type_id === type)!;
-  return { contract_id: id, type: { type_id: type, type_version: 1 }, fields: Object.fromEntries(Object.entries(definition.outputs as JsonObject).map(([name, rule]) => [name, valid((rule as JsonObject).value!)])), enabled: true, available: true, contract_health: 'healthy', computed_at: '2026-01-01T00:00:00Z', published_at: '2026-01-01T00:00:00Z', publication_seq: 1, registry_revision: 1, epoch_id: 'synthetic' };
+  return { contract_id: id, type: { id: type, version: 1 }, fields: Object.fromEntries(Object.entries(definition.outputs as JsonObject).map(([name, rule]) => [name, valid((rule as JsonObject).value!)])), enabled: true, available: true, contract_health: 'healthy', computed_at: '2026-01-01T00:00:00Z', published_at: '2026-01-01T00:00:00Z', publication_seq: 1, registry_revision: 1, epoch_id: 'synthetic' };
 }
 const state = envelope('synthetic.b14.state', 'sleep.state_view');
 const wake = envelope('synthetic.b14.wake', 'wake.plan_view');

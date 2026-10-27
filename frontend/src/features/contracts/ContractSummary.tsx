@@ -15,7 +15,7 @@ import { POLL_MS } from '@/lib/queries';
 import { useHistoryWindow, useWindowHistory } from './historyWindow';
 import type { Envelope, FieldValue, HistoryItem, Registry } from '@/lib/types';
 import { problemAdvice } from '@/features/overview/overviewModel';
-import { contractFieldLabel, contractFieldValue, contractSources, contractState } from './presentation';
+import { contractFieldLabel, contractFieldValue, contractSources, contractState, contractTypeId } from './presentation';
 import { ContractStateChip } from './ContractStateChip';
 import { MachineRestartPanel } from './MachineRestartPanel';
 import { ManualSourcePanel } from '@/features/sources/ManualSourcePanel';
@@ -97,8 +97,8 @@ export function ContractSummary({ envelope, stale, fields, config, machine }: { 
     {Object.values(envelope.fields).some(field => field.configuration?.complete === false) && <Panel className="p-5"><h3 className="font-medium">{t('alpha8.configuration.title')}</h3><p className="text-sm text-muted">{t('alpha8.configuration.validHint')}</p><ul className="mt-2 text-sm">{Object.entries(envelope.fields).flatMap(([name, field]) => (field.configuration?.hints ?? []).map((hint, index) => <li key={`${name}:${index}`}>{hint.message || t('alpha8.configuration.unassigned')}</li>))}</ul></Panel>}
     <Panel><PanelHeader title={t('alpha7.contract.now')} aside={<ContractStateChip envelope={envelope} enabled={envelope.enabled} stale={stale} />} />
       <div className="flex flex-wrap gap-x-12 gap-y-5 p-6">{Object.entries(envelope.fields).map(([name, field]) => <div key={name}>
-        {Object.keys(envelope.fields).length > 1 && <p className="mb-1 text-sm text-muted">{contractFieldLabel(envelope.type.type_id, name)}</p>}
-        <p className="text-4xl font-semibold tabular-nums" data-testid={`value-${name}`}>{contractFieldValue(envelope.type.type_id, name, field, fields[name])}</p>
+        {Object.keys(envelope.fields).length > 1 && <p className="mb-1 text-sm text-muted">{contractFieldLabel(contractTypeId(envelope), name)}</p>}
+        <p className="text-4xl font-semibold tabular-nums" data-testid={`value-${name}`}>{contractFieldValue(contractTypeId(envelope), name, field, fields[name])}</p>
         {field.value_origin && <p className="mt-2 text-sm text-muted">{t('alpha9.valueOrigin.label')}: {t(`alpha9.valueOrigin.${field.value_origin.kind}`)}</p>}
         {!!field.input_origins?.length && <p className="mt-1 text-xs text-muted">{t('alpha9.valueOrigin.inputs', { kinds: [...new Set(field.input_origins.map(origin => t(`alpha9.valueOrigin.${origin.kind}`)))].join(', ') })}</p>}
         {field.plausibility === 'suspicious' && <p className="mt-2 text-sm text-warn">{t('alpha9.sensor.suspicious')}</p>}
@@ -114,7 +114,7 @@ export function ContractSummary({ envelope, stale, fields, config, machine }: { 
     </div></Panel>
     <Panel><PanelHeader title={t('alpha7.contract.history')} description={t('alpha7.contract.historyScope')} /><div className="space-y-5 p-5">
       <label className="text-sm">{t('beta5.history.window')} <select value={window.hours} onChange={event => window.select(Number(event.target.value) === 168 ? 168 : 24)}><option value={24}>{t('beta5.history.day')}</option><option value={168}>{t('beta5.history.week')}</option></select></label>
-      {history.isPending || gaps.isPending ? <Spinner /> : history.isError || gaps.isError ? <p role="alert" className="text-sm text-bad">{t('alpha7.contract.historyUnavailable')}</p> : Object.keys(envelope.fields).map(name => <MiniHistory key={name} name={name} contractTypeId={envelope.type.type_id} schema={fields[name]} since={window.since} until={window.until} now={window.until} current={stale ? undefined : envelope.fields[name]} points={historyPoints(history.data ?? [], envelope.contract_id, name, envelope.registry_revision, gaps.data ?? [])} />)}
+      {history.isPending || gaps.isPending ? <Spinner /> : history.isError || gaps.isError ? <p role="alert" className="text-sm text-bad">{t('alpha7.contract.historyUnavailable')}</p> : Object.keys(envelope.fields).map(name => <MiniHistory key={name} name={name} contractTypeId={contractTypeId(envelope)} schema={fields[name]} since={window.since} until={window.until} now={window.until} current={stale ? undefined : envelope.fields[name]} points={historyPoints(history.data ?? [], envelope.contract_id, name, envelope.registry_revision, gaps.data ?? [])} />)}
     </div></Panel>
     {sources.filter(source => asArray(config?.sources).map(asObject)[source.sourceIndex]?.origin === 'manual').map(source => <ManualSourcePanel key={source.id} sourceId={source.id} />)}
     {machine && <CommandsPanel contractId={envelope.contract_id} onContract={() => {}} fixed />}
