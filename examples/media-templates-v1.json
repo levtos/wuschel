@@ -1349,7 +1349,7 @@
         "name": "artist",
         "schema": {
           "type": "text",
-          "required": true,
+          "required": false,
           "physical_state": false
         }
       }
@@ -1458,54 +1458,84 @@
                 "cases": [
                   {
                     "when": {
-                      "op": "and",
-                      "args": [
-                        {
-                          "op": "compare",
-                          "left": {
-                            "op": "input",
-                            "name": "artist"
-                          },
-                          "right": {
-                            "op": "literal",
-                            "value": "",
-                            "schema": {
-                              "type": "text",
-                              "required": true,
-                              "physical_state": false
-                            }
-                          },
-                          "comparison": "ne"
-                        },
-                        {
-                          "op": "compare",
-                          "left": {
-                            "op": "input",
-                            "name": "title"
-                          },
-                          "right": {
-                            "op": "literal",
-                            "value": "",
-                            "schema": {
-                              "type": "text",
-                              "required": true,
-                              "physical_state": false
-                            }
-                          },
-                          "comparison": "ne"
+                      "op": "compare",
+                      "left": {
+                        "op": "input",
+                        "name": "title"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "value": "",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": false
                         }
-                      ]
+                      },
+                      "comparison": "ne"
                     },
                     "then": {
-                      "op": "compound_key",
-                      "args": [
+                      "op": "first_match",
+                      "cases": [
                         {
-                          "op": "input",
-                          "name": "artist"
+                          "when": {
+                            "op": "compare",
+                            "left": {
+                              "op": "input",
+                              "name": "artist"
+                            },
+                            "right": {
+                              "op": "literal",
+                              "value": "",
+                              "schema": {
+                                "type": "text",
+                                "required": true,
+                                "physical_state": false
+                              }
+                            },
+                            "comparison": "ne"
+                          },
+                          "then": {
+                            "op": "compound_key",
+                            "args": [
+                              {
+                                "op": "input",
+                                "name": "artist"
+                              },
+                              {
+                                "op": "input",
+                                "name": "title"
+                              }
+                            ]
+                          }
                         },
                         {
-                          "op": "input",
-                          "name": "title"
+                          "when": {
+                            "op": "compare",
+                            "left": {
+                              "op": "input",
+                              "name": "artist"
+                            },
+                            "right": {
+                              "op": "literal",
+                              "value": "",
+                              "schema": {
+                                "type": "text",
+                                "required": true,
+                                "physical_state": false
+                              }
+                            },
+                            "comparison": "eq"
+                          },
+                          "then": {
+                            "op": "compound_key",
+                            "args": [
+                              {
+                                "op": "input",
+                                "name": "title"
+                              }
+                            ]
+                          }
                         }
                       ]
                     }

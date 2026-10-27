@@ -9,11 +9,11 @@ import { idleLive } from '../../../test/harness';
 
 const config = emptyRegistry();
 const context = { key: '["synthetic","synthetic-app"]', context: 'Synthetic Context', source_app: 'synthetic-app' };
-const result = (unresolved: string[] = []) => ({ import_id: 'synthetic', plan_digest: 'checked', already_applied: false, contexts: [context], report: { input_rows: 3181, target_entries: 3181, error_count: 0, outcomes: {}, errors: [] }, unresolved, conflicts: [] });
+const result = (unresolved: string[] = []) => ({ import_id: 'synthetic', plan_digest: 'checked', already_applied: false, contexts: [context], report: { input_rows: 3181, target_entries: 6362, additional_forms_created: 3181, additional_forms_skipped: 0, error_count: 0, outcomes: {}, errors: [] }, unresolved, conflicts: [] });
 beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-async function open(respond: (body: any) => Response | Promise<Response> = () => reply(200, result())) {
+async function open(respond: (body: any) => Response | Promise<Response> = () => reply(200, result()), entries = [{ key: 'Synthetic - Ambiguous - Music' }]) {
   const fake = installFakeApi({ revisions: [{ revision: 4, config, checksum: 'synthetic', created_at: '2026-10-27T00:00:00Z' }] });
   fake.routes.push({ match: /^catalogs$/, respond: () => reply(200, [{ catalog_id: 'media.homepods', version: 1 }]) });
   fake.routes.push({ match: /^title-import\/preview$/, respond: (_, body) => respond(body) });
@@ -24,7 +24,7 @@ async function open(respond: (body: any) => Response | Promise<Response> = () =>
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: 'Titelkataloge einlesen' }));
   const dialog = within(screen.getByRole('dialog', { name: 'Titelkataloge einlesen' }));
-  const text = JSON.stringify({ version: 3, entries: [] });
+  const text = JSON.stringify({ version: 3, entries });
   const file = new File([text], 'synthetic-v3.json', { type: 'application/json' });
   Object.defineProperty(file, 'text', { value: async () => text });
   await user.upload(dialog.getByLabelText('Datei auswählen'), file);
@@ -34,7 +34,7 @@ async function open(respond: (body: any) => Response | Promise<Response> = () =>
 }
 
 it('invalidates checked choices, confirms hidden/excluded contexts and only creates a draft', async () => {
-  const { fake, user, dialog, check, stage } = await open(body => reply(200, result(body.mappings[context.key] ? [] : ['unmapped'])));
+  const { fake, user, dialog, check, stage, text } = await open(body => reply(200, result(body.mappings[context.key] ? [] : ['unmapped'])));
   expect(stage).toBeDisabled(); await user.click(check);
   await dialog.findByText('synthetic-app'); expect(stage).toBeDisabled();
   await user.selectOptions(dialog.getByLabelText('Gerätekatalog'), 'exclude');
@@ -42,7 +42,7 @@ it('invalidates checked choices, confirms hidden/excluded contexts and only crea
   expect(stage).toBeDisabled(); await user.click(check);
   await waitFor(() => expect(stage).toBeEnabled()); await user.click(stage);
   await waitFor(() => expect(window.location.hash).toBe('#/changes/drafts/titles'));
-  expect(fake.calls.find(call => call.path === 'title-import/stage')?.body).toMatchObject({ source_text: JSON.stringify({ version: 3, entries: [] }), mappings: { [context.key]: 'exclude' }, include_hidden: true, plan_digest: 'checked' });
+  expect(fake.calls.find(call => call.path === 'title-import/stage')?.body).toMatchObject({ source_text: text, mappings: { [context.key]: 'exclude' }, include_hidden: true, plan_digest: 'checked' });
   expect(fake.activations).toHaveLength(0);
 });
 
@@ -70,10 +70,27 @@ it('keeps the file and mapping after a 409 and refreshes the active revision for
   expect(fake.calls.filter(call => call.path === 'title-import/preview').at(-1)?.body).toMatchObject({ source_text: text, expected_active_revision: 5 });
 });
 
-it('lets an ambiguous music row be excluded explicitly and blocks an already applied import', async () => {
-  const { user, dialog, check, stage } = await open(body => reply(200, body.music_keys['1'] === 'exclude' ? { ...result(), already_applied: true } : { ...result(['parts']), report: { ...result().report, error_count: 1, errors: [{ row: 1, key: 'Synthetic - Ambiguous - Music', reasons: ['artist_title_mapping_required'] }] } }));
-  await user.click(check); await dialog.findByLabelText('Interpret'); expect(stage).toBeDisabled();
+it('needs no manual artist split, keeps row exclusion and blocks an already applied import', async () => {
+  const { user, dialog, check, stage } = await open(body => reply(200, body.excluded_rows.includes(1) ? { ...result(), already_applied: true } : result()));
+  await user.click(check); await dialog.findByText('synthetic-app'); expect(stage).toBeEnabled();
+  expect(dialog.queryByLabelText('Interpret')).not.toBeInTheDocument();
+  await user.click(dialog.getByText('Einzelne Zeilen bewusst ausschließen'));
   await user.click(dialog.getByLabelText('Diese Zeile bewusst ausschließen')); await user.click(check);
   await dialog.findByText('Dieser Import wurde bereits übernommen. Es entsteht keine weitere Katalogrevision.');
   expect(stage).toBeDisabled();
+});
+
+it('allows exclusion beyond the first hundred rows without another manual splitting round', async () => {
+  const { fake, user, dialog, check, stage } = await open(undefined, Array.from({ length: 101 }, (_, i) => ({ key: `Synthetic Song ${i + 1}` })));
+  await user.click(check); await dialog.findByText('synthetic-app');
+  await user.click(dialog.getByText('Einzelne Zeilen bewusst ausschließen'));
+  await user.click(dialog.getByRole('button', { name: 'Weitere Zeilen' }));
+  expect(stage).toBeEnabled();
+  expect(dialog.getByText('Zeile 101 · Synthetic Song 101')).toBeVisible();
+  await user.click(dialog.getByLabelText('Diese Zeile bewusst ausschließen'));
+  expect(stage).toBeDisabled();
+  await user.click(check); await waitFor(() => expect(stage).toBeEnabled());
+  const body = fake.calls.filter(call => call.path === 'title-import/preview').at(-1)?.body;
+  expect(body).toMatchObject({ excluded_rows: [101] });
+  expect(body).not.toHaveProperty('music_keys');
 });

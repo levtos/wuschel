@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { t } from '@/i18n';
@@ -17,7 +17,7 @@ interface Mapping { catalog_id: string; definition_version: number; scope: strin
 interface Preview {
   import_id: string; plan_digest?: string; already_applied: boolean;
   contexts: { key: string; context: string; source_app?: string }[];
-  report: { input_rows: number; target_entries: number; error_count: number; outcomes: Record<string, number>; errors: { row: number; key?: string; reasons: string[] }[] };
+  report: { input_rows: number; target_entries: number; additional_forms_created: number; additional_forms_skipped: number; error_count: number; outcomes: Record<string, number>; errors: { row: number; key?: string; reasons: string[] }[] };
   unresolved: string[]; conflicts?: string[];
 }
 
@@ -25,13 +25,20 @@ export function TitleImport() {
   const [open, setOpen] = useState(false); const [text, setText] = useState('');
   const [mappings, setMappings] = useState<Record<string, Mapping | 'exclude'>>({});
   const [resolutions, setResolutions] = useState<Record<string, string>>({});
-  const [musicKeys, setMusicKeys] = useState<Record<string, [string, string] | 'exclude'>>({});
+  const [excludedRows, setExcludedRows] = useState<number[]>([]);
+  const [rowSearch, setRowSearch] = useState(''); const [rowPage, setRowPage] = useState(0);
+  // Local display only: the exact source text still goes to the strict server parser.
+  const sourceRows = useMemo<{ row: number; key: string }[]>(() => {
+    try { const data = JSON.parse(text); return Array.isArray(data?.entries) ? data.entries.map((entry: unknown, index: number) => ({ row: index + 1, key: entry && typeof entry === 'object' && 'key' in entry && typeof entry.key === 'string' ? entry.key : '' })) : []; }
+    catch { return []; }
+  }, [text]);
+  const filteredRows = sourceRows.filter(row => row.key.toLocaleLowerCase('de').includes(rowSearch.toLocaleLowerCase('de')) || String(row.row).includes(rowSearch));
   const [hidden, setHidden] = useState(false); const [preview, setPreview] = useState<Preview | null>(null);
   const [checked, setChecked] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const requestId = useRef(crypto.randomUUID()); const sequence = useRef(0);
   const active = useActiveRevision(); const doc = useWorkingDocument(); const navigate = useNavigate(); const cache = useQueryClient();
   const catalogs = useQuery({ queryKey: ['managed-catalogs'], queryFn: () => api<Catalog[]>('catalogs'), enabled: open });
-  const body = { source_text: text, mappings, music_keys: musicKeys, include_hidden: hidden, resolutions, expected_active_revision: active.data?.revision ?? 0 };
+  const body = { source_text: text, mappings, excluded_rows: excludedRows, include_hidden: hidden, resolutions, expected_active_revision: active.data?.revision ?? 0 };
   const key = JSON.stringify(body); const latest = useRef(key); latest.current = key;
   const current = !!preview && checked === key;
   const check = async () => {
@@ -64,7 +71,7 @@ export function TitleImport() {
         <p>{t('b15.description')}</p><Notice tone="info">{t('b15.draftOnly')}</Notice>
         <Field label={t('alpha7.import.file')}>{p => <FileInput {...p} accept=".json,application/json" disabled={busy} onChange={async event => {
           const file = event.target.files?.[0]; if (!file) return;
-          const token = ++sequence.current; setPreview(null); setChecked(''); setMappings({}); setMusicKeys({}); setResolutions({}); setError(''); setText('');
+          const token = ++sequence.current; setPreview(null); setChecked(''); setMappings({}); setExcludedRows([]); setRowSearch(''); setRowPage(0); setResolutions({}); setError(''); setText('');
           if (file.size > 50 * 1024 * 1024) { setError(t('alpha10.transfer.tooLarge')); return; }
           const loaded = await file.text(); if (token === sequence.current) setText(loaded);
         }} />}</Field>
@@ -86,13 +93,19 @@ export function TitleImport() {
           </fieldset>;
         })}
         {preview && <><p>{t('b15.counts', { rows: preview.report.input_rows, targets: preview.report.target_entries, hidden: preview.report.outcomes.hidden_skipped ?? 0, errors: preview.report.error_count })}</p>
+          <p>{t('b15.forms', { created: preview.report.additional_forms_created, skipped: preview.report.additional_forms_skipped })}</p>
+          <details><summary>{t('b15.excludeRows')}</summary>
+            <p>{t('b15.exclusions', { count: excludedRows.length })}</p>
+            <Field label={t('b15.rowSearch')}>{p => <Input {...p} value={rowSearch} onChange={event => { setRowSearch(event.target.value); setRowPage(0); }} />}</Field>
+            <ul>{filteredRows.slice(rowPage * 100, (rowPage + 1) * 100).map(row => <li key={row.row} className="py-2"><p>{t('b15.row', { row: row.row })} · {row.key}</p><Field label={t('b15.excludeRow')}>{p => <input {...p} type="checkbox" disabled={busy} checked={excludedRows.includes(row.row)} onChange={event => setExcludedRows(previous => event.target.checked ? [...previous, row.row].sort((a, b) => a - b) : previous.filter(n => n !== row.row))} />}</Field></li>)}</ul>
+            <Button disabled={rowPage === 0} onClick={() => setRowPage(page => page - 1)}>{t('b15.previousRows')}</Button>
+            <Button disabled={(rowPage + 1) * 100 >= filteredRows.length} onClick={() => setRowPage(page => page + 1)}>{t('b15.nextRows')}</Button>
+          </details>
           <Button onClick={() => downloadText('wuschel-titel-pruefbericht.json', JSON.stringify(preview, null, 2))}>{t('b15.report')}</Button>
           {preview.report.error_count > 0 && <Notice tone="warn">{t('b15.errors')}</Notice>}
           {preview.report.errors.map((finding, index) => <fieldset key={`${finding.row}:${index}`} className="space-y-2 rounded-lg border border-line p-3"><legend>{t('b15.row', { row: finding.row })}</legend>
             {finding.key && <p>{finding.key}</p>}
-            <p>{t(finding.reasons.includes('artist_title_mapping_required') ? 'b15.partsRequired' : 'b15.rowError')}</p>
-            {finding.reasons.includes('artist_title_mapping_required') && musicKeys[String(finding.row)] !== 'exclude' && <>{(['artist', 'title'] as const).map((part, position) => <Field key={part} label={t(part === 'artist' ? 'b15.artist' : 'b15.title')}>{p => <Input {...p} disabled={busy} value={musicKeys[String(finding.row)]?.[position] ?? ''} onChange={event => setMusicKeys(previous => { const old = previous[String(finding.row)]; const pair: [string, string] = Array.isArray(old) ? [...old] : ['', '']; pair[position] = event.target.value; return { ...previous, [String(finding.row)]: pair }; })} />}</Field>)}</>}
-            {finding.reasons.includes('artist_title_mapping_required') && <Field label={t('b15.excludeRow')}>{p => <input {...p} type="checkbox" disabled={busy} checked={musicKeys[String(finding.row)] === 'exclude'} onChange={event => setMusicKeys(previous => { const next = { ...previous }; if (event.target.checked) next[String(finding.row)] = 'exclude'; else delete next[String(finding.row)]; return next; })} />}</Field>}
+            <p>{t('b15.rowError')}</p>
           </fieldset>)}
           {preview.report.error_count > 100 && <p>{t('b15.moreErrors')}</p>}
           {preview.already_applied && <Notice tone="info">{t('b15.applied')}</Notice>}

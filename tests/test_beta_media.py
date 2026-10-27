@@ -6,8 +6,10 @@ from datetime import timedelta
 from pathlib import Path
 from uuid import uuid4
 
+import aiohttp
 import pytest
 
+from core_contracts.adapters.ha import BridgeAdapter
 from core_contracts.declarative import check_definition
 from core_contracts.declarative_models import DeclarativeDefinition
 from core_contracts.evidence import Observation
@@ -217,6 +219,104 @@ async def test_unknown_discord_does_not_prove_no_pc_title_session(runtime, confi
     assert field(runtime)["status"] == "unknown"
     await observe(runtime, "discord", "idle")
     assert field(runtime)["value"] is False
+
+
+@pytest.mark.parametrize("attributes", [{}, {"media_artist": None}, {"media_artist": ""}])
+async def test_homepods_observed_artist_absence_uses_title_only_but_outages_do_not(
+    runtime, config, attributes
+):
+    doc = configuration(config, "media.homepods_class")
+    doc["dependencies"].append(dict(dependency_id="dep.ha", kind="ha", monitor="internal"))
+    artist = next(s for s in doc["sources"] if s["source_id"] == "source.artist")
+    artist.pop("origin")
+    artist["dependency_id"] = "dep.ha"
+    binding = next(b for b in doc["bindings"] if b["source_id"] == "source.artist")
+    binding["adapter"] = dict(
+        kind="ha_attribute", ha_entity_id="media_player.synthetic", ha_attribute="media_artist"
+    )
+    await activate(runtime, doc)
+    await runtime.submit(
+        "catalog_write",
+        {
+            "request": dict(
+                catalog_id="media.homepods",
+                definition_version=1,
+                expected_active_revision=runtime.state.active_revision,
+                expected_content_revision=0,
+                request_id=str(uuid4()),
+                reason="Synthetic title-only assignment",
+                changes=[
+                    dict(
+                        scope="homepods",
+                        media_type="music",
+                        signal_type="title",
+                        key='["Synthetic Only"]',
+                        classification="stumm",
+                    )
+                ],
+            )
+        },
+    )
+    await observe(runtime, "applicable", True)
+    await observe(runtime, "title", "Synthetic Only")
+    async with aiohttp.ClientSession() as session:
+        adapter = BridgeAdapter(runtime, session, "ws://unused/websocket", "")
+        selected = next(b for b in runtime.config.bindings if b.source_id == "source.artist")
+
+        def observation(state, attrs):
+            now = runtime.clock.now_utc().isoformat()
+            return adapter.observation(
+                selected,
+                dict(state=state, attributes=attrs, last_changed=now, last_updated=now),
+                "live_change",
+                {},
+                runtime.config,
+            )
+
+        item = observation("playing", attributes)
+        assert item.value_raw == attributes.get("media_artist")
+        assert item.value_normalized == ""
+        await runtime.submit("observation", item)
+        assert field(runtime)["value"] == "stumm"
+        for state in ["unknown", "unavailable"]:
+            await runtime.submit("observation", observation(state, {}))
+            assert field(runtime)["status"] in {"unknown", "unresolved"}
+            assert field(runtime)["value"] is None
+        await runtime.submit("observation", observation("playing", {"restored": True}))
+        assert field(runtime)["value"] is None
+        await runtime.submit(
+            "observation", adapter.observation(selected, None, "live_change", {}, runtime.config)
+        )
+        assert field(runtime)["value"] is None
+
+
+async def test_required_artist_attribute_is_not_defaulted(runtime, config):
+    doc = configuration(config, "media.homepods_class")
+    artist = next(s for s in doc["sources"] if s["source_id"] == "source.artist")
+    artist.pop("origin")
+    artist["value_schema"]["required"] = True
+    doc["dependencies"].append(dict(dependency_id="dep.ha", kind="ha", monitor="internal"))
+    artist["dependency_id"] = "dep.ha"
+    next(b for b in doc["bindings"] if b["source_id"] == "source.artist")["adapter"] = dict(
+        kind="ha_attribute", ha_entity_id="media_player.synthetic", ha_attribute="media_artist"
+    )
+    await activate(runtime, doc)
+    await observe(runtime, "applicable", True)
+    await observe(runtime, "title", "Synthetic Only")
+    async with aiohttp.ClientSession() as session:
+        adapter = BridgeAdapter(runtime, session, "ws://unused/websocket", "")
+        selected = next(b for b in runtime.config.bindings if b.source_id == "source.artist")
+        now = runtime.clock.now_utc().isoformat()
+        item = adapter.observation(
+            selected,
+            dict(state="playing", attributes={}, last_changed=now),
+            "live_change",
+            {},
+            runtime.config,
+        )
+        assert item.value_normalized is None
+        await runtime.submit("observation", item)
+        assert field(runtime)["value"] is None
 
 
 async def test_pc_hysteresis_host_priority_grace_and_explicit_long_gap(runtime, config):

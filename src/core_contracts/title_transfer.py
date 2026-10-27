@@ -2,6 +2,7 @@
 
 import copy
 from collections import Counter
+from collections.abc import Iterator
 from typing import Any, Literal
 from uuid import UUID
 
@@ -12,7 +13,7 @@ from .managed_catalog import definition, definition_digest, head, identity
 from .model import Model, canonical, checksum
 from .portable import export, payload_digest, stage, strict_json
 from .portable import preview as portable_preview
-from .title_import import MAX_BYTES, MAX_ENTRIES, plan_title_import
+from .title_import import MAX_BYTES, MAX_ENTRIES, plan_title_import, source_identity
 
 
 def context_key(context: dict[str, Any]) -> str:
@@ -26,13 +27,6 @@ class TargetMapping(Model):
     profile: Literal["game", "music", "private"]
 
 
-class MusicKeyRequired(ValueError):
-    def __init__(self, item: dict[str, Any]) -> None:
-        super().__init__("artist_title_mapping_required")
-        self.row = item["row"]
-        self.key = item["display_name"]
-
-
 def classification(profile: str, value: int) -> str:
     if profile == "game":
         return {0: "heimkino", 1: "grind", 2: "headset", 3: "grind"}[value]
@@ -43,24 +37,18 @@ def classification(profile: str, value: int) -> str:
     raise ValueError("title_import_profile")
 
 
-def target_key(item: dict[str, Any], profile: str, music_keys: dict[str, Any]) -> str:
-    if profile != "music":
-        return str(item["display_name"])
-    parts = music_keys.get(str(item["row"]))
-    if parts is None:
-        key = item["display_name"]
-        if key.count(" - ") != 1:
-            raise MusicKeyRequired(item)
-        parts = key.split(" - ")
-    if (
-        not isinstance(parts, list)
-        or len(parts) != 2
-        or any(not isinstance(value, str) or not value.strip() for value in parts)
-    ):
-        raise MusicKeyRequired(item)
-    # Same canonical tuple as the existing compound_key operator, never a guess
-    # at an ambiguous legacy flattened title.
-    return canonical([part.strip() for part in parts])
+def music_forms(key: str) -> Iterator[str]:
+    """Enumerate every runtime tuple; the first split is the primary form."""
+    start = 0
+    while (at := key.find(" - ", start)) >= 0:
+        yield canonical([key[:at], key[at + 3 :]])
+        start = at + 3
+    yield canonical([key])
+
+
+def target_key(item: dict[str, Any], profile: str) -> str:
+    key = str(item["display_name"])
+    return next(music_forms(key)) if profile == "music" else key
 
 
 def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]:
@@ -69,7 +57,7 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
         "expected_active_revision",
         "mappings",
         "include_hidden",
-        "music_keys",
+        "excluded_rows",
         "resolutions",
         "plan_digest",
         "request_id",
@@ -95,11 +83,12 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
     include_hidden = request.get("include_hidden", False)
     if type(include_hidden) is not bool:
         raise ValueError("title_import_hidden")
-    music_keys = request.get("music_keys", {})
-    if not isinstance(music_keys, dict) or len(music_keys) > MAX_ENTRIES:
+    excluded_rows = request.get("excluded_rows", [])
+    if not isinstance(excluded_rows, list) or len(excluded_rows) > MAX_ENTRIES:
         raise ValueError("title_import_mapping")
-    if any(not k.isdecimal() or not 1 <= int(k) <= len(document["entries"]) for k in music_keys):
+    if any(type(n) is not int or not 1 <= n <= len(document["entries"]) for n in excluded_rows):
         raise ValueError("title_import_mapping")
+    excluded_set = set(excluded_rows)
     contexts = {
         context_key(context): context
         for row in parsed["candidates"]
@@ -111,9 +100,9 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
         dict(
             source="title_classifier/v3",
             source_digest=source_digest,
-            importer=1,
+            importer=2,
             mappings=mappings,
-            music_keys=music_keys,
+            excluded_rows=sorted(excluded_set),
             include_hidden=include_hidden,
             resolutions=request.get("resolutions", {}),
         )
@@ -122,21 +111,41 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
     if applied:
         return {**applied["result"], "already_applied": True}
     rows = document["entries"]
-    parents = {tuple(row["identity"]): row for row in parsed["candidates"]}
+    parents = {source_identity(rows[row["row"] - 1]): row for row in parsed["candidates"]}
     generated: dict[tuple[str, int], dict[str, dict[str, Any]]] = {}
+    owners: dict[tuple[str, int], dict[str, int]] = {}
+    additional: dict[tuple[str, int, str], tuple[int, str, dict[str, Any]]] = {}
     expanded = 0
+    expanded_bytes = 0
+
+    def put(group: tuple[str, int], value: dict[str, Any], owner: int) -> str:
+        nonlocal expanded, expanded_bytes
+        ident = identity(value["scope"], value["media_type"], value["signal_type"], value["key"])
+        expanded += 1
+        expanded_bytes += len(canonical(value).encode("utf-8"))
+        if expanded > MAX_ENTRIES or expanded_bytes > MAX_BYTES:
+            raise ValueError("title_export_limit")
+        generated.setdefault(group, {})[ident] = value
+        owners.setdefault(group, {})[ident] = owner
+        return ident
+
     counts: Counter[str] = Counter()
     outcomes: list[dict[str, Any]] = []
-    errors = list(parsed["rejected_rows"])
+    errors = [row for row in parsed["rejected_rows"] if row["row"] not in excluded_set]
+    for row in parsed["rejected_rows"]:
+        if row["row"] in excluded_set:
+            counts["excluded"] += 1
     errors.extend(
         {"row": row, "reasons": ["normalization_collision"]}
         for group in parsed["normalization_collisions"]
+        if len(set(group["rows"]) - excluded_set) > 1 and group["identity"][1] != "music"
         for row in group["rows"]
+        if row not in excluded_set
     )
     for candidate in parsed["candidates"]:
         row_number = candidate["row"]
         original = rows[row_number - 1]
-        if music_keys.get(str(row_number)) == "exclude":
+        if row_number in excluded_set:
             counts["excluded"] += 1
             outcomes.append({"row": row_number, "outcome": "excluded"})
             continue
@@ -179,9 +188,10 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                     {"row": row_number, "context": key, "reasons": ["profile_media_mismatch"]}
                 )
                 continue
-            entries = generated.setdefault((catalog.catalog_id, catalog.version), {})
+            group = (catalog.catalog_id, catalog.version)
+            entries = generated.setdefault(group, {})
             parent = (
-                parents.get(tuple(candidate["parent_identity"]))
+                parents.get(source_identity(original, original["parent_key"]))
                 if candidate["parent_identity"]
                 else None
             )
@@ -201,29 +211,20 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                     scope=mapping["scope"],
                     media_type=source_row["media_type"],
                     signal_type=source_row["signal_type"],
-                    key=target_key(item, profile, music_keys),
+                    key=target_key(item, profile),
                     display_name=item["display_name"],
                     classification=None if master else classification(profile, value),
-                    master_key=target_key(master, profile, music_keys) if master else None,
+                    master_key=target_key(master, profile) if master else None,
                 ).model_dump(mode="json")
 
             try:
-                if parent and music_keys.get(str(parent["row"])) == "exclude":
+                if parent and parent["row"] in excluded_set:
                     raise ValueError("excluded_master_required")
                 additions = (
-                    [entry(parent, None), entry(candidate, parent)]
+                    [(entry(parent, None), parent), (entry(candidate, parent), candidate)]
                     if parent
-                    else [entry(candidate, None)]
+                    else [(entry(candidate, None), candidate)]
                 )
-            except MusicKeyRequired as error:
-                errors.append(
-                    {
-                        "row": error.row,
-                        "key": error.key,
-                        "reasons": ["artist_title_mapping_required"],
-                    }
-                )
-                continue
             except ValueError, KeyError:
                 errors.append(
                     {
@@ -233,38 +234,87 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                     }
                 )
                 continue
-            for value in additions:
+            for value, source_item in additions:
                 ident = identity(
                     value["scope"], value["media_type"], value["signal_type"], value["key"]
                 )
-                if ident in entries and entries[ident] != value:
-                    errors.append({"row": row_number, "reasons": ["target_collision"]})
-                if ident not in entries:
-                    expanded += 1
-                entries[ident] = value
-                if expanded > MAX_ENTRIES:
-                    raise ValueError("title_export_limit")
+                if ident in entries:
+                    if owners[group][ident] != source_item["row"] or entries[ident] != value:
+                        errors.append({"row": row_number, "reasons": ["target_collision"]})
+                    continue
+                put(group, value, source_item["row"])
+                if profile == "music":
+                    additional[(*group, ident)] = (
+                        source_item["row"],
+                        source_item["display_name"],
+                        value,
+                    )
             planned += 1
         outcome = "planned" if planned else "excluded" if excluded else "unmapped"
         counts[outcome] += 1
         outcomes.append(
             {
                 "row": row_number,
+                "key": candidate["display_name"],
                 "outcome": outcome,
                 "targets": planned,
                 "excluded_contexts": excluded,
             }
         )
+    # Reserve every primary form first, independent of source row order. Extra
+    # forms never displace another primary or an existing catalog entry.
+    skipped_forms = 0
+    created_forms = 0
+    primary_ids = {group: set(entries) for group, entries in generated.items()}
+    contested: dict[tuple[str, int], set[str]] = {}
+    current_entries = {
+        group: head(state, definition(runtime.config, *group))["entries"] for group in generated
+    }
+    for (catalog_id, version, _), (owner, key, primary) in additional.items():
+        group = (catalog_id, version)
+        existing = current_entries[group]
+        for form in music_forms(key):
+            if form == primary["key"]:
+                continue
+            ident = identity(primary["scope"], primary["media_type"], primary["signal_type"], form)
+            if ident in generated[group]:
+                if owners[group][ident] != owner:
+                    skipped_forms += 1
+                    if ident not in primary_ids[group]:
+                        # Neither of two ambiguous extra forms wins by row order.
+                        previous = generated[group].pop(ident)
+                        owners[group].pop(ident)
+                        expanded -= 1
+                        expanded_bytes -= len(canonical(previous).encode("utf-8"))
+                        created_forms -= 1
+                        skipped_forms += 1
+                        contested.setdefault(group, set()).add(ident)
+                continue
+            if ident in contested.get(group, set()):
+                skipped_forms += 1
+                continue
+            if ident in existing:
+                skipped_forms += 1
+                continue
+            value = {
+                **primary,
+                "key": form,
+                "classification": None,
+                "master_key": primary["master_key"] or primary["key"],
+            }
+            put(group, value, owner)
+            created_forms += 1
+    rejected = sum(row["row"] not in excluded_set for row in parsed["rejected_rows"])
     report = dict(
         input_rows=len(rows),
         target_entries=expanded,
+        additional_forms_created=created_forms,
+        additional_forms_skipped=skipped_forms,
         outcomes={
             **dict(counts),
-            **(
-                {"rejected": parsed["summary"]["rejected"]} if parsed["summary"]["rejected"] else {}
-            ),
+            **({"rejected": rejected} if rejected else {}),
         },
-        rejected_rows=parsed["summary"]["rejected"],
+        rejected_rows=rejected,
         source_summary=parsed["summary"],
         variant_decisions=parsed["variant_decisions"][:100],
         context_override_decisions=parsed["context_override_decisions"][:100],

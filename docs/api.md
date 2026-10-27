@@ -65,8 +65,10 @@ Bereich 5 (#75) ergänzt die administrativen POST-Endpunkte
 (strikter v3-Export als JSON-Text), `expected_active_revision`, `mappings`
 (Schlüssel = kanonisches JSON-Paar aus context/source_app; Wert = `exclude`
 oder `{catalog_id,definition_version,scope,profile}`), optional `include_hidden`,
-`music_keys` und `resolutions`. Profile: game, music, private. `music_keys`
-ordnet einer einbasierten Zeilennummer `[Interpret,Titel]` oder `exclude` zu.
+`excluded_rows` und `resolutions`. Profile: game, music, private. `excluded_rows`
+enthält die einbasierten Zeilennummern bewusst ausgeschlossener Einträge.
+Musikschlüssel werden automatisch als Titel-allein-Form und sämtliche
+Zweiteilungen an ` - ` erzeugt; eine Handtrennung wird nicht verlangt.
 Stage verlangt außerdem `plan_digest`, UUID `request_id` und
 `X-Authoring-Protocol: 2`. Es erzeugt ausschließlich einen Ersatzentwurf;
 die bestehende versionierte Aktivierung übernimmt atomar. Vorschau schreibt

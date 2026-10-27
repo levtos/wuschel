@@ -235,6 +235,17 @@ Anwenden lösen; danach Einträge und Importmarker atomar zusammen speichern.
 Importierte Zeiten/Zähler sind ausschließlich Herkunftsdaten, keine neuen
 Wuschel-Sichtungen, aktuelle Messungen oder frischen Belege.
 
+Präzisierung für Musik aus dem Review zu #75/PR #77: Aus dem flachen Schlüssel
+werden der Titel allein und alle Zweiteilungen an ` - ` als kanonische
+Laufzeittupel gebildet. Erste Zweiteilung (ohne Trenner: Titel allein) ist die
+Hauptform; alle weiteren Formen erben direkt deren Klasse. Bei einer
+Legacy-Variante erben sämtliche Formen direkt vom Legacy-Master. Zusatzformen
+dürfen weder Hauptformen noch vorhandene Einträge verdrängen; Kollisionen
+werden ausgelassen und gezählt. Konkurrierende Zusatzformen entfallen beide.
+Hauptformkollisionen bleiben blockierend. Die 100.000er- und 50-MiB-Grenzen
+gelten auch für die ausgeweitete Menge; die Eintragsgröße wird bereits während
+des Aufbaus begrenzt. Siehe [Bereich 5 A2](../beta/bereich-5/A2.md).
+
 Bericht: gelesen, gültig, neu, identisch, zusammenfallend, konfliktbehaftet,
 abgelehnt; Master/Varianten, Abbildungen und Gründe je Datensatz. Summen
 müssen alle Eingabezeilen erklären. Titel/Rohwerte bleiben im privaten

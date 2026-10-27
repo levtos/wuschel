@@ -93,13 +93,14 @@ async def test_3181_rows_one_revision_no_preview_writes_restart_idempotency(runt
     body = request(runtime, [row(f"Synthetic {i}") for i in range(3181)])
     before = copy.deepcopy(runtime.state.tables)
     preview = await runtime.submit("title_preview", body)
-    assert preview["report"]["target_entries"] == 3181
+    assert preview["report"]["target_entries"] == 6362
+    assert preview["report"]["additional_forms_created"] == 3181
     assert runtime.state.tables == before
     draft = await stage(runtime, body)
     assert head(runtime.state, runtime.config.catalogs[0])["revision"] == 0
     await activate_draft(runtime, draft)
     current = head(runtime.state, runtime.config.catalogs[0])
-    assert current["revision"] == 1 and len(current["entries"]) == 3181
+    assert current["revision"] == 1 and len(current["entries"]) == 6362
     assert len(await runtime.store.rows("catalog_content_revision")) == 1
     await runtime.stop()
     restored = Runtime(runtime.store, runtime.clock, runtime.types)
@@ -125,11 +126,15 @@ async def test_master_class_context_override_hidden_exclusion_and_invalid_json(r
     draft = await stage(runtime, body)
     await activate_draft(runtime, draft)
     entries = head(runtime.state, runtime.config.catalogs[0])["entries"].values()
-    assert len(entries) == 2
-    parent = next(e for e in entries if e["display_name"] == master["key"])
+    assert len(entries) == 4
+    parent = next(
+        e for e in entries if e["key"] == canonical(["Synthetic Artist", "Synthetic Master"])
+    )
     assert parent["classification"] == "stumm"
     assert parent["key"] == canonical(["Synthetic Artist", "Synthetic Master"])
-    child = next(e for e in entries if e["display_name"] == variant["key"])
+    child = next(
+        e for e in entries if e["key"] == canonical(["Synthetic Artist", "Synthetic Variant"])
+    )
     assert child["classification"] is None and child["master_key"] == parent["key"]
     excluded = request(
         runtime,
@@ -173,27 +178,145 @@ async def test_occ_abort_commit_failure_and_transport_replay(runtime, config):
         await runtime.submit("title_stage", {**payload, "request_id": str(uuid4())})
 
 
-async def test_ambiguous_music_needs_explicit_parts_or_exclusion(runtime, config):
-    await activate(runtime, document(config))
-    ambiguous = row("Synthetic - Ambiguous")
-    body = request(runtime, [ambiguous])
-    plan = await runtime.submit("title_preview", body)
-    assert plan["report"]["errors"][0]["reasons"] == ["artist_title_mapping_required"]
-    assert plan["unresolved"]
-    selected = {**body, "music_keys": {"1": ["Synthetic Artist", "Synthetic - Ambiguous"]}}
-    draft = await stage(runtime, selected)
+def flat_row(key, **extra):
+    item = row("unused")
+    return {**item, "key": key, "normalized_key": normalize_key(key), **extra}
+
+
+@pytest.mark.parametrize(
+    "key,forms",
+    [
+        ("Synthetic Only", [["Synthetic Only"]]),
+        ("Synthetic Artist - Song", [["Synthetic Artist", "Song"], ["Synthetic Artist - Song"]]),
+        (
+            "Synthetic Artist - Song - Edition",
+            [
+                ["Synthetic Artist", "Song - Edition"],
+                ["Synthetic Artist - Song", "Edition"],
+                ["Synthetic Artist - Song - Edition"],
+            ],
+        ),
+    ],
+)
+async def test_music_forms_zero_one_two_delimiters_match_real_runtime(runtime, config, key, forms):
+    from .test_beta_media import configuration, field, observe
+
+    await activate(runtime, configuration(config, "media.homepods_class"))
+    body = request(runtime, [flat_row(key, enum=2)])
+    next(iter(body["mappings"].values())).update(catalog_id="media.homepods", scope="homepods")
+    draft = await stage(runtime, body)
     await activate_draft(runtime, draft)
-    entry = next(iter(head(runtime.state, runtime.config.catalogs[0])["entries"].values()))
-    assert entry["key"] == canonical(["Synthetic Artist", "Synthetic - Ambiguous"])
-    excluded = await runtime.submit(
-        "title_preview",
+    catalog = next(c for c in runtime.config.catalogs if c.catalog_id == "media.homepods")
+    entries = list(head(runtime.state, catalog)["entries"].values())
+    primary = canonical(forms[0])
+    assert {e["key"] for e in entries} == {canonical(parts) for parts in forms}
+    assert next(e for e in entries if e["key"] == primary)["classification"] == "stumm"
+    assert all(
+        e["master_key"] == primary and e["classification"] is None
+        for e in entries
+        if e["key"] != primary
+    )
+    await observe(runtime, "applicable", True)
+    for parts in forms:
+        await observe(runtime, "artist", parts[0] if len(parts) == 2 else "")
+        await observe(runtime, "title", parts[-1])
+        assert field(runtime)["value"] == "stumm"
+        assert field(runtime).get("configuration", {}).get("complete", True)
+
+
+async def test_legacy_music_variant_all_forms_inherit_root_master(runtime, config):
+    await activate(runtime, document(config))
+    master = flat_row("Synthetic Artist - Master - Edition")
+    child = flat_row(
+        "Synthetic Other - Variant - Edition", parent_key=master["normalized_key"], enum=2
+    )
+    draft = await stage(runtime, request(runtime, [child, master]))
+    await activate_draft(runtime, draft)
+    entries = list(head(runtime.state, runtime.config.catalogs[0])["entries"].values())
+    root = canonical(["Synthetic Artist", "Master - Edition"])
+    assert len(entries) == 6
+    assert next(e for e in entries if e["key"] == root)["classification"] == "boost"
+    assert all(
+        e["master_key"] == root and e["classification"] is None for e in entries if e["key"] != root
+    )
+
+
+async def test_extra_music_forms_never_displace_primaries_or_win_by_row_order(runtime, config):
+    await activate(runtime, document(config))
+    a = flat_row("Synthetic A - B - C", normalized_key="legacy-one")
+    b = flat_row("Synthetic A B - C", normalized_key="legacy-two", enum=2)
+    body = request(runtime, [a, b])
+    plan = await runtime.submit("title_preview", body)
+    assert not plan["unresolved"]
+    assert plan["report"]["additional_forms_skipped"] == 3
+    assert plan["report"]["target_entries"] == 2
+    reverse = await runtime.submit("title_preview", request(runtime, [b, a]))
+    assert reverse["report"]["additional_forms_skipped"] == 3
+    assert reverse["report"]["target_entries"] == 2
+    draft = await stage(runtime, body)
+    await activate_draft(runtime, draft)
+    entries = list(head(runtime.state, runtime.config.catalogs[0])["entries"].values())
+    assert {e["key"]: e["classification"] for e in entries} == {
+        canonical(["Synthetic A", "B - C"]): "boost",
+        canonical(["Synthetic A B", "C"]): "stumm",
+    }
+
+
+async def test_music_primary_collisions_block_but_row_exclusion_remains(runtime, config):
+    await activate(runtime, document(config))
+    rows = [
+        flat_row("Synthetic_A - Song", normalized_key="legacy-one"),
+        flat_row("Synthetic A - Song", normalized_key="legacy-two"),
+    ]
+    body = request(runtime, rows)
+    plan = await runtime.submit("title_preview", body)
+    assert plan["unresolved"]
+    assert any("target_collision" in e["reasons"] for e in plan["report"]["errors"])
+    excluded = await runtime.submit("title_preview", {**body, "excluded_rows": [2]})
+    assert not excluded["unresolved"]
+    assert excluded["report"]["outcomes"] == {"planned": 1, "excluded": 1}
+    assert excluded["report"]["target_entries"] == 2
+
+
+async def test_existing_catalog_entry_is_preserved_when_an_extra_form_collides(runtime, config):
+    await activate(runtime, document(config))
+    key = "Synthetic Artist - Song"
+    await runtime.submit(
+        "catalog_write",
         {
-            **body,
-            "expected_active_revision": runtime.state.active_revision,
-            "music_keys": {"1": "exclude"},
+            "request": dict(
+                catalog_id="example.titles",
+                definition_version=1,
+                expected_active_revision=runtime.state.active_revision,
+                expected_content_revision=0,
+                request_id=str(uuid4()),
+                reason="Synthetic independent assignment",
+                changes=[
+                    dict(
+                        scope="synthetic",
+                        media_type="music",
+                        signal_type="title",
+                        key=canonical([key]),
+                        classification="stumm",
+                        note="Synthetic retained note",
+                    )
+                ],
+            )
         },
     )
-    assert excluded["report"]["target_entries"] == 0 and not excluded["unresolved"]
+    body = request(runtime, [flat_row(key)])
+    plan = await runtime.submit("title_preview", body)
+    assert not plan["unresolved"]
+    assert plan["report"]["additional_forms_skipped"] == 1
+    assert plan["report"]["target_entries"] == 1
+    draft = await stage(runtime, body)
+    await activate_draft(runtime, draft)
+    entries = {
+        e["key"]: e for e in head(runtime.state, runtime.config.catalogs[0])["entries"].values()
+    }
+    assert entries[canonical([key])]["classification"] == "stumm"
+    assert entries[canonical([key])]["note"] == "Synthetic retained note"
+    assert entries[canonical(["Synthetic Artist", "Song"])]["classification"] == "boost"
 
 
 async def test_multiple_contexts_unknown_mapping_and_hidden_master(runtime, config):
@@ -214,7 +337,9 @@ async def test_multiple_contexts_unknown_mapping_and_hidden_master(runtime, conf
     draft = await stage(runtime, {**body, "mappings": mapping})
     await activate_draft(runtime, draft)
     assert [
-        next(iter(head(runtime.state, c)["entries"].values()))["classification"]
+        next(
+            e for e in head(runtime.state, c)["entries"].values() if e["classification"] is not None
+        )["classification"]
         for c in runtime.config.catalogs
     ] == ["boost", "stumm"]
     master = row("Synthetic Hidden Master", hidden_at="2032-01-01T00:00:00Z")
@@ -274,6 +399,7 @@ async def test_title_api_auth_protocol_duplicates_and_stale_revision(
         await client.post("/api/v1/title-import/stage", headers=protocol, json=body)
     ).status == 409
     assert (await client.post(path, headers=headers, json=body)).status == 200
+    assert (await client.post(path, headers=headers, json={**body, "music_keys": {}})).status == 400
     assert (
         await client.post(
             path,
@@ -322,7 +448,7 @@ async def test_import_size_and_expanded_target_guards(runtime, config, monkeypat
     with pytest.raises(ValueError, match="title_export_limit"):
         plan_title_import({"version": 3, "entries": [{}] * (MAX_ENTRIES + 1)}, "synthetic")
     await activate(runtime, document(config))
-    body = request(runtime, [row("Synthetic A"), row("Synthetic B")])
+    body = request(runtime, [row("Synthetic A")])
     monkeypatch.setattr(title_transfer, "MAX_ENTRIES", 1)
     with pytest.raises(ValueError, match="title_export_limit"):
         await runtime.submit("title_preview", body)

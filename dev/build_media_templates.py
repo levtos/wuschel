@@ -315,12 +315,15 @@ def build():
         inputs = {"applicable": schema(), "title": schema("text")}
         key = inp("title")
         if device == "homepods":
-            inputs["artist"] = schema("text")
-            key = dict(op="compound_key", args=[inp("artist"), inp("title")])
-            usable = conjunction(
-                compare(inp("artist"), literal(""), "ne"), compare(inp("title"), literal(""), "ne")
+            inputs["artist"] = schema("text", required=False)
+            key = select(
+                (
+                    compare(inp("artist"), literal(""), "ne"),
+                    dict(op="compound_key", args=[inp("artist"), inp("title")]),
+                ),
+                (eq("artist", ""), dict(op="compound_key", args=[inp("title")])),
             )
-            key = select((usable, key))
+            key = select((compare(inp("title"), literal(""), "ne"), key))
         result = lookup(
             "media." + device,
             key,
