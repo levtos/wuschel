@@ -25,6 +25,10 @@ einer Trennung bleibt erhalten; der Prozessneustart bleibt konservativ.
 Synthetische Tests verwenden echte FakeHA-WebSockets und eine separate neue
 Runtime beim Neustart. Sie prüfen insbesondere den alten 300-Sekunden-Ablauf,
 einen Attributwechsel derselben Entität, HA-Trennung und MQTT-Duplikatgedächtnis.
+Eine Revision während des noch laufenden HA-Handshakes beendet weiterhin den
+alten Verbindungsversuch: Sein erster Snapshot gehört zur anfordernden Revision.
+Der Erhalt gilt erst für etablierte Abonnements. Die drei bestehenden
+Handshake-Regressionen und die drei neuen Beobachtungsfälle sind unverändert grün.
 
 ## Schlafzustand und Weckplan
 
@@ -67,7 +71,7 @@ Fachänderungen erfordern weiterhin eine Konfliktentscheidung. Das Einlesen und
 | amd64-Image-Job | 2:05 | 2:16 |
 | ARM-Image-Job | 5:09 | entfällt |
 | erster amd64-Bauschritt | 0:26 | 0:28 |
-| zweiter identischer Bau | entfällt | 0:06, identische Image-ID |
+| zweiter identischer Bau | entfällt | 0:06, 18 Cache-Treffer, identische Image-ID |
 
 Belege: [b13](https://github.com/levtos/wuschel/actions/runs/40480505829),
 [#68](https://github.com/levtos/wuschel/actions/runs/40488834447).
