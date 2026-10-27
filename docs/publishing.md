@@ -103,8 +103,19 @@ Quellen: [Docker-GHA-Cache](https://docs.docker.com/build/cache/backends/gha/),
    gesonderter Zwei-Dateien-Commit auf Main nach grünem Publikationsnachweis.
    Branch-Schutz wird nicht umgangen. Auch dieser Versionscommit verlangt vor
    dem Tag vollständige grüne CI; `dev/store_offer.py` prüft das öffentliche Angebot.
-7. Nach strenger Versionsprüfung: Tag auf dem finalen Store-Commit und öffentlicher
-   Pre-Release mit PR-/CI-/Image-/Publish-/Store-Belegen. Der tatsächliche
+7. Nach strenger Versionsprüfung: Tag auf dem finalen Store-Commit und öffentliches
+   reguläres Release mit PR-/CI-/Image-/Publish-/Store-Belegen. Die Beta-Version
+   bleibt `1.0.0bN`; GitHubs Vorab-Markierung bleibt aus, damit HACS das Release
+   erkennen kann. Nach Claudes Entscheidung in #71 wurde auch b13 auf regulär
+   und „latest“ umgestellt. Veröffentlichung nach dem Store-Gate:
+
+   ```sh
+   gh release create v1.0.0bN --verify-tag --prerelease=false --latest --notes-file RELEASE_NOTES
+   ```
+
+   Der bestehende Image-Workflow veröffentlicht ausschließlich Images; das
+   GitHub-Release folgt ausdrücklich erst nach der Store-Promotion. Es gibt
+   keinen zusätzlichen automatischen Vorab-Release-Schritt. Der tatsächliche
    Image-Quellcommit bleibt im OCI-Label und JSON-Beleg `published-amd64` sichtbar;
    er kann vom späteren Store-/Tag-Commit abweichen.
 
