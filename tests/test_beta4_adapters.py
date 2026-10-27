@@ -5,6 +5,7 @@ from copy import deepcopy
 from types import SimpleNamespace
 
 import aiohttp
+import pytest
 
 from core_contracts.adapters.ha import BridgeAdapter
 from core_contracts.adapters.mqtt import MQTTAdapter
@@ -78,8 +79,10 @@ async def test_rule_only_ha_activation_keeps_socket_snapshot_sequence_and_accept
             await asyncio.gather(task, return_exceptions=True)
 
 
-async def test_rule_only_mqtt_activation_keeps_subscription_duplicate_memory_and_uses_new_revision(
+@pytest.mark.parametrize("change", ["freshness_rule", "unrelated_contract"])
+async def test_unchanged_mqtt_activation_keeps_subscription_duplicate_memory_and_uses_new_revision(
     monkeypatch,
+    change,
 ):
     from core_contracts.adapters import mqtt
 
@@ -126,7 +129,12 @@ async def test_rule_only_mqtt_activation_keeps_subscription_duplicate_memory_and
         await asyncio.wait_for(ready.wait(), timeout=5)
         adapter.seen["synthetic"] = "retained duplicate sentinel"
         before = deepcopy(runtime.state.tables["source_observation_current"])
-        await activate(runtime, shared(legacy()))
+        document = shared(legacy()) if change == "freshness_rule" else legacy()
+        if change == "unrelated_contract":
+            document["contracts"].append(
+                {**deepcopy(document["contracts"][0]), "contract_id": "fixture.independent"}
+            )
+        await activate(runtime, document)
         runtime.clock.advance(1)
         await until(lambda: not runtime.mqtt_revision_changed.is_set())
         assert len(clients) == 1 and len(clients[0].topics) == 7

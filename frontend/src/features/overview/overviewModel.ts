@@ -3,7 +3,7 @@ import { asArray, asObject, str } from '@/features/authoring/model';
 import { isObject, type JsonObject } from '@/lib/json';
 import type { BrowserConnectionEvent } from '@/lib/live';
 import type { Envelope, HistoryItem, Reason, Registry } from '@/lib/types';
-import { contractState } from '@/features/contracts/presentation';
+import { contractState, contractTitle } from '@/features/contracts/presentation';
 
 export function contractCounts(config: Registry | null | undefined, envelopes: Record<string, Envelope> | null) {
   const contracts = asArray(config?.contracts).filter(isObject);
@@ -18,7 +18,7 @@ export function contractCounts(config: Registry | null | undefined, envelopes: R
 
 export function contractName(config: Registry | null | undefined, id: string): string {
   const contract = asArray(config?.contracts).filter(isObject).find(item => item.contract_id === id);
-  return str(contract?.display_name) || id;
+  return contractTitle(contract, id);
 }
 
 export function problemAdvice(reasons: Reason[], config: Registry | null | undefined, contractId: string) {

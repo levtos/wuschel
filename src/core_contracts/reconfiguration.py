@@ -6,6 +6,51 @@ from .registry import RegistryConfig, context_compatibility, fingerprints, obser
 from .schema import TypeRegistry
 
 
+def ha_subscription(config: RegistryConfig) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Only the actual HA entity/report subscription requires a new socket."""
+    entities = tuple(
+        sorted({b.adapter.ha_entity_id for b in config.bindings if b.adapter.ha_entity_id})
+    )
+    live_sources = {s.freshness.liveness_source for s in config.sources}
+    reports = {
+        s.source_id
+        for s in config.sources
+        if s.freshness.mode != "event_stateful" or s.source_id in live_sources
+    }
+    report_entities = tuple(
+        sorted(
+            {
+                b.adapter.ha_entity_id
+                for b in config.bindings
+                if b.adapter.ha_entity_id and b.source_id in reports
+            }
+        )
+    )
+    return entities, report_entities
+
+
+def same_ha_subscription(before: RegistryConfig | None, after: RegistryConfig | None) -> bool:
+    return (
+        before is not None
+        and after is not None
+        and ha_subscription(before) == ha_subscription(after)
+    )
+
+
+def same_mqtt_bindings(before: RegistryConfig | None, after: RegistryConfig | None) -> bool:
+    if before is None or after is None:
+        return False
+    return {
+        b.model_dump_json(exclude={"display_name"})
+        for b in before.bindings
+        if b.adapter.kind == "mqtt"
+    } == {
+        b.model_dump_json(exclude={"display_name"})
+        for b in after.bindings
+        if b.adapter.kind == "mqtt"
+    }
+
+
 def assessment_only(before: RegistryConfig | None, after: RegistryConfig | None) -> bool:
     """An interval/template edit needs reevaluation, not fresh adapter snapshots/replays."""
     if before is None or after is None:

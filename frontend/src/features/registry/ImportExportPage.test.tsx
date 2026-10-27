@@ -46,6 +46,14 @@ it('keeps reused sources implicit and allows unknown sensor types and file rules
   expect(fake.activations).toHaveLength(0);
 });
 
+it('shows an explicit name-only correction without a functional conflict', async () => {
+  const { fake, stage } = await openImport(() => reply(200, { ...preview(), display_name_changes: [{ id: 'synthetic.workday', before: 'Arbeitstag today', after: 'Arbeitstag heute' }] }));
+  expect(await screen.findByText('„Arbeitstag today“ wird zu „Arbeitstag heute“')).toBeVisible();
+  expect(screen.queryByRole('region', { name: /Konflikte/ })).not.toBeInTheDocument();
+  expect(stage).toBeEnabled();
+  expect(fake.activations).toHaveLength(0);
+});
+
 it('automatically debounces a freshness selection and stages the newly checked digest without a second preview click', async () => {
   let count = 0;
   const { fake, user, stage } = await openImport(() => reply(200, preview(`digest-${++count}`)));

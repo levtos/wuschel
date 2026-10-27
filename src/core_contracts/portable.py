@@ -52,6 +52,15 @@ def objects(document: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def same_object(key: str, incoming: Any, existing: Any) -> bool:
+    if key.startswith("contracts:") and isinstance(incoming, dict) and isinstance(existing, dict):
+        return equivalent(
+            {k: v for k, v in incoming.items() if k != "display_name"},
+            {k: v for k, v in existing.items() if k != "display_name"},
+        )
+    return equivalent(incoming, existing)
+
+
 def closure(config: RegistryConfig, root: str) -> dict[str, Any]:
     document = storage_document(config)
     contracts = {c.contract_id: c for c in config.contracts}
@@ -403,11 +412,22 @@ def preview(
 
         incoming_doc = upgrade_document(incoming_doc)
         existing = upgrade_document(existing) if existing else {}
+    old_names = {
+        row["contract_id"]: row.get("display_name", "") for row in existing.get("contracts", [])
+    }
+    explicit_names = {
+        row["contract_id"]
+        for row in package["config"].get("contracts", [])
+        if "display_name" in row
+    }
+    for row in incoming_doc.get("contracts", []):
+        if row["contract_id"] in old_names and row["contract_id"] not in explicit_names:
+            row["display_name"] = old_names[row["contract_id"]]
     old_objects, new_objects = objects(existing), objects(incoming_doc)
     conflicts = [
         key
         for key, row in new_objects.items()
-        if key in old_objects and not equivalent(row, old_objects[key])
+        if key in old_objects and not same_object(key, row, old_objects[key])
     ]
     resolutions = request.get("resolutions", {})
     if not isinstance(resolutions, dict) or any(
@@ -654,7 +674,19 @@ def preview(
         "conflicts": conflicts,
         "unresolved": unresolved,
         "added": len(new_objects.keys() - old_objects.keys()),
-        "reused": sum(equivalent(row, old_objects.get(key)) for key, row in new_objects.items()),
+        "reused": sum(
+            same_object(key, row, old_objects.get(key)) for key, row in new_objects.items()
+        ),
+        "display_name_changes": [
+            {
+                "id": row["contract_id"],
+                "before": old_names[row["contract_id"]],
+                "after": row.get("display_name", ""),
+            }
+            for row in document.get("contracts", [])
+            if row["contract_id"] in old_names
+            and row.get("display_name", "") != old_names[row["contract_id"]]
+        ],
         "expected_active_revision": state.active_revision,
         "catalog_heads": heads,
         "editorial_versions": editorial_versions,

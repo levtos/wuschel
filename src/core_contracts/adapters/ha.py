@@ -618,30 +618,18 @@ class BridgeAdapter:
                 await self._result(
                     connection, {"type": "subscribe_events", "event_type": event_type}
                 )
-            entities = sorted(
-                {b.adapter.ha_entity_id for b in config.bindings if b.adapter.ha_entity_id}
-            )
+            from ..reconfiguration import ha_subscription
+
+            entities, report_entities = ha_subscription(config)
             self.subscription_count = len(entities)
             self.runtime.bridge_subscriptions = self.subscription_count
-            live_sources = {s.freshness.liveness_source for s in config.sources}
-            report_sources = {
-                s.source_id
-                for s in config.sources
-                if s.freshness.mode != "event_stateful" or s.source_id in live_sources
-            }
             subscribed = await self._response(
                 connection,
                 {
                     "type": "traber/subscribe",
                     "protocol_version": self.protocol_selected,
-                    "entity_ids": entities,
-                    "report_entity_ids": sorted(
-                        {
-                            b.adapter.ha_entity_id
-                            for b in config.bindings
-                            if b.adapter.ha_entity_id and b.source_id in report_sources
-                        }
-                    ),
+                    "entity_ids": list(entities),
+                    "report_entity_ids": list(report_entities),
                 },
             )
             subscription_id = subscribed["id"]
@@ -670,10 +658,10 @@ class BridgeAdapter:
                     if overflow in done:
                         return
                     if change in done:
-                        from ..reconfiguration import assessment_only
+                        from ..reconfiguration import same_ha_subscription
 
                         current = self.runtime.config
-                        if not assessment_only(config, current):
+                        if not same_ha_subscription(config, current):
                             return
                         assert current is not None
                         config, revision = current, self.runtime.state.active_revision
