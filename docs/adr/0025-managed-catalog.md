@@ -36,6 +36,14 @@ Eingänge für Scope, Medienart, Signalart und Schlüssel. Keine HA-Adressen in
 Ausdrücken. Titel bleibt als rohe Source-Evidence erhalten; die Klassifikation
 gehört der Resolverauswertung, nicht einem schreibenden Adapter.
 
+Ergänzung Bereich 5 (#75): `classification_schema.legend` ist optional; wenn
+vorhanden, enthält sie genau die Klassenschlüssel mit je `display_name`
+(1–80 Zeichen) und `description` (1–300 Zeichen), beide nicht leer nach Trimmen.
+Ohne Legende bleibt die historische Serialisierung unverändert. Die Legende
+ist Teil der unveränderlichen Definition und ihres Digests. Änderungen verlangen
+eine neue Definitionsversion und bewusste Inhaltsübernahme; alte Revisionen
+werden nicht neu beschriftet. Bedienung und v3-Import: [Bereich 5 A2](../beta/bereich-5/A2.md).
+
 Identität K = kanonisches JSON-Tupel aus (catalog_id, definition_version,
 scope, media_type, signal_type, normalize_key(key)); kein mehrdeutiges
 String-Zusammenkleben. Normalisierung verwendet den gepinnten bestehenden

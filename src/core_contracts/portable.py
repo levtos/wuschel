@@ -26,8 +26,8 @@ GROUPS = {
 MAX_BYTES = 50 * 1024 * 1024
 
 
-def strict_json(text: str) -> Any:
-    if len(text.encode("utf-8")) > MAX_BYTES:
+def strict_json(text: str, *, max_bytes: int = MAX_BYTES) -> Any:
+    if len(text.encode("utf-8")) > max_bytes:
         raise ValueError("import_size_limit")
 
     def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -799,6 +799,12 @@ def apply(
         raise ValueError("import_plan_conflict")
     if state.active_revision != plan["expected_active_revision"]:
         raise ValueError("import_plan_conflict")
+    title_import = plan.get("title_import")
+    if title_import:
+        import_key = "title:" + title_import["import_id"]
+        if import_key in state.tables["catalog_import"]:
+            raise ValueError("import_plan_conflict")
+        state.tables["catalog_import"][import_key] = title_import
     from .managed_catalog import definition
 
     latches = runtime.latches

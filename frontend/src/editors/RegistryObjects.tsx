@@ -2,12 +2,12 @@ import { SourceQualityEditor } from './SourceQualityEditor';
 import { codeLabel, fieldLabel } from '@/i18n/codes';
 import { t as uiText } from '@/i18n';
 import { Search, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, Switch } from '@/components/ui/controls';
 import { Dialog } from '@/components/ui/dialog';
-import { Input, Select, Textarea } from '@/components/ui/form';
+import { Field, Input, Select, Textarea } from '@/components/ui/form';
 import { Notice, Spinner } from '@/components/ui/layout';
 import { typeKey, type RefOption, type TypeEntry } from '@/features/authoring/catalog';
 import { asArray, asObject, newFieldSchema, str, type FieldSchema } from '@/features/authoring/model';
@@ -427,6 +427,7 @@ export function EntityPicker({ open, onOpenChange, onPick }: { open: boolean; on
 /* ─────────────────────────────── Catalog ────────────────────────────── */
 
 export function CatalogEditor({ value, onChange, pointer }: { value: JsonObject; onChange: (n: JsonObject) => void; pointer: string }) {
+  const editingLegend = useRef<JsonObject | null>(null);
   const set = patcher(value, onChange);
   const entries = Object.entries(asObject(value.entries));
   const setEntries = (next: [string, Json][]) => onChange({ ...value, entries: Object.fromEntries(next) });
@@ -439,7 +440,16 @@ export function CatalogEditor({ value, onChange, pointer }: { value: JsonObject;
     <Fld label={uiText('editors.RegistryObjects.katalog_id_e6aea3')} pointer={join(pointer, 'catalog_id')}>{p => <Input {...p} value={str(value.catalog_id)} onChange={e => set({ catalog_id: e.target.value })} />}</Fld>
     {kindField}
     <NumberField label={uiText('editors.RegistryObjects.version_dd1679')} pointer={join(pointer, 'version')} min={1} step={1} value={Number(value.version ?? 1)} onChange={n => set({ version: Math.max(1, Math.trunc(n)) })} />
-    <Fld label={uiText('alpha10.catalog.classes')} pointer={join(pointer, 'classification_schema')}>{p => <Textarea {...p} value={asArray(asObject(value.classification_schema).values).map(str).join('\n')} onChange={e => set({ classification_schema: { type: 'enum', values: e.target.value.split('\n') } })} />}</Fld>
+    <Fld label={uiText('alpha10.catalog.classes')} pointer={join(pointer, 'classification_schema')}>{p => <Textarea {...p} value={asArray(asObject(value.classification_schema).values).map(str).join('\n')} onFocus={() => { editingLegend.current = asObject(asObject(value.classification_schema).legend); }} onBlur={() => { editingLegend.current = null; }} onChange={e => {
+      const schema = asObject(value.classification_schema); const values = e.target.value.split('\n');
+      set({ classification_schema: { ...schema, type: 'enum', values, ...(schema.legend ? { legend: Object.fromEntries(Object.entries(editingLegend.current ?? asObject(schema.legend)).filter(([key]) => values.includes(key))) } : {}) } });
+    }} />}</Fld>
+    {asArray(asObject(value.classification_schema).values).map(str).map(name => {
+      const legend = asObject(asObject(value.classification_schema).legend);
+      const item = asObject(legend[name]);
+      const update = (field: string, text: string) => set({ classification_schema: { ...asObject(value.classification_schema), legend: { ...legend, [name]: { ...item, [field]: text } } } });
+      return <fieldset key={name} className="space-y-2"><legend>{name}</legend><Field label={uiText('b15.className')}>{p => <Input {...p} maxLength={80} value={str(item.display_name)} onChange={e => update('display_name', e.target.value)} />}</Field><Field label={uiText('b15.classDescription')}>{p => <Input {...p} maxLength={300} value={str(item.description)} onChange={e => update('description', e.target.value)} />}</Field></fieldset>;
+    })}
     <Fld label={uiText('alpha10.catalog.default')} pointer={join(pointer, 'unassigned_value')}>{p => <Select {...p} value={str(value.unassigned_value)} onChange={e => set({ unassigned_value: e.target.value })}>{asArray(asObject(value.classification_schema).values).map(str).map(name => <option key={name} value={name}>{name}</option>)}</Select>}</Fld>
     <p className="text-sm text-muted">{uiText('alpha10.catalog.definitionHelp')}</p>
   </div>;

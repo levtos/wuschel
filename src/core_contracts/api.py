@@ -328,7 +328,14 @@ class API:
             raise web.HTTPForbidden()
         if (
             method not in {"GET", "HEAD"}
-            and path.startswith(("registry/drafts", "registry/continuations", "portable/stage"))
+            and path.startswith(
+                (
+                    "registry/drafts",
+                    "registry/continuations",
+                    "portable/stage",
+                    "title-import/stage",
+                )
+            )
             and request.headers.get("X-Authoring-Protocol") != "2"
         ):
             raise AuthoringError("authoring_upgrade_required")
@@ -348,6 +355,21 @@ class API:
             from .registry import validate
 
             result = effective_freshness(validate(await self.object_body(request), runtime.types))
+        elif path in {"title-import/preview", "title-import/stage"} and method == "POST":
+            from .portable import strict_json
+
+            # The nested v3 JSON string can double in size when JSON-escaped.
+            # Only this bounded import envelope needs more than the normal 50 MiB;
+            # the decoded source and generated package remain capped at 50 MiB.
+            body = strict_json(
+                await request.clone(client_max_size=102 * 1024 * 1024).text(),
+                max_bytes=102 * 1024 * 1024,
+            )
+            if not isinstance(body, dict):
+                raise ValueError("import_object_required")
+            result = await runtime.submit(
+                "title_" + path.rsplit("/", 1)[1], {**body, "_actor": request["actor"]}
+            )
         elif path in {"portable/export", "portable/preview", "portable/stage"} and method == "POST":
             from .portable import strict_json
 
