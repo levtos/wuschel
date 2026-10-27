@@ -6,6 +6,7 @@ import json
 import pytest
 import yaml
 
+from dev.ci_scope import JOBS
 from dev.promote_store import promote, validate_run
 from dev.release_ci import verify
 from dev.release_version import candidate
@@ -22,7 +23,13 @@ def ci():
         "status": "completed",
         "conclusion": "success",
     }
-    proof = {"run_id": "9", "run_attempt": "1", "revision": "a" * 40, "tree": "b" * 40}
+    proof = {
+        "run_id": "9",
+        "run_attempt": "1",
+        "revision": "a" * 40,
+        "tree": "b" * 40,
+        "scope": {"full": True, **dict.fromkeys(JOBS, True)},
+    }
     jobs = [
         {"name": name, "status": "completed", "conclusion": "success"}
         for name in (
@@ -32,8 +39,9 @@ def ci():
             "workbench-e2e",
             "ha-bridge",
             "source-proof",
-            "images (amd64)",
-            "images (aarch64)",
+            "scope",
+            "images (amd64, linux/amd64)",
+            "CI result",
         )
     ]
     return run, jobs, proof
@@ -46,7 +54,21 @@ def test_green_exact_merge_tree_is_reusable():
 
 @pytest.mark.parametrize(
     "failure",
-    ["job", "missing", "workflow", "repo", "fork", "attempt", "tree", "revision", "running"],
+    [
+        "job",
+        "missing",
+        "workflow",
+        "repo",
+        "fork",
+        "attempt",
+        "tree",
+        "revision",
+        "running",
+        "partial",
+        "wrong_arch",
+        "run_id",
+        "zero_attempt",
+    ],
 )
 def test_incomplete_or_different_ci_cannot_publish(failure):
     run, jobs, proof = ci()
@@ -69,6 +91,14 @@ def test_incomplete_or_different_ci_cannot_publish(failure):
         proof["revision"] = "main"
     if failure == "running":
         run["status"] = "in_progress"
+    if failure == "partial":
+        proof["scope"]["frontend"] = False
+    if failure == "wrong_arch":
+        jobs[-2]["name"] = "images (aarch64, linux/arm64)"
+    if failure == "run_id":
+        proof["run_id"] = "10"
+    if failure == "zero_attempt":
+        proof["run_attempt"] = "0"
     with pytest.raises(AssertionError):
         verify(run, jobs, proof, tree, "b" * 40)
 
@@ -88,7 +118,7 @@ def test_store_stays_old_until_verified_promotion(tmp_path):
     assert config.read_text() == "name: Wuschel\nversion: 1.0.0b5\n"
 
 
-def test_promotion_requires_both_anonymous_architecture_gates():
+def test_promotion_requires_exactly_the_amd64_anonymous_gate():
     run = {
         "repository": {"full_name": "levtos/wuschel"},
         "path": ".github/workflows/publish-images.yml",
@@ -103,9 +133,7 @@ def test_promotion_requires_both_anonymous_architecture_gates():
         for name in (
             "guard",
             "publish (amd64)",
-            "publish (aarch64)",
             "anonymous-pull (amd64)",
-            "anonymous-pull (aarch64)",
         )
     ]
     validate_run(run, jobs, "a" * 40)
@@ -115,3 +143,12 @@ def test_promotion_requires_both_anonymous_architecture_gates():
         validate_run(run, bad, "a" * 40)
     with pytest.raises(AssertionError):
         validate_run(run, jobs[:-1], "a" * 40)
+
+
+def test_failed_only_retry_reuses_the_same_pinned_source_with_all_latest_jobs_green():
+    run, jobs, proof = ci()
+    run["run_attempt"] = 3
+    assert verify(run, jobs, proof, "b" * 40, "b" * 40) == "a" * 40
+    jobs[0]["conclusion"] = "failure"
+    with pytest.raises(AssertionError):
+        verify(run, jobs, proof, "b" * 40, "b" * 40)

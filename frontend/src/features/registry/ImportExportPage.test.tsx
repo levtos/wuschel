@@ -46,6 +46,38 @@ it('keeps reused sources implicit and allows unknown sensor types and file rules
   expect(fake.activations).toHaveLength(0);
 });
 
+it('shows an explicit name-only correction without a functional conflict', async () => {
+  const { fake, stage } = await openImport(() => reply(200, { ...preview(), display_name_changes: [{ id: 'synthetic.workday', before: 'Arbeitstag today', after: 'Arbeitstag heute' }] }));
+  expect(await screen.findByText('„Arbeitstag today“ wird zu „Arbeitstag heute“')).toBeVisible();
+  expect(screen.queryByRole('region', { name: /Konflikte/ })).not.toBeInTheDocument();
+  expect(stage).toBeEnabled();
+  expect(fake.activations).toHaveLength(0);
+});
+
+it('rechecks a first preview whose active revision arrives late before allowing staging', async () => {
+  const fake = installFakeApi({ revisions: [{ revision: 4, config: target, checksum: 'synthetic', created_at: '2026-10-26T00:00:00Z' }] });
+  let finish!: (response: Response) => void;
+  let count = 0;
+  fake.routes.push({ match: /^portable\/preview$/, respond: () => ++count === 1 ? new Promise(resolve => { finish = resolve; }) : reply(200, preview('current-revision')) });
+  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  window.location.hash = '#/import-export';
+  render(<QueryClientProvider client={cache}><Workbench onSetup={() => {}} live={idleLive()} /></QueryClientProvider>);
+  const user = userEvent.setup();
+  const file = new File([packageText], 'synthetic-late-revision.json', { type: 'application/json' });
+  Object.defineProperty(file, 'text', { value: async () => packageText });
+  await user.upload(await screen.findByLabelText('Datei auswählen'), file);
+  await user.click(screen.getByRole('button', { name: 'Datei prüfen und Vorschau anzeigen' }));
+  await waitFor(() => expect(count).toBe(1));
+  await act(async () => { cache.setQueryData(['registry', 'active'], { revision: 5, config: target, checksum: 'new-revision', created_at: '2026-10-26T00:00:00Z' }); });
+  await act(async () => finish(reply(200, preview('obsolete-revision'))));
+  const stage = await screen.findByRole('button', { name: 'Als Entwurf einlesen' });
+  expect(stage).toBeDisabled();
+  await waitFor(() => expect(count).toBe(2));
+  await waitFor(() => expect(stage).toBeEnabled());
+  expect(fake.calls.some(call => call.path === 'portable/stage')).toBe(false);
+  expect(fake.activations).toHaveLength(0);
+});
+
 it('automatically debounces a freshness selection and stages the newly checked digest without a second preview click', async () => {
   let count = 0;
   const { fake, user, stage } = await openImport(() => reply(200, preview(`digest-${++count}`)));

@@ -1,25 +1,65 @@
 name: Platform Alpha 1
 on:
   workflow_call:
+  workflow_dispatch:
+    inputs:
+      full:
+        description: Run the full release gate
+        type: boolean
+        default: true
+      base_sha:
+        description: Optional ancestor for an affected-path demonstration
+        type: string
+        default: ''
+      cache_probe:
+        description: Repeat the identical image build and verify cached bytes
+        type: boolean
+        default: false
   pull_request:
   push:
     branches: [main, agent/platform-alpha1]
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}-${{ inputs.full }}-${{ inputs.cache_probe }}
+  cancel-in-progress: true
 jobs:
+  scope:
+    runs-on: ubuntu-24.04
+    outputs:
+      full: ${{ steps.plan.outputs['full'] }}
+      plan: ${{ steps.plan.outputs['plan'] }}
+      cache_probe: ${{ steps.plan.outputs['cache_probe'] }}
+      platform: ${{ steps.plan.outputs['platform'] }}
+      frontend: ${{ steps.plan.outputs['frontend'] }}
+      workbench-e2e: ${{ steps.plan.outputs['workbench-e2e'] }}
+      ha-bridge: ${{ steps.plan.outputs['ha-bridge'] }}
+      images: ${{ steps.plan.outputs['images'] }}
+      herd-assets: ${{ steps.plan.outputs['herd-assets'] }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - id: plan
+        run: python dev/ci_scope.py --event "$GITHUB_EVENT_NAME" --head "$GITHUB_SHA"
   source-proof:
+    needs: scope
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Record the actual tested merge tree
+        env:
+          CI_PLAN: ${{ needs.scope.outputs.plan }}
         run: |
-          python -c 'import json,os,subprocess; print(json.dumps(dict(revision=os.environ["GITHUB_SHA"],tree=subprocess.check_output(["git","rev-parse","HEAD^{tree}"],text=True).strip(),run_id=os.environ["GITHUB_RUN_ID"],run_attempt=os.environ["GITHUB_RUN_ATTEMPT"])))' > ci-source.json
+          python -c 'import json,os,subprocess; print(json.dumps(dict(revision=os.environ["GITHUB_SHA"],tree=subprocess.check_output(["git","rev-parse","HEAD^{tree}"],text=True).strip(),run_id=os.environ["GITHUB_RUN_ID"],run_attempt=os.environ["GITHUB_RUN_ATTEMPT"],scope=json.loads(os.environ["CI_PLAN"]))))' > ci-source.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ci-source
           path: ci-source.json
           retention-days: 7
   herd-assets:
+    needs: scope
+    if: needs.scope.outputs['herd-assets'] == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -35,6 +75,8 @@ jobs:
       - run: uv sync --frozen
       - run: uv run python dev/verify_herd_rebuild.py herd-originals/assets/herde
   platform:
+    needs: scope
+    if: needs.scope.outputs['platform'] == 'true'
     runs-on: ubuntu-24.04
     services:
       postgres:
@@ -81,6 +123,8 @@ jobs:
             dist/alpha4-review-performance.json
             dist/alpha8-scale.json
   frontend:
+    needs: scope
+    if: needs.scope.outputs['frontend'] == 'true'
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -106,6 +150,8 @@ jobs:
         continue-on-error: true
         run: npm audit --audit-level=high
   workbench-e2e:
+    needs: scope
+    if: needs.scope.outputs['workbench-e2e'] == 'true'
     # The Workbench against the REAL API and engine of a throw-away, in-memory instance
     # (dev/workbench_demo.py): no Home Assistant, no PostgreSQL, nothing persistent.
     runs-on: ubuntu-24.04
@@ -147,6 +193,8 @@ jobs:
         if: failure()
         run: tail -n 80 /tmp/workbench-demo.log
   ha-bridge:
+    needs: scope
+    if: needs.scope.outputs['ha-bridge'] == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -157,14 +205,14 @@ jobs:
       - run: uv pip install --python .ha-venv/bin/python homeassistant==2026.10.0 asyncpg==0.32.0 pydantic==2.12.5 pytest==9.0.2 pytest-asyncio==1.3.0
       - run: .ha-venv/bin/python -m pytest tests/test_bridge_kernel.py -q
   images:
+    needs: scope
+    if: needs.scope.outputs['images'] == 'true'
     runs-on: ubuntu-24.04
     strategy:
       matrix:
         include:
           - arch: amd64
             platform: linux/amd64
-          - arch: aarch64
-            platform: linux/arm64
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
@@ -174,7 +222,6 @@ jobs:
       - name: Supervisor image metadata
         id: package
         run: uv run python dev/image_package.py metadata --arch "${{ matrix.arch }}" --revision "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
@@ -185,9 +232,35 @@ jobs:
             BUILD_VERSION=${{ steps.package.outputs.version }}
             BUILD_ARCH=${{ matrix.arch }}
             SOURCE_REVISION=${{ github.sha }}
+            SOURCE_DATE_EPOCH=0
+          cache-from: type=gha,scope=wuschel-amd64
+          cache-to: type=gha,scope=wuschel-amd64,mode=max
           push: false
           outputs: type=docker,dest=/tmp/core-contracts-${{ matrix.arch }}.tar
           tags: core-contracts:smoke
+      - name: Repeat identical build from the stage cache
+        if: needs.scope.outputs.cache_probe == 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: wuschel/Dockerfile
+          platforms: linux/amd64
+          build-args: |
+            BUILD_VERSION=${{ steps.package.outputs.version }}
+            BUILD_ARCH=amd64
+            SOURCE_REVISION=${{ github.sha }}
+            SOURCE_DATE_EPOCH=0
+          cache-from: type=gha,scope=wuschel-amd64
+          cache-to: type=gha,scope=wuschel-amd64,mode=max
+          push: false
+          outputs: type=docker,dest=/tmp/core-contracts-cache-probe.tar
+          tags: core-contracts:cache-probe
+      - name: Require identical image bytes after cache reuse
+        if: needs.scope.outputs.cache_probe == 'true'
+        run: |
+          docker load -i /tmp/core-contracts-amd64.tar
+          docker load -i /tmp/core-contracts-cache-probe.tar
+          test "$(docker image inspect core-contracts:smoke --format '{{.Id}}')" = "$(docker image inspect core-contracts:cache-probe --format '{{.Id}}')"
       - name: Verify packaged metadata and content
         run: |
           docker load -i /tmp/core-contracts-${{ matrix.arch }}.tar
@@ -201,3 +274,15 @@ jobs:
           name: image-${{ matrix.arch }}
           path: /tmp/core-contracts-${{ matrix.arch }}.tar
           retention-days: 3
+
+  ci-result:
+    name: CI result
+    if: always()
+    needs: [scope, source-proof, herd-assets, platform, frontend, workbench-e2e, ha-bridge, images]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require all selected jobs to succeed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python -c 'import json,os; jobs=json.loads(os.environ["RESULTS"]); assert jobs["scope"]["result"]=="success"; assert all(job["result"] in {"success","skipped"} for job in jobs.values())'

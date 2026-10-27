@@ -1,11 +1,11 @@
-import { t } from '@/i18n';
+import { hasTranslation, t } from '@/i18n';
 import { fieldLabel } from '@/i18n/codes';
 import { asArray, asObject, str, type FieldSchema } from '@/features/authoring/model';
 import type { TypeEntry } from '@/features/authoring/catalog';
 import { resolveRef } from '@/features/authoring/usage';
 import { isObject, type JsonObject } from '@/lib/json';
 import { displayValue, FIELD_STATUS } from '@/lib/status';
-import type { Envelope, HaEntity, Registry } from '@/lib/types';
+import type { Envelope, FieldValue, HaEntity, Registry } from '@/lib/types';
 import type { Tone } from '@/components/ui/badge';
 
 export function fieldsForContract(contract: JsonObject, config: Registry | null, types: TypeEntry[]) {
@@ -22,9 +22,44 @@ export function fieldsForContract(contract: JsonObject, config: Registry | null,
   return fields;
 }
 
+const SLEEP_TYPES = new Set(['sleep.flow', 'sleep.state_view', 'wake.plan_view']);
+
+export function contractTypeId(envelope: Envelope): string {
+  return str(envelope.type?.id ?? envelope.type?.type_id);
+}
+
+export function contractTitle(contract: JsonObject | undefined, fallback = ''): string {
+  return contract?.type_id === 'sleep.flow' ? t('b14.sleep.internal') : str(contract?.display_name) || fallback;
+}
+
+export function contractFieldLabel(typeId: string | undefined, name: string): string {
+  if (typeId && SLEEP_TYPES.has(typeId) && name === 'value') return fieldLabel('sleep_state');
+  if (typeId === 'wake.plan_view' && name === 'status') return fieldLabel('wake_status');
+  return fieldLabel(name);
+}
+
+/** Translate only the known sleep/wake contract vocabulary, never arbitrary text. */
+export function contractFieldValue(typeId: string | undefined, name: string, field: FieldValue, schema?: FieldSchema): string {
+  if (typeId && SLEEP_TYPES.has(typeId) && ['valid', 'held'].includes(field.status) && typeof field.value === 'string') {
+    const namespace = typeId === 'wake.plan_view' || name.startsWith('wake_') ? 'wake' : 'sleep';
+    const codeField = ['value', 'entry_origin', 'last_action_origin', 'status', 'decision', 'wake_status', 'wake_decision'].includes(name);
+    const key = `codes.${namespace}.${field.value}`;
+    if (codeField && hasTranslation(key)) return t(key);
+  }
+  return displayValue(field, str(schema?.unit), schema);
+}
+
 export function contractValue(envelope: Envelope | null, fields: Record<string, FieldSchema>): string {
   if (!envelope) return t('alpha7.contract.noValue');
-  return Object.entries(envelope.fields).map(([name, field]) => `${Object.keys(envelope.fields).length > 1 ? `${fieldLabel(name)}: ` : ''}${displayValue(field, str(fields[name]?.unit), fields[name])}`).join(' · ');
+  const typeId = contractTypeId(envelope);
+  const value = (name: string) => envelope.fields[name] ? contractFieldValue(typeId, name, envelope.fields[name]!, fields[name]) : t('alpha7.contract.noValue');
+  if (typeId === 'sleep.flow') return t('b14.sleep.internalValue');
+  if (typeId === 'sleep.state_view') {
+    const deadline = envelope.fields.deadline_at;
+    return t('b14.sleep.state', { value: value('value') }) + (deadline && deadline.value != null && ['valid', 'held'].includes(deadline.status) ? ` · ${t('b14.sleep.deadline', { value: value('deadline_at') })}` : '');
+  }
+  if (typeId === 'wake.plan_view') return `${t('b14.wake.next', { value: value('next_wake_start') })} · ${t('b14.wake.status', { value: value('status') })}`;
+  return Object.entries(envelope.fields).map(([name, field]) => `${Object.keys(envelope.fields).length > 1 ? `${fieldLabel(name)}: ` : ''}${contractFieldValue(typeId, name, field, fields[name])}`).join(' · ');
 }
 
 export const CONTRACT_CATEGORIES = ['healthy', 'degraded', 'unknown', 'off', 'draft'] as const;

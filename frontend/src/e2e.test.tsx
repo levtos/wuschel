@@ -20,6 +20,7 @@ import { Stateful, wrap } from '../test/harness';
 import { objects } from '@/features/sources/sourceMigration';
 import type { Draft, RevisionRow } from '@/lib/types';
 import { reserveRequest } from '@/lib/request-budget';
+import { episodeId as b14Episode, sleepRegistry as b14Registry } from '../test/b14-fixtures';
 
 /**
  * End-to-end against the REAL API and engine in an isolated, in-memory instance
@@ -680,6 +681,58 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     expect(savedResponse.status).toBe(200);
     expect(await savedResponse.text()).toMatch(/"value"\s*:\s*840\.0[,}]/);
     await screen.findByText('Keine Fehler gefunden');
+    expect((await raw<RevisionRow>('registry/active')).body.checksum).toBe(active.checksum);
+    cleanup();
+  }, 240_000);
+  it('b14 shows concise German sleep/wake values, keeps all details and previews a name-only correction', async () => {
+    const previous = (await raw<RevisionRow>('registry/active')).body;
+    const seed = (await raw<Draft>('registry/drafts', json('POST', { config: b14Registry }))).body;
+    expect((await raw(`registry/drafts/${seed.draft_id}/activate`, json('POST', await activationInput(seed, previous.revision)))).status).toBe(200);
+    const active = (await raw<RevisionRow>('registry/active')).body;
+    const uiFetch = globalThis.fetch;
+    const stageCalls: unknown[] = [];
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/portable/stage')) stageCalls.push(init);
+      return uiFetch(input, init);
+    });
+    window.location.hash = '#/contracts/list/all';
+    store.start();
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Workbench onSetup={() => {}} live={store} /></QueryClientProvider>);
+    const table = await screen.findByRole('table', { name: 'Verträge' });
+    const sleepLink = await within(table).findByRole('link', { name: 'Schlafzustand' });
+    const sleepRow = sleepLink.closest('tr')!;
+    await waitFor(() => expect(sleepRow).toHaveTextContent('Zustand: Vor dem Schlaf'));
+    expect(sleepRow).not.toHaveTextContent(b14Episode);
+    const internal = within(table).getByRole('link', { name: 'Schlafablauf (intern)' }).closest('tr')!;
+    expect(internal).not.toHaveTextContent(b14Episode);
+    await user.click(sleepLink);
+    await screen.findByRole('heading', { name: 'Wert jetzt' });
+    expect(screen.getByTestId('value-episode_id')).toHaveTextContent(b14Episode);
+    expect(screen.getByTestId('value-entry_origin')).toHaveTextContent('Zu Beginn');
+    expect(screen.getByTestId('value-last_action_origin')).toHaveTextContent('Bestätigt');
+    await f.go('#/contracts/list/all');
+    const wakeLink = await screen.findByRole('link', { name: 'Weckplan' });
+    await waitFor(() => expect(wakeLink.closest('tr')).toHaveTextContent('Plan heute: Geplant'));
+    await user.click(wakeLink);
+    await screen.findByRole('heading', { name: 'Wert jetzt' });
+    expect(screen.getByTestId('value-decision')).toHaveTextContent('Weckregel');
+    expect(screen.getByTestId('value-minimum_sleep_applied')).toHaveTextContent('Nein');
+
+    const corrected = structuredClone(active.config);
+    (corrected.contracts as JsonObject[]).find(row => row.contract_id === 'synthetic.b14.state')!.display_name = 'Neuer Schlafzustand';
+    const draft = (await raw<Draft>('registry/drafts', json('POST', { config: corrected }))).body;
+    const exported = await raw<JsonObject>('portable/export', json('POST', { expected_active_revision: active.revision, draft_id: draft.draft_id, draft_version: draft.draft_version }));
+    expect(exported.status).toBe(200);
+    await f.go('#/import-export');
+    const text = JSON.stringify(exported.body);
+    const file = new File([text], 'synthetic-b14-names.json', { type: 'application/json' });
+    Object.defineProperty(file, 'text', { value: async () => text });
+    await user.upload(await screen.findByLabelText('Datei auswählen'), file);
+    await clickReadyButton(user, screen.getByRole('button', { name: 'Datei prüfen und Vorschau anzeigen' }), 'Datei prüfen und Vorschau anzeigen');
+    await screen.findByText('„Schlafzustand“ wird zu „Neuer Schlafzustand“');
+    expect(screen.queryByRole('region', { name: /Konflikte/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Als Entwurf einlesen' })).toBeEnabled());
+    expect(stageCalls).toEqual([]);
     expect((await raw<RevisionRow>('registry/active')).body.checksum).toBe(active.checksum);
     cleanup();
   }, 240_000);

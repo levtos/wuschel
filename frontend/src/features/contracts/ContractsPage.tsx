@@ -21,7 +21,7 @@ import { useLive } from '@/lib/live-context';
 import type { Envelope } from '@/lib/types';
 import { useActiveRevision, useCapabilities } from '@/lib/queries';
 import { useHaCatalog } from '@/features/sources/useHaCatalog';
-import { CONTRACT_CATEGORIES, contractState, contractSources, contractValue, fieldsForContract, type ContractCategory } from './presentation';
+import { CONTRACT_CATEGORIES, contractState, contractSources, contractTitle, contractValue, fieldsForContract, type ContractCategory } from './presentation';
 import { ContractStateChip } from './ContractStateChip';
 import { DeviceWizard } from '@/features/sources/DeviceWizard';
 import { CategoryBadge, CategorySelect, RoomBadge, useEditorial } from '@/features/editorial/Editorial';
@@ -166,7 +166,7 @@ export default function ContractsPage() {
       id,
       category: metadata.item({ kind: 'contract', id }).category,
       room: metadata.item({ kind: 'contract', id }).room,
-      name: str(c.display_name),
+      name: contractTitle(c),
       type: str(c.type_id),
       version: Number(c.type_version),
       enabled: c.enabled !== false,

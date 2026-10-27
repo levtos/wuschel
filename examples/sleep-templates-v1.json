@@ -3,7 +3,7 @@
     "type_id": "device.power",
     "type_version": 1,
     "language_version": 6,
-    "display_name": "device.power",
+    "display_name": "Geräteleistung",
     "inputs": [
       {
         "name": "power",
@@ -38,7 +38,7 @@
     "type_id": "device.power_state",
     "type_version": 1,
     "language_version": 6,
-    "display_name": "device.power_state",
+    "display_name": "Gerätenutzung",
     "inputs": [
       {
         "name": "state",
@@ -89,7 +89,7 @@
     "type_id": "device.active",
     "type_version": 1,
     "language_version": 6,
-    "display_name": "device.active",
+    "display_name": "Gerät aktiv",
     "inputs": [
       {
         "name": "power",
@@ -146,7 +146,7 @@
     "type_id": "sleep.flow",
     "type_version": 1,
     "language_version": 6,
-    "display_name": "sleep.flow",
+    "display_name": "Schlafablauf (intern)",
     "inputs": [
       {
         "name": "tv",
@@ -1621,7 +1621,7 @@
     "type_id": "sleep.state_view",
     "type_version": 1,
     "language_version": 6,
-    "display_name": "sleep.state_view",
+    "display_name": "Schlafzustand",
     "inputs": [
       {
         "name": "value",
@@ -1821,7 +1821,7 @@
     "type_id": "wake.plan_view",
     "type_version": 1,
     "language_version": 6,
-    "display_name": "wake.plan_view",
+    "display_name": "Weckplan",
     "inputs": [
       {
         "name": "status",
@@ -1958,7 +1958,7 @@
     "type_id": "day.context_at",
     "type_version": 1,
     "language_version": 6,
-    "display_name": "day.context_at",
+    "display_name": "Tagesart für ein Datum",
     "inputs": [
       {
         "name": "date",
@@ -2204,7 +2204,7 @@
     "type_id": "day.holiday_at",
     "type_version": 1,
     "language_version": 6,
-    "display_name": "day.holiday_at",
+    "display_name": "Feiertag für ein Datum",
     "inputs": [
       {
         "name": "date",
@@ -2264,7 +2264,7 @@
     "type_id": "day.date_offset",
     "type_version": 1,
     "language_version": 6,
-    "display_name": "day.date_offset",
+    "display_name": "Datum verschieben",
     "inputs": [
       {
         "name": "date",
@@ -2304,7 +2304,7 @@
     "type_id": "day.is_workday",
     "type_version": 1,
     "language_version": 6,
-    "display_name": "day.is_workday",
+    "display_name": "Arbeitstag",
     "inputs": [
       {
         "name": "context",
@@ -2352,7 +2352,7 @@
     "type_id": "daily.window",
     "type_version": 1,
     "language_version": 6,
-    "display_name": "daily.window",
+    "display_name": "Tägliches Zeitfenster",
     "inputs": [
       {
         "name": "date",

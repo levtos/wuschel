@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0b14 — Werte bei Übernahme erhalten, Schlaf und Wecken verständlich anzeigen
+
+- Unveränderte Quellen behalten bei einer Konfigurationsübernahme im laufenden Betrieb ihre Beobachtung und den ursprünglichen Ablaufzeitpunkt. Geänderte Verknüpfungen, Neustart und eine bekannte HA-Unterbrechung verlangen weiterhin frische Meldungen.
+- Schlafzustand und Weckplan zeigen in der Liste nur die Kernwerte. Die vollständigen Angaben und die Durchlauf-ID bleiben in der Detailansicht; der interne Schlafablauf ist gekennzeichnet.
+- Deutsche Schlaf-/Weckfelder, Werte und Vorlagennamen; reine Anzeigenamen-Korrekturen erscheinen ohne fachlichen Importkonflikt in der Vorschau.
+- Ab b14 ausschließlich amd64. Keine Datenbankmigration; Traber bleibt auf 1.0.0b11. Einlesen und Übernahme des privaten Korrekturpakets macht Benni.
+
 ## 1.0.0b10 — Kalenderabruf und Importdialog
 
 - Kalender werden über die richtigen HA-Dienstparameter gelesen. Traber 1.0.0b10 benötigt einen HA-Neustart.

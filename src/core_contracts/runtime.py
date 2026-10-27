@@ -1435,6 +1435,14 @@ class Runtime:
                 next_latches = {
                     k: v for k, v in next_latches.items() if k.partition(":")[0] in compatible
                 }
+                if "ha" in self.dependency_connections and (
+                    self.bridge != "connected" or self.ha != "connected"
+                ):
+                    # A revision must not carry live HA evidence across a known gap.
+                    # Ordinary disconnect ageing and stored calendar caches stay unchanged.
+                    for observation in state.tables["source_observation_current"].values():
+                        if observation["adapter"] in {"ha_state", "ha_attribute"}:
+                            observation["observation_kind"] = "restore"
             activation_result = (
                 authoring.complete(
                     state, draft, payload, state.tables["registry_revision"][str(revision)], now
@@ -1450,15 +1458,9 @@ class Runtime:
                 initial_latches=next_latches,
             )
             await self._commit(state, publication=True)
-            old_ha = (
-                {b.model_dump_json() for b in config.bindings if b.adapter.kind.startswith("ha_")}
-                if config
-                else set()
-            )
-            new_ha = {
-                b.model_dump_json() for b in new_config.bindings if b.adapter.kind.startswith("ha_")
-            }
-            if new_ha - old_ha:
+            from .reconfiguration import same_ha_subscription
+
+            if not same_ha_subscription(config, new_config):
                 self.first_snapshot = False
             self._broadcast(self.service_state())
             LOGGER.info(

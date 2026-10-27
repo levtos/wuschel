@@ -115,7 +115,7 @@ def test_watchdog_security_and_container():
     assert config["watchdog"].endswith("/health/live")
     assert config["hassio_api"] is False and config["homeassistant_api"] is True
     assert config["ports"]["8787/tcp"] is None
-    assert config["arch"] == ["amd64", "aarch64"]
+    assert config["arch"] == ["amd64"]
     assert not any(config.get(key) for key in ("privileged", "docker_api", "host_network"))
     docker = (ROOT / "wuschel/Dockerfile").read_text()
     assert "BUILD_FROM" not in docker and "uv sync --frozen" in docker

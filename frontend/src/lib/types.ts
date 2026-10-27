@@ -65,7 +65,7 @@ export interface FieldValue {
 
 export interface Envelope {
   contract_id: string;
-  type: { type_id: string; type_version: number } & JsonObject;
+  type: ({ id: string; version: number } | { type_id: string; type_version: number }) & JsonObject;
   enabled: boolean;
   contract_health: 'healthy' | 'degraded';
   fields: Record<string, FieldValue>;

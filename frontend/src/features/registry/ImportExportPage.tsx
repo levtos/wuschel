@@ -18,7 +18,7 @@ import { isObject } from '@/lib/json';
 import { currentDraft } from './authoring';
 import { importFreshnessSources } from '@/features/sources/freshness';
 
-interface Preview { config: Registry; freshness_changed_sources?: string[]; catalog_entries?: number; editorial_entries?: number; plan_digest: string; added: number; reused: number; conflicts: string[]; unresolved: string[]; editorial_versions: Record<string, number>; editorial_changed: Record<string, boolean>; package: { config: Registry; editorial: { object: { kind: string; id: string }; category: string; room: { name: string } }[] } }
+interface Preview { config: Registry; display_name_changes?: { id: string; before: string; after: string }[]; freshness_changed_sources?: string[]; catalog_entries?: number; editorial_entries?: number; plan_digest: string; added: number; reused: number; conflicts: string[]; unresolved: string[]; editorial_versions: Record<string, number>; editorial_changed: Record<string, boolean>; package: { config: Registry; editorial: { object: { kind: string; id: string }; category: string; room: { name: string } }[] } }
 type Resolution = 'keep' | 'file' | { new_id: string };
 
 export default function ImportExportPage() {
@@ -44,7 +44,12 @@ export default function ImportExportPage() {
     setChecking(true); setError('');
     try {
       const result = await api<Preview>('portable/preview', { method: 'POST', body: JSON.parse(bodyText) });
-      if (sequence !== requestSequence.current || latestKey.current !== previewKey) return;
+      if (sequence !== requestSequence.current) return;
+      if (latestKey.current !== previewKey) {
+        // Keep a stale first result visible so the existing recheck effect runs.
+        // Its old key and stale flag still prohibit staging until acknowledgement.
+        setPreview(result); setCheckedKey(previewKey); setStale(true); return;
+      }
       setPreview(result); setCheckedKey(previewKey); setRequestId(crypto.randomUUID()); setStale(false);
     } catch (failure) {
       if (sequence === requestSequence.current && latestKey.current === previewKey) setError(describeError(failure));
@@ -91,6 +96,7 @@ export default function ImportExportPage() {
         {!previewOutdated && preview.freshness_changed_sources && <p>{t(preview.freshness_changed_sources.length === 1 ? 'b4.fileChangeOne' : 'b4.fileChanges', { count: preview.freshness_changed_sources.length })}</p>}
         <p>{t('alpha10.transfer.counts', { added: preview.added, reused: preview.reused, conflicts: preview.conflicts.length })}</p>
         <p>{t('alpha10.transfer.contents', { n: preview.catalog_entries ?? 0, metadata: preview.editorial_entries ?? 0 })}</p>
+        {!!preview.display_name_changes?.length && <section aria-label={t('b14.import.names')}><h2>{t('b14.import.names')}</h2><ul>{preview.display_name_changes.map(change => <li key={change.id}>{t('b14.import.rename', { before: change.before || change.id, after: change.after || change.id })}</li>)}</ul></section>}
         <Notice tone="warn">{t('alpha10.transfer.addresses')}</Notice>
         <h2>{t('alpha10.transfer.metadata')}</h2>
         {unchangedEditorial > 0 && <p>{t('b12.unchangedEditorial', { count: unchangedEditorial })}</p>}

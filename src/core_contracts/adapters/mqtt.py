@@ -163,14 +163,14 @@ class MQTTAdapter:
 
                     async def ingest() -> None:
                         async for message in client.messages:
-                            from ..reconfiguration import assessment_only
+                            from ..reconfiguration import same_mqtt_bindings
 
                             current = self.runtime.config
                             current_revision = self.runtime.state.active_revision
                             if (
                                 current is None
                                 or current_revision != revision
-                                and not assessment_only(config, current)
+                                and not same_mqtt_bindings(config, current)
                             ):
                                 return
                             for binding in bindings:
@@ -212,12 +212,12 @@ class MQTTAdapter:
 
                     async def changed() -> None:
                         nonlocal config, revision
-                        from ..reconfiguration import assessment_only
+                        from ..reconfiguration import same_mqtt_bindings
 
                         while not self.queue_overflow:
                             if revision != self.runtime.state.active_revision:
                                 current = self.runtime.config
-                                if not assessment_only(config, current):
+                                if not same_mqtt_bindings(config, current):
                                     return
                                 assert current is not None
                                 config, revision = current, self.runtime.state.active_revision

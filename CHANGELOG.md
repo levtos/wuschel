@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0b14 — Beobachtungen erhalten, Schlaf und Wecken lesbar anzeigen
+
+- Unveränderte HA-/MQTT-Verknüpfungen bleiben bei einer Übernahme im laufenden Prozess verbunden. Erhaltene Beobachtungen behalten Messzeitpunkt, Herkunft und Ablauf; geänderte Eingänge, Neustart und bekannte HA-Lücken verlangen weiter frische Meldungen.
+- Schlafzustand und Weckplan zeigen nur die Kernwerte in der Liste, sämtliche Angaben bleiben im Detail. Deutsche Feld-/Werttexte und Vorlagennamen; interner Schlafablauf eindeutig gekennzeichnet.
+- Reine Anzeigenamen-Änderungen sind sichtbare Metadaten-Korrekturen ohne fachlichen Importkonflikt. Das private Bereich-4-Korrekturpaket enthält ausschließlich solche Namens-/Organisationsänderungen; Benni liest es selbst ein.
+- Ausschließlich amd64, wiederverwendbare Docker-Stufen, betroffene CI-Prüfungen und ein vollständiges Release-Gate. Fehlgeschlagene Jobs einzeln wiederholen; volle Suites ausschließlich in CI.
+- Reguläre GitHub-Releases ohne Vorab-Markierung für HACS; Beta-Status weiterhin in der Versionsnummer. Keine DB-Migration; Traber unverändert auf 1.0.0b11.
+- [Umsetzung und Nachweise](docs/beta/b14-observations-and-ci.md), [Veröffentlichung](docs/publishing.md).
+
 ## 1.0.0b13 — Zahlendarstellung bei Bearbeitung erhalten
 
 - Gleichwertige JSON-Zahlen wie `840` und `840.0` werden beim Validieren, Speichern, Importieren und Übernehmen auf die gespeicherte Darstellung zurückgeführt. Bereits veröffentlichte Vorlagen bleiben dadurch auch nach dem Browser-Rundlauf unverändert gültig.

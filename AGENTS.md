@@ -6,6 +6,8 @@ and ADR 0002. The assignment is the GitHub Issue named by Benni; it states size 
 
 Repository-specific:
 
+- CI retries restart only failed jobs (`gh run rerun <id> --failed`); locally rerun
+  only affected tests. Full release checks and release batching follow the canonical working rules.
 - Project baseline: `docs/uebergabe.md` (roles, vocabulary, Beta plan, security rules §10).
 - Backend, code and identifiers in English; user interface in German (Du-Form, vocabulary §3).
 - Never commit real media titles, private data, MQTT addresses of the live system, or secrets.
