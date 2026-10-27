@@ -15,12 +15,9 @@ def validate_run(run, jobs, revision):
     assert run["head_sha"] == revision and run["head_branch"] == "main"
     assert run["status"] == "completed" and run["conclusion"] == "success"
     names = {job["name"] for job in jobs}
-    assert "guard" in names
-    assert {
-        f"{kind} ({arch})"
-        for kind in ("publish", "anonymous-pull")
-        for arch in ("amd64", "aarch64")
-    } <= names
+    assert {"guard"} | {
+        f"{kind} ({arch})" for kind in ("publish", "anonymous-pull") for arch in ("amd64",)
+    } == names and len(jobs) == 3
     assert all(job["status"] == "completed" and job["conclusion"] == "success" for job in jobs)
 
 
@@ -57,16 +54,14 @@ def main():
             [
                 "gh",
                 "api",
-                f"repos/levtos/wuschel/actions/runs/{args.run_id}/attempts/{run['run_attempt']}/jobs?per_page=100",
+                f"repos/levtos/wuschel/actions/runs/{args.run_id}/jobs?filter=latest&per_page=100",
             ],
             text=True,
         )
     )["jobs"]
     validate_run(run, jobs, revision)
     promote(root)
-    print(
-        "Store promotion prepared; review the two-file diff, then use the normal PR/CI/merge flow."
-    )
+    print("Store promotion prepared; review the two-file diff and verify its CI before tagging.")
 
 
 if __name__ == "__main__":

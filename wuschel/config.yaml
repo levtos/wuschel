@@ -3,7 +3,7 @@ version: 1.0.0b13
 slug: wuschel
 description: Wuschel – Verträge verständlich anlegen und verwalten
 url: https://github.com/Levtos/wuschel
-arch: [amd64, aarch64]
+arch: [amd64]
 startup: services
 boot: auto
 init: true

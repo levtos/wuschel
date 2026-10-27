@@ -9,7 +9,7 @@ import yaml
 from dev import store_offer as offer
 
 
-@pytest.mark.parametrize("arch,docker_arch", [("amd64", "amd64"), ("aarch64", "arm64")])
+@pytest.mark.parametrize("arch,docker_arch", [("amd64", "amd64")])
 @pytest.mark.parametrize("failure", [None, "version", "platform", "digest", "missing", "index"])
 def test_anonymous_offered_image_metadata(arch, docker_arch, failure):
     version = "1.0.0b5"

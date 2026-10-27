@@ -1,4 +1,4 @@
-"""The offered Supervisor version must already have public images on both architectures."""
+"""The offered Supervisor version must already have a public amd64 image."""
 
 import hashlib
 import json
@@ -32,7 +32,7 @@ def verify(arch, version, get=fetch):
     headers = {"Authorization": "Bearer " + token, "Accept": ACCEPT}
     base = "https://ghcr.io/v2/" + repository
     manifest = json.loads(get(base + "/manifests/" + urllib.parse.quote(version, safe=""), headers))
-    docker_arch = {"amd64": "amd64", "aarch64": "arm64"}[arch]
+    docker_arch = {"amd64": "amd64"}[arch]
     if "manifests" in manifest:
         choices = [
             row
@@ -64,7 +64,7 @@ def main():
         (Path(__file__).resolve().parents[1] / "wuschel/config.yaml").read_text()
     )
     assert config["image"] == "ghcr.io/levtos/{arch}-wuschel"
-    assert set(config["arch"]) == {"amd64", "aarch64"}
+    assert config["arch"] == ["amd64"]
     for arch in config["arch"]:
         verify(arch, str(config["version"]))
         print(f"Offered {arch} image is public with matching version and platform")

@@ -39,14 +39,16 @@ def image_info(meta):
     }
 
 
-@pytest.mark.parametrize("arch,docker_arch", [("amd64", "amd64"), ("aarch64", "arm64")])
+@pytest.mark.parametrize("arch,docker_arch", [("amd64", "amd64")])
 def test_supervisor_reference_and_platform(arch, docker_arch):
     meta = package.metadata(arch, REVISION)
     assert meta["image"] == f"ghcr.io/levtos/{arch}-wuschel:1.0.0b13"
     assert meta["docker_arch"] == docker_arch
 
 
-@pytest.mark.parametrize("arch,revision", [("arm64", REVISION), ("amd64", "main")])
+@pytest.mark.parametrize(
+    "arch,revision", [("arm64", REVISION), ("aarch64", REVISION), ("amd64", "main")]
+)
 def test_distribution_rejects_wrong_arch_name_or_unpinned_source(arch, revision):
     with pytest.raises(AssertionError):
         package.metadata(arch, revision)
@@ -217,11 +219,12 @@ def test_publication_is_manual_and_gated_by_full_ci():
     matrix = ci["jobs"]["images"]["strategy"]["matrix"]["include"]
     assert {row["arch"]: row["platform"] for row in matrix} == {
         "amd64": "linux/amd64",
-        "aarch64": "linux/arm64",
     }
     builds = [
         step
         for step in ci["jobs"]["images"]["steps"]
         if step.get("uses", "").startswith("docker/build-push-action@")
     ]
-    assert len(builds) == 1 and builds[0]["with"]["push"] == "false"
+    assert len(builds) == 2 and all(step["with"]["push"] == "false" for step in builds)
+    assert all(step["with"]["cache-to"].endswith("mode=max") for step in builds)
+    assert "if" not in builds[0] and builds[1]["if"] == "needs.scope.outputs.cache_probe == 'true'"

@@ -22,15 +22,15 @@ except ImportError:
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "levtos/wuschel"
 SOURCE = "https://github.com/" + REPOSITORY
-ARCHITECTURES = {"amd64": "amd64", "aarch64": "arm64"}
+ARCHITECTURES = {"amd64": "amd64"}
 
 
 def metadata(arch, revision, root=ROOT):
     config = yaml.safe_load((root / "wuschel/config.yaml").read_text())
     version = candidate(root, str(config["version"]))
-    assert set(config["arch"]) == set(ARCHITECTURES), "Unsupported Supervisor architectures"
+    assert config["arch"] == list(ARCHITECTURES), "Unsupported Supervisor architectures"
     assert config["image"] == "ghcr.io/levtos/{arch}-wuschel", "Unexpected image namespace"
-    assert arch in ARCHITECTURES, "Use Supervisor arch names: amd64 or aarch64"
+    assert arch in ARCHITECTURES, "Only the supported Supervisor architecture amd64 is allowed"
     assert re.fullmatch(r"[0-9a-f]{40}", revision), "A full tested commit SHA is required"
     assert re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", version), "Invalid image tag"
     project = tomllib.loads((root / "pyproject.toml").read_text())
