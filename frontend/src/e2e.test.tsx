@@ -666,7 +666,7 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     });
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Workbench onSetup={() => {}} live={store} /></QueryClientProvider>);
     await screen.findByDisplayValue('Synthetic b13 browser');
-    await clickReadyButton(user, await screen.findByRole('button', { name: 'Prüfen' }), 'Prüfen');
+    // The draft page validates automatically on load; await its real API result.
     await screen.findByText('Keine Fehler gefunden');
     await f.type(screen.getByLabelText('Name des Entwurfs'), 'Synthetic b13 saved');
     await clickReadyButton(user, await f.saveButton(), 'Speichern');
@@ -677,7 +677,6 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     const savedResponse = await realFetch(`${base}/api/v1/registry/drafts/${working.draft_id}`);
     expect(savedResponse.status).toBe(200);
     expect(await savedResponse.text()).toMatch(/"value"\s*:\s*840\.0[,}]/);
-    await clickReadyButton(user, screen.getByRole('button', { name: 'Prüfen' }), 'Prüfen');
     await screen.findByText('Keine Fehler gefunden');
     expect((await raw<RevisionRow>('registry/active')).body.checksum).toBe(active.checksum);
     cleanup();
