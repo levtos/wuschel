@@ -47,7 +47,7 @@ export function contractFieldValue(typeId: string | undefined, name: string, fie
 
 export function contractValue(envelope: Envelope | null, fields: Record<string, FieldSchema>): string {
   if (!envelope) return t('alpha7.contract.noValue');
-  const typeId = envelope.type.type_id;
+  const typeId = envelope.type?.type_id;
   const value = (name: string) => envelope.fields[name] ? contractFieldValue(typeId, name, envelope.fields[name]!, fields[name]) : t('alpha7.contract.noValue');
   if (typeId === 'sleep.flow') return t('b14.sleep.internalValue');
   if (typeId === 'sleep.state_view') {

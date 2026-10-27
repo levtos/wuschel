@@ -633,6 +633,10 @@ class BridgeAdapter:
                 },
             )
             subscription_id = subscribed["id"]
+            if revision != self.runtime.state.active_revision:
+                # A handshake snapshot belongs to the revision that requested it.
+                # Preserve sockets only after their subscription is established.
+                return
             await self.runtime.submit(
                 "bridge_state",
                 (
