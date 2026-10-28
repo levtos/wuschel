@@ -580,7 +580,8 @@ class Runtime:
             config.notifications.signal.enabled or config.notifications.configuration.enabled
         ):
             return True
-        ha_dependencies = {d.dependency_id for d in config.dependencies if d.kind == "ha"}
+        # Legacy configurations used other dependency names for the HA monitor.
+        ha_dependencies = {d.dependency_id for d in config.dependencies if d.kind != "mqtt"}
         ha_sources = {s.source_id for s in config.sources if s.dependency_id in ha_dependencies}
         return any(
             (b.source_id in needed or b.adapter.kind == "ha_calendar")

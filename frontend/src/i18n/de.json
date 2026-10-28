@@ -2,6 +2,7 @@
   "beta16.inputs.role": "{name}: Dieser Eingang liefert die Angaben für diesen Vertrag.",
   "beta16.inputs.contract": "Vertrag",
   "beta16.inputs.source": "Quelle",
+  "beta16.inputs.link": "{name} – {kind}",
   "beta16.inputs.affected": "Betroffener Eingang:",
   "beta16.inputs.reliability": "Verlässlichkeit: {state}",
   "beta16.inputs.manualAt": "Die Eingabe „{name}“ pflegst du bei diesem Vertrag:",

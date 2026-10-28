@@ -446,7 +446,10 @@ def validate_document(
             dependencies.get(monitor_source.dependency_id) if monitor_source else None
         )
         address = (
-            (adapter.kind, monitor_dependency.kind if monitor_dependency else None)
+            (
+                adapter.kind,
+                "mqtt" if monitor_dependency and monitor_dependency.kind == "mqtt" else "ha",
+            )
             if adapter.kind == "connectivity"
             else (
                 ("manual", binding.source_id)

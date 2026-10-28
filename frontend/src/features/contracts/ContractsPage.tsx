@@ -197,7 +197,7 @@ export default function ContractsPage() {
     col.accessor('room', { header: uiText('alpha9.room.label'), cell: cell => <RoomBadge room={cell.getValue()} /> }),
     col.accessor('value', { header: uiText('alpha7.contract.value'), cell: cell => <span className="tabular-nums">{cell.getValue()}</span> }),
     col.accessor(row => row.envelope?.contract_health ?? '', { id: 'state', header: uiText('alpha7.contract.state'), cell: cell => <ContractStateChip envelope={cell.row.original.envelope} enabled={cell.row.original.enabled} draftOnly={cell.row.original.draftOnly} stale={cell.row.original.stale} /> }),
-    col.accessor('source', { header: uiText('alpha7.contract.source'), cell: cell => <div className="flex flex-wrap gap-2">{cell.row.original.sourceInputs.length ? cell.row.original.sourceInputs.map(input => <span key={input.inputName}><span className="text-xs text-muted">{uiText(`beta16.inputs.${input.kind}`)}: </span><Link to={input.href} onClick={event => event.stopPropagation()} className="hover:underline">{input.name}</Link></span>) : cell.getValue()}</div> }),
+    col.accessor('source', { header: uiText('alpha7.contract.source'), cell: cell => <div className="flex flex-wrap gap-2">{cell.row.original.sourceInputs.length ? cell.row.original.sourceInputs.map(input => <span key={input.inputName}><span className="text-xs text-muted">{uiText(`beta16.inputs.${input.kind}`)}: </span><Link to={input.href} aria-label={uiText('beta16.inputs.link', { name: input.name, kind: uiText(`beta16.inputs.${input.kind}`) })} onClick={event => event.stopPropagation()} className="hover:underline">{input.name}</Link></span>) : cell.getValue()}</div> }),
   ];
 
   return (
