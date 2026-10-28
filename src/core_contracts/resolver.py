@@ -86,6 +86,29 @@ def first_match(cases: list[tuple[FieldValue, FieldValue]], now: datetime) -> Fi
                 + condition.reasons,
             )
         if condition.value:
+            # A positively selected non-applicable result is a complete answer,
+            # not missing evidence (e.g. no title when there is no session).
+            if (
+                result.status == "not_applicable"
+                and condition.status == "valid"
+                and condition.quality == "healthy"
+            ):
+                # A value-bearing view lets derive merge all existing bounds,
+                # origins and hints without treating positive absence as missing.
+                merged = derive(
+                    True,
+                    [condition, result.model_copy(update={"status": "valid", "value": True})],
+                    now,
+                )
+                if merged.status == "valid" and merged.quality == "healthy":
+                    return merged.model_copy(
+                        update={
+                            "status": "not_applicable",
+                            "value": None,
+                            "positively_not_applicable": True,
+                        }
+                    )
+                return merged
             return derive(result.value, [condition, result], now)
     return unknown(ReasonCode.NO_MATCH, "cases", now)
 

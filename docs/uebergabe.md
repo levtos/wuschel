@@ -108,6 +108,12 @@ dann nicht, ist es ein echter Fehler.
 
 ## 8. Entscheidungen für den Bereich Media / Titelkataloge (20.10.2026)
 
+Aktueller Bereich-5-Stand: [freigegebenes A1](beta/bereich-5/A1.md) und
+[A2-Umsetzung mit Prüfnachweisen](beta/bereich-5/A2.md). Zweites Review und
+Bennis zweites Go vor b15; Installation und echte Titelübernahme stehen aus.
+Die Entscheidungen in #75 ersetzen die unten noch als offen bezeichnete
+Apple-TV-Klassenbedeutung und den früheren Besuchsquellen-Vorschlag.
+
 **Kataloge:** ein Katalog **pro Gerät**, nicht pro Medienart:
 HomePods (Musik), PS5, PC, Stash, Apple TV, später Nintendo Switch.
 Begründung: Dasselbe Spiel hat je Gerät eine andere Bedeutung (PC fast immer Headset, PS5 meist Heimkino/Grind).

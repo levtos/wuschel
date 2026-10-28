@@ -17,6 +17,7 @@ import { asArray } from '@/features/authoring/model';
 import { isObject } from '@/lib/json';
 import { currentDraft } from './authoring';
 import { importFreshnessSources } from '@/features/sources/freshness';
+import { TitleImport } from './TitleImport';
 
 interface Preview { config: Registry; display_name_changes?: { id: string; before: string; after: string }[]; freshness_changed_sources?: string[]; catalog_entries?: number; editorial_entries?: number; plan_digest: string; added: number; reused: number; conflicts: string[]; unresolved: string[]; editorial_versions: Record<string, number>; editorial_changed: Record<string, boolean>; package: { config: Registry; editorial: { object: { kind: string; id: string }; category: string; room: { name: string } }[] } }
 type Resolution = 'keep' | 'file' | { new_id: string };
@@ -79,6 +80,7 @@ export default function ImportExportPage() {
   return <>
     <PageHeader title={t('alpha10.transfer.title')} description={t('alpha10.transfer.description')} actions={<Button variant="primary" disabled={!active.data && !doc.draft} onClick={() => { setScope(active.data ? 'active' : 'draft'); setBackingUp(true); }}>{t('alpha9.actions.backup')}</Button>} />
     <Notice tone="info">{t('alpha10.transfer.history')}</Notice>
+    <div className="mt-4"><TitleImport /></div>
     <Panel className="mt-5"><PanelHeader title={t('alpha10.transfer.read')} /><div className="space-y-4 p-5">
       <Field label={t('alpha7.import.file')}>{p => <FileInput {...p} accept="application/json,.json" disabled={busy} onChange={async e => { const file = e.target.files?.[0]; if (!file) return; requestSequence.current++; setChecking(false); setStale(false); setRequestId(''); setPreview(null); setError(''); setResolutions({}); setEditorialChoices({}); setFreshnessChoices({}); setFilename(file.name); if (file.size > 50 * 1024 * 1024) { setError(t('alpha10.transfer.tooLarge')); setFileText(''); return; } setFileText(await file.text()); }} />}</Field>
       <p className="text-sm text-muted">{filename || t('alpha10.transfer.choose')}</p>

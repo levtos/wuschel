@@ -1,0 +1,4195 @@
+[
+  {
+    "type_id": "device.pc_state",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "device.pc_state",
+    "inputs": [
+      {
+        "name": "host",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "watts",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "temporal",
+            "id": "host_grace",
+            "operation": "grace",
+            "args": [
+              {
+                "op": "input",
+                "name": "host"
+              }
+            ],
+            "duration_s": {
+              "op": "parameter",
+              "name": "host_grace_s"
+            }
+          },
+          {
+            "op": "map",
+            "arg": {
+              "op": "bucket",
+              "id": "watts",
+              "arg": {
+                "op": "input",
+                "name": "watts"
+              },
+              "classes": [
+                "off",
+                "on"
+              ],
+              "initial": {
+                "unknown": true
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "off",
+                  "on"
+                ]
+              },
+              "boundaries": [
+                {
+                  "at": {
+                    "op": "parameter",
+                    "name": "power_on_w"
+                  },
+                  "hysteresis": {
+                    "lower": {
+                      "op": "parameter",
+                      "name": "power_off_w"
+                    },
+                    "upper": {
+                      "op": "parameter",
+                      "name": "power_on_w"
+                    }
+                  }
+                }
+              ]
+            },
+            "entries": {
+              "\"off\"": false,
+              "\"on\"": true
+            },
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      }
+    },
+    "parameter_schema": {
+      "host_grace_s": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false
+        },
+        "minimum": 0.001,
+        "maximum": 60,
+        "label": "Host-Gnadenfrist in Sekunden"
+      },
+      "power_on_w": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false
+        },
+        "minimum": 0,
+        "label": "PC an ab Watt"
+      },
+      "power_off_w": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false
+        },
+        "minimum": 0,
+        "label": "PC aus unter Watt"
+      }
+    },
+    "parameter_relations": [
+      {
+        "left": "power_off_w",
+        "comparison": "lt",
+        "right": "power_on_w"
+      }
+    ]
+  },
+  {
+    "type_id": "media.tv_source",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.tv_source",
+    "inputs": [
+      {
+        "name": "tv",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "source",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "tv"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "not_applicable",
+                "arg": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              "entries": {
+                "false": ""
+              },
+              "schema": {
+                "type": "text",
+                "required": true,
+                "physical_state": false
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "input",
+              "name": "tv"
+            },
+            "then": {
+              "op": "temporal",
+              "id": "source_grace",
+              "operation": "grace",
+              "args": [
+                {
+                  "op": "first_match",
+                  "cases": [
+                    {
+                      "when": {
+                        "op": "not",
+                        "args": [
+                          {
+                            "op": "input",
+                            "name": "tv"
+                          }
+                        ]
+                      },
+                      "then": {
+                        "op": "map",
+                        "arg": {
+                          "op": "not_applicable",
+                          "arg": {
+                            "op": "literal",
+                            "value": true,
+                            "schema": {
+                              "type": "bool",
+                              "required": true,
+                              "physical_state": false
+                            }
+                          }
+                        },
+                        "entries": {
+                          "false": ""
+                        },
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": false
+                        }
+                      }
+                    },
+                    {
+                      "when": {
+                        "op": "input",
+                        "name": "tv"
+                      },
+                      "then": {
+                        "op": "input",
+                        "name": "source"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "duration_s": {
+                "op": "parameter",
+                "name": "source_grace_s"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "parameter_schema": {
+      "source_grace_s": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false
+        },
+        "minimum": 0.001,
+        "maximum": 5,
+        "label": "Quellen-Gnadenfrist in Sekunden"
+      }
+    }
+  },
+  {
+    "type_id": "media.tv_device",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.tv_device",
+    "inputs": [
+      {
+        "name": "tv",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "source",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "ps5",
+            "apple_tv",
+            "sonstige",
+            "none"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "tv"
+                }
+              ]
+            },
+            "then": {
+              "op": "literal",
+              "value": "none",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "ps5",
+                  "apple_tv",
+                  "sonstige",
+                  "none"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "input",
+              "name": "tv"
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "managed_catalog_lookup",
+                "catalog_id": "media.tv_device",
+                "definition_version": 1,
+                "scope": {
+                  "op": "literal",
+                  "value": "tv",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "media_type": {
+                  "op": "literal",
+                  "value": "source",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "signal_type": {
+                  "op": "literal",
+                  "value": "title",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "key": {
+                  "op": "input",
+                  "name": "source"
+                },
+                "schema": {
+                  "type": "enum",
+                  "required": true,
+                  "physical_state": false,
+                  "value_catalog": [
+                    "ps5",
+                    "apple_tv",
+                    "sonstige"
+                  ]
+                }
+              },
+              "entries": {
+                "\"ps5\"": "ps5",
+                "\"apple_tv\"": "apple_tv",
+                "\"sonstige\"": "sonstige"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "ps5",
+                  "apple_tv",
+                  "sonstige",
+                  "none"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "device.console_state",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "device.console_state",
+    "inputs": [
+      {
+        "name": "console",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "online",
+            "playing",
+            "rest_mode",
+            "offline"
+          ]
+        },
+        "active": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        },
+        "session": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": []
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "map",
+        "arg": {
+          "op": "input",
+          "name": "console"
+        },
+        "entries": {
+          "\"Online\"": "online",
+          "\"Playing\"": "playing",
+          "\"Rest Mode\"": "rest_mode",
+          "\"Offline\"": "offline"
+        },
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "online",
+            "playing",
+            "rest_mode",
+            "offline"
+          ]
+        }
+      },
+      "active": {
+        "op": "map",
+        "arg": {
+          "op": "input",
+          "name": "console"
+        },
+        "entries": {
+          "\"Online\"": true,
+          "\"Playing\"": true,
+          "\"Rest Mode\"": false,
+          "\"Offline\"": false
+        },
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "session": {
+        "op": "map",
+        "arg": {
+          "op": "input",
+          "name": "console"
+        },
+        "entries": {
+          "\"Online\"": false,
+          "\"Playing\"": true,
+          "\"Rest Mode\"": false,
+          "\"Offline\"": false
+        },
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    }
+  },
+  {
+    "type_id": "device.appletv_state",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "device.appletv_state",
+    "inputs": [
+      {
+        "name": "tv",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "state",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "and",
+        "args": [
+          {
+            "op": "input",
+            "name": "tv"
+          },
+          {
+            "op": "map",
+            "arg": {
+              "op": "input",
+              "name": "state"
+            },
+            "entries": {
+              "\"off\"": false,
+              "\"standby\"": false,
+              "\"on\"": true,
+              "\"playing\"": true,
+              "\"paused\"": true,
+              "\"idle\"": true,
+              "\"buffering\"": true
+            },
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "device.media_power",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "device.media_power",
+    "inputs": [
+      {
+        "name": "state",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "map",
+        "arg": {
+          "op": "input",
+          "name": "state"
+        },
+        "entries": {
+          "\"off\"": false,
+          "\"standby\"": false,
+          "\"on\"": true,
+          "\"playing\"": true,
+          "\"paused\"": true,
+          "\"idle\"": true,
+          "\"buffering\"": true
+        },
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    }
+  },
+  {
+    "type_id": "media.playback_facts",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.playback_facts",
+    "inputs": [
+      {
+        "name": "state",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "uri",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "playing": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        },
+        "manual": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": []
+    },
+    "rules": {},
+    "outputs": {
+      "playing": {
+        "op": "compare",
+        "left": {
+          "op": "input",
+          "name": "state"
+        },
+        "right": {
+          "op": "literal",
+          "value": "playing",
+          "schema": {
+            "type": "text",
+            "required": true,
+            "physical_state": false
+          }
+        },
+        "comparison": "eq"
+      },
+      "manual": {
+        "op": "and",
+        "args": [
+          {
+            "op": "compare",
+            "left": {
+              "op": "input",
+              "name": "state"
+            },
+            "right": {
+              "op": "literal",
+              "value": "playing",
+              "schema": {
+                "type": "text",
+                "required": true,
+                "physical_state": false
+              }
+            },
+            "comparison": "eq"
+          },
+          {
+            "op": "first_match",
+            "cases": [
+              {
+                "when": {
+                  "op": "and",
+                  "args": [
+                    {
+                      "op": "and",
+                      "args": [
+                        {
+                          "op": "not",
+                          "args": [
+                            {
+                              "op": "or",
+                              "args": [
+                                {
+                                  "op": "matches",
+                                  "args": [
+                                    {
+                                      "op": "input",
+                                      "name": "uri"
+                                    },
+                                    {
+                                      "op": "literal",
+                                      "value": "http://*",
+                                      "schema": {
+                                        "type": "text",
+                                        "required": true,
+                                        "physical_state": false
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "op": "matches",
+                                  "args": [
+                                    {
+                                      "op": "input",
+                                      "name": "uri"
+                                    },
+                                    {
+                                      "op": "literal",
+                                      "value": "https://*",
+                                      "schema": {
+                                        "type": "text",
+                                        "required": true,
+                                        "physical_state": false
+                                      }
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "op": "or",
+                          "args": [
+                            {
+                              "op": "matches",
+                              "args": [
+                                {
+                                  "op": "input",
+                                  "name": "uri"
+                                },
+                                {
+                                  "op": "literal",
+                                  "value": "*://radio/?*",
+                                  "schema": {
+                                    "type": "text",
+                                    "required": true,
+                                    "physical_state": false
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "op": "matches",
+                              "args": [
+                                {
+                                  "op": "input",
+                                  "name": "uri"
+                                },
+                                {
+                                  "op": "literal",
+                                  "value": "*://track/?*",
+                                  "schema": {
+                                    "type": "text",
+                                    "required": true,
+                                    "physical_state": false
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "op": "matches",
+                              "args": [
+                                {
+                                  "op": "input",
+                                  "name": "uri"
+                                },
+                                {
+                                  "op": "literal",
+                                  "value": "*://album/?*",
+                                  "schema": {
+                                    "type": "text",
+                                    "required": true,
+                                    "physical_state": false
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "op": "matches",
+                              "args": [
+                                {
+                                  "op": "input",
+                                  "name": "uri"
+                                },
+                                {
+                                  "op": "literal",
+                                  "value": "*://playlist/?*",
+                                  "schema": {
+                                    "type": "text",
+                                    "required": true,
+                                    "physical_state": false
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "op": "matches",
+                              "args": [
+                                {
+                                  "op": "input",
+                                  "name": "uri"
+                                },
+                                {
+                                  "op": "literal",
+                                  "value": "*://artist/?*",
+                                  "schema": {
+                                    "type": "text",
+                                    "required": true,
+                                    "physical_state": false
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "op": "matches",
+                              "args": [
+                                {
+                                  "op": "input",
+                                  "name": "uri"
+                                },
+                                {
+                                  "op": "literal",
+                                  "value": "*://audiobook/?*",
+                                  "schema": {
+                                    "type": "text",
+                                    "required": true,
+                                    "physical_state": false
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "op": "matches",
+                              "args": [
+                                {
+                                  "op": "input",
+                                  "name": "uri"
+                                },
+                                {
+                                  "op": "literal",
+                                  "value": "*://podcast/?*",
+                                  "schema": {
+                                    "type": "text",
+                                    "required": true,
+                                    "physical_state": false
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "op": "matches",
+                              "args": [
+                                {
+                                  "op": "input",
+                                  "name": "uri"
+                                },
+                                {
+                                  "op": "literal",
+                                  "value": "*://podcast_episode/?*",
+                                  "schema": {
+                                    "type": "text",
+                                    "required": true,
+                                    "physical_state": false
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "op": "matches",
+                      "args": [
+                        {
+                          "op": "input",
+                          "name": "uri"
+                        },
+                        {
+                          "op": "literal",
+                          "value": "*://radio/?*",
+                          "schema": {
+                            "type": "text",
+                            "required": true,
+                            "physical_state": false
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "then": {
+                  "op": "literal",
+                  "value": false,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              {
+                "when": {
+                  "op": "and",
+                  "args": [
+                    {
+                      "op": "not",
+                      "args": [
+                        {
+                          "op": "or",
+                          "args": [
+                            {
+                              "op": "matches",
+                              "args": [
+                                {
+                                  "op": "input",
+                                  "name": "uri"
+                                },
+                                {
+                                  "op": "literal",
+                                  "value": "http://*",
+                                  "schema": {
+                                    "type": "text",
+                                    "required": true,
+                                    "physical_state": false
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "op": "matches",
+                              "args": [
+                                {
+                                  "op": "input",
+                                  "name": "uri"
+                                },
+                                {
+                                  "op": "literal",
+                                  "value": "https://*",
+                                  "schema": {
+                                    "type": "text",
+                                    "required": true,
+                                    "physical_state": false
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "op": "or",
+                      "args": [
+                        {
+                          "op": "matches",
+                          "args": [
+                            {
+                              "op": "input",
+                              "name": "uri"
+                            },
+                            {
+                              "op": "literal",
+                              "value": "*://radio/?*",
+                              "schema": {
+                                "type": "text",
+                                "required": true,
+                                "physical_state": false
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "op": "matches",
+                          "args": [
+                            {
+                              "op": "input",
+                              "name": "uri"
+                            },
+                            {
+                              "op": "literal",
+                              "value": "*://track/?*",
+                              "schema": {
+                                "type": "text",
+                                "required": true,
+                                "physical_state": false
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "op": "matches",
+                          "args": [
+                            {
+                              "op": "input",
+                              "name": "uri"
+                            },
+                            {
+                              "op": "literal",
+                              "value": "*://album/?*",
+                              "schema": {
+                                "type": "text",
+                                "required": true,
+                                "physical_state": false
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "op": "matches",
+                          "args": [
+                            {
+                              "op": "input",
+                              "name": "uri"
+                            },
+                            {
+                              "op": "literal",
+                              "value": "*://playlist/?*",
+                              "schema": {
+                                "type": "text",
+                                "required": true,
+                                "physical_state": false
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "op": "matches",
+                          "args": [
+                            {
+                              "op": "input",
+                              "name": "uri"
+                            },
+                            {
+                              "op": "literal",
+                              "value": "*://artist/?*",
+                              "schema": {
+                                "type": "text",
+                                "required": true,
+                                "physical_state": false
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "op": "matches",
+                          "args": [
+                            {
+                              "op": "input",
+                              "name": "uri"
+                            },
+                            {
+                              "op": "literal",
+                              "value": "*://audiobook/?*",
+                              "schema": {
+                                "type": "text",
+                                "required": true,
+                                "physical_state": false
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "op": "matches",
+                          "args": [
+                            {
+                              "op": "input",
+                              "name": "uri"
+                            },
+                            {
+                              "op": "literal",
+                              "value": "*://podcast/?*",
+                              "schema": {
+                                "type": "text",
+                                "required": true,
+                                "physical_state": false
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "op": "matches",
+                          "args": [
+                            {
+                              "op": "input",
+                              "name": "uri"
+                            },
+                            {
+                              "op": "literal",
+                              "value": "*://podcast_episode/?*",
+                              "schema": {
+                                "type": "text",
+                                "required": true,
+                                "physical_state": false
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "then": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.pc_session",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.pc_session",
+    "inputs": [
+      {
+        "name": "pc",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "discord",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "and",
+        "args": [
+          {
+            "op": "input",
+            "name": "pc"
+          },
+          {
+            "op": "compare",
+            "left": {
+              "op": "input",
+              "name": "discord"
+            },
+            "right": {
+              "op": "literal",
+              "value": "playing",
+              "schema": {
+                "type": "text",
+                "required": true,
+                "physical_state": false
+              }
+            },
+            "comparison": "eq"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.stream_active",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.stream_active",
+    "inputs": [
+      {
+        "name": "streams",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "compare",
+        "left": {
+          "op": "input",
+          "name": "streams"
+        },
+        "right": {
+          "op": "literal",
+          "value": 0,
+          "schema": {
+            "type": "number",
+            "required": true,
+            "physical_state": false
+          }
+        },
+        "comparison": "gt"
+      }
+    }
+  },
+  {
+    "type_id": "media.homepods_class",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.homepods_class",
+    "inputs": [
+      {
+        "name": "applicable",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "title",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "artist",
+        "schema": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "normal",
+            "boost",
+            "stumm",
+            "leiser"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "applicable"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "not_applicable",
+                "arg": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              "entries": {
+                "false": "normal"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "boost",
+                  "stumm",
+                  "leiser"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "input",
+              "name": "applicable"
+            },
+            "then": {
+              "op": "managed_catalog_lookup",
+              "catalog_id": "media.homepods",
+              "definition_version": 1,
+              "scope": {
+                "op": "literal",
+                "value": "homepods",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "media_type": {
+                "op": "literal",
+                "value": "music",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "signal_type": {
+                "op": "literal",
+                "value": "title",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "key": {
+                "op": "first_match",
+                "cases": [
+                  {
+                    "when": {
+                      "op": "compare",
+                      "left": {
+                        "op": "input",
+                        "name": "title"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "value": "",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": false
+                        }
+                      },
+                      "comparison": "ne"
+                    },
+                    "then": {
+                      "op": "first_match",
+                      "cases": [
+                        {
+                          "when": {
+                            "op": "compare",
+                            "left": {
+                              "op": "input",
+                              "name": "artist"
+                            },
+                            "right": {
+                              "op": "literal",
+                              "value": "",
+                              "schema": {
+                                "type": "text",
+                                "required": true,
+                                "physical_state": false
+                              }
+                            },
+                            "comparison": "ne"
+                          },
+                          "then": {
+                            "op": "compound_key",
+                            "args": [
+                              {
+                                "op": "input",
+                                "name": "artist"
+                              },
+                              {
+                                "op": "input",
+                                "name": "title"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "when": {
+                            "op": "compare",
+                            "left": {
+                              "op": "input",
+                              "name": "artist"
+                            },
+                            "right": {
+                              "op": "literal",
+                              "value": "",
+                              "schema": {
+                                "type": "text",
+                                "required": true,
+                                "physical_state": false
+                              }
+                            },
+                            "comparison": "eq"
+                          },
+                          "then": {
+                            "op": "compound_key",
+                            "args": [
+                              {
+                                "op": "input",
+                                "name": "title"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "boost",
+                  "stumm",
+                  "leiser"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.ps5_class",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.ps5_class",
+    "inputs": [
+      {
+        "name": "applicable",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "title",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "heimkino",
+            "grind",
+            "headset"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "applicable"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "not_applicable",
+                "arg": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              "entries": {
+                "false": "heimkino"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "heimkino",
+                  "grind",
+                  "headset"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "input",
+              "name": "applicable"
+            },
+            "then": {
+              "op": "managed_catalog_lookup",
+              "catalog_id": "media.ps5",
+              "definition_version": 1,
+              "scope": {
+                "op": "literal",
+                "value": "ps5",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "media_type": {
+                "op": "literal",
+                "value": "game",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "signal_type": {
+                "op": "literal",
+                "value": "title",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "key": {
+                "op": "input",
+                "name": "title"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "heimkino",
+                  "grind",
+                  "headset"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.pc_class",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.pc_class",
+    "inputs": [
+      {
+        "name": "applicable",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "title",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "heimkino",
+            "grind",
+            "headset"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "applicable"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "not_applicable",
+                "arg": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              "entries": {
+                "false": "heimkino"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "heimkino",
+                  "grind",
+                  "headset"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "input",
+              "name": "applicable"
+            },
+            "then": {
+              "op": "managed_catalog_lookup",
+              "catalog_id": "media.pc",
+              "definition_version": 1,
+              "scope": {
+                "op": "literal",
+                "value": "pc",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "media_type": {
+                "op": "literal",
+                "value": "game",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "signal_type": {
+                "op": "literal",
+                "value": "title",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "key": {
+                "op": "input",
+                "name": "title"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "heimkino",
+                  "grind",
+                  "headset"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.stash_class",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.stash_class",
+    "inputs": [
+      {
+        "name": "applicable",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "title",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "normal",
+            "privat"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "applicable"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "not_applicable",
+                "arg": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              "entries": {
+                "false": "normal"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "privat"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "input",
+              "name": "applicable"
+            },
+            "then": {
+              "op": "managed_catalog_lookup",
+              "catalog_id": "media.stash",
+              "definition_version": 1,
+              "scope": {
+                "op": "literal",
+                "value": "stash",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "media_type": {
+                "op": "literal",
+                "value": "video",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "signal_type": {
+                "op": "literal",
+                "value": "title",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "key": {
+                "op": "input",
+                "name": "title"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "privat"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.appletv_class",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.appletv_class",
+    "inputs": [
+      {
+        "name": "applicable",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "title",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "normal",
+            "privat"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "applicable"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "not_applicable",
+                "arg": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              "entries": {
+                "false": "normal"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "privat"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "input",
+              "name": "applicable"
+            },
+            "then": {
+              "op": "managed_catalog_lookup",
+              "catalog_id": "media.appletv",
+              "definition_version": 1,
+              "scope": {
+                "op": "literal",
+                "value": "appletv",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "media_type": {
+                "op": "literal",
+                "value": "video",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "signal_type": {
+                "op": "literal",
+                "value": "app",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "key": {
+                "op": "input",
+                "name": "title"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "privat"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.tv_usage",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.tv_usage",
+    "inputs": [
+      {
+        "name": "source",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "tv",
+            "streaming",
+            "gaming",
+            "other"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "configuration_hint",
+        "arg": {
+          "op": "managed_catalog_lookup",
+          "catalog_id": "media.tv_activity",
+          "definition_version": 1,
+          "scope": {
+            "op": "literal",
+            "value": "tv",
+            "schema": {
+              "type": "text",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "media_type": {
+            "op": "literal",
+            "value": "source",
+            "schema": {
+              "type": "text",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "signal_type": {
+            "op": "literal",
+            "value": "title",
+            "schema": {
+              "type": "text",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "key": {
+            "op": "input",
+            "name": "source"
+          },
+          "schema": {
+            "type": "enum",
+            "required": true,
+            "physical_state": false,
+            "value_catalog": [
+              "tv",
+              "streaming",
+              "gaming",
+              "other"
+            ]
+          }
+        },
+        "when": {
+          "op": "compare",
+          "left": {
+            "op": "managed_catalog_lookup",
+            "catalog_id": "media.tv_activity",
+            "definition_version": 1,
+            "scope": {
+              "op": "literal",
+              "value": "tv",
+              "schema": {
+                "type": "text",
+                "required": true,
+                "physical_state": false
+              }
+            },
+            "media_type": {
+              "op": "literal",
+              "value": "source",
+              "schema": {
+                "type": "text",
+                "required": true,
+                "physical_state": false
+              }
+            },
+            "signal_type": {
+              "op": "literal",
+              "value": "title",
+              "schema": {
+                "type": "text",
+                "required": true,
+                "physical_state": false
+              }
+            },
+            "key": {
+              "op": "input",
+              "name": "source"
+            },
+            "schema": {
+              "type": "enum",
+              "required": true,
+              "physical_state": false,
+              "value_catalog": [
+                "tv",
+                "streaming",
+                "gaming",
+                "other"
+              ]
+            }
+          },
+          "right": {
+            "op": "literal",
+            "value": "other",
+            "schema": {
+              "type": "text",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "comparison": "eq"
+        },
+        "code": "activity_mapping_missing",
+        "message": "Für diese TV-Quelle fehlt die Nutzungsart."
+      }
+    }
+  },
+  {
+    "type_id": "media.activity_flow",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.activity_flow",
+    "inputs": [
+      {
+        "name": "tv",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "pc",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "ps5",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "appletv",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "ps5_session",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "ps5_title",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "discord",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "device",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "usage",
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "tv",
+            "streaming",
+            "gaming",
+            "other"
+          ]
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "tv",
+            "streaming",
+            "gaming",
+            "pc",
+            "other",
+            "idle",
+            "ps5_menu",
+            "unresolved"
+          ]
+        },
+        "branch": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "unresolved",
+            "idle",
+            "tv",
+            "pc"
+          ]
+        }
+      },
+      "available_projection": []
+    },
+    "rules": {
+      "event_tv": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_tv",
+            "arg": {
+              "op": "input",
+              "name": "tv"
+            },
+            "mode": "rising"
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_pc": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_pc",
+            "arg": {
+              "op": "input",
+              "name": "pc"
+            },
+            "mode": "rising"
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_ps5": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_ps5",
+            "arg": {
+              "op": "input",
+              "name": "ps5"
+            },
+            "mode": "rising"
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      },
+      "event_appletv": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "event_match",
+            "id": "event_appletv",
+            "arg": {
+              "op": "input",
+              "name": "appletv"
+            },
+            "mode": "rising"
+          },
+          {
+            "op": "literal",
+            "value": false,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          }
+        ]
+      }
+    },
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "and",
+              "args": [
+                {
+                  "op": "or",
+                  "args": [
+                    {
+                      "op": "input",
+                      "name": "tv"
+                    },
+                    {
+                      "op": "not",
+                      "args": [
+                        {
+                          "op": "input",
+                          "name": "tv"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "op": "or",
+                  "args": [
+                    {
+                      "op": "input",
+                      "name": "pc"
+                    },
+                    {
+                      "op": "not",
+                      "args": [
+                        {
+                          "op": "input",
+                          "name": "pc"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "then": {
+              "op": "first_match",
+              "cases": [
+                {
+                  "when": {
+                    "op": "compare",
+                    "left": {
+                      "op": "machine"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "value": "idle",
+                      "schema": {
+                        "type": "text",
+                        "required": true,
+                        "physical_state": false
+                      }
+                    },
+                    "comparison": "eq"
+                  },
+                  "then": {
+                    "op": "literal",
+                    "value": "idle",
+                    "schema": {
+                      "type": "enum",
+                      "required": true,
+                      "physical_state": false,
+                      "value_catalog": [
+                        "tv",
+                        "streaming",
+                        "gaming",
+                        "pc",
+                        "other",
+                        "idle",
+                        "ps5_menu",
+                        "unresolved"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "when": {
+                    "op": "compare",
+                    "left": {
+                      "op": "machine"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "value": "pc",
+                      "schema": {
+                        "type": "text",
+                        "required": true,
+                        "physical_state": false
+                      }
+                    },
+                    "comparison": "eq"
+                  },
+                  "then": {
+                    "op": "first_match",
+                    "cases": [
+                      {
+                        "when": {
+                          "op": "fusion",
+                          "strategy": "first_usable",
+                          "args": [
+                            {
+                              "op": "compare",
+                              "left": {
+                                "op": "input",
+                                "name": "discord"
+                              },
+                              "right": {
+                                "op": "literal",
+                                "value": "playing",
+                                "schema": {
+                                  "type": "text",
+                                  "required": true,
+                                  "physical_state": false
+                                }
+                              },
+                              "comparison": "eq"
+                            },
+                            {
+                              "op": "literal",
+                              "value": false,
+                              "schema": {
+                                "type": "bool",
+                                "required": true,
+                                "physical_state": false
+                              }
+                            }
+                          ]
+                        },
+                        "then": {
+                          "op": "literal",
+                          "value": "gaming",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": false,
+                            "value_catalog": [
+                              "tv",
+                              "streaming",
+                              "gaming",
+                              "pc",
+                              "other",
+                              "idle",
+                              "ps5_menu",
+                              "unresolved"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "when": {
+                          "op": "literal",
+                          "value": true,
+                          "schema": {
+                            "type": "bool",
+                            "required": true,
+                            "physical_state": false
+                          }
+                        },
+                        "then": {
+                          "op": "literal",
+                          "value": "pc",
+                          "schema": {
+                            "type": "enum",
+                            "required": true,
+                            "physical_state": false,
+                            "value_catalog": [
+                              "tv",
+                              "streaming",
+                              "gaming",
+                              "pc",
+                              "other",
+                              "idle",
+                              "ps5_menu",
+                              "unresolved"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "when": {
+                    "op": "compare",
+                    "left": {
+                      "op": "machine"
+                    },
+                    "right": {
+                      "op": "literal",
+                      "value": "tv",
+                      "schema": {
+                        "type": "text",
+                        "required": true,
+                        "physical_state": false
+                      }
+                    },
+                    "comparison": "eq"
+                  },
+                  "then": {
+                    "op": "first_match",
+                    "cases": [
+                      {
+                        "when": {
+                          "op": "compare",
+                          "left": {
+                            "op": "input",
+                            "name": "device"
+                          },
+                          "right": {
+                            "op": "literal",
+                            "value": "ps5",
+                            "schema": {
+                              "type": "text",
+                              "required": true,
+                              "physical_state": false
+                            }
+                          },
+                          "comparison": "eq"
+                        },
+                        "then": {
+                          "op": "first_match",
+                          "cases": [
+                            {
+                              "when": {
+                                "op": "and",
+                                "args": [
+                                  {
+                                    "op": "input",
+                                    "name": "ps5_session"
+                                  },
+                                  {
+                                    "op": "compare",
+                                    "left": {
+                                      "op": "input",
+                                      "name": "ps5_title"
+                                    },
+                                    "right": {
+                                      "op": "literal",
+                                      "value": "",
+                                      "schema": {
+                                        "type": "text",
+                                        "required": true,
+                                        "physical_state": false
+                                      }
+                                    },
+                                    "comparison": "ne"
+                                  }
+                                ]
+                              },
+                              "then": {
+                                "op": "literal",
+                                "value": "gaming",
+                                "schema": {
+                                  "type": "enum",
+                                  "required": true,
+                                  "physical_state": false,
+                                  "value_catalog": [
+                                    "tv",
+                                    "streaming",
+                                    "gaming",
+                                    "pc",
+                                    "other",
+                                    "idle",
+                                    "ps5_menu",
+                                    "unresolved"
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "when": {
+                                "op": "not",
+                                "args": [
+                                  {
+                                    "op": "input",
+                                    "name": "ps5_session"
+                                  }
+                                ]
+                              },
+                              "then": {
+                                "op": "literal",
+                                "value": "ps5_menu",
+                                "schema": {
+                                  "type": "enum",
+                                  "required": true,
+                                  "physical_state": false,
+                                  "value_catalog": [
+                                    "tv",
+                                    "streaming",
+                                    "gaming",
+                                    "pc",
+                                    "other",
+                                    "idle",
+                                    "ps5_menu",
+                                    "unresolved"
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "when": {
+                          "op": "literal",
+                          "value": true,
+                          "schema": {
+                            "type": "bool",
+                            "required": true,
+                            "physical_state": false
+                          }
+                        },
+                        "then": {
+                          "op": "input",
+                          "name": "usage"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "when": {
+                    "op": "literal",
+                    "value": true,
+                    "schema": {
+                      "type": "bool",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  },
+                  "then": {
+                    "op": "literal",
+                    "value": "unresolved",
+                    "schema": {
+                      "type": "enum",
+                      "required": true,
+                      "physical_state": false,
+                      "value_catalog": [
+                        "tv",
+                        "streaming",
+                        "gaming",
+                        "pc",
+                        "other",
+                        "idle",
+                        "ps5_menu",
+                        "unresolved"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "branch": {
+        "op": "machine"
+      }
+    },
+    "machine": {
+      "id": "activity",
+      "states": [
+        "unresolved",
+        "idle",
+        "tv",
+        "pc"
+      ],
+      "initial": "unresolved",
+      "transition_selection": "ordered",
+      "transitions": [
+        {
+          "source": "unresolved",
+          "target": "idle",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "tv"
+                  }
+                ]
+              },
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "pc"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "unresolved",
+          "target": "tv",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "tv"
+              },
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "pc"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "unresolved",
+          "target": "pc",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "pc"
+              },
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "tv"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "unresolved",
+          "target": "tv",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "tv"
+              },
+              {
+                "op": "or",
+                "args": [
+                  {
+                    "op": "ref",
+                    "name": "event_tv"
+                  },
+                  {
+                    "op": "ref",
+                    "name": "event_ps5"
+                  },
+                  {
+                    "op": "ref",
+                    "name": "event_appletv"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "unresolved",
+          "target": "pc",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "pc"
+              },
+              {
+                "op": "ref",
+                "name": "event_pc"
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "idle",
+          "target": "idle",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "tv"
+                  }
+                ]
+              },
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "pc"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "idle",
+          "target": "tv",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "tv"
+              },
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "pc"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "idle",
+          "target": "pc",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "pc"
+              },
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "tv"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "idle",
+          "target": "tv",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "tv"
+              },
+              {
+                "op": "or",
+                "args": [
+                  {
+                    "op": "ref",
+                    "name": "event_tv"
+                  },
+                  {
+                    "op": "ref",
+                    "name": "event_ps5"
+                  },
+                  {
+                    "op": "ref",
+                    "name": "event_appletv"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "idle",
+          "target": "pc",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "pc"
+              },
+              {
+                "op": "ref",
+                "name": "event_pc"
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "tv",
+          "target": "idle",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "tv"
+                  }
+                ]
+              },
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "pc"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "tv",
+          "target": "tv",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "tv"
+              },
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "pc"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "tv",
+          "target": "pc",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "pc"
+              },
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "tv"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "tv",
+          "target": "tv",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "tv"
+              },
+              {
+                "op": "or",
+                "args": [
+                  {
+                    "op": "ref",
+                    "name": "event_tv"
+                  },
+                  {
+                    "op": "ref",
+                    "name": "event_ps5"
+                  },
+                  {
+                    "op": "ref",
+                    "name": "event_appletv"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "tv",
+          "target": "pc",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "pc"
+              },
+              {
+                "op": "ref",
+                "name": "event_pc"
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "pc",
+          "target": "idle",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "tv"
+                  }
+                ]
+              },
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "pc"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "pc",
+          "target": "tv",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "tv"
+              },
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "pc"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "pc",
+          "target": "pc",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "pc"
+              },
+              {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "input",
+                    "name": "tv"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "pc",
+          "target": "tv",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "tv"
+              },
+              {
+                "op": "or",
+                "args": [
+                  {
+                    "op": "ref",
+                    "name": "event_tv"
+                  },
+                  {
+                    "op": "ref",
+                    "name": "event_ps5"
+                  },
+                  {
+                    "op": "ref",
+                    "name": "event_appletv"
+                  }
+                ]
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        },
+        {
+          "source": "pc",
+          "target": "pc",
+          "event": "input",
+          "guard": {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "pc"
+              },
+              {
+                "op": "ref",
+                "name": "event_pc"
+              }
+            ]
+          },
+          "reason": "branch_selection"
+        }
+      ],
+      "reinitialize_when": {
+        "op": "or",
+        "args": [
+          {
+            "op": "input",
+            "name": "tv"
+          },
+          {
+            "op": "input",
+            "name": "pc"
+          }
+        ]
+      },
+      "required_inputs_by_state": {
+        "unresolved": [
+          "tv",
+          "pc"
+        ],
+        "idle": [
+          "tv",
+          "pc"
+        ],
+        "tv": [
+          "tv",
+          "pc"
+        ],
+        "pc": [
+          "tv",
+          "pc"
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.lead_device",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.lead_device",
+    "inputs": [
+      {
+        "name": "tv",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "device",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "playing",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "ps5",
+            "appletv",
+            "homepods",
+            "keines"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "input",
+              "name": "tv"
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "input",
+                "name": "device"
+              },
+              "entries": {
+                "\"ps5\"": "ps5",
+                "\"apple_tv\"": "appletv",
+                "\"sonstige\"": "keines"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "ps5",
+                  "appletv",
+                  "homepods",
+                  "keines"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "tv"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "input",
+                "name": "playing"
+              },
+              "entries": {
+                "true": "homepods",
+                "false": "keines"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "ps5",
+                  "appletv",
+                  "homepods",
+                  "keines"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "presence.command_context",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "presence.command_context",
+    "inputs": [
+      {
+        "name": "sleep",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "first_match",
+            "cases": [
+              {
+                "when": {
+                  "op": "or",
+                  "args": [
+                    {
+                      "op": "compare",
+                      "left": {
+                        "op": "input",
+                        "name": "sleep"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "value": "sleep",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": false
+                        }
+                      },
+                      "comparison": "eq"
+                    },
+                    {
+                      "op": "not",
+                      "args": [
+                        {
+                          "op": "compare",
+                          "left": {
+                            "op": "input",
+                            "name": "sleep"
+                          },
+                          "right": {
+                            "op": "literal",
+                            "value": "sleep",
+                            "schema": {
+                              "type": "text",
+                              "required": true,
+                              "physical_state": false
+                            }
+                          },
+                          "comparison": "eq"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "then": {
+                  "op": "compare",
+                  "left": {
+                    "op": "machine"
+                  },
+                  "right": {
+                    "op": "literal",
+                    "value": "on",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  },
+                  "comparison": "eq"
+                }
+              }
+            ]
+          },
+          {
+            "op": "compare",
+            "left": {
+              "op": "machine"
+            },
+            "right": {
+              "op": "literal",
+              "value": "on",
+              "schema": {
+                "type": "text",
+                "required": true,
+                "physical_state": false
+              }
+            },
+            "comparison": "eq"
+          }
+        ]
+      }
+    },
+    "machine": {
+      "id": "context",
+      "states": [
+        "off",
+        "on"
+      ],
+      "initial": "off",
+      "transition_selection": "ordered",
+      "commands": {
+        "start": {},
+        "stop": {}
+      },
+      "reinitialize_when": {
+        "op": "compare",
+        "left": {
+          "op": "input",
+          "name": "sleep"
+        },
+        "right": {
+          "op": "input",
+          "name": "sleep"
+        },
+        "comparison": "eq"
+      },
+      "transitions": [
+        {
+          "source": "off",
+          "target": "off",
+          "event": "start",
+          "guard": {
+            "op": "fusion",
+            "strategy": "first_usable",
+            "args": [
+              {
+                "op": "compare",
+                "left": {
+                  "op": "input",
+                  "name": "sleep"
+                },
+                "right": {
+                  "op": "literal",
+                  "value": "sleep",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "comparison": "eq"
+              },
+              {
+                "op": "literal",
+                "value": false,
+                "schema": {
+                  "type": "bool",
+                  "required": true,
+                  "physical_state": false
+                }
+              }
+            ]
+          },
+          "reason": "already_sleeping"
+        },
+        {
+          "source": "off",
+          "target": "on",
+          "event": "start",
+          "guard": {
+            "op": "literal",
+            "value": true,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "reason": "manual_start"
+        },
+        {
+          "source": "off",
+          "target": "off",
+          "event": "stop",
+          "guard": {
+            "op": "literal",
+            "value": true,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "reason": "manual_stop"
+        },
+        {
+          "source": "off",
+          "target": "off",
+          "event": "input",
+          "guard": {
+            "op": "fusion",
+            "strategy": "first_usable",
+            "args": [
+              {
+                "op": "compare",
+                "left": {
+                  "op": "input",
+                  "name": "sleep"
+                },
+                "right": {
+                  "op": "literal",
+                  "value": "sleep",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "comparison": "eq"
+              },
+              {
+                "op": "literal",
+                "value": false,
+                "schema": {
+                  "type": "bool",
+                  "required": true,
+                  "physical_state": false
+                }
+              }
+            ]
+          },
+          "reason": "sleep_ended_context"
+        },
+        {
+          "source": "on",
+          "target": "off",
+          "event": "start",
+          "guard": {
+            "op": "fusion",
+            "strategy": "first_usable",
+            "args": [
+              {
+                "op": "compare",
+                "left": {
+                  "op": "input",
+                  "name": "sleep"
+                },
+                "right": {
+                  "op": "literal",
+                  "value": "sleep",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "comparison": "eq"
+              },
+              {
+                "op": "literal",
+                "value": false,
+                "schema": {
+                  "type": "bool",
+                  "required": true,
+                  "physical_state": false
+                }
+              }
+            ]
+          },
+          "reason": "already_sleeping"
+        },
+        {
+          "source": "on",
+          "target": "on",
+          "event": "start",
+          "guard": {
+            "op": "literal",
+            "value": true,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "reason": "manual_start"
+        },
+        {
+          "source": "on",
+          "target": "off",
+          "event": "stop",
+          "guard": {
+            "op": "literal",
+            "value": true,
+            "schema": {
+              "type": "bool",
+              "required": true,
+              "physical_state": false
+            }
+          },
+          "reason": "manual_stop"
+        },
+        {
+          "source": "on",
+          "target": "off",
+          "event": "input",
+          "guard": {
+            "op": "fusion",
+            "strategy": "first_usable",
+            "args": [
+              {
+                "op": "compare",
+                "left": {
+                  "op": "input",
+                  "name": "sleep"
+                },
+                "right": {
+                  "op": "literal",
+                  "value": "sleep",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "comparison": "eq"
+              },
+              {
+                "op": "literal",
+                "value": false,
+                "schema": {
+                  "type": "bool",
+                  "required": true,
+                  "physical_state": false
+                }
+              }
+            ]
+          },
+          "reason": "sleep_ended_context"
+        }
+      ]
+    }
+  },
+  {
+    "type_id": "media.private_time",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.private_time",
+    "inputs": [
+      {
+        "name": "streams",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "appletv",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "app_class",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {
+      "positive": {
+        "op": "or",
+        "args": [
+          {
+            "op": "compare",
+            "left": {
+              "op": "input",
+              "name": "streams"
+            },
+            "right": {
+              "op": "literal",
+              "value": 0,
+              "schema": {
+                "type": "number",
+                "required": true,
+                "physical_state": false
+              }
+            },
+            "comparison": "gt"
+          },
+          {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "appletv"
+              },
+              {
+                "op": "compare",
+                "left": {
+                  "op": "input",
+                  "name": "app_class"
+                },
+                "right": {
+                  "op": "literal",
+                  "value": "privat",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "comparison": "eq"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "outputs": {
+      "value": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "temporal",
+            "id": "private_end",
+            "operation": "grace",
+            "args": [
+              {
+                "op": "first_match",
+                "cases": [
+                  {
+                    "when": {
+                      "op": "ref",
+                      "name": "positive"
+                    },
+                    "then": {
+                      "op": "literal",
+                      "value": true,
+                      "schema": {
+                        "type": "bool",
+                        "required": true,
+                        "physical_state": false
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "duration_s": {
+              "op": "parameter",
+              "name": "private_end_grace_s"
+            }
+          },
+          {
+            "op": "ref",
+            "name": "positive"
+          }
+        ]
+      }
+    },
+    "parameter_schema": {
+      "private_end_grace_s": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false
+        },
+        "minimum": 0.001,
+        "maximum": 31536000,
+        "label": "Endfrist in Sekunden"
+      }
+    }
+  },
+  {
+    "type_id": "media.privacy_facts",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.privacy_facts",
+    "inputs": [
+      {
+        "name": "private_time",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "date_time",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "private_time": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        },
+        "date_time": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        },
+        "active": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": []
+    },
+    "rules": {},
+    "outputs": {
+      "private_time": {
+        "op": "input",
+        "name": "private_time"
+      },
+      "date_time": {
+        "op": "input",
+        "name": "date_time"
+      },
+      "active": {
+        "op": "or",
+        "args": [
+          {
+            "op": "input",
+            "name": "private_time"
+          },
+          {
+            "op": "input",
+            "name": "date_time"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.quiet_facts",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "media.quiet_facts",
+    "inputs": [
+      {
+        "name": "door",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "playing",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "track_class",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "entry_door_open": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        },
+        "track_muted": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": []
+    },
+    "rules": {},
+    "outputs": {
+      "entry_door_open": {
+        "op": "compare",
+        "left": {
+          "op": "input",
+          "name": "door"
+        },
+        "right": {
+          "op": "literal",
+          "value": "open",
+          "schema": {
+            "type": "text",
+            "required": true,
+            "physical_state": false
+          }
+        },
+        "comparison": "eq"
+      },
+      "track_muted": {
+        "op": "and",
+        "args": [
+          {
+            "op": "input",
+            "name": "playing"
+          },
+          {
+            "op": "compare",
+            "left": {
+              "op": "input",
+              "name": "track_class"
+            },
+            "right": {
+              "op": "literal",
+              "value": "stumm",
+              "schema": {
+                "type": "text",
+                "required": true,
+                "physical_state": false
+              }
+            },
+            "comparison": "eq"
+          }
+        ]
+      }
+    }
+  }
+]

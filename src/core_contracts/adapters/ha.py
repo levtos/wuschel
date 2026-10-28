@@ -336,6 +336,7 @@ class BridgeAdapter:
             availability = value
         if binding.adapter.kind == "ha_attribute":
             value = attributes.get(binding.adapter.ha_attribute)
+        source = next(s for s in config.sources if s.source_id == binding.source_id)
         normalized = value
         transform_error = None
         origin_fields: dict[str, Any] = {}
@@ -346,14 +347,24 @@ class BridgeAdapter:
                     if binding.adapter.value_origin_path
                     else None
                 )
-                normalized, origin_fields = normalize_origin(value, metadata, binding, config)
+                # Optional text may be positively absent on an available entity.
+                # Keep raw None, and never substitute during an entity/HA outage.
+                optional_absence = (
+                    binding.adapter.kind == "ha_attribute"
+                    and value is None
+                    and source.value_schema is not None
+                    and source.value_schema.type == "text"
+                    and not source.value_schema.required
+                )
+                normalized, origin_fields = normalize_origin(
+                    "" if optional_absence else value, metadata, binding, config
+                )
             except KeyError:
                 transform_error = "unmapped_value"
                 availability = "unknown"
             except ValueError, TypeError:
                 transform_error = "invalid_value"
                 availability = "unknown"
-        source = next(s for s in config.sources if s.source_id == binding.source_id)
         raw_times = {
             "device_time": attributes.get(binding.adapter.ha_time_attribute)
             if binding.adapter.ha_time_attribute

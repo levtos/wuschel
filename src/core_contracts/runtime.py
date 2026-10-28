@@ -906,6 +906,10 @@ class Runtime:
         state = self.state.clone()
         now = self.clock.now_utc()
         config = self._config(state)
+        if operation in {"title_preview", "title_stage"}:
+            from .title_transfer import process as title_process
+
+            return await title_process(self, state, operation, payload, now)
         if operation == "portable_export":
             from .portable import export
 
@@ -1389,6 +1393,11 @@ class Runtime:
                 apply_draft(state, draft, self)
                 from .portable import apply
 
+                title_import = draft.get("portable", {}).get("title_import")
+                if title_import and await self.store.get(
+                    "catalog_import", "title:" + title_import["import_id"]
+                ):
+                    raise ValueError("import_plan_conflict")
                 imported_latches = apply(self, state, draft, new_config, now)
                 draft["config"] = storage_document(new_config)
             revision = max((int(r) for r in state.tables["registry_revision"]), default=0) + 1

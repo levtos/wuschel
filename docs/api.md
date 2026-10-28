@@ -60,6 +60,21 @@ Der Client installiert sich aus `client/` und importiert keinen Plattformcode.
 | POST | registry/rollback | `{revision, expected_active_revision}`; neue Revisionsnummer |
 | GET / POST | tokens / tokens/rotate | Rollen / `{role}` → einmaliger neuer Token |
 
+Bereich 5 (#75) ergänzt die administrativen POST-Endpunkte
+`title-import/preview` und `title-import/stage`. Beide erhalten `source_text`
+(strikter v3-Export als JSON-Text), `expected_active_revision`, `mappings`
+(Schlüssel = kanonisches JSON-Paar aus context/source_app; Wert = `exclude`
+oder `{catalog_id,definition_version,scope,profile}`), optional `include_hidden`,
+`excluded_rows` und `resolutions`. Profile: game, music, private. `excluded_rows`
+enthält die einbasierten Zeilennummern bewusst ausgeschlossener Einträge.
+Musikschlüssel werden automatisch als Titel-allein-Form und sämtliche
+Zweiteilungen an ` - ` erzeugt; eine Handtrennung wird nicht verlangt.
+Stage verlangt außerdem `plan_digest`, UUID `request_id` und
+`X-Authoring-Protocol: 2`. Es erzeugt ausschließlich einen Ersatzentwurf;
+die bestehende versionierte Aktivierung übernimmt atomar. Vorschau schreibt
+nichts. Grenzwerte, private Berichte, OCC und Wiederholung:
+[Bereich 5 A2](beta/bereich-5/A2.md).
+
 Commands: `command_id`, `contract_id`, `command`, `args`, `origin {kind,actor,client_name}`,
 `issued_at`, `valid_until` (Pflicht), optional `expected_registry_revision`.
 In Alpha 1 fordert nur `request_b` an `test.state_machine` eine Transition an.

@@ -36,6 +36,14 @@ Eingänge für Scope, Medienart, Signalart und Schlüssel. Keine HA-Adressen in
 Ausdrücken. Titel bleibt als rohe Source-Evidence erhalten; die Klassifikation
 gehört der Resolverauswertung, nicht einem schreibenden Adapter.
 
+Ergänzung Bereich 5 (#75): `classification_schema.legend` ist optional; wenn
+vorhanden, enthält sie genau die Klassenschlüssel mit je `display_name`
+(1–80 Zeichen) und `description` (1–300 Zeichen), beide nicht leer nach Trimmen.
+Ohne Legende bleibt die historische Serialisierung unverändert. Die Legende
+ist Teil der unveränderlichen Definition und ihres Digests. Änderungen verlangen
+eine neue Definitionsversion und bewusste Inhaltsübernahme; alte Revisionen
+werden nicht neu beschriftet. Bedienung und v3-Import: [Bereich 5 A2](../beta/bereich-5/A2.md).
+
 Identität K = kanonisches JSON-Tupel aus (catalog_id, definition_version,
 scope, media_type, signal_type, normalize_key(key)); kein mehrdeutiges
 String-Zusammenkleben. Normalisierung verwendet den gepinnten bestehenden
@@ -226,6 +234,17 @@ Ziel bleibt erhalten bis ausdrücklicher Entscheidung. Alle Konflikte vor
 Anwenden lösen; danach Einträge und Importmarker atomar zusammen speichern.
 Importierte Zeiten/Zähler sind ausschließlich Herkunftsdaten, keine neuen
 Wuschel-Sichtungen, aktuelle Messungen oder frischen Belege.
+
+Präzisierung für Musik aus dem Review zu #75/PR #77: Aus dem flachen Schlüssel
+werden der Titel allein und alle Zweiteilungen an ` - ` als kanonische
+Laufzeittupel gebildet. Erste Zweiteilung (ohne Trenner: Titel allein) ist die
+Hauptform; alle weiteren Formen erben direkt deren Klasse. Bei einer
+Legacy-Variante erben sämtliche Formen direkt vom Legacy-Master. Zusatzformen
+dürfen weder Hauptformen noch vorhandene Einträge verdrängen; Kollisionen
+werden ausgelassen und gezählt. Konkurrierende Zusatzformen entfallen beide.
+Hauptformkollisionen bleiben blockierend. Die 100.000er- und 50-MiB-Grenzen
+gelten auch für die ausgeweitete Menge; die Eintragsgröße wird bereits während
+des Aufbaus begrenzt. Siehe [Bereich 5 A2](../beta/bereich-5/A2.md).
 
 Bericht: gelesen, gültig, neu, identisch, zusammenfallend, konfliktbehaftet,
 abgelehnt; Master/Varianten, Abbildungen und Gründe je Datensatz. Summen

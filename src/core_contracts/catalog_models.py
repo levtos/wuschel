@@ -26,9 +26,26 @@ class IdentityRule(Model):
         return self
 
 
+class ClassLegend(Model):
+    display_name: str = Field(min_length=1, max_length=80)
+    description: str = Field(min_length=1, max_length=300)
+
+    @model_validator(mode="after")
+    def trimmed(self) -> Self:
+        if any(
+            not text.strip() or text != text.strip()
+            for text in (self.display_name, self.description)
+        ):
+            raise ValueError("catalog_legend_text")
+        return self
+
+
 class ClassificationSchema(Model):
     type: Literal["enum"] = "enum"
     values: tuple[str, ...] = Field(min_length=1, max_length=64)
+    legend: dict[str, ClassLegend] | None = Field(
+        default=None, max_length=64, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def distinct(self) -> Self:
@@ -36,6 +53,8 @@ class ClassificationSchema(Model):
             not value or len(value) > 128 for value in self.values
         ):
             raise ValueError("catalog_classes")
+        if self.legend is not None and self.legend.keys() != set(self.values):
+            raise ValueError("catalog_legend_classes")
         return self
 
     def field_schema(self) -> FieldSchema:

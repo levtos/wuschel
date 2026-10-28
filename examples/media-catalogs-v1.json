@@ -1,0 +1,275 @@
+[
+  {
+    "catalog_id": "media.homepods",
+    "kind": "managed",
+    "version": 1,
+    "identity_rule": {
+      "version": 1,
+      "fields": [
+        "scope",
+        "media_type",
+        "signal_type",
+        "normalized_key"
+      ],
+      "normalizer": "normalize_key"
+    },
+    "classification_schema": {
+      "type": "enum",
+      "values": [
+        "normal",
+        "boost",
+        "stumm",
+        "leiser"
+      ],
+      "legend": {
+        "normal": {
+          "display_name": "Normal",
+          "description": "Dieses Lied hat keine besondere Einordnung."
+        },
+        "boost": {
+          "display_name": "Boost",
+          "description": "Dieses Lied ist als besonders erwünscht markiert."
+        },
+        "stumm": {
+          "display_name": "Stumm",
+          "description": "Dieses Lied ist als stumm eingeordnet."
+        },
+        "leiser": {
+          "display_name": "Leiser",
+          "description": "Dieses Lied ist als weniger erwünscht markiert."
+        }
+      }
+    },
+    "unassigned_value": "normal",
+    "master_depth": 1
+  },
+  {
+    "catalog_id": "media.ps5",
+    "kind": "managed",
+    "version": 1,
+    "identity_rule": {
+      "version": 1,
+      "fields": [
+        "scope",
+        "media_type",
+        "signal_type",
+        "normalized_key"
+      ],
+      "normalizer": "normalize_key"
+    },
+    "classification_schema": {
+      "type": "enum",
+      "values": [
+        "heimkino",
+        "grind",
+        "headset"
+      ],
+      "legend": {
+        "heimkino": {
+          "display_name": "Heimkino",
+          "description": "Dieses Spiel ist für das Heimkino eingeordnet."
+        },
+        "grind": {
+          "display_name": "Grind",
+          "description": "Dieses Spiel ist für wiederholende Spielabschnitte eingeordnet."
+        },
+        "headset": {
+          "display_name": "Headset",
+          "description": "Dieses Spiel ist für die Nutzung mit Headset eingeordnet."
+        }
+      }
+    },
+    "unassigned_value": "heimkino",
+    "master_depth": 1
+  },
+  {
+    "catalog_id": "media.pc",
+    "kind": "managed",
+    "version": 1,
+    "identity_rule": {
+      "version": 1,
+      "fields": [
+        "scope",
+        "media_type",
+        "signal_type",
+        "normalized_key"
+      ],
+      "normalizer": "normalize_key"
+    },
+    "classification_schema": {
+      "type": "enum",
+      "values": [
+        "heimkino",
+        "grind",
+        "headset"
+      ],
+      "legend": {
+        "heimkino": {
+          "display_name": "Heimkino",
+          "description": "Dieses Spiel ist für das Heimkino eingeordnet."
+        },
+        "grind": {
+          "display_name": "Grind",
+          "description": "Dieses Spiel ist für wiederholende Spielabschnitte eingeordnet."
+        },
+        "headset": {
+          "display_name": "Headset",
+          "description": "Dieses Spiel ist für die Nutzung mit Headset eingeordnet."
+        }
+      }
+    },
+    "unassigned_value": "headset",
+    "master_depth": 1
+  },
+  {
+    "catalog_id": "media.stash",
+    "kind": "managed",
+    "version": 1,
+    "identity_rule": {
+      "version": 1,
+      "fields": [
+        "scope",
+        "media_type",
+        "signal_type",
+        "normalized_key"
+      ],
+      "normalizer": "normalize_key"
+    },
+    "classification_schema": {
+      "type": "enum",
+      "values": [
+        "normal",
+        "privat"
+      ],
+      "legend": {
+        "normal": {
+          "display_name": "Normal",
+          "description": "Dieser Titel ist nicht als privat eingeordnet."
+        },
+        "privat": {
+          "display_name": "Privat",
+          "description": "Dieser Titel gehört zum privaten Medienkontext."
+        }
+      }
+    },
+    "unassigned_value": "privat",
+    "master_depth": 1
+  },
+  {
+    "catalog_id": "media.appletv",
+    "kind": "managed",
+    "version": 1,
+    "identity_rule": {
+      "version": 1,
+      "fields": [
+        "scope",
+        "media_type",
+        "signal_type",
+        "normalized_key"
+      ],
+      "normalizer": "normalize_key"
+    },
+    "classification_schema": {
+      "type": "enum",
+      "values": [
+        "normal",
+        "privat"
+      ],
+      "legend": {
+        "normal": {
+          "display_name": "Normal",
+          "description": "Diese App ist nicht als privat eingeordnet."
+        },
+        "privat": {
+          "display_name": "Privat",
+          "description": "Diese App gehört zum privaten Medienkontext."
+        }
+      }
+    },
+    "unassigned_value": "normal",
+    "master_depth": 1
+  },
+  {
+    "catalog_id": "media.tv_device",
+    "kind": "managed",
+    "version": 1,
+    "identity_rule": {
+      "version": 1,
+      "fields": [
+        "scope",
+        "media_type",
+        "signal_type",
+        "normalized_key"
+      ],
+      "normalizer": "normalize_key"
+    },
+    "classification_schema": {
+      "type": "enum",
+      "values": [
+        "ps5",
+        "apple_tv",
+        "sonstige"
+      ],
+      "legend": {
+        "ps5": {
+          "display_name": "PlayStation 5",
+          "description": "Diese Quelle zeigt die PlayStation 5."
+        },
+        "apple_tv": {
+          "display_name": "Apple TV",
+          "description": "Diese Quelle zeigt das Apple TV."
+        },
+        "sonstige": {
+          "display_name": "Sonstiges Gerät",
+          "description": "Diese Quelle ist keinem der beiden Geräte zugeordnet."
+        }
+      }
+    },
+    "unassigned_value": "sonstige",
+    "master_depth": 1
+  },
+  {
+    "catalog_id": "media.tv_activity",
+    "kind": "managed",
+    "version": 1,
+    "identity_rule": {
+      "version": 1,
+      "fields": [
+        "scope",
+        "media_type",
+        "signal_type",
+        "normalized_key"
+      ],
+      "normalizer": "normalize_key"
+    },
+    "classification_schema": {
+      "type": "enum",
+      "values": [
+        "tv",
+        "streaming",
+        "gaming",
+        "other"
+      ],
+      "legend": {
+        "tv": {
+          "display_name": "Fernsehen",
+          "description": "Diese Quelle zeigt Live-Fernsehen."
+        },
+        "streaming": {
+          "display_name": "Streaming",
+          "description": "Diese Quelle zeigt appbasierte Medien."
+        },
+        "gaming": {
+          "display_name": "Spielen",
+          "description": "Diese Quelle wird zum Spielen genutzt."
+        },
+        "other": {
+          "display_name": "Noch nicht zugeordnet",
+          "description": "Für diese Quelle fehlt die Nutzungsart."
+        }
+      }
+    },
+    "unassigned_value": "other",
+    "master_depth": 1
+  }
+]
