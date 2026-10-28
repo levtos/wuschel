@@ -5,7 +5,7 @@ import type { TypeEntry } from '@/features/authoring/catalog';
 import { resolveRef } from '@/features/authoring/usage';
 import { isObject, type JsonObject } from '@/lib/json';
 import { displayValue, FIELD_STATUS } from '@/lib/status';
-import type { Envelope, FieldValue, HaEntity, Registry } from '@/lib/types';
+import type { Envelope, FieldValue, HaEntity, Reason, Registry } from '@/lib/types';
 import type { Tone } from '@/components/ui/badge';
 
 export function fieldsForContract(contract: JsonObject, config: Registry | null, types: TypeEntry[]) {
@@ -79,28 +79,58 @@ export function contractState(envelope: Envelope | null, enabled: boolean, draft
   return { category, label: t(`alpha7.contract.state.${key}`), tone, hint: [t(`alpha7.contract.state.${key}Help`), ...details].join(' ') };
 }
 
-export interface ContractSource { id: string; name: string; entityId?: string; sourceIndex: number }
-/** Walk declared inputs only, including upstream contracts, with cycle protection. */
+export interface ContractSource { id: string; name: string; entityId?: string; sourceIndex: number; kind: 'source' | 'contract'; inputName: string; ref: string; href: string; role: string }
+/** Normal views show exactly the declared direct inputs, including contracts. */
 export function contractSources(contractId: string, config: Registry | null, entities: HaEntity[]): ContractSource[] {
-  const seen = new Set<string>(); const result = new Map<string, ContractSource>();
   const sources = asArray(config?.sources).filter(isObject); const contracts = asArray(config?.contracts).filter(isObject);
   const bindings = asArray(config?.bindings).filter(isObject);
-  const visit = (id: string) => {
-    if (seen.has(id)) return; seen.add(id);
-    const contract = contracts.find(item => item.contract_id === id);
-    for (const input of asArray(contract?.inputs).filter(isObject)) {
-      const target = resolveRef(str(input.ref), config);
-      if (target?.kind === 'contract') visit(target.id);
-      if (target?.kind !== 'source') continue;
-      const sourceIndex = sources.findIndex(item => item.source_id === target.id); const source = sources[sourceIndex];
-      const attached = bindings.filter(item => item.source_id === target.id);
-      if (!attached.length) result.set(target.id, { id: target.id, name: str(source?.display_name) || target.id, sourceIndex });
-      for (const binding of attached) {
-        const entityId = str(asObject(binding.adapter).ha_entity_id) || undefined;
-        const name = entities.find(item => item.entity_id === entityId)?.display_name || str(binding.display_name) || str(source?.display_name) || entityId || target.id;
-        result.set(`${target.id}:${entityId ?? str(binding.binding_id)}`, { id: target.id, name, entityId, sourceIndex });
-      }
+  const contract = contracts.find(item => item.contract_id === contractId);
+  return asArray(contract?.inputs).filter(isObject).flatMap<ContractSource>(input => {
+    const ref = str(input.ref); const inputName = str(input.name); const target = resolveRef(ref, config);
+    if (!target || target.id === contractId) return [];
+    const typeId = str(contract?.type_id);
+    const roleKey = typeId === 'opening_zone.facts' && inputName.startsWith('member_')
+      ? 'inputs.opening_zone.facts.member' : ['sleep.state_view', 'wake.plan_view'].includes(typeId)
+        ? `inputs.${typeId}.flow` : `inputs.${typeId}.${inputName}`;
+    const role = hasTranslation(roleKey) ? t(roleKey) : t('beta16.inputs.role', { name: fieldLabel(inputName) });
+    if (target.kind === 'contract') {
+      const parent = contracts.find(item => item.contract_id === target.id);
+      return [{ id: target.id, name: contractTitle(parent, target.id), sourceIndex: -1, kind: 'contract' as const,
+        inputName, ref, role, href: `/contracts/view/${encodeURIComponent(target.id)}` }];
+    }
+    if (target.kind !== 'source') return [];
+    const sourceIndex = sources.findIndex(item => item.source_id === target.id); const source = sources[sourceIndex];
+    const binding = bindings.find(item => item.source_id === target.id);
+    const entityId = str(asObject(binding?.adapter).ha_entity_id) || undefined;
+    const name = entities.find(item => item.entity_id === entityId)?.display_name || str(binding?.display_name) || str(source?.display_name) || entityId || target.id;
+    return [{ id: target.id, name, entityId, sourceIndex, kind: 'source' as const, inputName, ref, role,
+      href: `/sources/devices?item=${sourceIndex}` }];
+  });
+}
+
+export interface ContractSourcePath { source: ContractSource; owner: string; path: string[]; ids: string[] }
+/** Technical details keep every declared path; repeated sources on different paths stay visible. */
+export function contractSourcePaths(contractId: string, config: Registry | null, entities: HaEntity[]): ContractSourcePath[] {
+  const contracts = asArray(config?.contracts).filter(isObject);
+  const result: ContractSourcePath[] = [];
+  const walk = (id: string, names: string[], ids: string[]) => {
+    if (ids.includes(id) || ids.length >= 64) return;
+    const path = [...names, contractTitle(contracts.find(c => c.contract_id === id), id)];
+    const nextIds = [...ids, id];
+    for (const input of contractSources(id, config, entities)) {
+      if (input.kind === 'contract') walk(input.id, path, nextIds);
+      else result.push({ source: input, owner: id, path: [...path, input.name], ids: [...nextIds, input.id] });
     }
   };
-  visit(contractId); return [...result.values()];
+  walk(contractId, [], []);
+  return [...new Map(result.map(item => [item.ids.join('\u0000'), item])).values()];
+}
+
+export function affectedContractInputs(envelope: Envelope, config: Registry | null, entities: HaEntity[]): (ContractSource & { reasons: Reason[] })[] {
+  const reasons = Object.values(envelope.fields).flatMap(field => field.reasons);
+  return contractSources(envelope.contract_id, config, entities).map(input => {
+    const descendants = input.kind === 'contract' ? contractSourcePaths(input.id, config, entities).flatMap(path => path.ids) : [];
+    const references = new Set([input.id, input.ref, input.inputName, ...descendants]);
+    return { ...input, reasons: reasons.filter(reason => references.has(reason.input) || (!!reason.source_id && references.has(reason.source_id))) };
+  }).filter(input => input.reasons.length > 0);
 }

@@ -10,7 +10,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Field, Input, Select, Textarea } from '@/components/ui/form';
 import { Notice, Spinner } from '@/components/ui/layout';
 import { typeKey, type RefOption, type TypeEntry } from '@/features/authoring/catalog';
-import { asArray, asObject, newFieldSchema, str, type FieldSchema } from '@/features/authoring/model';
+import { asArray, asObject, fieldCompatible, newFieldSchema, str, type FieldSchema } from '@/features/authoring/model';
 import { enumAt, requiredWhen, type JsonSchema } from '@/lib/capabilities';
 import { join, type Json, type JsonObject } from '@/lib/json';
 import { useHaEntities } from '@/lib/queries';
@@ -566,7 +566,7 @@ export function ContractEditor({ value, onChange, pointer, types, refs, onAddDev
           const index = inputs.findIndex((i) => str(i.name) === input.name);
           const ref = str(current?.ref);
           const ip = index >= 0 ? join(pointer, 'inputs', index) : join(pointer, 'inputs');
-          const availableRefs = refs.filter((ref) => !input.schema || (ref.schema && (input.schema.type === 'object' || ref.schema.type === input.schema.type) && (input.schema.unit ?? '') === (ref.schema.unit ?? '')));
+          const availableRefs = refs.filter((ref) => !input.schema || (ref.schema && fieldCompatible(ref.schema, input.schema)));
           return (
             <div key={input.name} className="grid items-start gap-2 sm:grid-cols-[12rem_1fr]">
               <div className="pt-6 text-sm">

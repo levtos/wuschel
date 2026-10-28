@@ -368,7 +368,12 @@ async def test_machine_episode_and_deadlines_are_not_renewed_by_v4_upgrade(runti
     before = deepcopy(machine(runtime))
     runtime.clock.advance(1)
     await activate(runtime, upgrade_document(storage_document(runtime.config)))
-    assert machine(runtime) == before
+    # The verified v4 interface fingerprint changes representation, not machine history.
+    expected = {
+        **before,
+        "fingerprint": context_compatibility(runtime.config, runtime.types)["fixture.echo"],
+    }
+    assert machine(runtime) == expected
 
 
 @pytest.mark.parametrize(

@@ -1,0 +1,948 @@
+[
+  {
+    "type_id": "climate.room_temperature",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Raumtemperatur",
+    "inputs": [
+      {
+        "name": "primary",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°C"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°C"
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "fusion",
+        "strategy": "first_healthy",
+        "args": [
+          {
+            "op": "input",
+            "name": "primary"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "climate.outdoor_temperature",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Temperatur außen",
+    "inputs": [
+      {
+        "name": "primary",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°C"
+        }
+      },
+      {
+        "name": "replacement",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°C"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°C"
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "input",
+            "name": "primary"
+          },
+          {
+            "op": "input",
+            "name": "replacement"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "climate.room_humidity",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Raumluftfeuchte",
+    "inputs": [
+      {
+        "name": "primary",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "%"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "%"
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "fusion",
+        "strategy": "first_healthy",
+        "args": [
+          {
+            "op": "input",
+            "name": "primary"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "climate.outdoor_humidity",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Luftfeuchte außen",
+    "inputs": [
+      {
+        "name": "primary",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "%"
+        }
+      },
+      {
+        "name": "replacement",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "%"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "%"
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "input",
+            "name": "primary"
+          },
+          {
+            "op": "input",
+            "name": "replacement"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "climate.wind_speed",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Windgeschwindigkeit",
+    "inputs": [
+      {
+        "name": "value",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "m/s"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "m/s"
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "input",
+        "name": "value"
+      }
+    }
+  },
+  {
+    "type_id": "climate.toilet_event",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Toilettenereignis",
+    "inputs": [
+      {
+        "name": "value",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "input",
+        "name": "value"
+      }
+    }
+  },
+  {
+    "type_id": "climate.shower_active",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Dusche aktiv",
+    "inputs": [
+      {
+        "name": "value",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "input",
+        "name": "value"
+      }
+    }
+  },
+  {
+    "type_id": "climate.thermostat",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Thermostat – technische Gerätewerte",
+    "inputs": [
+      {
+        "name": "temperature",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°C"
+        }
+      },
+      {
+        "name": "valve_position",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "%"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "temperature": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°C"
+        },
+        "valve_position": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "%"
+        }
+      },
+      "available_projection": [
+        "temperature",
+        "valve_position"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "temperature": {
+        "op": "input",
+        "name": "temperature"
+      },
+      "valve_position": {
+        "op": "input",
+        "name": "valve_position"
+      }
+    }
+  },
+  {
+    "type_id": "climate.dew_point",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Taupunkt",
+    "inputs": [
+      {
+        "name": "temperature",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°C"
+        }
+      },
+      {
+        "name": "relative_humidity",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "%"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°C"
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "formula",
+        "name": "dew_point",
+        "version": 1,
+        "args": {
+          "temperature": {
+            "op": "input",
+            "name": "temperature"
+          },
+          "relative_humidity": {
+            "op": "input",
+            "name": "relative_humidity"
+          }
+        }
+      }
+    }
+  },
+  {
+    "type_id": "climate.absolute_humidity",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Absolute Feuchte",
+    "inputs": [
+      {
+        "name": "temperature",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°C"
+        }
+      },
+      {
+        "name": "relative_humidity",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "%"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "g/m³"
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "formula",
+        "name": "absolute_humidity",
+        "version": 1,
+        "args": {
+          "temperature": {
+            "op": "input",
+            "name": "temperature"
+          },
+          "relative_humidity": {
+            "op": "input",
+            "name": "relative_humidity"
+          }
+        }
+      }
+    }
+  },
+  {
+    "type_id": "climate.apparent_temperature",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Gefühlte Temperatur",
+    "inputs": [
+      {
+        "name": "temperature",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°C"
+        }
+      },
+      {
+        "name": "relative_humidity",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "%"
+        }
+      },
+      {
+        "name": "wind_speed",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "m/s"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°C"
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "formula",
+        "name": "apparent_temperature",
+        "version": 1,
+        "args": {
+          "temperature": {
+            "op": "input",
+            "name": "temperature"
+          },
+          "relative_humidity": {
+            "op": "input",
+            "name": "relative_humidity"
+          },
+          "wind_speed": {
+            "op": "input",
+            "name": "wind_speed"
+          }
+        }
+      }
+    }
+  },
+  {
+    "type_id": "climate.expected_radiation",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Erwartete Strahlung",
+    "inputs": [
+      {
+        "name": "sun_elevation",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°"
+        }
+      },
+      {
+        "name": "sun_azimuth",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°"
+        }
+      },
+      {
+        "name": "dni",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "W/m²"
+        }
+      },
+      {
+        "name": "diffuse",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "W/m²"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "W/m²"
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "formula",
+        "name": "expected_radiation",
+        "version": 1,
+        "args": {
+          "sun_elevation": {
+            "op": "input",
+            "name": "sun_elevation"
+          },
+          "sun_azimuth": {
+            "op": "input",
+            "name": "sun_azimuth"
+          },
+          "dni": {
+            "op": "input",
+            "name": "dni"
+          },
+          "diffuse": {
+            "op": "input",
+            "name": "diffuse"
+          },
+          "window_azimuth": {
+            "op": "parameter",
+            "name": "window_azimuth"
+          },
+          "window_tilt": {
+            "op": "parameter",
+            "name": "window_tilt"
+          }
+        }
+      }
+    },
+    "parameter_schema": {
+      "window_azimuth": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°"
+        },
+        "minimum": 0,
+        "maximum": 360,
+        "label": "Fensterrichtung"
+      },
+      "window_tilt": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "°"
+        },
+        "minimum": 0,
+        "maximum": 180,
+        "label": "Fensterneigung"
+      }
+    },
+    "output_origins": {
+      "value": {
+        "kind": "model",
+        "provider": "window_geometry"
+      }
+    }
+  },
+  {
+    "type_id": "simulation.state",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Anwesenheitssimulation",
+    "inputs": [
+      {
+        "name": "location",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "brightness",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "phase",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "active",
+            "inactive"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "or",
+              "args": [
+                {
+                  "op": "compare",
+                  "comparison": "eq",
+                  "left": {
+                    "op": "input",
+                    "name": "location"
+                  },
+                  "right": {
+                    "op": "literal",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    },
+                    "value": "home"
+                  }
+                },
+                {
+                  "op": "compare",
+                  "comparison": "eq",
+                  "left": {
+                    "op": "input",
+                    "name": "location"
+                  },
+                  "right": {
+                    "op": "literal",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    },
+                    "value": "parents"
+                  }
+                }
+              ]
+            },
+            "then": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "active",
+                  "inactive"
+                ]
+              },
+              "value": "inactive"
+            }
+          },
+          {
+            "when": {
+              "op": "and",
+              "args": [
+                {
+                  "op": "compare",
+                  "comparison": "eq",
+                  "left": {
+                    "op": "input",
+                    "name": "location"
+                  },
+                  "right": {
+                    "op": "literal",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    },
+                    "value": "away"
+                  }
+                },
+                {
+                  "op": "compare",
+                  "comparison": "eq",
+                  "left": {
+                    "op": "input",
+                    "name": "brightness"
+                  },
+                  "right": {
+                    "op": "literal",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    },
+                    "value": "dark"
+                  }
+                },
+                {
+                  "op": "or",
+                  "args": [
+                    {
+                      "op": "compare",
+                      "comparison": "eq",
+                      "left": {
+                        "op": "input",
+                        "name": "phase"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": false
+                        },
+                        "value": "evening"
+                      }
+                    },
+                    {
+                      "op": "compare",
+                      "comparison": "eq",
+                      "left": {
+                        "op": "input",
+                        "name": "phase"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": false
+                        },
+                        "value": "late_evening"
+                      }
+                    },
+                    {
+                      "op": "compare",
+                      "comparison": "eq",
+                      "left": {
+                        "op": "input",
+                        "name": "phase"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": false
+                        },
+                        "value": "early_night"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "then": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "active",
+                  "inactive"
+                ]
+              },
+              "value": "active"
+            }
+          },
+          {
+            "when": {
+              "op": "literal",
+              "schema": {
+                "type": "bool",
+                "required": true,
+                "physical_state": false
+              },
+              "value": true
+            },
+            "then": {
+              "op": "literal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "active",
+                  "inactive"
+                ]
+              },
+              "value": "inactive"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "connectivity.binary",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Verbindung",
+    "inputs": [
+      {
+        "name": "connected",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "input",
+        "name": "connected"
+      }
+    }
+  }
+]

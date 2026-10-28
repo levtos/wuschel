@@ -15,7 +15,8 @@ import { POLL_MS } from '@/lib/queries';
 import { useHistoryWindow, useWindowHistory } from './historyWindow';
 import type { Envelope, FieldValue, HistoryItem, Registry } from '@/lib/types';
 import { problemAdvice } from '@/features/overview/overviewModel';
-import { contractFieldLabel, contractFieldValue, contractSources, contractState, contractTypeId } from './presentation';
+import { affectedContractInputs, contractFieldLabel, contractFieldValue, contractSourcePaths, contractSources, contractState, contractTitle, contractTypeId } from './presentation';
+import { reasonLabel } from '@/i18n/codes';
 import { ContractStateChip } from './ContractStateChip';
 import { MachineRestartPanel } from './MachineRestartPanel';
 import { ManualSourcePanel } from '@/features/sources/ManualSourcePanel';
@@ -82,12 +83,14 @@ export function ContractSummary({ envelope, stale, fields, config, machine }: { 
   const [advanced, setAdvanced] = useState(false);
   const ha = useHaCatalog(asArray(config?.bindings).filter(isObject).some(binding => isObject(binding.adapter) && String(binding.adapter.kind).startsWith('ha_')));
   const sources = contractSources(envelope.contract_id, config, ha.entities);
+  const paths = contractSourcePaths(envelope.contract_id, config, ha.entities);
+  const problems = affectedContractInputs(envelope, config, ha.entities);
+  const indirectManual = [...new Map(paths.filter(path => path.owner !== envelope.contract_id && asArray(config?.sources).map(asObject)[path.source.sourceIndex]?.origin === 'manual').map(path => [`${path.owner}:${path.source.id}`, path])).values()];
   const window = useHistoryWindow();
   const history = useWindowHistory('contracts', envelope.contract_id, window.since, window.until);
   const gaps = useWindowHistory('gaps', undefined, window.since, window.until);
   const reasons = Object.values(envelope.fields).flatMap(field => field.reasons);
-  const contract = asArray(config?.contracts).filter(isObject).find(item => item.contract_id === envelope.contract_id);
-  const affected = sources.find(source => reasons.some(reason => source.id === reason.source_id || source.id === reason.input || asArray(contract?.inputs).filter(isObject).some(input => input.name === reason.input && input.ref === source.id)));
+  const affected = problems.find(source => source.kind === 'source');
   const affectedName = affected ? str(asArray(config?.sources).filter(isObject)[affected.sourceIndex]?.display_name) || affected.name : '';
   const evidence = useQuery({ queryKey: ['evidence', 'source', affected?.id, envelope.registry_revision], queryFn: () => api<JsonObject[]>(`evidence/${encodeURIComponent(affected!.id)}`), enabled: !!affected, refetchInterval: POLL_MS, retry: false });
   const measured = (evidence.isPlaceholderData ? [] : evidence.data ?? []).map(observationTime).filter((at): at is string => !!at).sort().at(-1);
@@ -106,19 +109,21 @@ export function ContractSummary({ envelope, stale, fields, config, machine }: { 
         {(field.attribution || sources.some(source => source.entityId)) && <p className="mt-2 text-xs text-muted">{t(field.attribution?.kind === 'known_automatic' ? 'alpha9.context.automatic' : 'alpha9.context.unknown')}</p>}
       </div>)}</div>
       <p className="px-6 pb-4 text-xs text-muted">{t('alpha7.contract.liveVersion', { version: envelope.registry_revision, time: formatTime(envelope.published_at) })}</p>
+      <p className="px-6 pb-4 text-sm">{t('beta16.inputs.reliability', { state: contractState(envelope, true).label })}</p>
     </Panel>
-    <Panel><PanelHeader title={t('alpha7.contract.why')} /><p className="p-5 text-sm">{why}{affected && <> {t(age ? 'post1.why.inputAge' : 'post1.why.inputAgeUnknown', { name: affectedName, age })}</>}</p></Panel>
+    <Panel><PanelHeader title={t('alpha7.contract.why')} /><p className="p-5 text-sm">{why}{affected && <> {t(age ? 'post1.why.inputAge' : 'post1.why.inputAgeUnknown', { name: affectedName, age })}</>}</p>{problems.length > 0 && <ul className="px-5 pb-5 text-sm">{problems.map(input => <li key={input.inputName}>{t('beta16.inputs.affected')} <Link to={input.href} className="underline">{input.name}</Link>: {[...new Set(input.reasons.map(reason => reasonLabel(reason.code)))].join(' · ')}</li>)}</ul>}</Panel>
     <Panel><PanelHeader title={t('alpha7.contract.where')} /><div className="p-5">
-      {sources.length ? <ul className="space-y-3">{sources.map((source, index) => <li key={index}><Link className="font-medium hover:text-fg" to={`/sources/devices?item=${source.sourceIndex}`} title={source.id}>{source.name}</Link>{config && <p className="text-sm text-muted">{freshnessLabel(config, asArray(config.sources).filter(isObject)[source.sourceIndex] ?? {})}</p>}{source.entityId && source.entityId !== source.name && <p className="mt-1 max-w-full truncate text-xs text-muted" title={source.entityId}>{source.entityId}</p>}</li>)}</ul> : <p className="text-sm text-muted">{t('alpha7.contract.noSource')}</p>}
+      {sources.length ? <ul className="space-y-3">{sources.map(source => <li key={source.inputName}><span className="mr-2 text-xs text-muted">{t(`beta16.inputs.${source.kind}`)}</span><Link className="font-medium hover:text-fg" to={source.href}>{source.name}</Link><p className="text-sm text-muted">{source.role}</p>{config && source.kind === 'source' && <p className="text-sm text-muted">{freshnessLabel(config, asArray(config.sources).filter(isObject)[source.sourceIndex] ?? {})}</p>}</li>)}</ul> : <p className="text-sm text-muted">{t('alpha7.contract.noSource')}</p>}
       {ha.isError && <p className="mt-2 text-xs text-muted">{t('alpha7.contract.namesUnavailable')}</p>}
     </div></Panel>
     <Panel><PanelHeader title={t('alpha7.contract.history')} description={t('alpha7.contract.historyScope')} /><div className="space-y-5 p-5">
       <label className="text-sm">{t('beta5.history.window')} <select value={window.hours} onChange={event => window.select(Number(event.target.value) === 168 ? 168 : 24)}><option value={24}>{t('beta5.history.day')}</option><option value={168}>{t('beta5.history.week')}</option></select></label>
       {history.isPending || gaps.isPending ? <Spinner /> : history.isError || gaps.isError ? <p role="alert" className="text-sm text-bad">{t('alpha7.contract.historyUnavailable')}</p> : Object.keys(envelope.fields).map(name => <MiniHistory key={name} name={name} contractTypeId={contractTypeId(envelope)} schema={fields[name]} since={window.since} until={window.until} now={window.until} current={stale ? undefined : envelope.fields[name]} points={historyPoints(history.data ?? [], envelope.contract_id, name, envelope.registry_revision, gaps.data ?? [])} />)}
     </div></Panel>
-    {sources.filter(source => asArray(config?.sources).map(asObject)[source.sourceIndex]?.origin === 'manual').map(source => <ManualSourcePanel key={source.id} sourceId={source.id} />)}
+    {[...new Map(sources.filter(source => source.kind === 'source' && asArray(config?.sources).map(asObject)[source.sourceIndex]?.origin === 'manual').map(source => [source.id, source])).values()].map(source => <ManualSourcePanel key={source.id} sourceId={source.id} />)}
+    {indirectManual.map(path => <p key={`${path.owner}:${path.source.id}`} className="text-sm text-muted">{t('beta16.inputs.manualAt', { name: path.source.name })} <Link className="underline" to={`/contracts/view/${encodeURIComponent(path.owner)}`}>{contractTitle(asArray(config?.contracts).filter(isObject).find(item => item.contract_id === path.owner), path.owner)}</Link></p>)}
     {machine && <CommandsPanel contractId={envelope.contract_id} onContract={() => {}} fixed />}
     {machine && <MachineRestartPanel key={envelope.contract_id} contractId={envelope.contract_id} />}
-    <details onToggle={event => setAdvanced(event.currentTarget.open)}><summary className="cursor-pointer py-2 text-sm text-muted">{t('alpha7.contract.advanced')}</summary>{advanced && <ContractLiveState envelope={envelope} stale={stale} fields={fields} />}</details>
+    <details onToggle={event => setAdvanced(event.currentTarget.open)}><summary className="cursor-pointer py-2 text-sm text-muted">{t('alpha7.contract.advanced')}</summary>{advanced && <><h3 className="text-sm font-medium">{t('beta16.inputs.paths')}</h3><ul className="mb-4 text-sm">{paths.map(path => <li key={path.ids.join('>')}>{path.path.join(' → ')} <code className="text-xs text-muted">{path.ids.join(' → ')}</code></li>)}</ul><ContractLiveState envelope={envelope} stale={stale} fields={fields} /></>}</details>
   </div>;
 }

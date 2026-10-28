@@ -249,6 +249,7 @@ def state_machine(
         )
         return unknown(code, ctx.contract.contract_id, now)
     assert current is not None
+    manual_revision = ctx.origin == "revision" and current.manual_restart
     if (
         current.manual_restart
         and ctx.override is None
@@ -271,7 +272,7 @@ def state_machine(
             current, ctx.inputs, now, baseline=ctx.origin in {"restore", "snapshot", "revision"}
         )
         if ctx.override is None:
-            if ctx.origin == "input":
+            if ctx.origin in {"input", "revision"}:
                 current, _ = machine.step(
                     current, "input", ctx.inputs, now, ctx.state.active_revision
                 )
@@ -296,11 +297,13 @@ def state_machine(
         current = machine.prepare(
             current, ctx.inputs, now, baseline=ctx.origin in {"restore", "snapshot", "revision"}
         )
-        if machine.definition.deadline_v2 and ctx.origin == "input":
+        if machine.definition.deadline_v2 and ctx.origin in {"input", "revision"}:
             current, _ = machine.step(current, "input", ctx.inputs, now, ctx.state.active_revision)
             current = machine.prepare(current, ctx.inputs, now)
         event = machine.due_event(current, now) or "input"
-        if (ctx.origin == "input" and not machine.definition.deadline_v2) or event in {
+        if (
+            ctx.origin in {"input", "revision"} and not machine.definition.deadline_v2
+        ) or event in {
             "deadline",
             "absolute",
         }:
@@ -325,6 +328,9 @@ def state_machine(
             current = current.model_copy(update={"origin": "restore"})
     if "catalog_machine_pending" in node:
         return unknown(ReasonCode.RESTORE_INCOMPATIBLE, ctx.contract.contract_id, now)
+    if manual_revision:
+        # Reassessment can end an episode by level, but supplies no fresh confirmation.
+        current = current.model_copy(update={"manual_restart": True})
     node["machine"] = current.model_dump(mode="json")
     return FieldValue(
         status="valid",

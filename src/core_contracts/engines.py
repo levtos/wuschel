@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
 
+from . import environment_formulas
 from .fusion import Fusion
 from .lifecycle import Lifecycle, transition_allowed
 from .quality import FieldValue, ReasonCode, derive, unknown
@@ -87,4 +88,60 @@ def agreement(items: list[FieldValue], at: datetime) -> FieldValue:
 
 _number = FieldSchema(type="number", required=True, physical_state=False)
 register_formula("test.sum", 1, sum, _number, _number)
+
+for _name, _category, _output_unit, _quantities in (
+    (
+        "dew_point",
+        "temperature",
+        "°C",
+        (
+            ("temperature", "temperature", "°C"),
+            ("relative_humidity", "relative_humidity", "%"),
+        ),
+    ),
+    (
+        "absolute_humidity",
+        "humidity",
+        "g/m³",
+        (
+            ("temperature", "temperature", "°C"),
+            ("relative_humidity", "relative_humidity", "%"),
+        ),
+    ),
+    (
+        "apparent_temperature",
+        "temperature",
+        "°C",
+        (
+            ("temperature", "temperature", "°C"),
+            ("relative_humidity", "relative_humidity", "%"),
+            ("wind_speed", "wind_speed", "m/s"),
+        ),
+    ),
+    (
+        "expected_radiation",
+        "radiation",
+        "W/m²",
+        (
+            ("sun_elevation", "angle", "°"),
+            ("sun_azimuth", "angle", "°"),
+            ("dni", "irradiance", "W/m²"),
+            ("diffuse", "irradiance", "W/m²"),
+            ("window_azimuth", "angle", "°"),
+            ("window_tilt", "angle", "°"),
+        ),
+    ),
+):
+    register_formula(
+        _name,
+        1,
+        getattr(environment_formulas, _name),
+        _number,
+        _number.model_copy(update={"unit": _output_unit}),
+        category=_category,
+        inputs=tuple(
+            FormulaInput(name, _number.model_copy(update={"unit": unit}), quantity)
+            for name, quantity, unit in _quantities
+        ),
+    )
 register_fusion("test_agreement", agreement)

@@ -131,11 +131,14 @@ def comparison(runtime: Any, state: Any, draft: dict[str, Any]) -> dict[str, Any
         )
     from .editorial import apply_draft
     from .portable import apply
+    from .reconfiguration import context_effects
 
     probe = state.clone()
     apply_draft(probe, draft, runtime)
+    catalog_effects: list[dict[str, str]] = []
+    latches = runtime.latches
     if draft.get("portable"):
-        apply(runtime, probe, draft, config, runtime.clock.now_utc())
+        latches = apply(runtime, probe, draft, config, runtime.clock.now_utc(), catalog_effects)
     # RetentionPolicy supplies the effective defaults on both sides.
     before = (
         active.history_retention.model_dump(mode="json")
@@ -177,6 +180,8 @@ def comparison(runtime: Any, state: Any, draft: dict[str, Any]) -> dict[str, Any
             "shortening": shortening,
         },
         "no_effect": no_effect,
+        "context_effects": catalog_effects
+        + (context_effects(probe, active, config, runtime.types, latches) if active else []),
         "required_confirmations": ["impact", *(["retention"] if shortening else [])],
     }
     result["comparison_digest"] = checksum(

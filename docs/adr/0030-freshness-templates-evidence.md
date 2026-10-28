@@ -136,3 +136,25 @@ Herkunfts- oder Interpretationswechsel behalten die Neuaufnahmegrenze. Änderung
 am Lifecycle-Handshake (F6) sind kein Teil dieser Entscheidung.
 
 Nach dem A2-PR gilt STOPP: kein Merge, Tag, Release oder Installation ohne neues Go.
+
+## Präzisierung durch Abschluss-Beta #80
+
+Der [Abschluss-Entwurf](../beta/abschluss/A1.md) und seine Umsetzung in
+[A2](../beta/abschluss/A2.md) präzisieren den dritten Vergleich: Der eigene
+Vertragsfingerabdruck enthält die eigene Definition/Version, Parameter und
+direkten Feldschnittstellen. Eine gleich typisierte vorgelagerte Ableitung
+macht einen Ablauf allein nicht inkompatibel. Verlaufsspeicher bekommen eine
+zusätzliche Abhängigkeitsprüfung je Platz: `event_match`, zeitliche Basis von
+`stable_for`/`dwell`/`grace`/`delta`/`age` und flüchtige Buckets. Ein unabhängiger
+Platz bleibt unverändert. Machine-Memory und Captures gehören zur kompatiblen
+Episode; ihre regulären Übergangsregeln gelten auch bei der Neuauswertung.
+Die Übernahme bestätigt keinen manuell behaupteten Zustand durch neue Evidence.
+
+Gespeicherte b15-Kontexte mit Fingerabdruckversion4 werden nur nach passender
+Altprüfung gegen dieselbe gespeicherte aktive Konfiguration überführt. Beschädigte
+oder unbelegte Kontexte erhalten keinen neuen Nachweis. Das öffentliche
+Registry-/Exportformat bleibt unverändert, ebenso CP-15 und die strenge
+Beobachtungsidentität. Die Identität laufender Refresh-Quoten verwendet weiter
+den bisherigen Vergleich; die neue Hashdarstellung beginnt keine neue Quote.
+Paket- und Entwurfsvorschau erfassen die gleichen konkreten Rücksetzungen wie
+die Aktivierung, einschließlich der vorhandenen Kataloginvalidierung.

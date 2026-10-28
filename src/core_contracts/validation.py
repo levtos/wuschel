@@ -441,18 +441,26 @@ def validate_document(
                     "scheduler requires clock dependency",
                     key,
                 )
+        monitor_source = sources.get(binding.source_id)
+        monitor_dependency = (
+            dependencies.get(monitor_source.dependency_id) if monitor_source else None
+        )
         address = (
-            ("manual", binding.source_id)
-            if adapter.kind == "manual"
+            (adapter.kind, monitor_dependency.kind if monitor_dependency else None)
+            if adapter.kind == "connectivity"
             else (
-                (adapter.kind, adapter.ha_entity_id, adapter.ha_attribute)
-                if adapter.kind.startswith("ha_")
+                ("manual", binding.source_id)
+                if adapter.kind == "manual"
                 else (
-                    adapter.kind,
-                    canonical(adapter.calendar.model_dump())
-                    if adapter.calendar
-                    else adapter.mqtt_topic,
-                    adapter.mqtt_value_path,
+                    (adapter.kind, adapter.ha_entity_id, adapter.ha_attribute)
+                    if adapter.kind.startswith("ha_")
+                    else (
+                        adapter.kind,
+                        canonical(adapter.calendar.model_dump())
+                        if adapter.calendar
+                        else adapter.mqtt_topic,
+                        adapter.mqtt_value_path,
+                    )
                 )
             )
         )

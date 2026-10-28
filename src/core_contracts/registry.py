@@ -595,8 +595,8 @@ def assessment_fingerprints(config: RegistryConfig) -> dict[str, str]:
     }
 
 
-def context_compatibility(config: RegistryConfig, types: TypeRegistry) -> dict[str, str]:
-    """Keep only interval-neutral, semantically identical contexts; normal gap rules still run."""
+def legacy_context_compatibility(config: RegistryConfig, types: TypeRegistry) -> dict[str, str]:
+    """The b15 algorithm, retained for evidence lineage and verified stored-state migration."""
     import copy
 
     from .freshness_templates import upgrade_document
@@ -616,6 +616,52 @@ def context_compatibility(config: RegistryConfig, types: TypeRegistry) -> dict[s
             rule["interval_s"] = 1.0
         row["freshness"] = rule
     return fingerprints(RegistryConfig.model_validate(document), types)
+
+
+def context_compatibility(config: RegistryConfig, types: TypeRegistry) -> dict[str, str]:
+    """Own definition and direct field interface; input history is checked per slot."""
+    result = legacy_context_compatibility(config, types)
+    resolved = registry_types(config, types)
+    contracts = {c.contract_id: c for c in config.contracts}
+    sources = {s.source_id: s for s in config.sources}
+    for contract in config.contracts:
+        description = resolved.get(contract.type_id, contract.type_version).description()
+        if "definition" in description:
+            description["definition"] = {
+                k: v
+                for k, v in description["definition"].items()
+                if k not in {"display_name", "description", "lifecycle", "reactivation_note"}
+            }
+        interfaces = []
+        for item in contract.inputs:
+            ref, field = resolve_ref(item.ref, config)
+            if field is None:
+                source = sources[ref]
+                interface: Any = {
+                    "schema": source.value_schema.model_dump(mode="json")
+                    if source.value_schema
+                    else source.source_type,
+                    "identity": result[ref],
+                }
+            else:
+                parent = contracts[ref]
+                interface = (
+                    resolved.get(parent.type_id, parent.type_version)
+                    .schema.fields[field]
+                    .model_dump(mode="json")
+                )
+            interfaces.append({"name": item.name, "ref": item.ref, "schema": interface})
+        result[contract.contract_id] = semantic_fingerprint(
+            {
+                "context_algorithm": "direct-interface-v1",
+                "definition": description,
+                "contract": contract.model_dump(
+                    mode="json", exclude={"enabled", "ha_projection", "display_name", "description"}
+                ),
+                "inputs": interfaces,
+            }
+        )
+    return result
 
 
 def changed_paths(before: Any, after: Any, path: str = "") -> Iterator[str]:

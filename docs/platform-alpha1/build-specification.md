@@ -343,9 +343,14 @@ Evidence gebunden, wird sie bei der Validierung abgewiesen.
 | monotone Werte | nur Laufzeit | **nie persistiert, nie restauriert** |
 
 ### 9.2 Semantik-Fingerprint
-Deterministischer Hash über Definition, Typversion, Parameter, gebundene Sources und
-bedeutungsrelevante vorgelagerte Transformationen, ohne Anzeigenamen. Er entscheidet über die Übernahme
-von Zustand über Revisionen und Restore.
+Deterministischer Hash über eigene Definition, Typversion, Parameter und direkte
+Eingangsschnittstellen, ohne Anzeigenamen. Die Vertragsschnittstelle umfasst die
+referenzierte Felddefinition, nicht die gesamte vorgelagerte Ableitung. Physische
+Quellenidentität und Transformation behalten ihre strenge Neuaufnahmegrenze.
+Eingangsabhängige Verlaufskontexte werden zusätzlich je Speicherplatz geprüft:
+Eine geänderte Ableitung setzt nur die davon abhängige Basis zurück, nicht die
+Episode eines kompatiblen Ablaufs. Siehe [Abschluss-A1 §2](../beta/abschluss/A1.md)
+und [ADR 0030](../adr/0030-freshness-templates-evidence.md).
 
 ### 9.3 Belegbare Kontinuität (technische Auslegung von M30-14)
 Ein `since_at`-Anker bleibt über eine Lücke nur gültig, wenn:
@@ -368,8 +373,15 @@ Sonst ist der Anker ungültig. Das ist kein Reset von Episoden oder Deadlines. *
 ### 9.5 Revisionsaktivierung (M30-30)
 Einmalige sofortige Neuauswertung vorhandener verwendbarer Evidence unter der neuen Revision. Dabei gibt
 es keine künstliche Flanke, keine Wiederholung alter Ereignisse, keine Zeitstempel-Auffrischung und keine
-neue Grace. Baselines und Latches folgen dem Fingerprint. Der Abhängigkeitsbereich wird als ein
-konsistenter Stand veröffentlicht, ohne Mischstand.
+neue Grace. Baselines und Latches folgen der Prüfung je Speicherplatz; unveränderte
+Eingänge behalten ihre unabhängige Basis. Kompatible Abläufe, Captures, Episoden
+und absolute Fristen bleiben erhalten, während reguläre Übergänge mit aktuellen
+Werten weiter gelten, etwa das Ende von Besuch/Date bei Schlaf. Die Vorschau
+nennt tatsächlich verworfene Kontexte einschließlich flüchtiger Latches über
+dieselbe Logik wie die Aktivierung. Der Abhängigkeitsbereich wird als ein
+konsistenter Stand veröffentlicht, ohne Mischstand. Ein erster Start mit b15-
+Kontexten beweist deren alten Fingerabdruck gegen exakt ihre aktive Revision,
+bevor die Darstellung auf den neuen Vergleich überführt wird; CP-15 bleibt gültig.
 
 ### 9.6 Scheduler/Clock
 Einziger Zeitzugang (§18). Er plant Deadlines, Grace-Enden und zeitbasierte Auswertungen und speist sie

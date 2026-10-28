@@ -2,7 +2,15 @@
 
 from typing import Any
 
-from .registry import RegistryConfig, context_compatibility, fingerprints, observation_fingerprints
+from .registry import (
+    RegistryConfig,
+    context_compatibility,
+    fingerprints,
+    legacy_context_compatibility,
+    observation_fingerprints,
+    registry_types,
+    resolve_ref,
+)
 from .schema import TypeRegistry
 
 
@@ -78,9 +86,144 @@ def assessment_only(before: RegistryConfig | None, after: RegistryConfig | None)
     )
 
 
+def migrate_fingerprint(value: Any, previous: str, current: str) -> None:
+    if isinstance(value, dict):
+        for field, item in value.items():
+            if field == "fingerprint" and item == previous:
+                value[field] = current
+            elif isinstance(item, (dict, list)):
+                migrate_fingerprint(item, previous, current)
+    elif isinstance(value, list):
+        for item in value:
+            migrate_fingerprint(item, previous, current)
+
+
+def migrate_legacy_contexts(state: Any, config: RegistryConfig, types: TypeRegistry) -> None:
+    """Prove b15 identity against its own active revision before CP-15 restore."""
+    if config.fingerprint_version != 4:
+        return
+    previous = legacy_context_compatibility(config, types)
+    current = fingerprints(config, types)
+    for contract in config.contracts:
+        key = contract.contract_id
+        node = state.tables["node_state"].get(key)
+        if node and node.get("fingerprint") == previous[key]:
+            migrate_fingerprint(node, previous[key], current[key])
+
+
+def context_effects(
+    state: Any,
+    before: RegistryConfig,
+    after: RegistryConfig,
+    types: TypeRegistry,
+    latches: dict[str, Any] | None = None,
+) -> list[dict[str, str]]:
+    """One read-only plan used by both preview and activation, including volatile latches."""
+    old, new = context_compatibility(before, types), context_compatibility(after, types)
+    old_lineage = legacy_context_compatibility(before, types)
+    new_lineage = legacy_context_compatibility(after, types)
+    resolved = registry_types(before, types)
+    stored_fingerprints = fingerprints(before, types)
+    effects: list[dict[str, str]] = []
+    for contract in before.contracts:
+        key = contract.contract_id
+        node = state.tables["node_state"].get(key, {})
+        unproven = node.get("fingerprint") != stored_fingerprints[key]
+        own_changed = old[key] != new.get(key) or unproven
+        changed = {
+            item.name
+            for item in contract.inputs
+            if old_lineage.get(resolve_ref(item.ref, before)[0])
+            != new_lineage.get(resolve_ref(item.ref, before)[0])
+        }
+        declaration = resolved.get(contract.type_id, contract.type_version)
+        definition = declaration.definition or {}
+
+        def inputs(value: Any, visited: frozenset[str] = frozenset()) -> set[str]:
+            if isinstance(value, list):
+                return set().union(*(inputs(v, visited) for v in value))
+            if not isinstance(value, dict):
+                return set()
+            if value.get("op") == "input":
+                return {value["name"]}
+            if value.get("op") == "ref":
+                name = value["name"]
+                return (
+                    inputs(definition.get("rules", {}).get(name), visited | {name})
+                    if name not in visited
+                    else set()
+                )
+            return set().union(*(inputs(v, visited) for v in value.values()))
+
+        def add(storage: str, slot: str, dependencies: set[str]) -> None:
+            if own_changed or changed.intersection(dependencies):
+                effects.append(
+                    {
+                        "contract_id": key,
+                        "storage": storage,
+                        "slot": slot,
+                        "case": "c" if own_changed else "b",
+                        "reason": "stored_context_unproven"
+                        if unproven
+                        else "definition_or_interface_changed"
+                        if own_changed
+                        else "input_derivation_changed",
+                    }
+                )
+
+        if own_changed and any(
+            name in node for name in ("machine", "temporal", "rules", "events", "age_input")
+        ):
+            add("node", "", set())
+        elif node and not definition:
+            if "temporal" in node or "age_input" in node:
+                add("temporal", "", {i.name for i in contract.inputs})
+
+        def visit(value: Any) -> None:
+            if isinstance(value, list):
+                for child in value:
+                    visit(child)
+            elif isinstance(value, dict):
+                op, slot = value.get("op"), value.get("id", "")
+                if op in {"temporal", "event_match", "bucket"}:
+                    storage = {"temporal": "rules", "event_match": "events", "bucket": "latch"}[op]
+                    exists = (
+                        (f"{key}:{slot}" in (latches or {}))
+                        if op == "bucket"
+                        else slot in node.get(storage, {})
+                    )
+                    if exists and (not own_changed or op == "bucket"):
+                        add(storage, slot, inputs(value))
+                for child in value.values():
+                    visit(child)
+
+        visit(definition)
+        if not definition:
+            for latch_key in latches or {}:
+                if latch_key == key or latch_key.startswith(key + ":"):
+                    add("latch", latch_key.partition(":")[2], {i.name for i in contract.inputs})
+    # Shared named expressions may be reached from more than one output.
+    return [dict(items) for items in sorted({tuple(sorted(e.items())) for e in effects})]
+
+
 def preserve(
-    state: Any, before: RegistryConfig, after: RegistryConfig, types: TypeRegistry
+    state: Any,
+    before: RegistryConfig,
+    after: RegistryConfig,
+    types: TypeRegistry,
+    latches: dict[str, Any] | None = None,
 ) -> set[str]:
+    effects = context_effects(state, before, after, types, latches)
+    for effect in effects:
+        key, slot, storage = effect["contract_id"], effect["slot"], effect["storage"]
+        node = state.tables["node_state"].get(key, {})
+        if storage == "latch" and latches is not None:
+            latches.pop(f"{key}:{slot}" if slot else key, None)
+        elif storage in {"rules", "events"}:
+            node.get(storage, {}).pop(slot, None)
+        elif storage == "temporal":
+            for field in ("temporal", "restore_pending", "age_input", "age_value", "edge_active"):
+                node.pop(field, None)
     old_observations, new_observations = (
         observation_fingerprints(before),
         observation_fingerprints(after),
@@ -96,17 +239,6 @@ def preserve(
         if old_context[key] == new_context[key]
     }
 
-    def migrate(value: Any, previous: str, current: str) -> None:
-        if isinstance(value, dict):
-            for field, item in value.items():
-                if field == "fingerprint" and item == previous:
-                    value[field] = current
-                elif isinstance(item, (dict, list)):
-                    migrate(item, previous, current)
-        elif isinstance(value, list):
-            for item in value:
-                migrate(item, previous, current)
-
     contract_ids = {contract.contract_id for contract in before.contracts}
     for key in tuple(compatible):
         node = state.tables["node_state"].get(key)
@@ -114,10 +246,10 @@ def preserve(
             compatible.discard(key)
             continue
         if node and node.get("fingerprint") == old_fp.get(key):
-            migrate(node, old_fp[key], new_fp[key])
+            migrate_fingerprint(node, old_fp[key], new_fp[key])
         sensor = state.tables["service_state"].get(f"sensor:{key}")
         if sensor:
-            migrate(sensor, old_fp[key], new_fp[key])
+            migrate_fingerprint(sensor, old_fp[key], new_fp[key])
     for binding in after.bindings:
         key = binding.source_id
         observation = state.tables["source_observation_current"].get(binding.binding_id)
