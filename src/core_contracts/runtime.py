@@ -580,9 +580,15 @@ class Runtime:
             config.notifications.signal.enabled or config.notifications.configuration.enabled
         ):
             return True
+        # Legacy configurations used other dependency names for the HA monitor.
+        ha_dependencies = {d.dependency_id for d in config.dependencies if d.kind != "mqtt"}
+        ha_sources = {s.source_id for s in config.sources if s.dependency_id in ha_dependencies}
         return any(
             (b.source_id in needed or b.adapter.kind == "ha_calendar")
-            and (b.adapter.kind.startswith("ha_") or b.adapter.kind == "connectivity")
+            and (
+                b.adapter.kind.startswith("ha_")
+                or (b.adapter.kind == "connectivity" and b.source_id in ha_sources)
+            )
             for b in config.bindings
         )
 
@@ -617,6 +623,11 @@ class Runtime:
         from .authoring import migrate
 
         await migrate(self, state, self.clock.now_utc())
+        restored_config = self._config(state)
+        if restored_config is not None:
+            from .reconfiguration import migrate_legacy_contexts
+
+            migrate_legacy_contexts(state, restored_config, self.types)
         old_epoch = state.epoch_id
         state.epoch_id = str(uuid4())
         if old_epoch:
@@ -824,10 +835,21 @@ class Runtime:
                     )
             return None
         if operation == "mqtt_state":
+            config = self.config
             previous_mqtt = self.mqtt
             self.mqtt = str(payload)
             self.dependency_connections["mqtt"] = self.mqtt == "connected"
             self._broadcast(self.service_state())
+            mqtt_dependencies = (
+                {d.dependency_id for d in config.dependencies if d.kind == "mqtt"}
+                if config
+                else set()
+            )
+            mqtt_sources = (
+                {s.source_id for s in config.sources if s.dependency_id in mqtt_dependencies}
+                if config
+                else set()
+            )
             if (
                 self.mqtt == "disconnected"
                 and previous_mqtt == "connected"
@@ -843,6 +865,23 @@ class Runtime:
                         staged.tables["source_observation_current"][binding_id]["availability"] = (
                             "unavailable"
                         )
+                self._evaluate(staged, self.config, origin="revision")
+                try:
+                    await self._commit(staged, publication=True)
+                except Exception as error:
+                    LOGGER.warning(
+                        "transport_status_uncommitted", extra={"error_type": type(error).__name__}
+                    )
+            elif (
+                self.mqtt != previous_mqtt
+                and self.persistence
+                and self.config
+                and any(
+                    b.adapter.kind == "connectivity" and b.source_id in mqtt_sources
+                    for b in self.config.bindings
+                )
+            ):
+                staged = self.state.clone()
                 self._evaluate(staged, self.config, origin="revision")
                 try:
                     await self._commit(staged, publication=True)
@@ -1440,7 +1479,8 @@ class Runtime:
             if config:
                 from .reconfiguration import preserve
 
-                compatible = preserve(state, config, new_config, self.types)
+                next_latches = copy.deepcopy(next_latches)
+                compatible = preserve(state, config, new_config, self.types, next_latches)
                 next_latches = {
                     k: v for k, v in next_latches.items() if k.partition(":")[0] in compatible
                 }
@@ -1746,6 +1786,12 @@ class Runtime:
                     return unknown(ReasonCode.INPUT_STALE, ref, now)
             dependency = dependencies[source.dependency_id]
             available = self.dependency_connections.get(dependency.kind, True)
+            if any(
+                b.source_id == ref and b.adapter.kind == "connectivity" for b in config.bindings
+            ):
+                available = (
+                    True  # The monitor reports the connection itself, not a sensor behind it.
+                )
             if dependency.kind == "ha" and dependency.monitor == "internal":
                 available = True  # Transport loss is not sensor evidence.
             if dependency.monitor == "source":
@@ -2063,6 +2109,7 @@ class Runtime:
 
             plan_notices(state, config, now, self.installation_id, self.ingress_slug)
         from .refresh_plan import plan_refreshes
+        from .registry import legacy_context_compatibility
 
         plan_refreshes(
             state,
@@ -2070,7 +2117,9 @@ class Runtime:
             now,
             origin,
             self.bridge == "connected" and self.bridge_protocol_selected == 2,
-            fps,
+            legacy_context_compatibility(config, self.types)
+            if config.fingerprint_version == 4
+            else fps,
         )
         return evaluation_errors
 
@@ -2311,15 +2360,30 @@ class Runtime:
             if calendar is not None:
                 value, _ = project(calendar, now)
             else:
-                value = (
-                    "ready"
-                    if self.bridge == "connected" and self.ha == "connected"
-                    else "starting"
-                    if self.ha in {"starting", "stopping"}
-                    else "unavailable"
-                    if self.bridge == "unavailable"
-                    else None
+                source = next(s for s in config.sources if s.source_id == binding.source_id)
+                kind = next(
+                    d.kind for d in config.dependencies if d.dependency_id == source.dependency_id
                 )
+                if kind == "mqtt":
+                    value = (
+                        "ready"
+                        if self.mqtt == "connected"
+                        else "starting"
+                        if self.mqtt == "connecting"
+                        else "unavailable"
+                        if self.mqtt in {"disconnected", "unavailable"}
+                        else None
+                    )
+                else:
+                    value = (
+                        "ready"
+                        if self.bridge == "connected" and self.ha == "connected"
+                        else "starting"
+                        if self.ha in {"starting", "stopping"}
+                        else "unavailable"
+                        if self.bridge == "unavailable"
+                        else None
+                    )
             old = state.tables["source_observation_current"].get(binding.binding_id)
             if old and old.get("value_raw") == value and old.get("observation_kind") != "restore":
                 continue

@@ -40,6 +40,7 @@ interface Row {
   envelope: Envelope | null;
   value: string;
   source: string;
+  sourceInputs: ReturnType<typeof contractSources>;
   draftOnly: boolean;
   stale: boolean;
   category: Category;
@@ -173,6 +174,7 @@ export default function ContractsPage() {
       envelope,
       value: contractValue(envelope, activeContract ? fieldsForContract(activeContract, active.data?.config ?? null, activeTypes) : {}),
       source: contractSources(id, src.config, ha.entities).map(source => source.name).join(', ') || uiText('alpha7.contract.noSource'),
+      sourceInputs: contractSources(id, src.config, ha.entities),
       draftOnly: src.source === 'draft' && active.data !== undefined && !activeContract,
       stale: live.stale || live.registryRevision !== active.data?.revision,
     };
@@ -195,7 +197,7 @@ export default function ContractsPage() {
     col.accessor('room', { header: uiText('alpha9.room.label'), cell: cell => <RoomBadge room={cell.getValue()} /> }),
     col.accessor('value', { header: uiText('alpha7.contract.value'), cell: cell => <span className="tabular-nums">{cell.getValue()}</span> }),
     col.accessor(row => row.envelope?.contract_health ?? '', { id: 'state', header: uiText('alpha7.contract.state'), cell: cell => <ContractStateChip envelope={cell.row.original.envelope} enabled={cell.row.original.enabled} draftOnly={cell.row.original.draftOnly} stale={cell.row.original.stale} /> }),
-    col.accessor('source', { header: uiText('alpha7.contract.source'), cell: cell => <span className="block truncate" title={cell.getValue()}>{cell.getValue()}</span> }),
+    col.accessor('source', { header: uiText('alpha7.contract.source'), cell: cell => <div className="flex flex-wrap gap-2">{cell.row.original.sourceInputs.length ? cell.row.original.sourceInputs.map(input => <span key={input.inputName}><span className="text-xs text-muted">{uiText(`beta16.inputs.${input.kind}`)}: </span><Link to={input.href} aria-label={uiText('beta16.inputs.link', { name: input.name, kind: uiText(`beta16.inputs.${input.kind}`) })} onClick={event => event.stopPropagation()} className="hover:underline">{input.name}</Link></span>) : cell.getValue()}</div> }),
   ];
 
   return (

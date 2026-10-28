@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { Workbench } from '@/Workbench';
-import { contractSources, contractState, contractValue, fieldsForContract } from '@/features/contracts/presentation';
+import { contractSourcePaths, contractSources, contractState, contractValue, fieldsForContract } from '@/features/contracts/presentation';
 import { historyPoints, MiniHistory, observationTime } from '@/features/contracts/ContractSummary';
 import type { Envelope, HaEntity } from '@/lib/types';
 import { installFakeApi, reply, sampleConfig } from '../../test/fakeApi';
@@ -40,9 +40,10 @@ it('formats values in German without treating unknown as false', () => {
   expect(contractState(envelope, false).tone).toBe('neutral');
 });
 
-it('resolves HA names through upstream inputs and protects against cycles', () => {
+it('shows direct contracts and keeps upstream HA names only in protected technical paths', () => {
   const chained = { ...config, contracts: [...config.contracts as [], { contract_id: 'downstream', inputs: [{ ref: 'zimmer.value' }, { ref: 'downstream' }] }] };
-  expect(contractSources('downstream', chained, entities)).toEqual([{ id: 'source.heat', name: 'Zimmerthermometer', entityId: 'sensor.zimmer', sourceIndex: 0 }]);
+  expect(contractSources('downstream', chained, entities)).toMatchObject([{ id: 'zimmer', kind: 'contract', name: 'Temperatur im Zimmer', href: '/contracts/view/zimmer' }]);
+  expect(contractSourcePaths('downstream', chained, entities)).toMatchObject([{ source: { id: 'source.heat', name: 'Zimmerthermometer' }, ids: ['downstream', 'zimmer', 'source.heat'] }]);
   expect(contractSources('zimmer', config, [])[0]?.name).toBe('Gespeicherter Sensorname');
 });
 

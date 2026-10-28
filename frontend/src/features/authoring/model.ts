@@ -16,6 +16,15 @@ export interface FieldSchema extends JsonObject {
   physical_state: boolean;
 }
 
+/** Same type/catalog/unit relation as declarative.compatible on the server. */
+export function fieldCompatible(actual: FieldSchema, expected: FieldSchema): boolean {
+  const wanted = asArray(expected.value_catalog);
+  const offered = asArray(actual.value_catalog);
+  return (actual.type === expected.type || (actual.type === 'enum' && expected.type === 'text'))
+    && (!wanted.length || (!!offered.length && offered.every(value => wanted.includes(value))))
+    && (expected.unit == null || actual.unit === expected.unit);
+}
+
 export type Rule = JsonObject & { op: string };
 
 export const FIELD_TYPE_LABELS: Record<FieldType, string> = {

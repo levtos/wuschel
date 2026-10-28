@@ -251,11 +251,31 @@ def prepare(
     }
 
 
-def invalidate(state: Any, result: dict[str, Any], latches: dict[str, Any]) -> dict[str, Any]:
+def invalidate(
+    state: Any,
+    result: dict[str, Any],
+    latches: dict[str, Any],
+    effects: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
     latches = copy.deepcopy(latches)
     prefixes = {f"catalog:{result['catalog']}:{key}" for key in result["affected_keys"]}
     for contract_id, root in state.tables["node_state"].items():
+
+        def report(storage: str, slot: str) -> None:
+            if effects is not None:
+                effects.append(
+                    {
+                        "contract_id": contract_id,
+                        "storage": storage,
+                        "slot": slot,
+                        "case": "b",
+                        "reason": "catalog_classification_changed",
+                    }
+                )
+
         if prefixes.intersection(root.get("catalog_machine", {}).get("catalog_dependencies", {})):
+            if root.get("machine"):
+                report("machine", "")
             suspend_machine(root)
         for slot, node in [
             (None, root),
@@ -263,6 +283,11 @@ def invalidate(state: Any, result: dict[str, Any], latches: dict[str, Any]) -> d
             *root.get("catalog_buckets", {}).items(),
         ]:
             if prefixes.intersection(node.get("catalog_dependencies", {})):
+                if any(name in node for name in ("temporal", "age_input", "edge_active")):
+                    report("rules" if slot is not None else "temporal", slot or "")
+                latch_key = contract_id if slot is None else f"{contract_id}:{slot}"
+                if latch_key in latches:
+                    report("latch", slot or "")
                 for name in (
                     "temporal",
                     "restore_pending",

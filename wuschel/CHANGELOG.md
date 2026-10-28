@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0b16 — Zustandserhaltung, Klimaformeln und vollständiger Beta-Bestand
+
+- Kompatible Abläufe, Episoden, Captures und absolute Fristen bleiben bei Konfigurationsänderungen erhalten; eingangsabhängige Verlaufsspeicher werden gezielt geprüft. Der erste Start weist gespeicherte b15-Kontexte vor der Überführung nach. Bereits verlorene Zustände werden nicht rekonstruiert.
+- Taupunkt, absolute Feuchte, gefühlte Temperatur und erwartete Fassadenstrahlung als typisierte Formeln mit benannten Eingängen, Legacy-Rechenwegen und ehrlicher Qualitätsweitergabe.
+- Direkte Vertragsbeziehungen mit Namen, Art, Link und Rolle; indirekte Quellpfade unter Technischen Details. Manuelle Eingaben nur beim zuständigen Vertrag, passende Editor-Referenzen einschließlich enum → text.
+- 14 portable Vorlagen und geprüfte private Pakete für den Bestand 59 → 81 → 85. Aktualitätsregeln gemäß Abschlussreview korrigiert; Connectivity DNS und Eltern-Standort bleiben zwei getrennte offene Einrichtungsvoraussetzungen. Private Daten werden nicht veröffentlicht.
+- Ausschließlich amd64. Keine Datenbankmigration; Traber bleibt unverändert auf 1.0.0b11. Installation, Import, Übernahme und Live-Abnahme bleiben gesonderte Gates von Benni.
+- [Umsetzung und Nachweise](docs/beta/abschluss/A2.md), [Auftrag #80](https://github.com/Levtos/wuschel/issues/80).
+
 ## 1.0.0b15 — Medienwahrheiten, Klassenlegenden und Titelimport
 
 - Importierbare Medienvorlagen für Geräte, Mediennutzung, führendes Gerät, Privatsphäre und Ruhe-Fakten. Besuch und Date erhalten eigene Start-/Stopp-Befehle; der Schlafablauf bleibt unverändert.

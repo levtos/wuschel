@@ -708,7 +708,8 @@ def preview(
             if source.source_id in from_file and source.freshness != from_file[source.source_id]
         )
         probe = state.clone()
-        apply(
+        effects: list[dict[str, str]] = []
+        latches = apply(
             runtime,
             probe,
             {
@@ -721,7 +722,13 @@ def preview(
             },
             validate(document, runtime.types),
             runtime.clock.now_utc(),
+            effects,
         )
+        if active:
+            from .reconfiguration import context_effects
+
+            effects.extend(context_effects(probe, active, planned, runtime.types, latches))
+        result["context_effects"] = effects
     result["plan_digest"] = checksum(result)
     return result
 
@@ -785,7 +792,12 @@ def stage(
 
 
 def apply(
-    runtime: Any, state: Any, draft: dict[str, Any], config: RegistryConfig, now: Any
+    runtime: Any,
+    state: Any,
+    draft: dict[str, Any],
+    config: RegistryConfig,
+    now: Any,
+    context_effects: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     plan = draft.get("portable")
     if not plan:
@@ -843,7 +855,7 @@ def apply(
             )
             body = body.model_copy(update={"changes": tuple(changes)})
             result = prepare(state, config, body, plan["actor"], now, expanded_limit=100_000)
-            latches = invalidate(state, result, latches)
+            latches = invalidate(state, result, latches, context_effects)
     for row in plan["package"]["editorial"]:
         ref = ObjectRef.model_validate(row["object"])
         old = state.tables["editorial_current"].get(ref.key)
