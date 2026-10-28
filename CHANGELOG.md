@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0b15 — Medienwahrheiten, Klassenlegenden und Titelimport
+
+- 21 portable Medienvorlagen für PC, TV, PS5, Apple TV, Denon und HomePods sowie Mediennutzung, führendes Gerät, Privatsphäre und getrennte Ruhe-Fakten. Besuch und Date werden über eigene Start-/Stopp-Befehle geführt.
+- Der PC nutzt den Host-Zustand vor dem Leistungsrückfall mit Hysterese und 10 s Gnadenfrist. Der bestehende Schlafablauf bleibt unverändert; längere Host-Lücken bleiben als bekannte Grenze dokumentiert.
+- Verwaltete Kataloge erhalten Namen und Erklärungen je Klasse. Der geführte v3-Titelimport übernimmt Zuordnungen atomar in einer Inhaltsrevision je Katalog und erkennt Wiederholungen über die Import-ID.
+- Musikschlüssel erzeugen automatisch Titel-allein- und alle Zweiteilungsformen. Varianten erben direkt vom Master; kollidierende Zusatzformen werden ausgelassen und gezählt. HomePods unterstützen Titel ohne Interpret bei verfügbarer Quelle; Ausfall und Restore bleiben unbekannt.
+- Ausschließlich amd64. Keine Datenbankmigration; Traber bleibt unverändert auf 1.0.0b11. Private Verknüpfungen und Titel werden nicht veröffentlicht. Installation, Einlesen, Übernahme und Live-Abnahme bleiben Benni vorbehalten.
+- [Umsetzung und Nachweise](docs/beta/bereich-5/A2.md), [Auftrag #75](https://github.com/Levtos/wuschel/issues/75).
+
 ## 1.0.0b14 — Beobachtungen erhalten, Schlaf und Wecken lesbar anzeigen
 
 - Unveränderte HA-/MQTT-Verknüpfungen bleiben bei einer Übernahme im laufenden Prozess verbunden. Erhaltene Beobachtungen behalten Messzeitpunkt, Herkunft und Ablauf; geänderte Eingänge, Neustart und bekannte HA-Lücken verlangen weiter frische Meldungen.

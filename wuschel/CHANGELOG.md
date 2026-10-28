@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0b15 — Medienwahrheiten, Klassenlegenden und Titelimport
+
+- Importierbare Medienvorlagen für Geräte, Mediennutzung, führendes Gerät, Privatsphäre und Ruhe-Fakten. Besuch und Date erhalten eigene Start-/Stopp-Befehle; der Schlafablauf bleibt unverändert.
+- Der PC bevorzugt den Host-Zustand und nutzt die Leistung nur als Rückfall mit Hysterese. Eine 10-s-Gnadenfrist überbrückt kurze Host-Unterbrechungen.
+- Klassenlegenden erklären die Zuordnungen. Der neue v3-Titelimport bietet Vorschau, bewusste Ausschlüsse und atomare Übernahme mit Wiederholungsschutz.
+- Musikschlüssel und Varianten werden automatisch gebildet; HomePods erkennen Titel ohne Interpret bei verfügbarer Quelle. Unbekannte oder ausgefallene Quellen bleiben unbekannt.
+- Nur amd64. Keine Datenbankmigration; Traber bleibt auf 1.0.0b11. Private Importpakete und Titel liest Benni selbst ein; keine automatische Konfigurationsübernahme.
+
 ## 1.0.0b14 — Werte bei Übernahme erhalten, Schlaf und Wecken verständlich anzeigen
 
 - Unveränderte Quellen behalten bei einer Konfigurationsübernahme im laufenden Betrieb ihre Beobachtung und den ursprünglichen Ablaufzeitpunkt. Geänderte Verknüpfungen, Neustart und eine bekannte HA-Unterbrechung verlangen weiterhin frische Meldungen.
