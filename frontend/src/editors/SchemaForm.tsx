@@ -154,7 +154,7 @@ export function SchemaForm(props: SchemaFormProps) {
   const { root, value, onChange, pointer, label, required, renderRule } = props;
   const depth = props.depth ?? 0;
   const raw = deref(root, props.node);
-  const title = label ?? (isObject(raw) && typeof raw.title === 'string' ? fieldLabel(raw.title) : fieldLabel(pointer.split('/').pop() ?? ''));
+  const title = pointer.includes('/wake_settings/') && pointer.endsWith('/id') ? uiText('b17.wakeId') : label ?? (isObject(raw) && typeof raw.title === 'string' ? fieldLabel(raw.title) : fieldLabel(pointer.split('/').pop() ?? ''));
   const caption = required ? `${title} *` : title;
   if (!raw || depth > MAX_DEPTH) {
     return <ValueEditor label={caption || uiText("editors.SchemaForm.wert_7e347d")} pointer={pointer} value={value ?? null} onChange={onChange} />;
@@ -225,14 +225,14 @@ export function SchemaForm(props: SchemaFormProps) {
   if ('const' in node) {
     return (
       <Fld label={caption} pointer={pointer}>
-        {(p) => <Input {...p} readOnly value={JSON.stringify(node.const)} />}
+        {(p) => <Input {...p} readOnly value={pointer.includes('/wake_settings/') && typeof node.const === 'string' ? codeLabel(node.const) : JSON.stringify(node.const)} />}
       </Fld>
     );
   }
   if (Array.isArray(node.enum)) {
     const options = node.enum;
     const selected = options.findIndex((v) => deepEqual(v, value));
-    const platformField = ['kind', 'type', 'mode', 'source_type', 'source_origin', 'monitor', 'target', 'op', 'strategy', 'operation', 'comparison'].includes(pointer.split('/').pop() ?? '');
+    const platformField = pointer.includes('/wake_settings/') || ['kind', 'type', 'mode', 'source_type', 'source_origin', 'monitor', 'target', 'op', 'strategy', 'operation', 'comparison'].includes(pointer.split('/').pop() ?? '');
     const labels = options.map((v) => typeof v === 'object' ? JSON.stringify(v) : typeof v === 'boolean' || platformField ? codeLabel(v) : String(v));
     const unique = new Set(labels).size === options.length;
     const rawIds = options.map((value) => typeof value === 'object' ? JSON.stringify(value) : String(value));
@@ -331,15 +331,17 @@ export function SchemaForm(props: SchemaFormProps) {
               <div key={key} className="grid items-start gap-2 sm:grid-cols-[minmax(8rem,12rem)_1fr_auto]">
                 <Input
                   aria-label={uiText("editors.SchemaForm.v0_schlussel_v1_59f39d", { v0: (caption), v1: (key) })}
-                  defaultValue={key}
+                  defaultValue={pointer.endsWith('/wake_settings/profiles') ? fieldLabel(key) : key}
+                  readOnly={pointer.endsWith('/wake_settings/profiles')}
                   key={key}
                   onBlur={(e) => {
+                    if (pointer.endsWith('/wake_settings/profiles')) return;
                     const to = e.target.value;
                     if (!to || to === key || to in current) return void (e.target.value = key);
                     onChange(Object.fromEntries(Object.entries(current).map(([k, v]) => [k === key ? to : k, v])));
                   }}
                 />
-                {additional ? rec({ node: additional as Json, label: key, value: current[key], pointer: join(pointer, key), onChange: (next) => set(key, next ?? null) }) : <ValueEditor label={key} pointer={join(pointer, key)} value={current[key] ?? null} expert={false} onChange={(next) => set(key, next)} />}
+                {additional ? rec({ node: additional as Json, label: pointer.endsWith('/wake_settings/profiles') ? fieldLabel(key) : key, value: current[key], pointer: join(pointer, key), onChange: (next) => set(key, next ?? null) }) : <ValueEditor label={key} pointer={join(pointer, key)} value={current[key] ?? null} expert={false} onChange={(next) => set(key, next)} />}
                 <IconButton label={uiText("editors.SchemaForm.v0_entfernen_92fea7", { v0: (key) })} tone="danger" onClick={() => set(key, undefined)}><Trash2 size={14} /></IconButton>
               </div>
             ))}

@@ -20,6 +20,16 @@ it('edits a date-bound exception without JSON and removes a time when skipping',
   expect(screen.queryByRole('textbox', { name: /JSON/ })).not.toBeInTheDocument();
 });
 
+it('labels wake profiles and calendar choices in German without changing stored values', () => {
+  const schema = declarativeParameterSchema({ parameter_schema: { wake_settings: { schema: { type: 'object', required: true }, structured_schema: 'wake_planning_v1', label: 'Weckplanung' } } }, caps.structured_parameter_schemas);
+  const value = { wake_settings: { profiles: { weekday: { id: 'weekday', label: 'Arbeitstag', wake_time: '08:00' }, weekend: { id: 'weekend', label: 'Freier Tag', wake_time: '09:00' } }, calendar_conflict_behavior: 'warn_only' } };
+  wrap(<SchemaForm root={schema} node={schema} value={value} onChange={() => {}} pointer="/parameters" />);
+  expect(screen.getByRole('heading', { name: 'Werktag *' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Wochenende *' })).toBeInTheDocument();
+  expect(screen.getByRole('option', { name: 'Nur auf den Konflikt hinweisen' })).toHaveValue('warn_only');
+  expect(screen.queryByRole('option', { name: 'warn_only' })).not.toBeInTheDocument();
+});
+
 it('uses the registered structured schema for profile parameters and edits it as fields', () => {
   const schema = declarativeParameterSchema({ parameter_schema: { wake_settings: { schema: { type: 'object', required: true }, structured_schema: 'wake_planning_v1', label: 'Weckplanung' } } }, caps.structured_parameter_schemas);
   const model = asObject(asObject(schema.properties).wake_settings);

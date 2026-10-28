@@ -3,10 +3,10 @@ import { resolveRef } from '@/features/authoring/usage';
 import { isObject, type JsonObject } from '@/lib/json';
 import type { HaEntity, Registry } from '@/lib/types';
 
-export const CATEGORIES = ['climate', 'light_cover', 'presence', 'sleep_wake', 'media', 'other', 'openings', 'time'] as const;
+export const CATEGORIES = ['climate', 'light_cover', 'presence', 'sleep_wake', 'media', 'other', 'openings', 'time', 'devices'] as const;
 export type Category = typeof CATEGORIES[number];
-export const categoryKeys: Record<Category, string> = { climate: 'climate', light_cover: 'lightCover', presence: 'presence', sleep_wake: 'sleepWake', media: 'media', other: 'other', openings: 'openings', time: 'time' };
-export const categoryIcons: Record<Category, string> = { climate: 'mdi:thermometer', light_cover: 'mdi:lightbulb', presence: 'mdi:account-check', sleep_wake: 'mdi:sleep', media: 'mdi:play-circle', other: 'mdi:shape', openings: 'mdi:window-open-variant', time: 'mdi:weather-sunset' };
+export const categoryKeys: Record<Category, string> = { climate: 'climate', light_cover: 'lightCover', presence: 'presence', sleep_wake: 'sleepWake', media: 'media', other: 'other', openings: 'openings', time: 'time', devices: 'devices' };
+export const categoryIcons: Record<Category, string> = { climate: 'mdi:thermometer', light_cover: 'mdi:lightbulb', presence: 'mdi:account-check', sleep_wake: 'mdi:sleep', media: 'mdi:play-circle', other: 'mdi:shape', openings: 'mdi:window-open-variant', time: 'mdi:weather-sunset', devices: 'mdi:devices' };
 export interface ObjectRef { kind: 'contract' | 'template'; id: string }
 export interface Room { mode: 'suggested' | 'manual' | 'none'; area_id: string | null; name: string; icon: string; missing: boolean }
 export interface EditorialEntry { object: ObjectRef; expected_editorial_version: number; category: Category; room: Room }

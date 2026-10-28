@@ -12,9 +12,18 @@ if TYPE_CHECKING:
     from .runtime import Runtime
 
 Category = Literal[
-    "climate", "light_cover", "presence", "sleep_wake", "media", "other", "openings", "time"
+    "climate",
+    "light_cover",
+    "presence",
+    "sleep_wake",
+    "media",
+    "other",
+    "openings",
+    "time",
+    "devices",
 ]
 CATEGORIES = {
+    "devices": "mdi:devices",
     "climate": "mdi:thermometer",
     "light_cover": "mdi:lightbulb",
     "presence": "mdi:account-check",

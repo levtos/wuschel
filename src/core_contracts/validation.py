@@ -400,6 +400,17 @@ def validate_document(
     for index, binding in enumerate(config.bindings):
         path, key, adapter = f"/bindings/{index}", binding.binding_id, binding.adapter
         manual_source = sources.get(binding.source_id)
+        if (
+            manual_source
+            and manual_source.value_origin
+            and adapter.kind in {"connectivity", "scheduler"}
+        ):
+            add(
+                "adapter_value_origin_unsupported",
+                path + "/source_id",
+                "Connectivity- und Zeitplan-Adapter liefern keine Wertherkunft. Entferne die Herkunft an dieser Quelle.",
+                binding.source_id,
+            )
         if manual_source and (
             (manual_source.origin == "manual") != (adapter.kind == "manual")
             or adapter.kind == "manual"

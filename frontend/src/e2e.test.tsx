@@ -613,12 +613,12 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await waitFor(() => expect(previews.length).toBeGreaterThan(0));
     expect(previews[0]!.status, JSON.stringify(previews[0]!.body)).toBe(200);
     expect(Object.values(previews[0]!.body.editorial_changed).filter(changed => !changed)).toHaveLength(40);
-    await screen.findByText('40 Objekte behalten Kategorie und Raum');
+    await screen.findByText('40 Objekte behalten Kategorie und Bereich');
     expect(screen.queryByText(/Vertrag: synthetic.b12.existing.1 ·/)).not.toBeInTheDocument();
     expect(screen.getByText(/Vertrag: synthetic.b12.shared/)).toBeVisible();
     expect(screen.getByText(/Vorlage: synthetic.b12.shared/)).toBeVisible();
     expect(screen.getByText(/Vertrag: synthetic.b12.new/)).toBeVisible();
-    expect(screen.getAllByLabelText('Kategorie und Raum')).toHaveLength(2);
+    expect(screen.getAllByLabelText('Kategorie und Bereich')).toHaveLength(2);
     const conflicts = screen.getByRole('region', { name: 'Konflikte (2)' });
     const stage = screen.getByRole('button', { name: 'Als Entwurf einlesen' });
     const recheck = screen.getByRole('button', { name: 'Vorschau neu prüfen' });

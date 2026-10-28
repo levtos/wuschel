@@ -42,7 +42,8 @@ it('loads local area icons and uses the house for unknown icons or external mark
   expect(await mdiPath('https://example.org/icon.svg')).toBe(await mdiPath('mdi:home'));
   expect(await mdiPath('mdi:not-in-the-pinned-set')).toBe(await mdiPath('mdi:home'));
   expect(fetch).not.toHaveBeenCalled();
-  expect(CATEGORIES).toHaveLength(8);
+  expect(CATEGORIES).toHaveLength(9);
+  expect(CATEGORIES).toContain('devices');
   expect(CATEGORIES).toContain('time');
   expect(groupItems([{ category: 'climate' }], row => row.category)).toEqual([['climate', [{ category: 'climate' }]]]);
 });
@@ -50,7 +51,7 @@ it('loads local area icons and uses the house for unknown icons or external mark
 it('saves category and a confirmed room directly without creating or adopting a configuration', async () => {
   const user = userEvent.setup(); const { fake, config } = setup(); const before = structuredClone(config);
   app('#/contracts/view/temperature');
-  await user.click(await screen.findByText('Kategorie und Raum ändern'));
+  await user.click(await screen.findByText('Kategorie und Bereich ändern'));
   await user.selectOptions(await screen.findByLabelText('Kategorie'), 'climate');
   await user.click(await screen.findByRole('button', { name: 'Vorschlag verwenden' }));
   await user.click(screen.getByRole('button', { name: 'Speichern' }));

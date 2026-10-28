@@ -150,11 +150,11 @@ it('shows only changed or new organization rows among forty unchanged objects an
   const unchanged = Array.from({ length: 40 }, (_, i) => ({ object: { kind: 'contract', id: `same.${i}` }, category: 'other', room: { name: '' } }));
   const rows = [...unchanged, { object: { kind: 'contract', id: 'shared.name' }, category: 'time', room: { name: '' } }, { object: { kind: 'template', id: 'shared.name' }, category: 'time', room: { name: '' } }];
   const { fake, user, stage } = await openImport(() => reply(200, { ...preview(), editorial_versions: Object.fromEntries(rows.slice(0, 41).map(row => [`${row.object.kind}:${row.object.id}`, 1])), editorial_changed: Object.fromEntries(rows.map((row, i) => [`${row.object.kind}:${row.object.id}`, i >= 40])), package: { config: incoming, editorial: rows } }));
-  expect(screen.getByText('40 Objekte behalten Kategorie und Raum')).toBeInTheDocument();
+  expect(screen.getByText('40 Objekte behalten Kategorie und Bereich')).toBeInTheDocument();
   expect(screen.queryByText(/same\.0 ·/)).not.toBeInTheDocument();
   expect(screen.getByText(/Vertrag: shared.name/)).toBeInTheDocument();
   expect(screen.getByText(/Vorlage: shared.name/)).toBeInTheDocument();
-  expect(screen.getAllByLabelText('Kategorie und Raum')).toHaveLength(1);
+  expect(screen.getAllByLabelText('Kategorie und Bereich')).toHaveLength(1);
   await user.click(stage);
   await waitFor(() => expect(fake.calls.some(call => call.path === 'portable/stage')).toBe(true));
   expect(fake.calls.find(call => call.path === 'portable/stage')?.body).toMatchObject({ editorial_choices: {} });

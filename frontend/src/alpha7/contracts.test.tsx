@@ -57,7 +57,7 @@ it('shows category and room alongside the value, a single state chip and the HA 
   fake(); app('#/contracts/list/all');
   const table = await screen.findByRole('table', { name: 'Verträge' });
   await within(table).findByText('21,5 °C');
-  expect(within(table).getAllByRole('columnheader').map(cell => cell.textContent)).toEqual(['Name', 'Kategorie', 'Raum', 'Wert', 'Zustand', 'Quelle']);
+  expect(within(table).getAllByRole('columnheader').map(cell => cell.textContent)).toEqual(['Name', 'Kategorie', 'Bereich', 'Wert', 'Zustand', 'Quelle']);
   expect(await within(table).findByText('Zimmerthermometer')).toBeVisible();
   expect(within(table).getAllByText('Gesund')).toHaveLength(1);
   expect(within(table).getByRole('link', { name: 'Temperatur im Zimmer' })).toHaveAttribute('title', 'zimmer');
