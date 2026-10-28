@@ -131,6 +131,7 @@ class Runtime:
         self.mqtt_revision_changed = asyncio.Event()
         self.subscribers: set[asyncio.Queue[dict[str, Any]]] = set()
         self.latches: dict[str, Bucket] = {}
+        self.title_sync_plans: dict[str, dict[str, Any]] = {}
         self.pending_latches: dict[str, Bucket] | None = None
         self.stopping = False
         self.commit_duration = 0.0
@@ -777,9 +778,15 @@ class Runtime:
             from .editorial import keep_newer
 
             current_editorial = copy.deepcopy(self.state.tables["editorial_current"])
+            current_mapping_rows = copy.deepcopy(self.state.tables.get("title_sync_mapping", {}))
             last_sequence = self.state.publication_seq
             self.state = await self.store.load()
             keep_newer(current_editorial, self.state.tables["editorial_current"])
+            from .title_sync import restore_mapping
+
+            restore_mapping(
+                current_mapping_rows, self.state.tables.setdefault("title_sync_mapping", {})
+            )
             rollback = self.state.publication_seq < last_sequence
             self.state.publication_seq = max(last_sequence, self.state.publication_seq)
             self.persistence = True
@@ -945,6 +952,10 @@ class Runtime:
         state = self.state.clone()
         now = self.clock.now_utc()
         config = self._config(state)
+        if operation in {"title_sync_preview", "title_sync_apply"}:
+            from .title_sync import process as sync_process
+
+            return await sync_process(self, state, operation, payload, now)
         if operation in {"title_preview", "title_stage"}:
             from .title_transfer import process as title_process
 

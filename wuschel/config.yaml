@@ -22,6 +22,10 @@ services: [mqtt:want]
 map: [ssl:ro]
 image: ghcr.io/levtos/{arch}-wuschel
 options:
+  title_classifier:
+    database: ""
+    user: ""
+    password: ""
   postgres_host: ""
   postgres_port: 5432
   postgres_database: wuschel
@@ -42,6 +46,10 @@ options:
   log_level: INFO
   log_format: json
 schema:
+  title_classifier:
+    database: str
+    user: str
+    password: password
   postgres_host: str
   postgres_port: port
   postgres_database: str

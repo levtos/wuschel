@@ -25,11 +25,13 @@ from .persistence import PersistenceUnavailable, PostgresStore
 from .runtime import Runtime
 from .security import Tokens
 from .setup import Connection, Setup, probe
+from .title_reader import Credentials
 
 LOGGER = logging.getLogger(__name__)
 
 
 class Options(Model):
+    title_classifier: Credentials = Field(default_factory=Credentials)
     postgres_host: str
     postgres_port: int = Field(ge=1, le=65535)
     postgres_database: str
@@ -194,6 +196,12 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
         frontend=frontend,
         setup=setup,
     )
+    from .title_reader import read as read_titles
+
+    async def title_reader() -> dict[str, object]:
+        return await read_titles(setup.connection, options.title_classifier)
+
+    api.title_reader = title_reader
     consumer = web.AppRunner(api.application(), access_log=None, shutdown_timeout=3)
     ingress = web.AppRunner(api.application(ingress=True), access_log=None, shutdown_timeout=3)
     await consumer.setup()

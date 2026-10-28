@@ -126,7 +126,7 @@ async def test_master_class_context_override_hidden_exclusion_and_invalid_json(r
     draft = await stage(runtime, body)
     await activate_draft(runtime, draft)
     entries = head(runtime.state, runtime.config.catalogs[0])["entries"].values()
-    assert len(entries) == 4
+    assert len(entries) == 6
     parent = next(
         e for e in entries if e["key"] == canonical(["Synthetic Artist", "Synthetic Master"])
     )
@@ -158,7 +158,7 @@ async def test_occ_abort_commit_failure_and_transport_replay(runtime, config):
     draft = await runtime.submit("title_stage", payload)
     assert await runtime.submit("title_stage", payload) == draft
     with pytest.raises(ValueError, match="conflict"):
-        await runtime.submit("title_stage", {**payload, "include_hidden": True})
+        await runtime.submit("title_stage", {**payload, "excluded_rows": [1]})
     before = copy.deepcopy(runtime.state.tables)
 
     def fail():
@@ -364,7 +364,8 @@ async def test_multiple_contexts_unknown_mapping_and_hidden_master(runtime, conf
     master = row("Synthetic Hidden Master", hidden_at="2032-01-01T00:00:00Z")
     variant = row("Synthetic Variant", parent_key=master["normalized_key"])
     blocked = await runtime.submit("title_preview", request(runtime, [master, variant]))
-    assert any("hidden_master_required" in e["reasons"] for e in blocked["report"]["errors"])
+    assert not blocked["unresolved"]
+    assert blocked["report"]["outcomes"]["planned"] == 2
     assert not (
         await runtime.submit(
             "title_preview", request(runtime, [master, variant], include_hidden=True)

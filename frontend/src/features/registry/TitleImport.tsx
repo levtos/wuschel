@@ -33,12 +33,12 @@ export function TitleImport() {
     catch { return []; }
   }, [text]);
   const filteredRows = sourceRows.filter(row => row.key.toLocaleLowerCase('de').includes(rowSearch.toLocaleLowerCase('de')) || String(row.row).includes(rowSearch));
-  const [hidden, setHidden] = useState(false); const [preview, setPreview] = useState<Preview | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
   const [checked, setChecked] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const requestId = useRef(crypto.randomUUID()); const sequence = useRef(0);
   const active = useActiveRevision(); const doc = useWorkingDocument(); const navigate = useNavigate(); const cache = useQueryClient();
   const catalogs = useQuery({ queryKey: ['managed-catalogs'], queryFn: () => api<Catalog[]>('catalogs'), enabled: open });
-  const body = { source_text: text, mappings, excluded_rows: excludedRows, include_hidden: hidden, resolutions, expected_active_revision: active.data?.revision ?? 0 };
+  const body = { source_text: text, mappings, excluded_rows: excludedRows, resolutions, expected_active_revision: active.data?.revision ?? 0 };
   const key = JSON.stringify(body); const latest = useRef(key); latest.current = key;
   const current = !!preview && checked === key;
   const check = async () => {
@@ -75,7 +75,6 @@ export function TitleImport() {
           if (file.size > 50 * 1024 * 1024) { setError(t('alpha10.transfer.tooLarge')); return; }
           const loaded = await file.text(); if (token === sequence.current) setText(loaded);
         }} />}</Field>
-        <Field label={t('b15.hidden')}>{p => <input {...p} type="checkbox" checked={hidden} disabled={busy} onChange={event => setHidden(event.target.checked)} />}</Field>
         {catalogs.isError && <Notice tone="bad">{t('alpha10.catalog.loadError')}</Notice>}
         {preview?.contexts.map(context => {
           const mapping = mappings[context.key];

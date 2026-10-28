@@ -50,6 +50,7 @@ class API:
         runtime.configuration_error = bool(setup and setup.configuration_error)
         self.auth_limiter = RateLimiter(runtime.clock)
         self.sockets: set[web.WebSocketResponse] = set()
+        self.title_reader: Callable[[], Awaitable[dict[str, Any]]] | None = None
 
     def application(self, *, ingress: bool = False) -> web.Application:
         @web.middleware
@@ -355,6 +356,39 @@ class API:
             from .registry import validate
 
             result = effective_freshness(validate(await self.object_body(request), runtime.types))
+        elif path == "title-sync/mapping" and method == "GET":
+            from .title_sync import current_mapping
+
+            result = current_mapping(state)
+        elif path == "title-sync/preview" and method == "POST":
+            from .title_sync import public_plan
+
+            body = await self.object_body(request)
+            if set(body) - {"expected_active_revision", "mapping", "expected_mapping_version"}:
+                raise ValueError("title_sync_mapping_invalid")
+            if self.title_reader is None:
+                raise ValueError("title_sync_not_configured")
+            snapshot = await self.title_reader()
+            result = await runtime.submit(
+                "title_sync_preview", {**body, "_snapshot": snapshot, "_actor": request["actor"]}
+            )
+            result = public_plan(result)
+        elif path == "title-sync/diff" and method == "GET":
+            from .title_sync import diff_page
+
+            result = diff_page(
+                runtime, request["actor"], request.query["plan_id"], request.query.get("after", "")
+            )
+        elif path == "title-sync/apply" and method == "POST":
+            body = await self.object_body(request)
+            if set(body) != {"plan_id", "plan_digest", "request_id"}:
+                raise ValueError("title_sync_plan_conflict")
+            result = await runtime.submit("title_sync_apply", {**body, "_actor": request["actor"]})
+        elif path == "title-sync/requests" and method == "GET":
+            result = await runtime.store.get("catalog_request", request.query["request_id"])
+            if result is None:
+                raise web.HTTPNotFound()
+            result = result["result"]
         elif path in {"title-import/preview", "title-import/stage"} and method == "POST":
             from .portable import strict_json
 

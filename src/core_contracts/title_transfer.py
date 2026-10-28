@@ -80,9 +80,8 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
     mappings = request.get("mappings", {})
     if not isinstance(mappings, dict) or len(mappings) > 6400:
         raise ValueError("title_import_mapping")
-    include_hidden = request.get("include_hidden", False)
-    if type(include_hidden) is not bool:
-        raise ValueError("title_import_hidden")
+    # Hidden TC entries are archived decisions and always belong to the transfer.
+    include_hidden = True
     excluded_rows = request.get("excluded_rows", [])
     if not isinstance(excluded_rows, list) or len(excluded_rows) > MAX_ENTRIES:
         raise ValueError("title_import_mapping")
@@ -203,6 +202,8 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                 continue
 
             def entry(item: dict[str, Any], master: dict[str, Any] | None) -> dict[str, Any]:
+                from .title_sync import keys, metadata
+
                 source_row = rows[item["row"] - 1]
                 matching_contexts = [
                     c for c in source_row.get("contexts", []) if context_key(c) == key
@@ -210,14 +211,43 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                 value = matching_contexts[0].get("enum_override") if matching_contexts else None
                 if value is None:
                     value = item["source_class"]
+                primary = keys(source_row, profile)[0]
+                parent_primary = keys(rows[master["row"] - 1], profile)[0] if master else None
+                old = head(state, catalog)["entries"].get(
+                    identity(
+                        mapping["scope"],
+                        source_row["media_type"],
+                        source_row["signal_type"],
+                        primary,
+                    ),
+                    {},
+                )
+                if (
+                    master
+                    and matching_contexts
+                    and matching_contexts[0].get("enum_override") is not None
+                ):
+                    master_row = rows[master["row"] - 1]
+                    master_context = next(
+                        (c for c in master_row.get("contexts", []) if context_key(c) == key), {}
+                    )
+                    master_value = master_context.get("enum_override")
+                    if classification(profile, value) != classification(
+                        profile, master_row["enum"] if master_value is None else master_value
+                    ):
+                        raise ValueError("title_sync_variant_override")
                 return EntryChange(
                     scope=mapping["scope"],
                     media_type=source_row["media_type"],
                     signal_type=source_row["signal_type"],
-                    key=target_key(item, profile),
+                    key=primary,
                     display_name=item["display_name"],
                     classification=None if master else classification(profile, value),
-                    master_key=target_key(master, profile) if master else None,
+                    master_key=parent_primary,
+                    note=old.get("note", ""),
+                    reviewed_at=source_row.get("reviewed_at"),
+                    hidden_at=source_row.get("hidden_at"),
+                    tc_metadata=metadata(source_row),
                 ).model_dump(mode="json")
 
             try:
@@ -276,7 +306,9 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
     for (catalog_id, version, _), (owner, key, primary) in additional.items():
         group = (catalog_id, version)
         existing = current_entries[group]
-        for form in music_forms(key):
+        from .title_sync import keys
+
+        for form in keys(rows[owner - 1], "music"):
             if form == primary["key"]:
                 continue
             ident = identity(primary["scope"], primary["media_type"], primary["signal_type"], form)
@@ -304,6 +336,7 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                 "key": form,
                 "classification": None,
                 "master_key": primary["master_key"] or primary["key"],
+                "tc_metadata": {**primary["tc_metadata"], "is_alias": True},
             }
             put(group, value, owner)
             created_forms += 1
@@ -355,6 +388,12 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
         "package": package,
         "resolutions": request.get("resolutions", {}),
         "_actor": request.get("_actor"),
+    }
+    plan = portable_preview(runtime, state, portable_request)
+    # While TC leads, its overlapping content wins after the explicit file preview.
+    portable_request["resolutions"] = {
+        **portable_request["resolutions"],
+        **{key: "file" for key in plan["conflicts"] if key.startswith("catalog-entry:")},
     }
     plan = portable_preview(runtime, state, portable_request)
     result.update(

@@ -1,5 +1,6 @@
 """Versioned managed definitions; no mutable contents in configuration."""
 
+from datetime import datetime
 from typing import Literal, Self
 
 from pydantic import Field, model_validator
@@ -83,6 +84,43 @@ class ManagedCatalog(Model):
         return self
 
 
+class TitleSightings(Model):
+    first_seen: datetime
+    last_seen: datetime
+    seen_count: int = Field(ge=0, strict=True)
+
+    @model_validator(mode="after")
+    def ordered(self) -> Self:
+        if (
+            self.first_seen.tzinfo is None
+            or self.last_seen.tzinfo is None
+            or self.first_seen > self.last_seen
+        ):
+            raise ValueError("title_sync_source_invalid")
+        return self
+
+
+class TitleContext(Model):
+    context: str = Field(max_length=8192)
+    source_app: str = Field(default="", max_length=8192)
+    enum_override: int | None = Field(default=None, ge=0, le=9, strict=True)
+    telemetry: TitleSightings | None = None
+
+
+class TitleMetadata(Model):
+    is_alias: bool = Field(default=False, exclude_if=lambda value: not value)
+    source_id: str | None = Field(default=None, max_length=128)
+    source_identity: tuple[str, str, str, str]
+    artist: str | None = Field(default=None, max_length=8192)
+    title: str | None = Field(default=None, max_length=8192)
+    album: str | None = Field(default=None, max_length=8192)
+    app_name: str | None = Field(default=None, max_length=8192)
+    source_class: int = Field(ge=0, le=9, strict=True)
+    parent_id: str | None = Field(default=None, max_length=128)
+    telemetry: TitleSightings | None = None
+    contexts: tuple[TitleContext, ...] = Field(default=(), max_length=64)
+
+
 class EntryChange(Model):
     scope: str = Field(min_length=1, max_length=128)
     media_type: str = Field(min_length=1, max_length=128)
@@ -93,6 +131,9 @@ class EntryChange(Model):
     tombstone: bool = False
     display_name: str = Field(default="", max_length=1024)
     note: str = Field(default="", max_length=1024)
+    reviewed_at: datetime | None = Field(default=None, exclude_if=lambda value: value is None)
+    hidden_at: datetime | None = Field(default=None, exclude_if=lambda value: value is None)
+    tc_metadata: TitleMetadata | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class CatalogWrite(Model):

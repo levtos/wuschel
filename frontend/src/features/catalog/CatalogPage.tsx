@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Field, Input, Select, Textarea } from '@/components/ui/form';
 import { Dialog } from '@/components/ui/dialog';
 import { Empty, Notice, PageHeader, Panel, Spinner } from '@/components/ui/layout';
+import { TitleSync } from './TitleSync';
 
 interface Catalog { catalog_id: string; version: number; classification_schema: { values: string[]; legend?: Record<string, { display_name: string; description: string }> } }
 interface Entry { tombstone?: boolean; identity: string; key: string; scope: string; media_type: string; signal_type: string; classification: string | null; master_key: string | null; display_name: string; note: string; effective_classification: string; complete: boolean; first_seen?: string; last_seen?: string; seen_count?: number; semantic_digest: string }
@@ -57,7 +58,7 @@ export default function CatalogPage() {
   };
   const label = (kind: string, value: string) => hasTranslation(`alpha10.catalog.${kind}.${value}`) ? t(`alpha10.catalog.${kind}.${value}`) : value;
   return <>
-    <PageHeader title={t('alpha10.catalog.title')} description={t('alpha10.catalog.description')} actions={<Button variant="primary" disabled={!catalog} disabledReason={t('alpha10.catalog.defineFirst')} onClick={() => { setView('unassigned'); setAfter(''); }}>{t('alpha10.catalog.assign')}</Button>} />
+    <PageHeader title={t('alpha10.catalog.title')} description={t('b17.catalogDescription')} actions={<TitleSync catalogs={catalogs.data ?? []} />} />
     {catalogs.isPending ? <Spinner /> : catalogs.isError ? <Notice tone="bad">{t('alpha10.catalog.loadError')}</Notice> : !catalog ? <Empty title={t('alpha10.catalog.noCatalog')}>{t('alpha10.catalog.defineFirst')}</Empty> : <Panel className="space-y-4 p-5">
       <div className="grid gap-4 md:grid-cols-3">
         <Field label={t('alpha10.catalog.catalog')}>{p => <Select {...p} value={catalog.catalog_id} onChange={e => { setChosen(e.target.value); setAfter(''); }}>{catalogs.data?.map(c => <option key={c.catalog_id} value={c.catalog_id}>{c.catalog_id}</option>)}</Select>}</Field>

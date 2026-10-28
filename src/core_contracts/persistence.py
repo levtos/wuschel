@@ -58,6 +58,7 @@ TABLES = (
     "catalog_sighting",
     "catalog_request",
     "catalog_import",
+    "title_sync_mapping",
 )
 IMMUTABLE = {
     "registry_draft_version",

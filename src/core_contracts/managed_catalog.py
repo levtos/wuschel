@@ -184,6 +184,9 @@ def prepare(
     for change in request.changes:
         row = change.model_dump(mode="json")
         key = identity(change.scope, change.media_type, change.signal_type, change.key)
+        for optional in ("reviewed_at", "hidden_at", "tc_metadata"):
+            if optional not in change.model_fields_set and optional in entries.get(key, {}):
+                row[optional] = entries[key][optional]
         if not normalize_key(change.key):
             raise ValueError("catalog_key_empty")
         if key in direct:
