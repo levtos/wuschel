@@ -25,6 +25,26 @@ function pages(fake: ReturnType<typeof installFakeApi>, page = { ...preview, ite
   fake.routes.push({ match: /^title-sync\/cancel$/, respond: () => reply(200, { cancelled: true }) });
 }
 
+it('decodes missing-name runtime keys in the sync table and master while keeping separate TC fields authoritative', async () => {
+  const fake = installFakeApi({ revisions: [{ revision: 4, config: emptyRegistry(), checksum: 'synthetic', created_at: preview.at }] });
+  const local = { ...item, master: '["Synthetic Ensemble","Synthetic Original"]', after: { key: '["Synthetic Ensemble","Synthetic Beacon"]', display_name: '' } };
+  const solo = { ...item, after: { key: '["Synthetic Solo"]', display_name: '' } };
+  const tc = { ...item, after: { ...item.after, key: '["Synthetic Other","Separate Meadow"]', display_name: '' } };
+  fake.routes.push({ match: /^title-sync\/preview$/, respond: () => reply(200, preview) });
+  fake.routes.push({ match: /^title-sync\/page/, respond: () => reply(200, { ...preview, items: [local, solo, tc] }) });
+  wrap(<TitleSync catalogs={[{ catalog_id: 'synthetic.music', version: 1 }]} />);
+  const user = userEvent.setup(); const start = screen.getByRole('button', { name: 'Mit Title Classifier abgleichen' });
+  await waitFor(() => expect(start).toBeEnabled()); await user.click(start);
+  const table = await screen.findByRole('table');
+  const data = within(table).getAllByRole('row').slice(1).map(row => within(row).getAllByRole('cell').map(cell => cell.textContent));
+  expect(data[0]?.slice(1, 3)).toEqual(['Synthetic Ensemble', 'Synthetic Beacon']);
+  expect(data[0]?.[4]).toBe('Synthetic Ensemble – Synthetic Original');
+  expect(data[1]?.slice(1, 3)).toEqual(['–', 'Synthetic Solo']);
+  expect(data[2]?.slice(1, 3)).toEqual(['Synthetic Artist', 'Synthetic Track']);
+  expect(table.textContent).not.toContain('["');
+  expect(fake.calls.some(call => call.path === 'title-sync/apply')).toBe(false);
+});
+
 it('reconciles again without reentering a saved mapping and applies only the approved plan', async () => {
   const fake = installFakeApi({ revisions: [{ revision: 4, config: emptyRegistry(), checksum: 'synthetic', created_at: preview.at }] });
   fake.routes.push({ match: /^title-sync\/preview$/, respond: () => reply(200, preview) });

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0b19 — Variantenvorschläge für Wuschel-Sichtungen
+
+- Laufzeitschlüssel als JSON-Liste werden vor den bestehenden TC-Variantenregeln in Interpret und Titel zerlegt. Sichtungen ohne TC-Metadaten gruppieren damit nach Titel statt nach dem Interpretenpräfix. Getrennte TC-Felder bleiben führend; Vorschläge erfordern weiterhin deine Bestätigung.
+- Katalogpflege, Variantenmodus, Detail und Abgleich zeigen lesbare Titel statt roher Listenschlüssel, einschließlich Masterbezügen und Auswahlfeldern. Gespeicherte Schlüssel, Identitäten und API-Werte bleiben unverändert.
+- Original-, Remix- und Edit-Versionen sowie gemischte TC-/Wuschel-Bestände sind synthetisch geprüft. Die bestehenden TC-Regeln für Klammerzusätze und Wortpräfixe bleiben erhalten; andere Fassungen kannst du manuell gruppieren.
+- GitHub-Beta als Pre-Release gemäß Bennis ausdrücklicher Freigabe; ausschließlich amd64. Keine neue Datenbankmigration; Traber bleibt auf 1.0.0b11. Installation, Import und Live-Abnahme erfolgen separat durch Benni.
+- [Auftrag #80](https://github.com/levtos/wuschel/issues/80), [Umsetzung und Claude-Review #87](https://github.com/levtos/wuschel/pull/87).
+
 ## 1.0.0b18 — TC-Abgleich mit reaktionsfähiger Vorschau und Seitenübernahme
 
 - Der Titelabgleich bereitet Snapshot, Plan und Übernahme außerhalb der Ereignisschleife vor. Wiederholte Konfigurations- und Katalogauflösungen entfallen; andere Anfragen bleiben während der Verarbeitung bedienbar.

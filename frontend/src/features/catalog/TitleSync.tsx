@@ -9,6 +9,7 @@ import { useActiveRevision } from '@/lib/queries';
 import { Button } from '@/components/ui/button';
 import { Field, Input, Select } from '@/components/ui/form';
 import { Notice } from '@/components/ui/layout';
+import { titleKeyParts, titleLabel } from './titleLabel';
 
 interface Target { catalog_id: string; definition_version: number; scope: string; profile: string }
 interface Mapping { mappings: Record<string, Target>; standalone: string[] }
@@ -21,7 +22,7 @@ interface Preview {
 }
 interface Row { catalog_id: string; old_class: string; new_class: string; master?: string; change: string;
   after: { key: string; display_name: string; reviewed_at?: string; hidden_at?: string;
-    tc_metadata: { artist?: string; title?: string; telemetry?: { seen_count: number; first_seen?: string; last_seen?: string } } } }
+    tc_metadata?: { artist?: string; title?: string; telemetry?: { seen_count: number; first_seen?: string; last_seen?: string } } } }
 interface Page extends Preview { items: Row[] }
 export interface SyncCatalog { catalog_id: string; version: number }
 const date = (value?: string) => value ? new Date(value).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : t('b18.empty');
@@ -109,7 +110,7 @@ export function TitleSync({ catalogs }: { catalogs: SyncCatalog[] }) {
         <Button disabled={locked || !dirty} onClick={() => void read(true)}>{t('b17.checkMapping')}</Button>
       </details>
       {!!preview.error_groups.length && <section aria-label={t('b18.findings')}>{preview.error_groups.map((group, index) => <details key={index} onToggle={event => { const shown = event.currentTarget.open; setExpanded(previous => ({ ...previous, [index]: shown })); }}><summary>{contextName(group.context)} · {codeLabel(group.reason)} · {t('b18.findingCount', { n: group.count })}</summary>
-        {expanded[index] && <ul>{group.details.map((finding, i) => <li key={i}>{finding.key || t('b18.sourceRow', { n: finding.row })}
+        {expanded[index] && <ul>{group.details.map((finding, i) => <li key={i}>{finding.key ? titleLabel({ key: finding.key }) : t('b18.sourceRow', { n: finding.row })}
           {finding.standalone_key && group.reason === 'title_sync_variant_override' && <Button disabled={locked} onClick={() => { if (mapping) { setMapping({ ...mapping, standalone: [...mapping.standalone, finding.standalone_key!] }); setDirty(true); } }}>{t('b17.standalone')}</Button>}</li>)}</ul>}
       </details>)}</section>}
       <Notice tone="warn">{t('b18.tcWins')}</Notice>
@@ -119,10 +120,10 @@ export function TitleSync({ catalogs }: { catalogs: SyncCatalog[] }) {
       </div><p>{t('b18.filterHint')}</p>
       <div className="overflow-x-auto"><table className="w-full table-fixed text-left text-sm" style={{ minWidth: '100rem' }}>
         <thead><tr>{['device', 'artist', 'title', 'class', 'master', 'status', 'sightings', 'first', 'last', 'change'].map(key => <th key={key} scope="col" className="p-2">{t(`b18.column.${key}`)}</th>)}</tr></thead>
-        <tbody>{filtered.map((item, index) => { const row = item.after; const meta = row.tc_metadata; return <tr key={index} className="border-t border-line align-top">
-          <td className="break-words p-2">{item.catalog_id}</td><td className="break-words p-2">{meta.artist || t('b18.empty')}</td><td className="break-words p-2">{meta.title || row.display_name || t('b18.empty')}</td>
-          <td className="p-2">{item.old_class || t('b18.empty')} → {item.new_class || t('b18.empty')}</td><td className="break-words p-2">{item.master || t('b18.empty')}</td><td className="p-2">{row.hidden_at ? t('b17.status.hidden') : row.reviewed_at ? t('b17.status.reviewed') : t('b18.empty')}</td>
-          <td className="p-2">{meta.telemetry ? t('b18.sightings', { n: meta.telemetry.seen_count }) : t('b18.empty')}</td><td className="p-2">{date(meta.telemetry?.first_seen)}</td><td className="p-2">{date(meta.telemetry?.last_seen)}</td><td className="p-2">{t(`b17.diff.${item.change}`)}</td>
+        <tbody>{filtered.map((item, index) => { const row = item.after; const meta = row.tc_metadata; const parts = titleKeyParts(row.key); return <tr key={index} className="border-t border-line align-top">
+          <td className="break-words p-2">{item.catalog_id}</td><td className="break-words p-2">{meta?.artist || parts?.artist || t('b18.empty')}</td><td className="break-words p-2">{meta?.title || row.display_name || parts?.title || titleLabel(row) || t('b18.empty')}</td>
+          <td className="p-2">{item.old_class || t('b18.empty')} → {item.new_class || t('b18.empty')}</td><td className="break-words p-2">{item.master ? titleLabel({ key: item.master }) : t('b18.empty')}</td><td className="p-2">{row.hidden_at ? t('b17.status.hidden') : row.reviewed_at ? t('b17.status.reviewed') : t('b18.empty')}</td>
+          <td className="p-2">{meta?.telemetry ? t('b18.sightings', { n: meta?.telemetry.seen_count }) : t('b18.empty')}</td><td className="p-2">{date(meta?.telemetry?.first_seen)}</td><td className="p-2">{date(meta?.telemetry?.last_seen)}</td><td className="p-2">{t(`b17.diff.${item.change}`)}</td>
         </tr>; })}</tbody>
       </table></div>{!filtered.length && !complete && <p>{t('b18.noRows')}</p>}
     </>}

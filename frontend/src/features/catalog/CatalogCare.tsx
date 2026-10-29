@@ -8,6 +8,7 @@ import { Field, Select } from '@/components/ui/form';
 import { Dialog } from '@/components/ui/dialog';
 import { Notice, Spinner } from '@/components/ui/layout';
 import type { Catalog, Entry } from './CatalogPage';
+import { titleLabel } from './titleLabel';
 
 export function MasterVariants({ catalog, entry, onOpen }: { catalog: Catalog; entry: Entry; onOpen: (row: Entry) => void }) {
   const [open, setOpen] = useState(false); const [after, setAfter] = useState('');
@@ -16,7 +17,7 @@ export function MasterVariants({ catalog, entry, onOpen }: { catalog: Catalog; e
   return <details onToggle={event => setOpen(event.currentTarget.open)}>
     <summary>{t('b17.variants')} · {entry.variant_count}</summary>
     {open && (variants.isPending ? <Spinner /> : variants.isError ? <Notice tone="bad">{describeError(variants.error)}</Notice> : <>
-      <ul>{variants.data.variants.map(row => <li key={row.identity}><Button onClick={() => onOpen(row)}>{row.display_name || row.key}</Button></li>)}</ul>
+      <ul>{variants.data.variants.map(row => <li key={row.identity}><Button onClick={() => onOpen(row)}>{titleLabel(row)}</Button></li>)}</ul>
       <Button disabled={!variants.data.next_cursor} onClick={() => setAfter(variants.data.next_cursor ?? '')}>{t('alpha10.catalog.next')}</Button>
     </>)}
   </details>;
@@ -99,13 +100,13 @@ export function CatalogCare({ catalog, rows, selected, setSelected, revision, ac
         <p>{t('b17.careDescription')}</p><Notice tone="warn">{t('b17.tcWins')}</Notice>
         {work && <p>{t('b17.groupsRemaining', { n: work.groups.length })}</p>}
         {body && <p>{t(`b17.action.${body.action}`)}</p>}
-        <ul>{members.map(row => <li key={row.identity}>{row.display_name || row.key}</li>)}</ul>
-        {body?.action === 'group' && <Field label={t('alpha10.catalog.master')}>{p => <Select {...p} disabled={busy} value={body.master ?? ''} onChange={event => edit({ master: event.target.value, classification: members.find(row => row.identity === event.target.value)?.classification ?? catalog.classification_schema.values[0] ?? '' })}>{members.filter(row => !row.master_key).map(row => <option key={row.identity} value={row.identity}>{row.display_name || row.key}</option>)}</Select>}</Field>}
+        <ul>{members.map(row => <li key={row.identity}>{titleLabel(row)}</li>)}</ul>
+        {body?.action === 'group' && <Field label={t('alpha10.catalog.master')}>{p => <Select {...p} disabled={busy} value={body.master ?? ''} onChange={event => edit({ master: event.target.value, classification: members.find(row => row.identity === event.target.value)?.classification ?? catalog.classification_schema.values[0] ?? '' })}>{members.filter(row => !row.master_key).map(row => <option key={row.identity} value={row.identity}>{titleLabel(row)}</option>)}</Select>}</Field>}
         {body && ['classify', 'group', 'ungroup'].includes(body.action) && <Field label={t('alpha10.catalog.class')}>{p => <Select {...p} disabled={busy} value={body.classification ?? ''} onChange={event => edit({ classification: event.target.value })}>{catalog.classification_schema.values.map(value => <option key={value} value={value}>{classLabel(value)}</option>)}</Select>}</Field>}
         {busy && <Spinner />}{error && <Notice tone="bad">{error}</Notice>}
         {impact && impact.body === JSON.stringify(body) && <>
           <p>{t('alpha10.catalog.impact', { keys: impact.value.affected_keys, contracts: impact.value.affected_contracts })}</p>
-          <ul>{impact.value.changes.map((row, index) => <li key={index}>{row.display_name || row.key} · {row.classification ? classLabel(row.classification) : row.master_key}</li>)}</ul>
+          <ul>{impact.value.changes.map((row, index) => <li key={index}>{titleLabel(row)} · {row.classification ? classLabel(row.classification) : row.master_key ? titleLabel({ key: row.master_key }) : ''}</li>)}</ul>
           <ul>{impact.value.context_effects.map((effect, index) => <li key={index}>{effect.contract_id} · {effect.storage} · {effect.slot}</li>)}</ul>
         </>}
       </div>
@@ -122,16 +123,16 @@ export function CatalogDetail({ catalog, entry, onClose, onOpen }: { catalog: Ca
   return <Dialog open={!!entry} onOpenChange={shown => { if (!shown) { setAfter(''); onClose(); } }} title={t('b17.details')}>
     <p>{t('b17.detailDescription')}</p>
     {data.isPending ? <Spinner /> : data.isError ? <Notice tone="bad">{describeError(data.error)}</Notice> : value && <div className="space-y-4">
-      <h3>{value.display_name || value.key}</h3>
+      <h3>{titleLabel(value)}</h3>
       <p>{t('b17.effectiveClass')}: {catalog.classification_schema.legend?.[value.effective_classification]?.display_name ?? value.effective_classification}</p>
-      {data.data.master && <Button onClick={() => open(data.data!.master!)}>{t('alpha10.catalog.master')}: {data.data.master.display_name || data.data.master.key}</Button>}
+      {data.data.master && <Button onClick={() => open(data.data!.master!)}>{t('alpha10.catalog.master')}: {titleLabel(data.data.master)}</Button>}
       <p>{t(`b17.status.${value.review_status ?? 'open'}`)}</p>
       {meta && <dl><dt>{t('b17.artist')}</dt><dd>{meta.artist ?? '—'}</dd><dt>{t('b17.title')}</dt><dd>{meta.title ?? '—'}</dd><dt>{t('b17.sourceClass')}</dt><dd>{meta.source_class}</dd></dl>}
       <p>{t('b17.totalSightings', { n: value.seen_count ?? 0, first: value.first_seen ?? '—', last: value.last_seen ?? '—' })}</p>
       <h3>{t('b17.contexts')}</h3>
       <ul>{data.data.contexts?.map((ctx, index) => <li key={index}><p>{ctx.context} · {ctx.source_app} · {ctx.catalog_id ?? t('alpha10.catalog.unassigned')} · {t('b17.override')}: {ctx.enum_override ?? '—'}</p><p>{t('b17.effectiveClass')}: {ctx.effective_classification ?? t('alpha10.catalog.unassigned')}</p><p>{t('b17.totalSightings', { n: ctx.telemetry?.seen_count ?? 0, first: ctx.telemetry?.first_seen ?? '—', last: ctx.telemetry?.last_seen ?? '—' })}</p></li>)}</ul>
       {value.local_sightings && <p>{t('b17.localSightings', { n: value.local_sightings.seen_count })}</p>}
-      <h3>{t('b17.variants')}</h3><ul>{data.data.variants.map(row => <li key={row.identity}><Button onClick={() => open(row)}>{row.display_name || row.key}</Button></li>)}</ul>
+      <h3>{t('b17.variants')}</h3><ul>{data.data.variants.map(row => <li key={row.identity}><Button onClick={() => open(row)}>{titleLabel(row)}</Button></li>)}</ul>
       <Button disabled={!data.data.next_cursor} onClick={() => setAfter(data.data?.next_cursor ?? '')}>{t('alpha10.catalog.next')}</Button>
     </div>}
   </Dialog>;

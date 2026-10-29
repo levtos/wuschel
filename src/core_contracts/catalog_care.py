@@ -53,6 +53,17 @@ def candidate_key(row: dict[str, Any]) -> str:
     metadata = row.get("tc_metadata") or {}
     text = row.get("display_name") or row["key"]
     parts = text.split(" - ", 1)
+    # Runtime compound keys carry artist/title separately, just like TC metadata.
+    try:
+        decoded = json.loads(row["key"]) if row["key"].startswith("[") else None
+    except ValueError, RecursionError:
+        decoded = None
+    if (
+        isinstance(decoded, list)
+        and len(decoded) in {1, 2}
+        and all(isinstance(value, str) for value in decoded)
+    ):
+        parts = decoded if len(decoded) == 2 else ["", decoded[0]]
     artist = (
         metadata.get("artist")
         if metadata.get("artist") is not None
