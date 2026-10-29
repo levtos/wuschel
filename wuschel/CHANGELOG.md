@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0b18 — TC-Abgleich mit reaktionsfähiger Vorschau und Seitenübernahme
+
+- Der Titelabgleich bereitet Snapshot, Plan und Übernahme außerhalb der Ereignisschleife vor. Wiederholte Konfigurations- und Katalogauflösungen entfallen; andere Anfragen bleiben während der Verarbeitung bedienbar.
+- Ein Durchlauf liest den TC einmal und hält seinen Snapshot unter eigener Kennung. Seiten enthalten höchstens 350 Quelltitel; Master und Varianten bleiben zusammen. Jede bestätigte Seite wird atomar übernommen, die Kontextabbildung mit der ersten erfolgreichen Seite gespeichert. Abbruch erhält bereits übernommene Seiten; ein neuer Durchlauf zeigt die übrigen Abweichungen.
+- Breite Vorschau mit festen Spalten, deutschen Datums- und Sichtungsangaben, Geräte-/Änderungsfiltern und zusammengefassten Kontextfehlern. Lade- und Fehleranzeigen stehen direkt bei den Aktionen. Zwei Tabs überschreiben ihre Durchläufe nicht mehr.
+- Die Katalogpflege funktioniert auch über HTTP durch den UUID-Ersatz. TC-Vorrang, ersetzte Sichtungszahlen, ausgeblendete Titel und Dateiimport bleiben erhalten.
+- Nur amd64. Keine neue Datenbankmigration; Traber bleibt auf 1.0.0b11. Installation, Import und Live-Abnahme erfolgen separat durch Benni. Die Zeit- und Parallelitätsnachweise sind synthetisch; der echte TC wurde für diese Korrektur nicht gelesen.
+- [Auftrag #80](https://github.com/levtos/wuschel/issues/80), [Umsetzung und Claude-Review #85](https://github.com/levtos/wuschel/pull/85).
+
 ## 1.0.0b17 — Titelabgleich, Katalogpflege und Import-Korrekturen
 
 - Manueller Abgleich mit dem Title Classifier: rein lesende Vorschau, dauerhaft gespeicherte Kontextabbildung und atomare bestätigte Übernahme. Der TC bleibt führend; ausgeblendete Titel sind immer enthalten, Sichtungszahlen werden ersetzt und unveränderte Zweitläufe erzeugen keine Inhaltsrevision.
