@@ -135,6 +135,7 @@ class API:
                         "title_sync_plan_conflict",
                         "title_sync_mapping_conflict",
                         "title_sync_mapping_invalid",
+                        "title_sync_run_limit",
                         "title_export_limit",
                         "catalog_page_invalid",
                         "active_revision_conflict",
@@ -374,15 +375,32 @@ class API:
             from .title_sync import public_plan
 
             body = await self.object_body(request)
-            if set(body) - {"expected_active_revision", "mapping", "expected_mapping_version"}:
+            if set(body) - {
+                "expected_active_revision",
+                "mapping",
+                "expected_mapping_version",
+                "plan_id",
+                "run_id",
+            }:
                 raise ValueError("title_sync_mapping_invalid")
             if self.title_reader is None:
                 raise ValueError("title_sync_not_configured")
-            snapshot = await self.title_reader()
             result = await runtime.submit(
-                "title_sync_preview", {**body, "_snapshot": snapshot, "_actor": request["actor"]}
+                "title_sync_preview",
+                {**body, "_reader": self.title_reader, "_actor": request["actor"]},
             )
             result = public_plan(result)
+        elif path == "title-sync/page" and method == "GET":
+            from .title_sync_runs import page_view
+
+            result = page_view(runtime, request["actor"], request.query["plan_id"])
+        elif path == "title-sync/cancel" and method == "POST":
+            from .title_sync_runs import cancel
+
+            body = await self.object_body(request)
+            if set(body) != {"plan_id"}:
+                raise ValueError("title_sync_plan_conflict")
+            result = cancel(runtime, request["actor"], body["plan_id"])
         elif path == "title-sync/diff" and method == "GET":
             from .title_sync import diff_page
 

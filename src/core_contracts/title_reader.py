@@ -83,6 +83,28 @@ def connection_settings(base: Connection | None, credentials: Credentials) -> di
     )
 
 
+def snapshot(
+    entries: list[dict[str, Any]], contexts: dict[str, list[dict[str, Any]]]
+) -> dict[str, Any]:
+    by_id = {row["id"]: row for row in entries}
+    if contexts.keys() - by_id.keys():
+        raise ValueError("title_sync_source_invalid")
+    for row in entries:
+        parent = by_id.get(row["parent_id"])
+        if row["parent_id"] and parent is None:
+            raise ValueError("title_sync_source_invalid")
+        row["parent_key"] = parent["normalized_key"] if parent else None
+        row["telemetry"] = {k: row.pop(k) for k in ("first_seen", "last_seen", "seen_count")}
+        row["contexts"] = [
+            {**ctx, "telemetry": {k: ctx[k] for k in ("first_seen", "last_seen", "seen_count")}}
+            for ctx in contexts.get(row["id"], [])
+        ]
+        for ctx in row["contexts"]:
+            for key in ("first_seen", "last_seen", "seen_count"):
+                del ctx[key]
+    return {"version": 3, "entries": entries}
+
+
 async def read(base: Connection | None, credentials: Credentials) -> dict[str, Any]:
     """One snapshot, closed before preview. Never retry or write to TC."""
     connection = None
@@ -111,30 +133,7 @@ async def read(base: Connection | None, credentials: Credentials) -> dict[str, A
                             contexts[source].append(row)
                             if len(contexts[source]) > 64:
                                 raise ValueError("title_export_limit")
-                by_id = {row["id"]: row for row in entries}
-                if contexts.keys() - by_id.keys():
-                    raise ValueError("title_sync_source_invalid")
-                for row in entries:
-                    parent = by_id.get(row["parent_id"])
-                    if row["parent_id"] and parent is None:
-                        raise ValueError("title_sync_source_invalid")
-                    row["parent_key"] = parent["normalized_key"] if parent else None
-                    row["telemetry"] = {
-                        k: row.pop(k) for k in ("first_seen", "last_seen", "seen_count")
-                    }
-                    row["contexts"] = [
-                        {
-                            **ctx,
-                            "telemetry": {
-                                k: ctx[k] for k in ("first_seen", "last_seen", "seen_count")
-                            },
-                        }
-                        for ctx in contexts.get(row["id"], [])
-                    ]
-                    for ctx in row["contexts"]:
-                        for key in ("first_seen", "last_seen", "seen_count"):
-                            del ctx[key]
-                return {"version": 3, "entries": entries}
+                return await asyncio.to_thread(snapshot, entries, contexts)
     except ValueError as error:
         if str(error) in {
             "title_sync_not_configured",

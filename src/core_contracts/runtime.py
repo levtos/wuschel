@@ -677,6 +677,12 @@ class Runtime:
     async def submit(self, operation: str, payload: Any = None) -> Any:
         if self.stopping:
             raise RuntimeError("going_away")
+        if operation == "title_sync_preview":
+            from .title_sync_runs import preview
+
+            if not self.persistence:
+                raise RuntimeError("persistence_unavailable")
+            return await preview(self, payload)
         future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
         await self.queue.put(Work(operation, payload, future))
         return await asyncio.shield(future)
@@ -949,13 +955,13 @@ class Runtime:
             self.last_clock = now
             if not clock_went_back and (self.next_evaluation is None or now < self.next_evaluation):
                 return None
+        if operation in {"title_sync_preview", "title_sync_apply"}:
+            from .title_sync_runs import process as sync_process
+
+            return await sync_process(self, self.state, operation, payload, self.clock.now_utc())
         state = self.state.clone()
         now = self.clock.now_utc()
         config = self._config(state)
-        if operation in {"title_sync_preview", "title_sync_apply"}:
-            from .title_sync import process as sync_process
-
-            return await sync_process(self, state, operation, payload, now)
         if operation in {"title_preview", "title_stage"}:
             from .title_transfer import process as title_process
 
@@ -2582,6 +2588,11 @@ class Runtime:
         if self.stopping:
             return
         self.stopping = True
+        for run in self.title_sync_plans.values():
+            run["_cancelled"] = True
+            if reading := run.get("_reading"):
+                reading.cancel()
+        self.title_sync_plans.clear()
         await self.queue.join()
         self._broadcast({"type": "going_away"})
         if self.persistence and self.state.epoch_id in self.state.tables["runtime_epoch"]:
