@@ -1,4 +1,7 @@
 configuration:
+  title_classifier:
+    name: "Title Classifier read-only access"
+    description: "Enter only database, user and password for the dedicated reader role. Host, port and verified TLS/CA settings come from the Wuschel database connection. Leave empty until the reader role exists."
   postgres_host:
     name: "Database host"
     description: "Certified PostgreSQL hostname; must match the certificate."

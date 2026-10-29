@@ -23,7 +23,7 @@ const routes = [
   ['/templates/details/missing/1', 'alpha9.pages.template'],
   ...['devices', 'bindings', 'catalogs', 'dependencies'].map(section => [`/sources/${section}`, `alpha9.pages.${section === 'devices' ? 'sources' : section}`]),
   ['/changes/drafts', 'alpha9.pages.drafts'], ['/changes/drafts/d1', 'alpha9.pages.draft'], ['/changes/drafts/missing', 'alpha9.pages.draft'],
-  ['/changes/versions', 'alpha9.pages.versions'], ['/changes/transfer', 'alpha10.transfer.description'], ['/import-export', 'alpha10.transfer.description'], ['/catalog-care', 'alpha10.catalog.description'],
+  ['/changes/versions', 'alpha9.pages.versions'], ['/changes/transfer', 'alpha10.transfer.description'], ['/import-export', 'alpha10.transfer.description'], ['/catalog-care', 'b17.catalogDescription'],
   ['/settings/system', 'alpha9.system.description'],
   ...['installation', 'connections', 'keys', 'log', 'diagnostics'].map(section => [`/settings/${section}`, `alpha9.pages.${section}`]),
   ['/settings/notifications', 'alpha9.notifications.description'], ['/settings/retention', 'alpha9.retention.description'],

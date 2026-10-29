@@ -1,4 +1,7 @@
 configuration:
+  title_classifier:
+    name: "Title Classifier: Nur-Lese-Zugang"
+    description: "Trage nur database (Datenbankname), user (Leserolle) und password (Passwort) selbst ein. Host, Port und die geprüfte TLS-/CA-Konfiguration stammen von der Wuschel-Datenbankverbindung. Leer lassen, solange die Leserolle nicht eingerichtet ist."
   postgres_host:
     name: "Datenbank-Host"
     description: "Zertifizierter Hostname deiner PostgreSQL-Datenbank. Er muss zum Zertifikat passen."

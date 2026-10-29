@@ -1,0 +1,210 @@
+[
+  {
+    "type_id": "media.tv_usage",
+    "type_version": 2,
+    "language_version": 6,
+    "display_name": "media.tv_usage",
+    "inputs": [
+      {
+        "name": "applicable",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "source",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "tv",
+            "streaming",
+            "gaming",
+            "other"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "applicable"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "not_applicable",
+                "arg": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              "entries": {
+                "false": "tv"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "tv",
+                  "streaming",
+                  "gaming",
+                  "other"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "input",
+              "name": "applicable"
+            },
+            "then": {
+              "op": "configuration_hint",
+              "arg": {
+                "op": "managed_catalog_lookup",
+                "catalog_id": "media.tv_activity",
+                "definition_version": 1,
+                "scope": {
+                  "op": "literal",
+                  "value": "tv",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "media_type": {
+                  "op": "literal",
+                  "value": "source",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "signal_type": {
+                  "op": "literal",
+                  "value": "title",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "key": {
+                  "op": "input",
+                  "name": "source"
+                },
+                "schema": {
+                  "type": "enum",
+                  "required": true,
+                  "physical_state": false,
+                  "value_catalog": [
+                    "tv",
+                    "streaming",
+                    "gaming",
+                    "other"
+                  ]
+                }
+              },
+              "when": {
+                "op": "compare",
+                "left": {
+                  "op": "managed_catalog_lookup",
+                  "catalog_id": "media.tv_activity",
+                  "definition_version": 1,
+                  "scope": {
+                    "op": "literal",
+                    "value": "tv",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  },
+                  "media_type": {
+                    "op": "literal",
+                    "value": "source",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  },
+                  "signal_type": {
+                    "op": "literal",
+                    "value": "title",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  },
+                  "key": {
+                    "op": "input",
+                    "name": "source"
+                  },
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": false,
+                    "value_catalog": [
+                      "tv",
+                      "streaming",
+                      "gaming",
+                      "other"
+                    ]
+                  }
+                },
+                "right": {
+                  "op": "literal",
+                  "value": "other",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "comparison": "eq"
+              },
+              "code": "activity_mapping_missing",
+              "message": "Für diese TV-Quelle fehlt die Nutzungsart."
+            }
+          }
+        ]
+      }
+    }
+  }
+]

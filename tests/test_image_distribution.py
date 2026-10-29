@@ -42,7 +42,7 @@ def image_info(meta):
 @pytest.mark.parametrize("arch,docker_arch", [("amd64", "amd64")])
 def test_supervisor_reference_and_platform(arch, docker_arch):
     meta = package.metadata(arch, REVISION)
-    assert meta["image"] == f"ghcr.io/levtos/{arch}-wuschel:1.0.0b16"
+    assert meta["image"] == f"ghcr.io/levtos/{arch}-wuschel:1.0.0b17"
     assert meta["docker_arch"] == docker_arch
 
 

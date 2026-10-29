@@ -54,9 +54,11 @@ def test_all_app_secrets_use_password_schema():
     assert app["options"]["postgres_password"] == app["options"]["mqtt_password"] == ""
 
 
-def test_all_nineteen_options_have_names_and_descriptions_in_both_languages():
+def test_all_twenty_options_have_names_and_descriptions_in_both_languages():
     app = yaml.safe_load((ROOT / "wuschel/config.yaml").read_text(encoding="utf-8"))
-    assert len(app["options"]) == 19
+    assert len(app["options"]) == 20
+    assert set(app["options"]["title_classifier"]) == {"database", "user", "password"}
+    assert app["schema"]["title_classifier"]["password"] == "password"
     for language in ("de", "en"):
         text = yaml.safe_load(
             (ROOT / f"wuschel/translations/{language}.yaml").read_text(encoding="utf-8")

@@ -107,7 +107,7 @@ async def test_provision_resume_conflict_import_migrate_and_upgrade(
         )
         await store.open()
         await store.put_metadata("installation_id", identity)
-        assert await store.writer.fetchval("SELECT count(*) FROM cc_schema_migrations") == 8
+        assert await store.writer.fetchval("SELECT count(*) FROM cc_schema_migrations") == 9
         await store.close()
         write_private(setup.data / "installation.json", json.dumps({"installation_id": identity}))
         setup.initialized()

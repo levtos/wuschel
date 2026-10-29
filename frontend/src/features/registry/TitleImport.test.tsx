@@ -38,11 +38,11 @@ it('invalidates checked choices, confirms hidden/excluded contexts and only crea
   expect(stage).toBeDisabled(); await user.click(check);
   await dialog.findByText('synthetic-app'); expect(stage).toBeDisabled();
   await user.selectOptions(dialog.getByLabelText('Gerätekatalog'), 'exclude');
-  await user.click(dialog.getByLabelText('Ausgeblendete Titel mitnehmen'));
+  expect(dialog.queryByLabelText('Ausgeblendete Titel mitnehmen')).not.toBeInTheDocument();
   expect(stage).toBeDisabled(); await user.click(check);
   await waitFor(() => expect(stage).toBeEnabled()); await user.click(stage);
   await waitFor(() => expect(window.location.hash).toBe('#/changes/drafts/titles'));
-  expect(fake.calls.find(call => call.path === 'title-import/stage')?.body).toMatchObject({ source_text: text, mappings: { [context.key]: 'exclude' }, include_hidden: true, plan_digest: 'checked' });
+  expect(fake.calls.find(call => call.path === 'title-import/stage')?.body).toMatchObject({ source_text: text, mappings: { [context.key]: 'exclude' }, plan_digest: 'checked' });
   expect(fake.activations).toHaveLength(0);
 });
 

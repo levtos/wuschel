@@ -645,6 +645,20 @@ def catalogs():
     ]
 
 
+def tv_usage_v2():
+    """Explicit new version: a TV-off guard preserves positive non-applicability."""
+    import copy
+
+    result = copy.deepcopy(next(item for item in build() if item["type_id"] == "media.tv_usage"))
+    result["type_version"] = 2
+    result["inputs"].insert(0, dict(name="applicable", schema=schema()))
+    result["outputs"]["value"] = select(
+        (negate(inp("applicable")), not_applicable("enum", ["tv", "streaming", "gaming", "other"])),
+        (inp("applicable"), result["outputs"]["value"]),
+    )
+    return result
+
+
 if __name__ == "__main__":
     root = Path(__file__).parents[1]
     definitions = build()
@@ -653,6 +667,7 @@ if __name__ == "__main__":
     for name, data in [
         ("media-templates-v1.json", definitions),
         ("media-catalogs-v1.json", catalogs()),
+        ("media-templates-v2.json", [tv_usage_v2()]),
     ]:
         (root / "examples" / name).write_text(
             json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

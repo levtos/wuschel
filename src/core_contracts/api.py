@@ -50,6 +50,7 @@ class API:
         runtime.configuration_error = bool(setup and setup.configuration_error)
         self.auth_limiter = RateLimiter(runtime.clock)
         self.sockets: set[web.WebSocketResponse] = set()
+        self.title_reader: Callable[[], Awaitable[dict[str, Any]]] | None = None
 
     def application(self, *, ingress: bool = False) -> web.Application:
         @web.middleware
@@ -126,6 +127,16 @@ class API:
                     if type(error) is ValueError
                     and str(error)
                     in {
+                        "title_sync_not_configured",
+                        "title_sync_tls_required",
+                        "title_sync_reader_required",
+                        "title_sync_read_failed",
+                        "title_sync_source_invalid",
+                        "title_sync_plan_conflict",
+                        "title_sync_mapping_conflict",
+                        "title_sync_mapping_invalid",
+                        "title_export_limit",
+                        "catalog_page_invalid",
                         "active_revision_conflict",
                         "catalog_master_invalid",
                         "catalog_variant_override",
@@ -355,6 +366,39 @@ class API:
             from .registry import validate
 
             result = effective_freshness(validate(await self.object_body(request), runtime.types))
+        elif path == "title-sync/mapping" and method == "GET":
+            from .title_sync import current_mapping
+
+            result = current_mapping(state)
+        elif path == "title-sync/preview" and method == "POST":
+            from .title_sync import public_plan
+
+            body = await self.object_body(request)
+            if set(body) - {"expected_active_revision", "mapping", "expected_mapping_version"}:
+                raise ValueError("title_sync_mapping_invalid")
+            if self.title_reader is None:
+                raise ValueError("title_sync_not_configured")
+            snapshot = await self.title_reader()
+            result = await runtime.submit(
+                "title_sync_preview", {**body, "_snapshot": snapshot, "_actor": request["actor"]}
+            )
+            result = public_plan(result)
+        elif path == "title-sync/diff" and method == "GET":
+            from .title_sync import diff_page
+
+            result = diff_page(
+                runtime, request["actor"], request.query["plan_id"], request.query.get("after", "")
+            )
+        elif path == "title-sync/apply" and method == "POST":
+            body = await self.object_body(request)
+            if set(body) != {"plan_id", "plan_digest", "request_id"}:
+                raise ValueError("title_sync_plan_conflict")
+            result = await runtime.submit("title_sync_apply", {**body, "_actor": request["actor"]})
+        elif path == "title-sync/requests" and method == "GET":
+            result = await runtime.store.get("catalog_request", request.query["request_id"])
+            if result is None:
+                raise web.HTTPNotFound()
+            result = result["result"]
         elif path in {"title-import/preview", "title-import/stage"} and method == "POST":
             from .portable import strict_json
 
@@ -390,6 +434,48 @@ class API:
                 ]
                 if config
                 else []
+            )
+        elif (
+            path in {"catalogs/care", "catalogs/care/queue", "catalogs/care/detail"}
+            and method == "GET"
+        ):
+            from .catalog_care import detail, listing, queue
+            from .managed_catalog import definition
+
+            catalog = definition(
+                config, request.query["catalog_id"], int(request.query["definition_version"])
+            )
+            filters = {
+                key: request.query.get(key, "")
+                for key in ("scope", "media_type", "signal_type", "context", "structure")
+            }
+            if path.endswith("detail"):
+                result = detail(
+                    state, catalog, request.query["identity"], request.query.get("after", "")
+                )
+            elif path.endswith("queue"):
+                result = queue(
+                    state,
+                    catalog,
+                    request.query.get("q", ""),
+                    request.query.get("view", "all"),
+                    filters,
+                )
+            else:
+                result = listing(
+                    state,
+                    catalog,
+                    query=request.query.get("q", ""),
+                    view=request.query.get("view", "all"),
+                    after=request.query.get("after", ""),
+                    filters=filters,
+                    sort=request.query.get("sort", "newest"),
+                    variants_first=request.query.get("variants_first") == "true",
+                )
+        elif path in {"catalogs/care/preview", "catalogs/care/write"} and method == "POST":
+            result = await runtime.submit(
+                "catalog_care_" + path.rsplit("/", 1)[1],
+                {"request": await self.object_body(request), "_actor": request["actor"]},
             )
         elif path == "catalogs/entries" and method == "GET":
             from .managed_catalog import definition, page
