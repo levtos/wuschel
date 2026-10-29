@@ -183,6 +183,14 @@ async def test_families_stable_two_tabs_and_snapshot_replanning(runtime, config)
         item["new_class"].startswith("Synthetic ")
         for item in page_view(runtime, ACTOR, first["plan_id"])["items"]
     )
+    visible = page_view(runtime, ACTOR, first["plan_id"])["items"]
+    for index in range(0, len(visible), 10):
+        family = visible[index : index + 10]
+        master = family[0]["after"]["tc_metadata"]
+        assert master.get("parent_id") is None
+        assert all(
+            row["after"]["tc_metadata"]["parent_id"] == master["source_id"] for row in family[1:]
+        )
     for index in range(0, 700, 10):
         family_ids = {row["id"] for row in rows[index : index + 10]}
         assert not (primary_ids & family_ids) or family_ids <= primary_ids

@@ -154,6 +154,12 @@ def build(
     if page["sources"]:
         pages.append(page)
     result["_pages"] = pages or [{"sources": [], "groups": {}}]
+
+    def reading_order(item: dict[str, Any]) -> tuple[str, str, bool, str]:
+        metadata = item["after"]["tc_metadata"]
+        source = canonical(metadata["source_identity"])
+        return item["catalog_id"], owner[source], bool(metadata.get("parent_id")), source
+
     for page in result["_pages"]:
         page["items"] = [
             views[(group_id, key)]
@@ -161,6 +167,7 @@ def build(
             for key in sorted(group["entries"])
             if (group_id, key) in views
         ]
+        page["items"].sort(key=reading_order)
     result["_index"] = 0
     result["_heads"] = {key: group["expected"] for key, group in result["groups"].items()}
     result["_completed"] = False
