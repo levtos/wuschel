@@ -32,3 +32,12 @@ beweist noch keine Veröffentlichung. Ablauf, mögliche GHCR-Freigabe und
 anonyme Pull-Prüfung: [Veröffentlichung](https://github.com/Levtos/wuschel/blob/main/docs/publishing.md).
 
 Supervisor-/Live-Abnahme erfolgt separat durch Benni.
+
+Der manuelle Titelabgleich verwendet die App-Option `title_classifier` mit
+`database`, `user` und `password` für eine gesonderte TC-Leserolle. Trage diese
+Werte selbst in der App ein; lasse sie bis zur Einrichtung der Rolle leer.
+Host, Port und die geprüfte TLS-/CA-Konfiguration übernimmt der Abgleich aus
+der bestehenden Wuschel-Datenbankverbindung. Die Rolle benötigt ausschließlich
+Leserechte auf `public.tc_v3_catalog` und `public.tc_v3_entry_context`.
+Der Abgleich startet in der Katalogpflege erst durch deinen Knopfdruck und
+übernimmt die Vorschau erst nach deiner Bestätigung.

@@ -359,12 +359,34 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
             row["hidden_at"] = now.isoformat()
         if action == "unhide":
             row["hidden_at"] = None
-    # Generated runtime aliases remain flat when their primary becomes a variant.
+    # Ownership is provenance, not the inherited master: an existing variant's
+    # aliases already point directly at its master and must move when detached.
+    owners = {
+        canonical(
+            [
+                row["scope"],
+                row["media_type"],
+                row["signal_type"],
+                row["tc_metadata"]["source_identity"],
+            ]
+        ): key
+        for key, row in selected.items()
+        if row.get("tc_metadata")
+    }
     for key, row in current["entries"].items():
-        if (row.get("tc_metadata") or {}).get("is_alias") and row.get(
-            "master_identity"
-        ) in selected:
-            primary = selected[row["master_identity"]]
+        metadata = row.get("tc_metadata") or {}
+        owner = owners.get(
+            canonical(
+                [
+                    row["scope"],
+                    row["media_type"],
+                    row["signal_type"],
+                    metadata.get("source_identity"),
+                ]
+            )
+        )
+        if metadata.get("is_alias") and owner is not None:
+            primary = selected[owner]
             selected[key] = {
                 **fields(row),
                 "master_key": primary.get("master_key") or primary["key"],

@@ -91,6 +91,18 @@ async def test_bulk_group_is_atomic_flattens_runtime_aliases_and_preserves_detai
         "catalog_care_write", {"request": care(runtime, [child], "ungroup", classification="stumm")}
     )
     assert all_rows(runtime.state, catalog)[child]["effective_classification"] == "stumm"
+    child_source = head(runtime.state, catalog)["entries"][child]["tc_metadata"]["source_identity"]
+    from core_contracts.managed_catalog import effective
+
+    stored = head(runtime.state, catalog)["entries"]
+    child_aliases = [
+        key
+        for key, row in stored.items()
+        if row.get("tc_metadata", {}).get("is_alias")
+        and row["tc_metadata"]["source_identity"] == child_source
+    ]
+    assert len(child_aliases) == 1
+    assert effective(stored, child_aliases[0], catalog)[0] == "stumm"
 
 
 async def test_care_conflicts_and_variants_cannot_be_directly_reclassified(runtime, config):
