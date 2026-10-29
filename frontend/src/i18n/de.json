@@ -3023,6 +3023,8 @@
   "b17.syncAgain": "Neu abgleichen",
   "b17.syncApply": "Abgleich übernehmen",
   "b17.syncDescription": "Hier kannst du den aktuellen TC-Stand prüfen und bewusst in deine Titelkataloge übernehmen.",
+  "b17.allConflictsFile": "Alle Konflikte: Datei übernehmen",
+  "b17.allEditorialFile": "Alle Kategorien und Bereiche: aus Datei",
   "b17.catalogDescription": "Hier kannst du Titel abgleichen, einordnen und ihre Zuordnungen pflegen.",
   "b17.loading": "Titel werden geladen.",
   "b17.synced": "Der Abgleich wurde übernommen.",

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0b17 — Titelabgleich, Katalogpflege und Import-Korrekturen
+
+- Manueller Abgleich mit dem Title Classifier: rein lesende Vorschau, dauerhaft gespeicherte Kontextabbildung und atomare bestätigte Übernahme. Der TC bleibt führend; ausgeblendete Titel sind immer enthalten, Sichtungszahlen werden ersetzt und unveränderte Zweitläufe erzeugen keine Inhaltsrevision.
+- Stapelpflege, Variantenwarteschlange, Statusansichten, Filter und Details mit Kontextsichtungen und wirksamer Geräteklasse. Klassennamen bleiben über die vorhandene Legende pflegbar.
+- Kategorie Geräte, Bereich statt Raum, deutsche Weckerbeschriftungen und verständliche Validierung unzulässiger Herkunft an Connectivity-/Scheduler-Quellen. Neue portable TV-Nutzungsvorlage v2 mit TV-an-Wächter.
+- Import-Vorschau mit zwei bewussten Sammelaktionen: „Alle Konflikte: Datei übernehmen“ und „Alle Kategorien und Bereiche: aus Datei“. Alle Einzelauswahlen bleiben sichtbar und änderbar; kein automatisches Einlesen oder Aktivieren.
+- Migration 009 speichert ausschließlich Wuschels Kontextabbildung. Nur amd64; Traber unverändert auf 1.0.0b11. Benni prüft den echten TC-Abgleich nach der Installation über dessen rein lesende Vorschau; keine Zugangsdatenweitergabe. Installation, Import und Live-Abnahme bleiben seine getrennten Schritte.
+- [Auftrag #80](https://github.com/levtos/wuschel/issues/80), [Review und Umsetzung #83](https://github.com/levtos/wuschel/pull/83).
+
 ## 1.0.0b16 — Zustandserhaltung, Klimaformeln und vollständiger Beta-Bestand
 
 - Kompatible Abläufe, Episoden, Captures und absolute Fristen bleiben bei Konfigurationsänderungen erhalten; eingangsabhängige Verlaufsspeicher werden gezielt geprüft. Der erste Start weist gespeicherte b15-Kontexte vor der Überführung nach. Bereits verlorene Zustände werden nicht rekonstruiert.

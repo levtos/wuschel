@@ -160,6 +160,62 @@ it('shows only changed or new organization rows among forty unchanged objects an
   expect(fake.calls.find(call => call.path === 'portable/stage')?.body).toMatchObject({ editorial_choices: {} });
 });
 
+it('sets bulk import choices only on explicit clicks, keeps each choice editable and never stages automatically', async () => {
+  const keys = ['bindings:binding.synthetic', 'contracts:day.synthetic'];
+  const rows = [
+    { object: { kind: 'contract', id: 'shared.name' }, category: 'time', room: { name: 'System' } },
+    { object: { kind: 'template', id: 'shared.name' }, category: 'time', room: { name: '' } },
+    { object: { kind: 'contract', id: 'new.name' }, category: 'devices', room: { name: '' } },
+    { object: { kind: 'contract', id: 'unchanged.name' }, category: 'other', room: { name: '' } },
+  ];
+  let count = 0;
+  const { fake, user, stage } = await openImport(body => reply(200, {
+    ...preview(`bulk-${++count}`), conflicts: keys, unresolved: keys.filter(key => !body.resolutions[key]),
+    editorial_versions: { 'contract:shared.name': 3, 'template:shared.name': 2, 'contract:unchanged.name': 1 },
+    editorial_changed: { 'contract:shared.name': true, 'template:shared.name': true, 'contract:new.name': true, 'contract:unchanged.name': false },
+    package: { config: incoming, editorial: rows },
+  }));
+  const conflicts = within(screen.getByRole('region', { name: 'Konflikte (2)' })).getAllByLabelText('Umgang mit dem vorhandenen Objekt');
+  const editorial = screen.getAllByLabelText('Kategorie und Bereich');
+  expect(conflicts).toHaveLength(2); expect(editorial).toHaveLength(2);
+  conflicts.forEach(select => expect(select).toHaveValue(''));
+  editorial.forEach(select => expect(select).toHaveValue('keep'));
+  expect(fake.calls.find(call => call.path === 'portable/preview')?.body).toMatchObject({ resolutions: {}, editorial_choices: {} });
+  expect(stage).toBeDisabled();
+
+  await user.click(screen.getByRole('button', { name: 'Alle Konflikte: Datei übernehmen' }));
+  conflicts.forEach(select => expect(select).toBeVisible());
+  conflicts.forEach(select => expect(select).toHaveValue('file'));
+  editorial.forEach(select => expect(select).toHaveValue('keep'));
+  expect(stage).toBeDisabled();
+  await waitFor(() => expect(stage).toBeEnabled());
+
+  await user.click(screen.getByRole('button', { name: 'Alle Kategorien und Bereiche: aus Datei' }));
+  editorial.forEach(select => expect(select).toBeVisible());
+  editorial.forEach(select => expect(select).toHaveValue('file'));
+  expect(stage).toBeDisabled();
+  await waitFor(() => expect(stage).toBeEnabled());
+  expect(fake.calls.some(call => call.path === 'portable/stage')).toBe(false);
+  expect(fake.calls.filter(call => call.path === 'portable/preview').at(-1)?.body).toMatchObject({
+    resolutions: Object.fromEntries(keys.map(key => [key, 'file'])),
+    editorial_choices: { 'contract:shared.name': 'file', 'template:shared.name': 'file' },
+  });
+
+  await user.selectOptions(conflicts[0]!, 'keep');
+  await user.selectOptions(editorial[0]!, 'keep');
+  await waitFor(() => expect(stage).toBeEnabled());
+  expect(conflicts[0]).toHaveValue('keep'); expect(editorial[0]).toHaveValue('keep');
+  const checked = fake.calls.filter(call => call.path === 'portable/preview').at(-1)!;
+  if (!checked.body || typeof checked.body !== 'object' || Array.isArray(checked.body)) throw new Error('Expected a preview request object');
+  expect(checked.body).toMatchObject({ resolutions: { [keys[0]!]: 'keep', [keys[1]!]: 'file' }, editorial_choices: { 'contract:shared.name': 'keep', 'template:shared.name': 'file' } });
+  expect(fake.calls.some(call => call.path === 'portable/stage')).toBe(false);
+  await user.click(stage);
+  await waitFor(() => expect(fake.calls.some(call => call.path === 'portable/stage')).toBe(true));
+  expect(fake.calls.find(call => call.path === 'portable/stage')?.body).toMatchObject(checked.body);
+  expect(fake.calls.find(call => call.path === 'portable/stage')?.body).toMatchObject({ plan_digest: `bulk-${count}` });
+  expect(fake.activations).toHaveLength(0);
+});
+
 it('includes changed rules and new sources, compares template rules, and ignores names or object key order', () => {
   const same = { ...source('existing'), display_name: 'Renamed', freshness_selection: { rule: { future_tolerance_s: 0, interval_s: 8400, mode: 'report_heartbeat' }, kind: 'own' } };
   const config = { ...target, sources: [same, source('changed', 9000), source('new')] };
