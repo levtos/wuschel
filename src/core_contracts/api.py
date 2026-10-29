@@ -127,6 +127,16 @@ class API:
                     if type(error) is ValueError
                     and str(error)
                     in {
+                        "title_sync_not_configured",
+                        "title_sync_tls_required",
+                        "title_sync_reader_required",
+                        "title_sync_read_failed",
+                        "title_sync_source_invalid",
+                        "title_sync_plan_conflict",
+                        "title_sync_mapping_conflict",
+                        "title_sync_mapping_invalid",
+                        "title_export_limit",
+                        "catalog_page_invalid",
                         "active_revision_conflict",
                         "catalog_master_invalid",
                         "catalog_variant_override",
@@ -424,6 +434,48 @@ class API:
                 ]
                 if config
                 else []
+            )
+        elif (
+            path in {"catalogs/care", "catalogs/care/queue", "catalogs/care/detail"}
+            and method == "GET"
+        ):
+            from .catalog_care import detail, listing, queue
+            from .managed_catalog import definition
+
+            catalog = definition(
+                config, request.query["catalog_id"], int(request.query["definition_version"])
+            )
+            filters = {
+                key: request.query.get(key, "")
+                for key in ("scope", "media_type", "signal_type", "context", "structure")
+            }
+            if path.endswith("detail"):
+                result = detail(
+                    state, catalog, request.query["identity"], request.query.get("after", "")
+                )
+            elif path.endswith("queue"):
+                result = queue(
+                    state,
+                    catalog,
+                    request.query.get("q", ""),
+                    request.query.get("view", "all"),
+                    filters,
+                )
+            else:
+                result = listing(
+                    state,
+                    catalog,
+                    query=request.query.get("q", ""),
+                    view=request.query.get("view", "all"),
+                    after=request.query.get("after", ""),
+                    filters=filters,
+                    sort=request.query.get("sort", "newest"),
+                    variants_first=request.query.get("variants_first") == "true",
+                )
+        elif path in {"catalogs/care/preview", "catalogs/care/write"} and method == "POST":
+            result = await runtime.submit(
+                "catalog_care_" + path.rsplit("/", 1)[1],
+                {"request": await self.object_body(request), "_actor": request["actor"]},
             )
         elif path == "catalogs/entries" and method == "GET":
             from .managed_catalog import definition, page

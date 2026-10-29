@@ -1009,7 +1009,12 @@ class Runtime:
                 "total": len(entries),
                 "next_cursor": selected[99][0] if len(selected) > 100 else None,
             }
-        if operation in {"catalog_write", "catalog_preview"}:
+        if operation in {
+            "catalog_write",
+            "catalog_preview",
+            "catalog_care_write",
+            "catalog_care_preview",
+        }:
             from .catalog_models import CatalogRestore, CatalogWrite, EntryChange
             from .managed_catalog import (
                 affected_contracts,
@@ -1021,12 +1026,37 @@ class Runtime:
             )
             from .registry import safe_document
 
-            restoring = "restore_revision" in payload["request"]
-            request = (CatalogRestore if restoring else CatalogWrite).model_validate(
+            care = operation.startswith("catalog_care_")
+            care_digest = None
+            if care:
+                from .catalog_care import CareRequest, change_request
+
+                care_request = CareRequest.model_validate(payload["request"])
+                care_digest = checksum(care_request)
+                if operation == "catalog_care_write":
+                    previous_care = await self.store.get("catalog_request", care_request.request_id)
+                    if previous_care:
+                        if previous_care["digest"] != care_digest:
+                            raise ValueError("catalog_request_conflict")
+                        return previous_care["result"]
+                care_catalog = definition(
+                    config, care_request.catalog_id, care_request.definition_version
+                )
+                payload = {
+                    **payload,
+                    "request": change_request(state, care_catalog, care_request, now),
+                }
+                operation = "catalog_preview" if operation.endswith("preview") else "catalog_write"
+            restoring = not care and "restore_revision" in payload["request"]
+            request = (
                 payload["request"]
+                if care
+                else (CatalogRestore if restoring else CatalogWrite).model_validate(
+                    payload["request"]
+                )
             )
-            safe_document(payload["request"])
-            digest = checksum(request)
+            safe_document(request.model_dump(mode="json"))
+            digest = care_digest or checksum(request)
             catalog_previous = (
                 await self.store.get("catalog_request", request.request_id)
                 if operation == "catalog_write"
@@ -1062,6 +1092,9 @@ class Runtime:
                 expanded_limit=100_000 if restoring else 1000,
             )
             if operation == "catalog_preview":
+                care_effects: list[dict[str, str]] = []
+                if care:
+                    invalidate(state, result, self.latches, care_effects)
                 affected = affected_contracts(self.state, result)
                 if config:
                     for contract in topological(config):
@@ -1072,6 +1105,14 @@ class Runtime:
                 return {
                     "affected_keys": len(result["affected_keys"]),
                     "affected_contracts": len(affected),
+                    **(
+                        {
+                            "context_effects": care_effects,
+                            "changes": [row.model_dump(mode="json") for row in request.changes],
+                        }
+                        if care
+                        else {}
+                    ),
                 }
             if result["affected_keys"]:
                 assert config is not None

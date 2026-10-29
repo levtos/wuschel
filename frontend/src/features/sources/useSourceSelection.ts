@@ -30,7 +30,7 @@ export function useSourceSelection(name: string, list: JsonObject[], idKey: stri
   }, [key, initialKey, info.data?.installation_id]);
   // Navigation links may specify an index, including older validation links. Persist its identity once loaded.
   const requested = params.has('item') && (!params.has('tab') || params.get('tab') === name) ? Number(params.get('item')) : null;
-  const requestedId = requested !== null && Number.isInteger(requested) ? str(list[requested]?.[idKey]) : '';
+  const requestedId = name === 'catalogs' && params.get('catalog_id') ? params.get('catalog_id')! : requested !== null && Number.isInteger(requested) ? str(list[requested]?.[idKey]) : '';
   useEffect(() => {
     if (requestedId && (choice.key !== key || choice.id !== requestedId)) {
       setChoice({ key, id: requestedId });

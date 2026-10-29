@@ -31,7 +31,7 @@ it('keeps an unsent catalog assignment through a 409 and requires an explicit co
   const entry = { identity: 'synthetic', key: 'Synthetic Title', scope: 'default', media_type: 'music', signal_type: 'title', classification: null, master_key: null, display_name: '', note: '', effective_classification: 'other', complete: false, semantic_digest: 'synthetic' };
   fake.routes.push({ match: /^catalogs\/preview$/, method: 'POST', respond: () => reply(200, { affected_keys: 1, affected_contracts: 0 }) });
   fake.routes.push({ match: /^catalogs$/, respond: () => reply(200, [{ catalog_id: 'example.titles', version: 1, classification_schema: { values: ['other', 'example'] } }]) });
-  fake.routes.push({ match: /^catalogs\/entries\?/, respond: () => reply(200, { items: [entry], content_revision: 1, next_cursor: null }) });
+  fake.routes.push({ match: /^catalogs\/(?:entries|care)\?/, respond: () => reply(200, { items: [entry], content_revision: 1, next_cursor: null }) });
   fake.routes.push({ match: /^catalogs\/entry\?/, respond: () => reply(200, { content_revision: 2, active_revision: 0, effective_classification: 'other', entry }) });
   fake.routes.push({ match: /^catalogs\/entries$/, method: 'POST', respond: () => reply(200, { content_revision: 3 }) });
   app('/catalog-care');
@@ -65,7 +65,7 @@ it('rejects a late preview after the assignment form changes', async () => {
   let release!: (value: Response) => void;
   const pending = new Promise<Response>(resolve => { release = resolve; });
   fake.routes.push({ match: /^catalogs$/, respond: () => reply(200, [{ catalog_id: 'example.titles', version: 1, classification_schema: { values: ['other', 'example'] } }]) });
-  fake.routes.push({ match: /^catalogs\/entries\?/, respond: () => reply(200, { items: [{ identity: 'synthetic', key: 'Synthetic Title', scope: 'default', media_type: 'music', signal_type: 'title', classification: null, master_key: null, display_name: '', note: '', effective_classification: 'other', complete: false, semantic_digest: 'synthetic' }], content_revision: 1, next_cursor: null }) });
+  fake.routes.push({ match: /^catalogs\/(?:entries|care)\?/, respond: () => reply(200, { items: [{ identity: 'synthetic', key: 'Synthetic Title', scope: 'default', media_type: 'music', signal_type: 'title', classification: null, master_key: null, display_name: '', note: '', effective_classification: 'other', complete: false, semantic_digest: 'synthetic' }], content_revision: 1, next_cursor: null }) });
   fake.routes.push({ match: /^catalogs\/preview$/, method: 'POST', respond: () => pending });
   app('/catalog-care');
   await user.click(await screen.findByRole('button', { name: t('alpha10.catalog.edit') }));
@@ -83,7 +83,7 @@ it('rejects a late preview after the assignment form changes', async () => {
 it('pages older catalog history and keeps the current head for a restore preview', async () => {
   const fake = installFakeApi(); const user = userEvent.setup();
   fake.routes.push({ match: /^catalogs$/, respond: () => reply(200, [{ catalog_id: 'example.titles', version: 1, classification_schema: { values: ['other', 'example'] } }]) });
-  fake.routes.push({ match: /^catalogs\/entries\?/, respond: () => reply(200, { items: [], content_revision: 120, next_cursor: null }) });
+  fake.routes.push({ match: /^catalogs\/(?:entries|care)\?/, respond: () => reply(200, { items: [], content_revision: 120, next_cursor: null }) });
   fake.routes.push({ match: /^catalogs\/history\?/, respond: path => {
     const before = Number(new URLSearchParams(path.split('?')[1]).get('after') || 121);
     return reply(200, Array.from({ length: Math.min(100, before - 1) }, (_, index) => ({ revision: before - index - 1, head_revision: 120, active_revision: 0, at: '2026-10-20T12:00:00Z', reason: 'Synthetic history', affected: [] })));

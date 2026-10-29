@@ -228,7 +228,7 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                     and matching_contexts[0].get("enum_override") is not None
                 ):
                     master_row = rows[master["row"] - 1]
-                    master_context = next(
+                    master_context: dict[str, Any] = next(
                         (c for c in master_row.get("contexts", []) if context_key(c) == key), {}
                     )
                     master_value = master_context.get("enum_override")
@@ -247,7 +247,7 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                     note=old.get("note", ""),
                     reviewed_at=source_row.get("reviewed_at"),
                     hidden_at=source_row.get("hidden_at"),
-                    tc_metadata=metadata(source_row),
+                    tc_metadata=metadata(source_row, old.get("tc_metadata")),
                 ).model_dump(mode="json")
 
             try:

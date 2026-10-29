@@ -254,3 +254,39 @@ async def test_empty_and_invalid_records_do_not_crash_and_diff_is_paged(runtime,
     assert len(first["items"]) == 100 and len(second["items"]) == 20
     assert not second["next_cursor"]
     assert not ({r["cursor"] for r in first["items"]} & {r["cursor"] for r in second["items"]})
+
+
+async def test_sync_api_requires_admin_sanitizes_errors_and_hides_internal_plan(
+    runtime, config, aiohttp_client, tmp_path
+):
+    from .test_workbench_api import api_client
+
+    await activate(runtime, document(config))
+    api, client, headers = await api_client(runtime, aiohttp_client, tmp_path)
+    consumer = {"Authorization": "Bearer " + api.tokens.values["consumer"]}
+    denied = await client.post("/api/v1/title-sync/preview", headers=consumer, json={})
+    assert denied.status == 403
+    missing = await client.post("/api/v1/title-sync/preview", headers=headers, json={})
+    assert (await missing.json())["error"] == "title_sync_not_configured"
+
+    async def reader():
+        return {"version": 3, "entries": [observed()]}
+
+    api.title_reader = reader
+    response = await client.post(
+        "/api/v1/title-sync/preview",
+        headers=headers,
+        json={
+            "expected_active_revision": runtime.state.active_revision,
+            "mapping": mapping(),
+            "expected_mapping_version": 0,
+        },
+    )
+    assert response.status == 200
+    result = await response.json()
+    assert result["can_apply"] and "groups" not in result
+    diff = await client.get(
+        "/api/v1/title-sync/diff", headers=headers, params={"plan_id": result["plan_id"]}
+    )
+    assert len((await diff.json())["items"]) == 2
+    assert not runtime.state.tables["title_sync_mapping"]

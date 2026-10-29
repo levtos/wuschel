@@ -92,15 +92,29 @@ def keys(row: dict[str, Any], profile: str) -> list[str]:
     return list(music_forms(row["key"]))
 
 
-def metadata(row: dict[str, Any]) -> TitleMetadata:
+def metadata(row: dict[str, Any], previous: dict[str, Any] | None = None) -> TitleMetadata:
+    previous = previous or {}
+    values = {
+        k: row.get(k, previous.get(k))
+        for k in ("artist", "title", "album", "app_name", "parent_id", "telemetry")
+    }
+    old_contexts = {context_key(ctx): ctx for ctx in previous.get("contexts", [])}
+    contexts = [
+        {
+            **ctx,
+            "telemetry": ctx.get(
+                "telemetry", old_contexts.get(context_key(ctx), {}).get("telemetry")
+            ),
+        }
+        for ctx in row.get("contexts", [])
+    ]
     return TitleMetadata.model_validate(
         {
-            "source_id": row.get("id"),
+            "source_id": row.get("id", previous.get("source_id")),
             "source_identity": source_identity(row),
-            **{k: row.get(k) for k in ("artist", "title", "album", "app_name", "parent_id")},
+            **values,
             "source_class": row["enum"],
-            "telemetry": row.get("telemetry"),
-            "contexts": row.get("contexts", []),
+            "contexts": contexts,
         }
     )
 
@@ -207,20 +221,7 @@ def plan(
         ident = identity(target.scope, row["media_type"], row["signal_type"], primary)
         old = head(state, catalog)["entries"].get(ident, {})
         group["before"][ident] = copy.deepcopy(old) or None
-        source_meta = metadata(row).model_dump(mode="json")
-        # A legacy file may omit optional provenance. Never clear known facts on omission.
-        if "id" not in row and old.get("tc_metadata"):
-            for key in (
-                "source_id",
-                "artist",
-                "title",
-                "album",
-                "app_name",
-                "parent_id",
-                "telemetry",
-            ):
-                if source_meta[key] is None:
-                    source_meta[key] = old["tc_metadata"].get(key)
+        source_meta = metadata(row, old.get("tc_metadata")).model_dump(mode="json")
         change = EntryChange.model_validate(
             {
                 "scope": target.scope,

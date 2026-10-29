@@ -100,7 +100,10 @@ export function TitleSync({ catalogs }: { catalogs: SyncCatalog[] }) {
             </fieldset>; })}
           </details>
           <Button disabled={busy} onClick={() => void differences()}>{t('b17.showDiff')}</Button>
-          {diff && <><ul>{diff.items.map(item => <li key={item.cursor}><p>{item.catalog_id} · {String(item.after.display_name ?? item.after.key)}</p><pre className="whitespace-pre-wrap break-all text-xs">{JSON.stringify({ vorher: item.before, danach: item.after }, null, 2)}</pre></li>)}</ul>
+           {diff && <><ul>{diff.items.map(item => <li key={item.cursor} className="space-y-2 border-b border-line py-3"><p>{item.catalog_id} · {String(item.after.display_name ?? item.after.key)}</p><dl>{['classification', 'master_key', 'reviewed_at', 'hidden_at', 'tc_metadata'].map(field => {
+             const display = (row: Record<string, unknown> | null) => { const value = row?.[field]; if (field !== 'tc_metadata') return value == null ? '—' : String(value); const meta = value as { artist?: string; title?: string; telemetry?: { seen_count: number; first_seen: string; last_seen: string } } | undefined; return meta ? [meta.artist, meta.title, meta.telemetry?.seen_count, meta.telemetry?.first_seen, meta.telemetry?.last_seen].filter(value => value != null).join(' · ') : '—'; };
+             return <div key={field}><dt>{t(`b17.field.${field}`)}</dt><dd>{display(item.before)} → {display(item.after)}</dd></div>;
+           })}</dl></li>)}</ul>
             <Button disabled={busy || !diff.next_cursor} onClick={() => void differences(diff.next_cursor ?? '')}>{t('alpha10.catalog.next')}</Button></>}
         </>}
       </div>
