@@ -3,7 +3,7 @@
 import copy
 from collections import Counter
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from pydantic import Field
 
@@ -32,15 +32,17 @@ def restore_mapping(current: dict[str, Any], restored: dict[str, Any]) -> None:
 
 
 def public_plan(plan: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in plan.items() if key != "groups"}
+    return {
+        key: value for key, value in plan.items() if key != "groups" and not key.startswith("_")
+    }
 
 
 def diff_page(runtime: Any, actor: Any, plan_id: str, after: str = "") -> dict[str, Any]:
-    plan = runtime.title_sync_plans.get(checksum(actor))
-    if not plan or plan["plan_id"] != plan_id:
+    plan = runtime.title_sync_plans.get(plan_id)
+    if not plan or plan.get("_owner") != checksum(actor) or plan.get("_cancelled"):
         raise ValueError("title_sync_plan_conflict")
     rows = []
-    for group_id, group in sorted(plan["groups"].items()):
+    for group_id, group in sorted(plan.get("groups", {}).items()):
         for key, row in sorted(group["entries"].items()):
             cursor = canonical([group_id, key])
             if cursor > after:
@@ -137,6 +139,22 @@ def plan(
     else:
         mapping = Mapping.model_validate(saved["mapping"])
     mapping_doc = mapping.model_dump(mode="json")
+    config = runtime._config(state)
+    catalogs: dict[tuple[str, int], Any] = {}
+    heads: dict[str, dict[str, Any]] = {}
+
+    def target_catalog(catalog_id: str, version: int) -> Any:
+        key = (catalog_id, version)
+        if key not in catalogs:
+            catalogs[key] = definition(config, catalog_id, version)
+        return catalogs[key]
+
+    def target_head(catalog: Any) -> dict[str, Any]:
+        key = head_key(catalog)
+        if key not in heads:
+            heads[key] = head(state, catalog)
+        return heads[key]
+
     parsed = plan_title_import(document, checksum(document))
     rows = document["entries"]
     valid_rows = [rows[candidate["row"] - 1] for candidate in parsed["candidates"]]
@@ -168,7 +186,7 @@ def plan(
         dependency: bool = False,
     ) -> str:
         nonlocal count, size
-        catalog = definition(runtime._config(state), target.catalog_id, target.definition_version)
+        catalog = target_catalog(target.catalog_id, target.definition_version)
         if (
             (target.profile == "game" and row["media_type"] != "game")
             or (target.profile == "music" and row["media_type"] != "music")
@@ -181,7 +199,7 @@ def plan(
             {
                 "catalog_id": catalog.catalog_id,
                 "definition_version": catalog.version,
-                "expected": head(state, catalog)["revision"],
+                "expected": target_head(catalog)["revision"],
                 "entries": {},
                 "before": {},
             },
@@ -219,7 +237,7 @@ def plan(
         value = classification(target.profile, row["enum"] if override is None else override)
         primary = own_keys[0]
         ident = identity(target.scope, row["media_type"], row["signal_type"], primary)
-        old = head(state, catalog)["entries"].get(ident, {})
+        old = target_head(catalog)["entries"].get(ident, {})
         group["before"][ident] = copy.deepcopy(old) or None
         source_meta = metadata(row, old.get("tc_metadata")).model_dump(mode="json")
         change = EntryChange.model_validate(
@@ -249,7 +267,7 @@ def plan(
             group["entries"][ident] = change
         for extra in own_keys[1:]:
             extra_id = identity(target.scope, row["media_type"], row["signal_type"], extra)
-            extra_old = head(state, catalog)["entries"].get(extra_id, {})
+            extra_old = target_head(catalog)["entries"].get(extra_id, {})
             if (
                 extra_old
                 and extra_old.get("tc_metadata", {}).get("source_identity")
@@ -323,19 +341,19 @@ def plan(
         if count > MAX_ENTRIES or size > MAX_BYTES:
             raise ValueError("title_export_limit")
         groups[group_key]["entries"][ident] = candidates[0]
-        catalog = definition(
-            runtime._config(state),
+        catalog = target_catalog(
             groups[group_key]["catalog_id"],
             groups[group_key]["definition_version"],
         )
         groups[group_key]["before"][ident] = copy.deepcopy(
-            head(state, catalog)["entries"].get(ident)
+            target_head(catalog)["entries"].get(ident)
         )
     counts: Counter[str] = Counter()
+    outcomes_by_row: dict[int, str] = {}
     invalid_rows = {item["row"] for item in errors}
     for number in range(1, len(rows) + 1):
         outcomes = source_outcomes.get(number, set())
-        counts[
+        outcome = (
             "unmappable"
             if number in invalid_rows or not outcomes
             else "new"
@@ -343,9 +361,12 @@ def plan(
             else "changed"
             if "changed" in outcomes
             else "unchanged"
-        ] += 1
+        )
+        counts[outcome] += 1
+        outcomes_by_row[number] = outcome
     result: dict[str, Any] = {
         "counts": dict(counts),
+        "_outcomes": outcomes_by_row,
         "source_rows": len(rows),
         "target_rows": count,
         "skipped_aliases": skipped_aliases,
@@ -367,7 +388,7 @@ def plan(
             request = write_request(group, state.active_revision, str(uuid4()))
             prepared = prepare(
                 probe,
-                runtime._config(state),
+                config,
                 request,
                 None,
                 runtime.clock.now_utc(),
@@ -400,76 +421,6 @@ def write_request(group: dict[str, Any], revision: int, request_id: str) -> Impo
 async def process(
     runtime: Any, state: Any, operation: str, body: dict[str, Any], now: Any
 ) -> dict[str, Any]:
-    actor = checksum(body.get("_actor"))
-    if operation == "title_sync_preview":
-        result = plan(runtime, state, body["_snapshot"], body)
-        result.update(plan_id=str(uuid4()), at=now.isoformat())
-        if not hasattr(runtime, "title_sync_plans"):
-            runtime.title_sync_plans = {}
-        runtime.title_sync_plans[actor] = result
-        return result
-    request_id = str(UUID(body["request_id"]))
-    digest = checksum({k: body[k] for k in ("plan_id", "plan_digest", "request_id")})
-    previous = await runtime.store.get("catalog_request", request_id)
-    if previous:
-        if previous["digest"] != digest:
-            raise ValueError("catalog_request_conflict")
-        return dict(previous["result"])
-    selected = getattr(runtime, "title_sync_plans", {}).get(actor)
-    if (
-        not selected
-        or body.get("plan_id") != selected["plan_id"]
-        or body.get("plan_digest") != selected["plan_digest"]
-    ):
-        raise ValueError("title_sync_plan_conflict")
-    if not selected["can_apply"]:
-        raise ValueError("title_sync_mapping_invalid")
-    if current_mapping(state)["version"] != selected["mapping_version"]:
-        raise ValueError("title_sync_mapping_conflict")
-    if state.active_revision != selected["expected_active_revision"]:
-        raise ValueError("active_revision_conflict")
-    config = runtime._config(state)
-    affected: set[str] = set()
-    latches = copy.deepcopy(runtime.latches)
-    revisions = {}
-    changed = 0
-    for key, group in selected["groups"].items():
-        prepared = prepare(
-            state,
-            config,
-            write_request(group, state.active_revision, request_id),
-            body.get("_actor"),
-            now,
-            expanded_limit=MAX_ENTRIES,
-        )
-        revisions[key] = prepared["content_revision"]
-        changed += prepared["changed"]
-        affected.update(affected_contracts(state, prepared))
-        latches = invalidate(state, prepared, latches)
-    if affected:
-        failures = runtime._evaluate(
-            state, config, origin="revision", initial_latches=latches, catalog_affected=affected
-        )
-        if failures:
-            runtime.pending_latches = None
-            runtime.pending_refresh.clear()
-            raise ValueError("catalog_evaluation_failed")
-    saved = current_mapping(state)
-    if saved["mapping"] != selected["mapping"]:
-        version = saved["version"] + 1
-        state.tables["title_sync_mapping"][str(version)] = {
-            "version": version,
-            "mapping": selected["mapping"],
-            "at": now.isoformat(),
-        }
-    result = {
-        "request_id": request_id,
-        "revisions": revisions,
-        "changed": changed,
-        "counts": selected["counts"],
-        "publication_seq": state.publication_seq,
-        "mapping_version": current_mapping(state)["version"],
-    }
-    state.tables["catalog_request"][request_id] = {"digest": digest, "result": result}
-    await runtime._commit(state, publication=bool(affected))
-    return result
+    from .title_sync_runs import process as process_run
+
+    return await process_run(runtime, state, operation, body, now)

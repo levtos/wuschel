@@ -39,5 +39,13 @@ Werte selbst in der App ein; lasse sie bis zur Einrichtung der Rolle leer.
 Host, Port und die geprüfte TLS-/CA-Konfiguration übernimmt der Abgleich aus
 der bestehenden Wuschel-Datenbankverbindung. Die Rolle benötigt ausschließlich
 Leserechte auf `public.tc_v3_catalog` und `public.tc_v3_entry_context`.
-Der Abgleich startet in der Katalogpflege erst durch deinen Knopfdruck und
-übernimmt die Vorschau erst nach deiner Bestätigung.
+Der Abgleich startet in der Katalogpflege erst durch deinen Knopfdruck. Ein
+Durchlauf liest den TC einmal und hält die Vorschau bis zum Abschluss, Abbruch
+oder App-Neustart. Prüfe die breite Tabelle und bestätige jede Seite mit
+„Diese Seite übernehmen“. Eine Seite enthält höchstens 350 Quelltitel; Master
+und Varianten bleiben zusammen. Erst die erste erfolgreich übernommene Seite
+speichert auch die Kontextabbildung. Du kannst jederzeit abbrechen: Bereits
+übernommene Seiten bleiben erhalten. „Neu abgleichen“ liest einen neuen Stand
+und zeigt nur die noch vorhandenen Abweichungen. Filter ändern die Ansicht;
+übernommen wird stets die ganze angezeigte Seite. Ein zweiter Tab erhält
+einen eigenen Durchlauf. Es erfolgt keine automatische Übernahme.

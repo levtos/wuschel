@@ -205,6 +205,38 @@ class Store(Protocol):
     async def evidence(self, reference: str) -> dict[str, Any] | None: ...
 
 
+def encoded_changes(previous: State, state: State) -> list[tuple[str, tuple[Any, ...]]]:
+    """Prepare immutable SQL arguments off-loop, before the single writer transaction."""
+    changes: list[tuple[str, tuple[Any, ...]]] = []
+    for table in TABLES:
+        old, new = previous.tables[table], state.tables[table]
+        for key in old.keys() - new.keys():
+            if table not in ARCHIVE:
+                changes.append((f"DELETE FROM {table} WHERE key=$1", (key,)))
+        for key, value in new.items():
+            if old.get(key) == value:
+                continue
+            if key in old and table in IMMUTABLE:
+                raise ValueError("immutable history")
+            suffix = (
+                ""
+                if table in IMMUTABLE
+                else " ON CONFLICT(key) DO UPDATE SET payload=EXCLUDED.payload"
+            )
+            changes.append(
+                (f"INSERT INTO {table} VALUES ($1,$2::jsonb)" + suffix, (key, canonical(value)))
+            )
+    for seq in state.publications.keys() - previous.publications.keys():
+        payload = state.publications[seq]
+        changes.append(
+            (
+                "INSERT INTO publication VALUES ($1,$2,$3::jsonb)",
+                (seq, datetime.fromisoformat(payload["created_at"]), canonical(payload)),
+            )
+        )
+    return changes
+
+
 class PostgresStore:
     async def sensor_profile(self, profile_id: str, version: int) -> dict[str, Any] | None:
         if self.pool is None:
@@ -397,36 +429,10 @@ class PostgresStore:
             previous = self._committed
             if state.generation != previous.generation:
                 raise ValueError("stale changeset")
+            changes = await asyncio.to_thread(encoded_changes, previous, state)
             async with connection.transaction():
-                for table in TABLES:
-                    old, new = previous.tables[table], state.tables[table]
-                    for key in old.keys() - new.keys():
-                        if table in ARCHIVE:
-                            continue
-                        await connection.execute(f"DELETE FROM {table} WHERE key=$1", key)
-                    for key, value in new.items():
-                        if old.get(key) == value:
-                            continue
-                        if key in old and table in IMMUTABLE:
-                            raise ValueError("immutable history")
-                        suffix = (
-                            ""
-                            if table in IMMUTABLE
-                            else " ON CONFLICT(key) DO UPDATE SET payload=EXCLUDED.payload"
-                        )
-                        await connection.execute(
-                            f"INSERT INTO {table} VALUES ($1,$2::jsonb)" + suffix,
-                            key,
-                            canonical(value),
-                        )
-                for seq in state.publications.keys() - previous.publications.keys():
-                    payload = state.publications[seq]
-                    await connection.execute(
-                        "INSERT INTO publication VALUES ($1,$2,$3::jsonb)",
-                        seq,
-                        datetime.fromisoformat(payload["created_at"]),
-                        canonical(payload),
-                    )
+                for statement, arguments in changes:
+                    await connection.execute(statement, *arguments)
                 metadata = state.model_dump(exclude={"tables", "publications"})
                 metadata["generation"] += 1
                 await self.put_metadata("runtime", metadata)
@@ -434,7 +440,7 @@ class PostgresStore:
                     self.before_commit()
             state.generation += 1
             state.compact()
-            self._committed = state.clone()
+            self._committed = await asyncio.to_thread(state.clone)
 
     async def get(self, table: str, key: str) -> dict[str, Any] | None:
         if table not in TABLES or self.pool is None:

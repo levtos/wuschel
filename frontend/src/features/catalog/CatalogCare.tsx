@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { t } from '@/i18n';
 import { api, describeError } from '@/lib/api';
+import { uuid } from '@/lib/uuid';
 import { Button } from '@/components/ui/button';
 import { Field, Select } from '@/components/ui/form';
 import { Dialog } from '@/components/ui/dialog';
@@ -43,10 +44,10 @@ export function CatalogCare({ catalog, rows, selected, setSelected, revision, ac
     const group = queue?.groups[0]; const master = group?.master ?? entries.find(row => !row.master_key)?.identity ?? entries[0]!.identity;
     setMembers(entries); setError(''); setImpact(null);
     setBody({ catalog_id: catalog.catalog_id, definition_version: catalog.version, expected_active_revision: queue?.active_revision ?? activeRevision,
-      expected_content_revision: queue?.content_revision ?? revision, request_id: crypto.randomUUID(), reason: t('b17.careReason'),
+      expected_content_revision: queue?.content_revision ?? revision, request_id: uuid(), reason: t('b17.careReason'),
       action, identities: entries.map(row => row.identity), master, classification: entries.find(row => row.identity === master)?.classification ?? catalog.classification_schema.values[0] ?? '' });
   };
-  const edit = (patch: Partial<CareBody>) => { if (body) { setBody({ ...body, ...patch, request_id: crypto.randomUUID() }); setImpact(null); } };
+  const edit = (patch: Partial<CareBody>) => { if (body) { setBody({ ...body, ...patch, request_id: uuid() }); setImpact(null); } };
   const next = (updated: Queue) => {
     setWork(updated);
     if (updated.groups.length) begin('group', updated.groups[0]!.members, updated);
