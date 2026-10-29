@@ -92,8 +92,8 @@ export function TitleSync({ catalogs }: { catalogs: SyncCatalog[] }) {
             <p>{t('b17.mappingHint')}</p>
             {preview.contexts.map(context => { const target = mapping?.mappings[context.key]; return <fieldset key={context.key} className="space-y-2 border border-line p-3">
               <legend>{context.context || t('b15.withoutContext')} · {context.source_app}</legend>
-              <Field label={t('b15.device')}>{p => <Select {...p} value={target?.catalog_id ?? ''} onChange={e => update(context.key, { catalog_id: e.target.value, definition_version: catalogs.find(c => c.catalog_id === e.target.value)?.version ?? 1 })}>
-                <option value="">{t('b4.choose')}</option>{catalogs.map(c => <option key={c.catalog_id} value={c.catalog_id}>{c.catalog_id}</option>)}
+              <Field label={t('b15.device')}>{p => <Select {...p} value={target ? `${target.catalog_id}@${target.definition_version}` : ''} onChange={e => { const chosen = catalogs.find(c => `${c.catalog_id}@${c.version}` === e.target.value); update(context.key, { catalog_id: chosen?.catalog_id ?? '', definition_version: chosen?.version ?? 1 }); }}>
+                <option value="">{t('b4.choose')}</option>{catalogs.map(c => <option key={`${c.catalog_id}@${c.version}`} value={`${c.catalog_id}@${c.version}`}>{c.catalog_id} · {c.version}</option>)}
               </Select>}</Field>
               <Field label={t('b15.profile')}>{p => <Select {...p} value={target?.profile ?? 'music'} onChange={e => update(context.key, { profile: e.target.value })}>{[['music', 'b15.music'], ['game', 'b15.games'], ['private', 'b15.private']].map(([profile, label]) => <option key={profile} value={profile}>{t(label!)}</option>)}</Select>}</Field>
               <Field label={t('alpha10.catalog.field.scope')}>{p => <Input {...p} value={target?.scope ?? 'default'} onChange={e => update(context.key, { scope: e.target.value })} />}</Field>
