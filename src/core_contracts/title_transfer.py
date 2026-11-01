@@ -168,7 +168,11 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                 errors.append({"row": row_number, "context": key, "reasons": ["context_unmapped"]})
                 continue
             try:
-                mapping = TargetMapping.model_validate(mapping).model_dump()
+                from .catalog_scope import validate_target
+
+                target = TargetMapping.model_validate(mapping)
+                validate_target(runtime.config, target)
+                mapping = target.model_dump()
             except ValueError:
                 errors.append(
                     {"row": row_number, "context": key, "reasons": ["context_mapping_invalid"]}

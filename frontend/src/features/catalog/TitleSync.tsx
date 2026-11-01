@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Field, Input, Select } from '@/components/ui/form';
 import { Notice } from '@/components/ui/layout';
 import { titleKeyParts, titleLabel } from './titleLabel';
+import { catalogLabel, catalogValue, contextLabel } from './catalogLabels';
 
 interface Target { catalog_id: string; definition_version: number; scope: string; profile: string }
 interface Mapping { mappings: Record<string, Target>; standalone: string[] }
@@ -24,7 +25,7 @@ interface Row { catalog_id: string; old_class: string; new_class: string; master
   after: { key: string; display_name: string; reviewed_at?: string; hidden_at?: string;
     tc_metadata?: { artist?: string; title?: string; telemetry?: { seen_count: number; first_seen?: string; last_seen?: string } } } }
 interface Page extends Preview { items: Row[] }
-export interface SyncCatalog { catalog_id: string; version: number }
+export interface SyncCatalog { catalog_id: string; version: number; device_scope?: string | null; display_name?: string }
 const date = (value?: string) => value ? new Date(value).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : t('b18.empty');
 
 export function TitleSync({ catalogs }: { catalogs: SyncCatalog[] }) {
@@ -89,11 +90,11 @@ export function TitleSync({ catalogs }: { catalogs: SyncCatalog[] }) {
   };
   const update = (key: string, patch: Partial<Target>) => {
     const value = mapping ?? { mappings: {}, standalone: [] };
-    setMapping({ ...value, mappings: { ...value.mappings, [key]: { catalog_id: '', definition_version: 1, scope: 'default', profile: 'music', ...value.mappings[key], ...patch } } }); setDirty(true);
+    setMapping({ ...value, mappings: { ...value.mappings, [key]: { catalog_id: '', definition_version: 1, scope: catalogs.find(c => c.catalog_id === patch.catalog_id)?.device_scope ?? '', profile: 'music', ...value.mappings[key], ...patch } } }); setDirty(true);
   };
   const locked = busy || complete || (preview?.page ?? 1) > 1;
   const filtered = items.filter(row => (!device || row.catalog_id === device) && (!change || row.change === change));
-  const contextName = (key: string) => { const row = preview?.contexts.find(row => row.key === key); return row ? [row.context || t('b15.withoutContext'), row.source_app].filter(Boolean).join(' · ') : t('b15.withoutContext'); };
+  const contextName = (key: string) => { const row = preview?.contexts.find(row => row.key === key); return row ? contextLabel(row.key) : t('b15.withoutContext'); };
   const panel = open && <section aria-label={t('b17.sync')} className="min-w-0 space-y-4 rounded-lg border border-line bg-panel p-5">
     <h2>{t('b17.sync')}</h2><p>{t('b17.syncDescription')}</p>
     {preview && <>
@@ -102,10 +103,10 @@ export function TitleSync({ catalogs }: { catalogs: SyncCatalog[] }) {
       <details open={dirty || !!preview.error_groups.length}><summary>{t('b17.mapping')}</summary><p>{t('b18.mappingHint')}</p>
         {preview.contexts.map(context => { const target = mapping?.mappings[context.key]; return <fieldset key={context.key} className="my-2 grid items-end gap-3 border border-line p-3 lg:grid-cols-4">
           <legend>{contextName(context.key)}</legend>
-          <Field label={t('b15.device')}>{p => <Select {...p} disabled={locked} value={target ? `${target.catalog_id}@${target.definition_version}` : ''} onChange={e => { const chosen = catalogs.find(c => `${c.catalog_id}@${c.version}` === e.target.value); update(context.key, { catalog_id: chosen?.catalog_id ?? '', definition_version: chosen?.version ?? 1 }); }}>
-            <option value="">{t('b4.choose')}</option>{catalogs.map(c => <option key={`${c.catalog_id}@${c.version}`} value={`${c.catalog_id}@${c.version}`}>{c.catalog_id} · {c.version}</option>)}</Select>}</Field>
+          <Field label={t('b15.device')}>{p => <Select {...p} disabled={locked} value={target ? `${target.catalog_id}@${target.definition_version}` : ''} onChange={e => { const chosen = catalogs.find(c => `${c.catalog_id}@${c.version}` === e.target.value); update(context.key, { catalog_id: chosen?.catalog_id ?? '', definition_version: chosen?.version ?? 1, scope: chosen?.device_scope ?? '' }); }}>
+            <option value="">{t('b4.choose')}</option>{catalogs.map(c => <option key={`${c.catalog_id}@${c.version}`} value={`${c.catalog_id}@${c.version}`}>{catalogLabel(c)}</option>)}</Select>}</Field>
           <Field label={t('b15.profile')}>{p => <Select {...p} disabled={locked} value={target?.profile ?? 'music'} onChange={e => update(context.key, { profile: e.target.value })}>{[['music', 'b15.music'], ['game', 'b15.games'], ['private', 'b15.private']].map(([value, label]) => <option key={value} value={value}>{t(label!)}</option>)}</Select>}</Field>
-          <Field label={t('alpha10.catalog.field.scope')}>{p => <Input {...p} disabled={locked} value={target?.scope ?? 'default'} onChange={e => update(context.key, { scope: e.target.value })} />}</Field>
+          <Field label={t('alpha10.catalog.field.scope')}>{p => catalogs.find(c => c.catalog_id === target?.catalog_id)?.device_scope ? <Select {...p} disabled value={target?.scope ?? ''}><option value={target?.scope ?? ''}>{catalogValue('scope', target?.scope ?? '')}</option></Select> : <Input {...p} disabled={locked} value={target?.scope ?? ''} onChange={e => update(context.key, { scope: e.target.value })} />}</Field>
         </fieldset>; })}
         <Button disabled={locked || !dirty} onClick={() => void read(true)}>{t('b17.checkMapping')}</Button>
       </details>
@@ -116,12 +117,12 @@ export function TitleSync({ catalogs }: { catalogs: SyncCatalog[] }) {
       <Notice tone="warn">{t('b18.tcWins')}</Notice>
       <div className="flex flex-wrap gap-4">
         <Field label={t('b18.changeFilter')}>{p => <Select {...p} value={change} onChange={e => setChange(e.target.value)}><option value="">{t('alpha10.catalog.all')}</option>{['new', 'changed', 'unchanged'].map(key => <option key={key} value={key}>{t(`b17.diff.${key}`)}</option>)}</Select>}</Field>
-        <Field label={t('b18.column.device')}>{p => <Select {...p} value={device} onChange={e => setDevice(e.target.value)}><option value="">{t('b18.allDevices')}</option>{[...new Set(catalogs.map(row => row.catalog_id))].map(id => <option key={id} value={id}>{id}</option>)}</Select>}</Field>
+        <Field label={t('b18.column.device')}>{p => <Select {...p} value={device} onChange={e => setDevice(e.target.value)}><option value="">{t('b18.allDevices')}</option>{catalogs.map(c => <option key={c.catalog_id} value={c.catalog_id}>{catalogLabel(c)}</option>)}</Select>}</Field>
       </div><p>{t('b18.filterHint')}</p>
       <div className="overflow-x-auto"><table className="w-full table-fixed text-left text-sm" style={{ minWidth: '100rem' }}>
         <thead><tr>{['device', 'artist', 'title', 'class', 'master', 'status', 'sightings', 'first', 'last', 'change'].map(key => <th key={key} scope="col" className="p-2">{t(`b18.column.${key}`)}</th>)}</tr></thead>
         <tbody>{filtered.map((item, index) => { const row = item.after; const meta = row.tc_metadata; const parts = titleKeyParts(row.key); return <tr key={index} className="border-t border-line align-top">
-          <td className="break-words p-2">{item.catalog_id}</td><td className="break-words p-2">{meta?.artist || parts?.artist || t('b18.empty')}</td><td className="break-words p-2">{meta?.title || row.display_name || parts?.title || titleLabel(row) || t('b18.empty')}</td>
+          <td className="break-words p-2">{catalogLabel(catalogs.find(c => c.catalog_id === item.catalog_id) ?? { catalog_id: item.catalog_id, version: 1 })}</td><td className="break-words p-2">{meta?.artist || parts?.artist || t('b18.empty')}</td><td className="break-words p-2">{meta?.title || row.display_name || parts?.title || titleLabel(row) || t('b18.empty')}</td>
           <td className="p-2">{item.old_class || t('b18.empty')} → {item.new_class || t('b18.empty')}</td><td className="break-words p-2">{item.master ? titleLabel({ key: item.master }) : t('b18.empty')}</td><td className="p-2">{row.hidden_at ? t('b17.status.hidden') : row.reviewed_at ? t('b17.status.reviewed') : t('b18.empty')}</td>
           <td className="p-2">{meta?.telemetry ? t('b18.sightings', { n: meta?.telemetry.seen_count }) : t('b18.empty')}</td><td className="p-2">{date(meta?.telemetry?.first_seen)}</td><td className="p-2">{date(meta?.telemetry?.last_seen)}</td><td className="p-2">{t(`b17.diff.${item.change}`)}</td>
         </tr>; })}</tbody>

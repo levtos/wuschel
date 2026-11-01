@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { t } from '@/i18n';
+import { uuid } from '@/lib/uuid';
 import { api, describeError } from '@/lib/api';
 import { useActiveRevision } from '@/lib/queries';
 import type { Draft } from '@/lib/types';
@@ -35,7 +36,7 @@ export function TitleImport() {
   const filteredRows = sourceRows.filter(row => row.key.toLocaleLowerCase('de').includes(rowSearch.toLocaleLowerCase('de')) || String(row.row).includes(rowSearch));
   const [preview, setPreview] = useState<Preview | null>(null);
   const [checked, setChecked] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
-  const requestId = useRef(crypto.randomUUID()); const sequence = useRef(0);
+  const requestId = useRef(uuid()); const sequence = useRef(0);
   const active = useActiveRevision(); const doc = useWorkingDocument(); const navigate = useNavigate(); const cache = useQueryClient();
   const catalogs = useQuery({ queryKey: ['managed-catalogs'], queryFn: () => api<Catalog[]>('catalogs'), enabled: open });
   const body = { source_text: text, mappings, excluded_rows: excludedRows, resolutions, expected_active_revision: active.data?.revision ?? 0 };
@@ -46,7 +47,7 @@ export function TitleImport() {
     try {
       const result = await api<Preview>('title-import/preview', { method: 'POST', body });
       if (token !== sequence.current || latest.current !== submitted) return;
-      setPreview(result); setChecked(submitted); requestId.current = crypto.randomUUID();
+      setPreview(result); setChecked(submitted); requestId.current = uuid();
     } catch (failure) { if (token === sequence.current) { setError(describeError(failure)); setChecked(''); void cache.invalidateQueries({ queryKey: ['registry', 'active'] }); } }
     finally { if (token === sequence.current) setBusy(false); }
   };

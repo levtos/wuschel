@@ -236,6 +236,16 @@ def offer(
         "media_type": media,
         "signal_type": signal,
         "key": raw,
+        "display_name": next(
+            (
+                item.catalog_frame["app_name"]
+                for item in observations
+                if item.catalog_frame
+                and item.catalog_frame.get("app_id") == raw
+                and item.catalog_frame.get("app_name")
+            ),
+            "",
+        ),
         "session": session,
         "source": source,
         "due": (ctx.now + timedelta(seconds=delay)).isoformat(),
@@ -267,6 +277,13 @@ def flush(state: Any, now: datetime) -> None:
             continue
         sighting_key = pending["catalog"] + ":" + pending["identity"]
         previous = state.tables["catalog_sighting"].get(sighting_key, {})
+        tombstone = (
+            state.tables["catalog_head"]
+            .get(pending["catalog"], {})
+            .get("entries", {})
+            .get(pending["identity"], {})
+            .get("tombstone", False)
+        )
         state.tables["catalog_sighting"][sighting_key] = {
             **{
                 k: pending[k]
@@ -284,6 +301,8 @@ def flush(state: Any, now: datetime) -> None:
             "last_seen": pending["observed_at"],
             "seen_count": previous.get("seen_count", 0) + 1,
             "report": tracker["report"],
+            "display_name": pending.get("display_name") or previous.get("display_name", ""),
+            **({"after_removal": True} if tombstone else {}),
         }
         tracker.update(
             last=pending["identity"], last_raw=pending["key"], last_session=pending["session"]

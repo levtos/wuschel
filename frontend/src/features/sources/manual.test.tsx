@@ -13,6 +13,18 @@ vi.mock('@/lib/api', async importOriginal => ({ ...await importOriginal<typeof i
 vi.mock('@/lib/queries', () => ({ useActiveRevision: () => ({ data: { revision: 9, config: { sources: [{ source_id: 'source.manual', origin: 'manual', value_schema: { type: 'bool' }, freshness: { mode: 'event_stateful' } }], contracts: [{ contract_id: 'example.use', enabled: true, inputs: [{ ref: 'source.manual' }] }] } } }) }));
 
 beforeEach(() => { mocks.api.mockReset(); });
+it('records a confirmed manual value over HTTP without randomUUID', async () => {
+  vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto), randomUUID: undefined });
+  try {
+    mocks.api.mockImplementation(async (path: string) => path.startsWith('evidence/') ? [] : { status: 'accepted' });
+    render(<QueryClientProvider client={new QueryClient()}><ManualSourcePanel sourceId="source.manual" /></QueryClientProvider>);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('checkbox', { name: t('alpha9.manual.unboundedConfirm') }));
+    await user.click(screen.getByRole('button', { name: t('alpha9.manual.enter') }));
+    await screen.findByText(t('alpha9.manual.recorded'));
+    expect(mocks.api.mock.calls.find(([, init]) => init?.method === 'POST')?.[1].body.request_id).toMatch(/^[0-9a-f-]{36}$/);
+  } finally { vi.unstubAllGlobals(); }
+});
 
 it('adds an explicit typed manual source and transport-free binding to the draft', () => {
   const original = { sources: [], bindings: [], dependencies: [] };

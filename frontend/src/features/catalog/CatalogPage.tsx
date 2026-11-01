@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { hasTranslation, t } from '@/i18n';
+import { t } from '@/i18n';
 import { api, describeError } from '@/lib/api';
 import { uuid } from '@/lib/uuid';
 import { useActiveRevision } from '@/lib/queries';
@@ -13,8 +13,11 @@ import { TitleSync } from './TitleSync';
 import { CatalogCare, CatalogDetail, MasterVariants } from './CatalogCare';
 import { titleLabel } from './titleLabel';
 import { CatalogCleanup } from './CatalogCleanup';
+import { CatalogScopeRepair } from './CatalogScopeRepair';
+import { Badge } from '@/components/ui/badge';
+import { catalogLabel, catalogValue, contextLabel } from './catalogLabels';
 
-export interface Catalog { catalog_id: string; version: number; classification_schema: { values: string[]; legend?: Record<string, { display_name: string; description: string }> } }
+export interface Catalog { catalog_id: string; version: number; device_scope?: string | null; display_name?: string; classification_schema: { values: string[]; legend?: Record<string, { display_name: string; description: string }> } }
 export interface Entry { master_order?: number; playback_counts?: boolean; tombstone?: boolean; identity: string; key: string; scope: string; media_type: string; signal_type: string; classification: string | null; master_key: string | null; display_name: string; note: string; effective_classification: string; complete: boolean; first_seen?: string; last_seen?: string; seen_count?: number; semantic_digest: string; review_status?: string; candidate?: boolean; variant_count?: number; local_sightings?: { seen_count: number }; tc_metadata?: { artist?: string | null; title?: string | null; source_class: number; contexts: { context: string; source_app: string; enum_override?: number | null; telemetry?: { seen_count: number; first_seen: string; last_seen: string } | null }[] } }
 interface Page { items: Entry[]; content_revision: number; next_cursor: string | null; contexts?: string[]; filter_values?: Record<string, string[]> }
 
@@ -27,7 +30,7 @@ export default function CatalogPage() {
   const [restoringId, setRestoringId] = useState('');
   const [impact, setImpact] = useState<{ affected_keys: number; affected_contracts: number; request: string } | null>(null);
   const catalog = catalogs.data?.find(c => `${c.catalog_id}@${c.version}` === chosen) ?? catalogs.data?.[0];
-  const [view, setView] = useState('open'); const [query, setQuery] = useState(''); const [after, setAfter] = useState('');
+  const [view, setView] = useState('all'); const [query, setQuery] = useState(''); const [after, setAfter] = useState('');
   const [sort, setSort] = useState('newest'); const [variantsFirst, setVariantsFirst] = useState(false); const [contextFilter, setContextFilter] = useState(''); const [structure, setStructure] = useState('');
   const [selected, setSelected] = useState<Record<string, Entry>>({}); const [details, setDetails] = useState<Entry | null>(null);
   const [editing, setEditing] = useState<Entry | null>(null); const [classification, setClassification] = useState('');
@@ -63,14 +66,14 @@ export default function CatalogPage() {
     } catch (failure) { setError(describeError(failure)); }
     finally { setBusy(false); }
   };
-  const label = (kind: string, value: string) => hasTranslation(`alpha10.catalog.${kind}.${value}`) ? t(`alpha10.catalog.${kind}.${value}`) : value;
+  const label = catalogValue;
   return <>
     <PageHeader title={t('alpha10.catalog.title')} description={t('b17.catalogDescription')} actions={<TitleSync catalogs={catalogs.data ?? []} />} />
     <div id="title-sync-panel" />
       <p className="mb-4 text-sm text-muted">{t('b20.catalog.countHelp')}</p>
     {catalogs.isPending ? <Spinner /> : catalogs.isError ? <Notice tone="bad">{t('alpha10.catalog.loadError')}</Notice> : !catalog ? <Empty title={t('alpha10.catalog.noCatalog')}>{t('alpha10.catalog.defineFirst')}</Empty> : <Panel className="space-y-4 p-5">
       <div className="grid gap-4 md:grid-cols-3">
-        <Field label={t('alpha10.catalog.catalog')}>{p => <Select {...p} value={`${catalog.catalog_id}@${catalog.version}`} onChange={e => { setChosen(e.target.value); setAfter(''); setSelected({}); setDetails(null); }}>{catalogs.data?.map(c => <option key={`${c.catalog_id}@${c.version}`} value={`${c.catalog_id}@${c.version}`}>{c.catalog_id} · {c.version}</option>)}</Select>}</Field>
+        <Field label={t('alpha10.catalog.catalog')}>{p => <Select {...p} value={`${catalog.catalog_id}@${catalog.version}`} onChange={e => { setChosen(e.target.value); setAfter(''); setSelected({}); setDetails(null); }}>{catalogs.data?.map(c => <option key={`${c.catalog_id}@${c.version}`} value={`${c.catalog_id}@${c.version}`}>{catalogLabel(c)}</option>)}</Select>}</Field>
         <Field label={t('alpha10.catalog.view')}>{p => <Select {...p} value={view} onChange={e => { setView(e.target.value); setAfter(''); }}>{['open', 'reviewed', 'hidden'].map(v => <option key={v} value={v}>{t(`b17.status.${v}`)}</option>)}{['unassigned', 'all', 'masters', 'history'].map(v => <option key={v} value={v}>{t(`alpha10.catalog.${v}`)}</option>)}</Select>}</Field>
         <Field label={t('alpha10.catalog.search')}>{p => <Input {...p} value={query} onChange={e => { setQuery(e.target.value); setAfter(''); }} />}</Field>
       </div>
@@ -79,14 +82,16 @@ export default function CatalogPage() {
       ].map(([name, value, update]) => <Field key={String(name)} label={t(name === 'scope' ? 'b20.catalog.scope' : `alpha10.catalog.field.${name}`)}>{p => <Select {...p} value={String(value)} onChange={e => { (update as (value: string) => void)(e.target.value); setAfter(''); }}><option value="">{t('alpha10.catalog.all')}</option>{(entries.data?.filter_values?.[String(name)] ?? []).map(option => <option key={option} value={option}>{label(String(name), option)}</option>)}</Select>}</Field>)}</div>
       <div className="grid gap-4 md:grid-cols-3">
         <Field label={t('b17.sort')}>{p => <Select {...p} value={sort} onChange={event => { setSort(event.target.value); setAfter(''); }}>{['newest', 'oldest', 'title'].map(value => <option key={value} value={value}>{t(`b17.sort.${value}`)}</option>)}</Select>}</Field>
-        <Field label={t('b17.contextDevice')}>{p => <Select {...p} value={contextFilter} onChange={event => { setContextFilter(event.target.value); setAfter(''); }}><option value="">{t('b17.allContexts')}</option>{entries.data?.contexts?.map(value => <option key={value} value={value}>{value}</option>)}</Select>}</Field>
+        <Field label={t('b17.contextDevice')}>{p => <Select {...p} value={contextFilter} onChange={event => { setContextFilter(event.target.value); setAfter(''); }}><option value="">{t('b17.allContexts')}</option>{entries.data?.contexts?.map(value => <option key={value} value={value}>{contextLabel(value)}</option>)}</Select>}</Field>
         <Field label={t('b17.structure')}>{p => <Select {...p} value={structure} onChange={event => { setStructure(event.target.value); setAfter(''); }}><option value="">{t('alpha10.catalog.all')}</option><option value="masters">{t('alpha10.catalog.masters')}</option><option value="variants">{t('b17.variants')}</option></Select>}</Field>
         <label><input type="checkbox" checked={variantsFirst} onChange={event => { setVariantsFirst(event.target.checked); setAfter(''); }} /> {t('b17.variantsFirst')}</label>
       </div>
       {view !== 'history' && <CatalogCare key={`${catalog.catalog_id}@${catalog.version}`} catalog={catalog} rows={entries.data?.items ?? []} selected={selected} setSelected={setSelected} revision={entries.data?.content_revision ?? 0} activeRevision={active.data?.revision ?? 0} parameters={parameters.toString()} />}
+      <CatalogScopeRepair activeRevision={active.data?.revision ?? 0} />
+      <details><summary>{t('alpha10.technical')}</summary><p>{catalog.catalog_id} · {catalog.version}</p></details>
       <CatalogCleanup key={`cleanup-${catalog.catalog_id}@${catalog.version}`} catalog={catalog} />
       {view === 'history' ? history.isPending ? <Spinner /> : history.isError ? <Notice tone="bad">{t('alpha10.catalog.loadError')}</Notice> : <><ul className="divide-y divide-line">{history.data?.map(row => <li key={row.revision} className="py-3"><p>{t('alpha10.catalog.revision', { n: row.revision })} · {new Date(row.at).toLocaleString('de-DE')}</p><p>{row.reason}</p><p className="text-sm text-muted">{t('alpha10.catalog.affected', { n: row.affected.length })}</p><Button onClick={() => { setPast(row.revision); setPastAfter(''); setExpected(row.head_revision); setExpectedActive(row.active_revision); setRestoringId(uuid()); setError(''); }}>{t('alpha10.catalog.historyOpen')}</Button></li>)}</ul><div className="flex gap-3"><Button disabled={!after} onClick={() => setAfter('')}>{t('alpha10.catalog.first')}</Button><Button disabled={history.data?.length !== 100} onClick={() => setAfter(String(history.data!.at(-1)!.revision))}>{t('alpha10.catalog.older')}</Button></div></> : entries.isPending ? <Spinner /> : entries.isError ? <Notice tone="bad">{t('alpha10.catalog.loadError')}</Notice> : <>
-        {entries.data?.items.length === 0 ? <Empty title={t('alpha10.catalog.empty')}>{t('alpha10.catalog.emptyHelp')}</Empty> : <ul className="divide-y divide-line">{entries.data?.items.map(entry => <li key={entry.identity} className="flex flex-wrap items-center justify-between gap-4 py-3"><input type="checkbox" aria-label={t('b17.selectTitle', { title: titleLabel(entry) })} checked={!!selected[entry.identity]} onChange={event => setSelected(previous => { const next = { ...previous }; if (event.target.checked) next[entry.identity] = entry; else delete next[entry.identity]; return next; })} /><div className="min-w-0 flex-1"><p className="break-words font-medium">{titleLabel(entry)}</p>{entry.candidate && <p>{t('b17.candidate')}</p>}<p className="text-sm text-muted">{entry.scope} · {label('media', entry.media_type)} · {label('signal', entry.signal_type)} · {entry.complete ? catalog.classification_schema.legend?.[entry.effective_classification]?.display_name ?? entry.effective_classification : t('alpha10.catalog.unassigned')}</p>{entry.master_key && <p className="text-sm">{t('alpha10.catalog.master')}: {titleLabel({ key: entry.master_key })}</p>}{entry.last_seen && <p className="text-xs text-muted">{t(entry.playback_counts ? 'b20.catalog.seen' : 'alpha10.catalog.seen', { n: entry.seen_count ?? 0, date: new Date(entry.last_seen).toLocaleString('de-DE') })}</p>}</div>{(entry.variant_count ?? 0) > 0 && <MasterVariants catalog={catalog} entry={entry} onOpen={setDetails} />}<Button onClick={() => setDetails(entry)}>{t('b17.details')}</Button><Button onClick={() => open(entry)}>{t('alpha10.catalog.edit')}</Button></li>)}</ul>}
+        {entries.data?.items.length === 0 ? <Empty title={t('alpha10.catalog.empty')}>{t('alpha10.catalog.emptyHelp')}</Empty> : <ul className="divide-y divide-line">{entries.data?.items.map(entry => <li key={entry.identity} className="flex flex-wrap items-center justify-between gap-4 py-3"><input type="checkbox" aria-label={t('b17.selectTitle', { title: titleLabel(entry) })} checked={!!selected[entry.identity]} onChange={event => setSelected(previous => { const next = { ...previous }; if (event.target.checked) next[entry.identity] = entry; else delete next[entry.identity]; return next; })} /><div className="min-w-0 flex-1"><p className="break-words font-medium">{titleLabel(entry)}</p><Badge tone={entry.review_status === 'hidden' ? 'info' : entry.review_status === 'reviewed' ? 'ok' : 'bad'}>{t(`b17.status.${entry.review_status ?? 'open'}`)}</Badge>{!entry.complete && <Badge>{t('b21.withoutClass')}</Badge>}{entry.candidate && <p>{t('b17.candidate')}</p>}<p className="text-sm text-muted">{label('scope', entry.scope)} · {label('media_type', entry.media_type)} · {label('signal_type', entry.signal_type)} · {entry.complete ? catalog.classification_schema.legend?.[entry.effective_classification]?.display_name ?? entry.effective_classification : t('alpha10.catalog.unassigned')}</p>{entry.master_key && <p className="text-sm">{t('alpha10.catalog.master')}: {titleLabel({ key: entry.master_key })}</p>}{entry.last_seen && <p className="text-xs text-muted">{t(entry.playback_counts ? 'b20.catalog.seen' : 'alpha10.catalog.seen', { n: entry.seen_count ?? 0, date: new Date(entry.last_seen).toLocaleString('de-DE') })}</p>}</div>{(entry.variant_count ?? 0) > 0 && <MasterVariants catalog={catalog} entry={entry} onOpen={setDetails} />}<Button onClick={() => setDetails(entry)}>{t('b17.details')}</Button><Button onClick={() => open(entry)}>{t('alpha10.catalog.edit')}</Button></li>)}</ul>}
         <div className="flex gap-3"><Button disabled={!after} onClick={() => setAfter('')}>{t('alpha10.catalog.first')}</Button><Button disabled={!entries.data?.next_cursor} onClick={() => setAfter(entries.data?.next_cursor ?? '')}>{t('alpha10.catalog.next')}</Button></div>
       </>}
     </Panel>}

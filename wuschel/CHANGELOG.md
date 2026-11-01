@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0b21 — Gerätebereiche, lesbare Katalogpflege und HTTP
+
+- Einmalige Korrektur der importierten Katalogbereiche mit Vorschau je Katalog und einer Bestätigung: Master und Varianten ziehen gemeinsam um, Kollisionen behalten die gesetzte Live-Klasse und führen Sichtungen zusammen. Die voreingestellte PC-Leerung ist abwählbar. Historie bleibt als Revisionen erhalten; nur betroffene Schlüssel wirken neu.
+- Der Title-Classifier-Abgleich verwendet künftig den belegten Gerätebereich; `default` ist für Gerätekataloge kein gültiges Ziel mehr.
+- Alle Titel als Standardansicht, farbige Etiketten für Offen/Erledigt/Ausgeblendet sowie ein eigener Hinweis ohne Klasse. Gerätenamen und deutsche Medien-/Signalfilter ersetzen technische Kennungen und JSON.
+- Apple TV zeigt den vorhandenen App-Namen bei unveränderter App-Kennung. Die bestätigte Bestandskorrektur entfernt alte leere Sichtungen; neue leere Schlüssel werden nicht erfasst.
+- Titelimport, Aktivierung und manuelle Eingaben verwenden den HTTP-fähigen UUID-Helfer. Eine Quellprüfung verhindert neue direkte Aufrufe außerhalb dieses Helfers.
+- Nur amd64. Keine neue Datenbankmigration, Traber bleibt unverändert. Benni führt die Bestandskorrektur selbst in der Oberfläche aus; für diese Version ist laut #92 kein vzdump erforderlich. Technische Installation und Live-Abnahme bleiben getrennt.
+- [Auftrag #92](https://github.com/levtos/wuschel/issues/92).
+
 ## 1.0.0b20 — Stabile Titelpaare, bestätigte Bereinigung und vollständige Sicherung
 
 - Der Katalog zählt stabile Wiedergaben statt einzelner Meldungen. Titel und Interpret werden nur im Katalog zusammengeführt; die bestehende Vertragsauswertung und ihre Zeitpunkte bleiben erhalten. Gleichbleibende Meldungen und Pause/Fortsetzen zählen nicht erneut. Repeat verlangt einen belegten neuen Start; ohne ausreichende Quellenmarker bleibt diese Grenze sichtbar.

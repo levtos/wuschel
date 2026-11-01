@@ -11,6 +11,17 @@ const config = emptyRegistry();
 const context = { key: '["synthetic","synthetic-app"]', context: 'Synthetic Context', source_app: 'synthetic-app' };
 const result = (unresolved: string[] = []) => ({ import_id: 'synthetic', plan_digest: 'checked', already_applied: false, contexts: [context], report: { input_rows: 3181, target_entries: 6362, additional_forms_created: 3181, additional_forms_skipped: 0, error_count: 0, outcomes: {}, errors: [] }, unresolved, conflicts: [] });
 beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
+it('imports into a checked draft over HTTP without randomUUID', async () => {
+  vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto), randomUUID: undefined });
+  const { fake, user, dialog, check, stage } = await open();
+  await user.click(check);
+  await dialog.findByText('synthetic-app');
+  await waitFor(() => expect(stage).toBeEnabled());
+  await user.click(stage);
+  await waitFor(() => expect(window.location.hash).toBe('#/changes/drafts/titles'));
+  expect(fake.calls.find(call => call.path === 'title-import/stage')?.body).toMatchObject({ request_id: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+  expect(fake.activations).toHaveLength(0);
+});
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 async function open(respond: (body: any) => Response | Promise<Response> = () => reply(200, result()), entries = [{ key: 'Synthetic - Ambiguous - Music' }]) {
