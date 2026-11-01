@@ -10,6 +10,33 @@ afterEach(() => vi.unstubAllGlobals());
 
 const plan = { complete: false, plan_digest: 'synthetic', clear_pc: true, catalogs: [{ catalog_id: 'media.homepods', definition_version: 1, moved: 3, collisions: 2, removed: 0 }] };
 
+it('summarizes resolutions, expands readable per-entry reasons and applies the exact preview digest', async () => {
+  const fake = installFakeApi();
+  const resolved = { ...plan, plan_digest: 'resolved-plan', catalogs: [{ ...plan.catalogs[0]!, conflicts: 3, findings: [
+    { identity: 'one', key: '["Synthetic Artist","Synthetic Variant"]', display_name: '', reason: 'live_master', master_before: 'Synthetic Master A', master_after: 'Synthetic Master B' },
+    { identity: 'two', key: 'Synthetic Class Conflict', display_name: '', reason: 'live_class_standalone', master_before: 'Synthetic Master A', master_after: null },
+    { identity: 'three', key: 'Synthetic Orphan', display_name: '', reason: 'missing_master_standalone', master_before: 'Synthetic Missing', master_after: null },
+  ] }] };
+  fake.routes.push({ match: /^catalogs\/scope\/preview$/, respond: () => reply(200, resolved) });
+  fake.routes.push({ match: /^catalogs\/scope\/apply$/, respond: () => reply(200, { ...resolved, complete: true }) });
+  wrap(<CatalogScopeRepair activeRevision={4} />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Katalogbereiche korrigieren' }));
+  const summary = await screen.findByText('Auflösungen (3)');
+  expect(screen.getByText('Synthetic Artist – Synthetic Variant')).not.toBeVisible();
+  expect(fake.calls.some(call => call.path.endsWith('/apply'))).toBe(false);
+  await user.click(summary);
+  expect(screen.getByText('Synthetic Artist – Synthetic Variant')).toBeVisible();
+  expect(screen.getByText('Der vorhandene Live-Masterbezug bleibt erhalten.')).toBeVisible();
+  expect(screen.getByText(/Die abweichende Live-Klasse bleibt als selbständige Zuordnung erhalten/)).toBeVisible();
+  expect(screen.getByText(/Der Master fehlt/)).toBeVisible();
+  expect(screen.getByText('Master nach der Korrektur: Synthetic Master B')).toBeVisible();
+  expect(screen.getByRole('dialog').textContent).not.toContain('["');
+  await user.click(screen.getByRole('button', { name: 'Bestätigen und ausführen' }));
+  await screen.findByText(/Die einmalige Korrektur ist abgeschlossen/);
+  expect(fake.calls.find(call => call.path.endsWith('/apply'))?.body).toMatchObject({ plan_digest: 'resolved-plan', confirmed: true });
+});
+
 it('previews totals with PC enabled, invalidates an option change and needs one explicit apply', async () => {
   const fake = installFakeApi();
   fake.routes.push({ match: /^catalogs\/scope\/preview$/, respond: (_, body) => reply(200, { ...plan, clear_pc: body.clear_pc }) });

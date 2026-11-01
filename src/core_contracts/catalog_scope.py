@@ -1,11 +1,20 @@
 """Explicit, one-time scope repair through the existing catalog writer."""
 
 import copy
+from collections import defaultdict
 from typing import Any
 from uuid import UUID
 
 from .catalog_care import fields
-from .managed_catalog import affected_contracts, head, head_key, identity, invalidate, prepare
+from .managed_catalog import (
+    affected_contracts,
+    effective,
+    head,
+    head_key,
+    identity,
+    invalidate,
+    prepare,
+)
 from .model import canonical, checksum
 from .text_rules import normalize_key
 from .title_sync import ImportWrite, current_mapping
@@ -70,6 +79,72 @@ def telemetry(*rows: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def resolution(
+    key: str, row: dict[str, Any], reason: str, before: Any, after: Any
+) -> dict[str, Any]:
+    return {
+        "identity": key,
+        "key": row["key"],
+        "display_name": row.get("display_name", ""),
+        "reason": reason,
+        "master_before": before,
+        "master_after": after,
+    }
+
+
+def resolve_links(
+    changes: dict[str, Any],
+    entries: dict[str, Any],
+    sources: dict[str, Any],
+    origins: dict[str, str],
+    catalog: Any,
+) -> list[dict[str, Any]]:
+    """Keep a one-level graph; unresolved links become explicit standalone entries."""
+    projected = {**entries, **changes}
+    findings = []
+    # Break an imported edge before a preserved live edge if merging creates a cycle.
+    for key in sorted(
+        projected, key=lambda item: (bool(sources.get(item, {}).get("master_key")), item)
+    ):
+        row = projected[key]
+        if row.get("tombstone") or not row.get("master_key"):
+            continue
+        seen = {key}
+        parent_name = row["master_key"]
+        reason = "master_flattened"
+        parent = None
+        while parent_name:
+            parent_id = identity(row["scope"], row["media_type"], row["signal_type"], parent_name)
+            if parent_id in seen:
+                reason = "cyclic_master_standalone"
+                break
+            seen.add(parent_id)
+            parent = projected.get(parent_id)
+            if not parent or parent.get("tombstone"):
+                reason = "missing_master_standalone"
+                break
+            if not parent.get("master_key"):
+                break
+            parent_name = parent["master_key"]
+        if reason != "master_flattened":
+            value = row.get("classification")
+            for original in dict.fromkeys((key, origins.get(key, key))):
+                if original not in entries:
+                    continue
+                old_value, complete, _ = effective(entries, original, catalog)
+                if complete:
+                    value = old_value
+                    break
+            updated = {**fields(row), "master_key": None, "classification": value}
+        elif parent is not None and parent["key"] != row["master_key"]:
+            updated = {**fields(row), "master_key": parent["key"], "classification": None}
+        else:
+            continue
+        changes[key] = projected[key] = updated
+        findings.append(resolution(key, updated, reason, row["master_key"], updated["master_key"]))
+    return findings
+
+
 def build(state: Any, config: Any, clear_pc: bool) -> dict[str, Any]:
     groups = []
     sights = copy.deepcopy(state.tables["catalog_sighting"])
@@ -84,9 +159,14 @@ def build(state: Any, config: Any, clear_pc: bool) -> dict[str, Any]:
         entries = current["entries"]
         changes: dict[str, Any] = {}
         family_classes: list[tuple[str, str]] = []
+        findings: list[dict[str, Any]] = []
+        origins: dict[str, str] = {}
         moved = collisions = removed = 0
         clearing = clear_pc and scope == "pc"
         sources = {key: copy.deepcopy(row) for key, row in entries.items() if not row["tombstone"]}
+        live_parents = {
+            row.get("master_identity") for row in sources.values() if row.get("master_identity")
+        }
         for row in sights.values():
             if row["catalog"] == ck and (
                 clearing or not entries.get(row["identity"], {}).get("tombstone")
@@ -107,6 +187,7 @@ def build(state: Any, config: Any, clear_pc: bool) -> dict[str, Any]:
             if scope in {None, "default"} or row["scope"] != "default":
                 continue
             target = identity(scope, row["media_type"], row["signal_type"], row["key"])
+            origins[target] = key
             live = sources.get(target, {})
             merged = {**fields(row), "scope": scope}
             if live:
@@ -119,8 +200,18 @@ def build(state: Any, config: Any, clear_pc: bool) -> dict[str, Any]:
                 )
                 if live.get("master_key"):
                     if row.get("master_key") and row["master_key"] != live["master_key"]:
-                        raise ValueError("catalog_master_invalid")
+                        findings.append(
+                            resolution(
+                                target, merged, "live_master", row["master_key"], live["master_key"]
+                            )
+                        )
                     merged.update(master_key=live["master_key"], classification=None)
+                elif target in live_parents and row.get("master_key"):
+                    value, complete, _ = effective(entries, key, catalog)
+                    merged.update(master_key=None, classification=value if complete else None)
+                    findings.append(
+                        resolution(target, merged, "live_master", row["master_key"], None)
+                    )
                 elif live.get("classification") is not None:
                     if row.get("master_key"):
                         family_classes.append((target, live["classification"]))
@@ -151,30 +242,43 @@ def build(state: Any, config: Any, clear_pc: bool) -> dict[str, Any]:
                     "scope": scope,
                 }
             moved += 1
+        families: dict[str, list[tuple[str, str]]] = defaultdict(list)
         for target, value in family_classes:
             assert scope is not None
             variant = changes[target]
             master = identity(
                 scope, variant["media_type"], variant["signal_type"], variant["master_key"]
             )
+            families[master].append((target, value))
+        for master, members in families.items():
             master_row = changes.get(master) or fields(entries.get(master, {}))
             live_master = sources.get(master, {})
-            if (
+            values = {value for _, value in members}
+            incompatible = (
                 not master_row
+                or master_row.get("tombstone")
                 or master_row.get("master_key")
+                or len(values) != 1
                 or (
                     live_master.get("classification") is not None
-                    and live_master["classification"] != value
+                    and live_master["classification"] not in values
                 )
-            ):
-                raise ValueError("catalog_variant_override")
-            if any(
-                other != value
-                for child, other in family_classes
-                if changes[child].get("master_key") == variant["master_key"]
-            ):
-                raise ValueError("catalog_variant_override")
-            changes[master] = {**master_row, "classification": value}
+            )
+            if incompatible:
+                for target, value in members:
+                    variant = changes[target]
+                    reason = (
+                        "missing_master_standalone"
+                        if not master_row or master_row.get("tombstone")
+                        else "live_class_standalone"
+                    )
+                    changes[target] = {**variant, "master_key": None, "classification": value}
+                    findings.append(
+                        resolution(target, variant, reason, variant["master_key"], None)
+                    )
+            else:
+                changes[master] = {**master_row, "classification": next(iter(values))}
+        findings.extend(resolve_links(changes, entries, sources, origins, catalog))
         if changes or moved or removed:
             groups.append(
                 {
@@ -186,6 +290,8 @@ def build(state: Any, config: Any, clear_pc: bool) -> dict[str, Any]:
                     "moved": moved,
                     "collisions": collisions,
                     "removed": removed,
+                    "conflicts": len(findings),
+                    "findings": findings,
                 }
             )
             total += len(changes)
@@ -241,7 +347,7 @@ async def process(
     if config is None:
         raise ValueError("catalog_definition_missing")
     plan = build(state, config, clear_pc)
-    digest = basis(state, clear_pc)
+    digest = checksum([basis(state, clear_pc), plan])
     result = {
         "complete": False,
         "plan_digest": digest,

@@ -1,4 +1,12 @@
 {
+  "b21.repair.resolutions": "Auflösungen ({n})",
+  "b21.repair.masterBefore": "Bisheriger Master",
+  "b21.repair.masterAfter": "Master nach der Korrektur",
+  "b21.repair.resolution.live_master": "Der vorhandene Live-Masterbezug bleibt erhalten.",
+  "b21.repair.resolution.live_class_standalone": "Die abweichende Live-Klasse bleibt als selbständige Zuordnung erhalten. Die Klasse des Masters bleibt unverändert.",
+  "b21.repair.resolution.missing_master_standalone": "Der Master fehlt. Der Eintrag wird selbständig übernommen; ohne belegte eigene Klasse bleibt er unzugeordnet.",
+  "b21.repair.resolution.cyclic_master_standalone": "Die zusammengeführten Masterbezüge würden einen Kreis bilden. Dieser Eintrag bleibt selbständig; eine belegte Klasse bleibt erhalten.",
+  "b21.repair.resolution.master_flattened": "Der Eintrag wird direkt dem führenden Master zugeordnet. So entsteht keine verschachtelte Variantenfamilie.",
   "b21.app.unknown": "App ohne verfügbaren Namen",
   "b20.timing.title": "Technische Details: letzte Pflegemessung",
   "b20.timing.preview": "Prüfung einschließlich Anfrage und Antwort",

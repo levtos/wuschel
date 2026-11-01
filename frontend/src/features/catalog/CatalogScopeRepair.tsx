@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Notice, Spinner } from '@/components/ui/layout';
 import { catalogLabel } from './catalogLabels';
+import { titleLabel } from './titleLabel';
 
-interface Plan { complete: boolean; plan_digest: string; clear_pc: boolean; catalogs: { catalog_id: string; definition_version: number; moved: number; collisions: number; removed: number }[] }
+interface Finding { identity: string; key: string; display_name: string; reason: string; master_before: string | null; master_after: string | null }
+interface Plan { complete: boolean; plan_digest: string; clear_pc: boolean; catalogs: { catalog_id: string; definition_version: number; moved: number; collisions: number; removed: number; conflicts?: number; findings?: Finding[] }[] }
 
 export function CatalogScopeRepair({ activeRevision }: { activeRevision: number }) {
   const cache = useQueryClient();
@@ -40,7 +42,14 @@ export function CatalogScopeRepair({ activeRevision }: { activeRevision: number 
         <Notice tone="warn">{t('b21.repair.explain')}</Notice>
         <label><input type="checkbox" checked={clearPc} disabled={busy || plan?.complete} onChange={event => { setClearPc(event.target.checked); void inspect(event.target.checked); }} /> {t('b21.repair.pc')}</label>
         {busy && <Spinner />}{error && <Notice tone="bad">{error}</Notice>}
-        {plan?.complete ? <Notice tone="info">{t('b21.repair.done')}</Notice> : plan && <ul>{plan.catalogs.map(row => <li key={row.catalog_id}>{catalogLabel({ catalog_id: row.catalog_id, version: row.definition_version })}: {t('b21.repair.counts', { moved: row.moved, collisions: row.collisions, removed: row.removed })}</li>)}</ul>}
+        {plan?.complete ? <Notice tone="info">{t('b21.repair.done')}</Notice> : plan && <ul>{plan.catalogs.map(row => <li key={row.catalog_id}>
+          <p>{catalogLabel({ catalog_id: row.catalog_id, version: row.definition_version })}: {t('b21.repair.counts', { moved: row.moved, collisions: row.collisions, removed: row.removed })}</p>
+          {!!row.conflicts && <details><summary>{t('b21.repair.resolutions', { n: row.conflicts })}</summary><ul>{row.findings?.map((finding, index) => <li key={`${finding.identity}-${index}`} className="my-3">
+            <p>{titleLabel(finding)}</p><p>{t(`b21.repair.resolution.${finding.reason}`)}</p>
+            <p>{t('b21.repair.masterBefore')}: {finding.master_before ? titleLabel({ key: finding.master_before }) : t('alpha10.catalog.independent')}</p>
+            <p>{t('b21.repair.masterAfter')}: {finding.master_after ? titleLabel({ key: finding.master_after }) : t('alpha10.catalog.independent')}</p>
+          </li>)}</ul></details>}
+        </li>)}</ul>}
       </div>
     </Dialog>
   </>;
