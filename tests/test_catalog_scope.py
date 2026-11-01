@@ -315,6 +315,12 @@ async def test_local_class_without_review_stays_open(runtime, config):
     assert len(rows) == 1 and rows[0]["complete"] and rows[0]["review_status"] == "open"
 
 
+async def test_repair_without_active_configuration_does_not_consume_the_one_time_action(runtime):
+    with pytest.raises(ValueError, match="catalog_definition_missing"):
+        await preview(runtime)
+    assert not await runtime.store.rows("catalog_request")
+
+
 async def test_apple_tv_uses_app_name_with_unchanged_key_and_ignores_empty_keys(runtime, config):
     import aiohttp
 

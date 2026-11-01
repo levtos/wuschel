@@ -94,7 +94,7 @@ export function TitleSync({ catalogs }: { catalogs: SyncCatalog[] }) {
   };
   const locked = busy || complete || (preview?.page ?? 1) > 1;
   const filtered = items.filter(row => (!device || row.catalog_id === device) && (!change || row.change === change));
-  const contextName = (key: string) => { const row = preview?.contexts.find(row => row.key === key); return row ? contextLabel(row.key) : t('b15.withoutContext'); };
+  const contextName = (key: string) => { const target = mapping?.mappings[key]; const named = catalogs.find(c => c.catalog_id === target?.catalog_id); const row = preview?.contexts.find(row => row.key === key); return named ? catalogLabel(named) : row ? contextLabel(row.key) : t('b15.withoutContext'); };
   const panel = open && <section aria-label={t('b17.sync')} className="min-w-0 space-y-4 rounded-lg border border-line bg-panel p-5">
     <h2>{t('b17.sync')}</h2><p>{t('b17.syncDescription')}</p>
     {preview && <>

@@ -238,6 +238,8 @@ async def process(
     ):
         raise ValueError("active_revision_conflict")
     config = runtime._config(state)
+    if config is None:
+        raise ValueError("catalog_definition_missing")
     plan = build(state, config, clear_pc)
     digest = basis(state, clear_pc)
     result = {

@@ -36,7 +36,7 @@ it('starts with all titles and labels open assigned, reviewed, hidden and missin
   fake.routes.push({ match: /^catalogs$/, respond: () => reply(200, [{ catalog_id: 'media.tv_device', version: 1, classification_schema: { values: ['normal'], legend: { normal: { display_name: 'Normal', description: 'Synthetic' } } } }]) });
   fake.routes.push({ match: /^catalogs\/care\?/, respond: () => reply(200, {
     items: ['open', 'reviewed', 'hidden', 'open'].map((review_status, index) => ({ identity: String(index), key: `Synthetic ${index}`, display_name: '', scope: 'default', media_type: 'source', signal_type: 'title', classification: index === 3 ? null : 'normal', master_key: null, note: '', effective_classification: 'normal', complete: index !== 3, review_status })),
-    content_revision: 1, next_cursor: null, contexts: ['["tv",""]'], filter_values: { scope: ['default'], media_type: ['source'], signal_type: ['title'] },
+    content_revision: 1, next_cursor: null, contexts: ['["tv",""]', '["synthetic.player",""]'], context_targets: { '["synthetic.player",""]': { catalog_id: 'media.homepods', scope: 'homepods' } }, filter_values: { scope: ['default'], media_type: ['source'], signal_type: ['title'] },
   }) });
   wrap(<CatalogPage />);
   await screen.findByText('Synthetic 0');
@@ -47,8 +47,9 @@ it('starts with all titles and labels open assigned, reviewed, hidden and missin
   expect(screen.getByText('Ohne Klasse')).toBeInTheDocument();
   expect(screen.getByRole('option', { name: 'TV-Gerät' })).toBeInTheDocument();
   expect(screen.getByRole('option', { name: 'Fernseher' })).toBeInTheDocument();
+  expect(screen.getByRole('option', { name: 'HomePods' })).toBeInTheDocument();
   expect(screen.getByRole('option', { name: 'Bildquelle' })).toBeInTheDocument();
   const copy = document.body.cloneNode(true) as HTMLElement;
   copy.querySelectorAll('details').forEach(node => node.remove());
-  expect(copy.textContent).not.toMatch(/media\.tv_device|\["|\bdefault\b|\bsource\b|\btitle\b/);
+  expect(copy.textContent).not.toMatch(/media\.tv_device|synthetic\.player|\["|\bdefault\b|\bsource\b|\btitle\b/);
 });

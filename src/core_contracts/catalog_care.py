@@ -272,6 +272,8 @@ def listing(
         except ValueError, KeyError, TypeError, UnicodeError:
             raise ValueError("catalog_content_conflict") from None
     page = selected[offset : offset + limit]
+    from .title_sync import current_mapping
+
     next_cursor = (
         base64.urlsafe_b64encode(
             canonical({"binding": binding, "offset": offset + limit}).encode()
@@ -287,6 +289,10 @@ def listing(
         "filter_values": {
             field: sorted({r[field] for r in all_rows(state, catalog).values()})
             for field in ("scope", "media_type", "signal_type")
+        },
+        "context_targets": {
+            key: {"catalog_id": target["catalog_id"], "scope": target["scope"]}
+            for key, target in current_mapping(state)["mapping"]["mappings"].items()
         },
         "contexts": sorted(
             {
