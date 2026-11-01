@@ -760,10 +760,21 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     URL.createObjectURL = blob => { blobs.push((blob as unknown as NodeBlob).text()); return 'blob:synthetic-b20'; };
     URL.revokeObjectURL = () => {};
     const anchor = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { filenames.push(this.download); });
+    // Make the CI loading race deterministic while keeping every response real.
+    const uiFetch = globalThis.fetch;
+    let releaseActive!: () => void;
+    const activeReady = new Promise<void>(resolve => { releaseActive = resolve; });
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/registry/active')) await activeReady;
+      return uiFetch(input, init);
+    });
     try {
       render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Workbench onSetup={() => {}} live={store} /></QueryClientProvider>);
       await f.go('#/import-export');
-      await user.click(await screen.findByRole('button', { name: 'Konfiguration sichern' }));
+      const backup = await screen.findByRole('button', { name: 'Konfiguration sichern' });
+      expect(backup).toBeDisabled();
+      releaseActive();
+      await clickReadyButton(user, backup, 'Konfiguration sichern');
       const dialog = await screen.findByRole('dialog', { name: 'Konfiguration sichern' });
       expect(within(dialog).getByLabelText('Was möchtest du sichern?')).toHaveValue('active');
       await user.click(within(dialog).getByRole('button', { name: 'Datei sichern' }));
@@ -782,7 +793,7 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
       await waitFor(() => expect(screen.getByRole('button', { name: 'Als Entwurf einlesen' })).toBeEnabled());
       // Checking the file does not activate or stage a configuration.
       expect((await raw<RevisionRow>('registry/active')).body.revision).toBe(active.revision);
-    } finally { anchor.mockRestore(); URL.createObjectURL = create; URL.revokeObjectURL = revoke; }
+    } finally { releaseActive(); anchor.mockRestore(); URL.createObjectURL = create; URL.revokeObjectURL = revoke; }
   }, 120_000);
 
 });
