@@ -243,6 +243,29 @@ async def test_pc_clear_can_be_disabled(runtime, config):
     assert next(iter(all_rows(runtime.state, catalog).values()))["scope"] == "pc"
 
 
+async def test_pc_clear_also_removes_sightings_of_already_tombstoned_entries(runtime, config):
+    catalog = await setup(runtime, config, "media.pc_class")
+    await write(
+        runtime,
+        catalog,
+        [entry(media_type="game", scope="pc", classification="headset", tombstone=True)],
+    )
+    ident = identity("pc", "game", "title", "Synthetic Title")
+    runtime.state.tables["catalog_sighting"][head_key(catalog) + ":" + ident] = {
+        "catalog": head_key(catalog),
+        "identity": ident,
+        **entry(media_type="game", scope="pc"),
+        "seen_count": 1,
+        "first_seen": "2032-01-01T00:00:00Z",
+        "last_seen": "2032-01-01T00:00:00Z",
+    }
+    await repair(runtime)
+    assert not any(
+        row["catalog"] == head_key(catalog)
+        for row in runtime.state.tables["catalog_sighting"].values()
+    )
+
+
 async def test_sync_uses_saved_device_scope_and_rejects_explicit_default(runtime, config):
     catalog = await setup(runtime, config)
     source_key = canonical(["synthetic", "synthetic"])

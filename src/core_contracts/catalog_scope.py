@@ -88,8 +88,13 @@ def build(state: Any, config: Any, clear_pc: bool) -> dict[str, Any]:
         clearing = clear_pc and scope == "pc"
         sources = {key: copy.deepcopy(row) for key, row in entries.items() if not row["tombstone"]}
         for row in sights.values():
-            if row["catalog"] == ck and not entries.get(row["identity"], {}).get("tombstone"):
-                sources.setdefault(row["identity"], {**row, "tombstone": False})
+            if row["catalog"] == ck and (
+                clearing or not entries.get(row["identity"], {}).get("tombstone")
+            ):
+                sources.setdefault(
+                    row["identity"],
+                    copy.deepcopy(entries.get(row["identity"]) or {**row, "tombstone": False}),
+                )
         for key, row in sources.items():
             empty = not normalize_key(row["key"])
             if clearing or empty:
