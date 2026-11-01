@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
+from .authoring import AuthoringError
 from .catalog_care import all_rows
 from .history import HistoryQuery
 from .managed_catalog import definition, head, head_key
@@ -22,7 +23,6 @@ def basis(state: Any) -> str:
         [
             state.active_revision,
             state.tables["catalog_head"],
-            state.tables["catalog_sighting"],
             state.tables["service_state"].get("catalog_counter_epoch"),
         ]
     )
@@ -281,6 +281,7 @@ async def preview(runtime: Any, body: dict[str, Any]) -> dict[str, Any]:
             "plan_id": str(uuid4()),
             "owner": checksum(body.get("_actor")),
             "basis": basis(state),
+            "sighting_basis": {r["identity"]: checksum(r) for r in sightings},
             "rows": rows,
             "at": now.isoformat(),
             "catalog": head_key(catalog),
@@ -309,7 +310,13 @@ async def preview(runtime: Any, body: dict[str, Any]) -> dict[str, Any]:
     if type(reset) is not bool:
         raise ValueError("catalog_cleanup_invalid")
     plan.update(selected=sorted(set(selected)), reset=reset)
-    plan["digest"] = checksum([plan["basis"], plan["selected"], reset])
+    plan["digest"] = checksum(
+        [
+            plan["basis"],
+            {key: plan["sighting_basis"].get(key) for key in plan["selected"]},
+            reset,
+        ]
+    )
     offset = body.get("offset", 0)
     if type(offset) is not int or offset < 0:
         raise ValueError("catalog_cleanup_invalid")
@@ -348,9 +355,26 @@ def apply(runtime: Any, state: Any, body: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("catalog_cleanup_conflict")
     selected = set(plan["selected"])
+    changed = {
+        key
+        for key in selected
+        if checksum(state.tables["catalog_sighting"].get(plan["catalog"] + ":" + key))
+        != plan["sighting_basis"].get(key)
+    }
+    if changed:
+        raise AuthoringError(
+            "catalog_cleanup_conflict",
+            changed_entries=[
+                {"identity": row["identity"], "key": row["key"]}
+                for row in plan["rows"]
+                if row["identity"] in changed
+            ],
+        )
+    removed = 0
     for key, row in list(state.tables["catalog_sighting"].items()):
         if row["catalog"] == plan["catalog"] and row["identity"] in selected:
             del state.tables["catalog_sighting"][key]
+            removed += 1
         elif plan["reset"]:
             row["seen_count"] = 0
     if plan["reset"]:
@@ -366,7 +390,7 @@ def apply(runtime: Any, state: Any, body: dict[str, Any]) -> dict[str, Any]:
             "request_id": request_id,
         }
     result = {
-        "removed": len(selected),
+        "removed": removed,
         "reset_counters": plan["reset"],
         "catalog_count": plan["catalog_count"],
         "request_id": request_id,

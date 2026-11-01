@@ -105,14 +105,115 @@ async def test_no_confirmation_protected_selection_changed_head_and_owner_reject
         await runtime.submit("catalog_cleanup_apply", {**body, "confirmed": False})
     with pytest.raises(ValueError, match="catalog_cleanup_conflict"):
         await runtime.submit("catalog_cleanup_apply", {**body, "_actor": {"kind": "other"}})
-    runtime.state.tables["catalog_sighting"]["new"] = {
-        "key": "Synthetic new",
-        "identity": "new",
-        "catalog": "other",
-        "seen_count": 1,
-    }
+    runtime.state.tables["catalog_head"][head_key(catalog)]["revision"] += 1
     with pytest.raises(ValueError, match="catalog_cleanup_conflict"):
         await runtime.submit("catalog_cleanup_apply", body)
+
+
+async def test_unselected_new_and_changed_sightings_do_not_block_cleanup_and_are_reset(
+    runtime, config
+):
+    catalog = await populated(runtime, config)
+    first = next(iter(runtime.state.tables["catalog_sighting"].values()))
+    plan = await runtime.submit(
+        "catalog_cleanup_preview", initial(catalog, selected=[first["identity"]])
+    )
+    other = next(
+        row
+        for row in runtime.state.tables["catalog_sighting"].values()
+        if row["identity"] != first["identity"]
+    )
+    state = runtime.state.clone()
+    state.tables["catalog_sighting"][head_key(catalog) + ":" + other["identity"]]["seen_count"] += 1
+    state.tables["catalog_sighting"]["synthetic.other:new"] = {
+        **other,
+        "catalog": "synthetic.other",
+        "identity": "new",
+        "key": "Synthetic New",
+        "seen_count": 5,
+    }
+    await runtime._commit(state)
+    answer = await runtime.submit("catalog_cleanup_apply", application(plan))
+    assert answer["removed"] == 1
+    assert len(runtime.state.tables["catalog_sighting"]) == 3
+    assert all(row["seen_count"] == 0 for row in runtime.state.tables["catalog_sighting"].values())
+
+
+async def test_selected_sighting_changed_since_preview_conflicts_with_named_entry(runtime, config):
+    catalog = await populated(runtime, config)
+    first = next(iter(runtime.state.tables["catalog_sighting"].values()))
+    plan = await runtime.submit(
+        "catalog_cleanup_preview", initial(catalog, selected=[first["identity"]])
+    )
+    state = runtime.state.clone()
+    state.tables["catalog_sighting"][head_key(catalog) + ":" + first["identity"]]["seen_count"] += 1
+    await runtime._commit(state)
+    before = runtime.state.model_dump()
+    with pytest.raises(ValueError, match="catalog_cleanup_conflict") as caught:
+        await runtime.submit("catalog_cleanup_apply", application(plan))
+    assert caught.value.details["changed_entries"] == [
+        {"identity": first["identity"], "key": first["key"]}
+    ]
+    assert runtime.state.model_dump() == before
+
+
+async def test_real_unselected_playback_after_preview_survives_cleanup_with_zero_counter(
+    runtime, config
+):
+    from tests.test_beta_media import observe
+    from tests.test_catalog_playback import advance, music
+
+    await music(runtime, config)
+    await advance(runtime, 2)
+    catalog = next(c for c in runtime.config.catalogs if c.catalog_id == "media.homepods")
+    first = next(iter(runtime.state.tables["catalog_sighting"].values()))
+    plan = await runtime.submit(
+        "catalog_cleanup_preview", initial(catalog, selected=[first["identity"]])
+    )
+    await observe(runtime, "title", "Synthetic New Playback")
+    await advance(runtime, 10)
+    assert sum(row["seen_count"] for row in runtime.state.tables["catalog_sighting"].values()) == 2
+    answer = await runtime.submit("catalog_cleanup_apply", application(plan))
+    assert answer["removed"] == 1
+    remaining = list(runtime.state.tables["catalog_sighting"].values())
+    assert len(remaining) == 1 and remaining[0]["seen_count"] == 0
+    assert remaining[0]["key"] == canonical(["Synthetic Artist A", "Synthetic New Playback"])
+
+
+async def test_selected_playback_change_returns_http_409_with_named_entry(
+    runtime, config, aiohttp_client, tmp_path
+):
+    from tests.test_beta_media import observe
+    from tests.test_catalog_playback import advance, music
+    from tests.test_workbench_api import api_client
+
+    await music(runtime, config)
+    await advance(runtime, 2)
+    catalog = next(c for c in runtime.config.catalogs if c.catalog_id == "media.homepods")
+    first = next(iter(runtime.state.tables["catalog_sighting"].values()))
+    _, client, headers = await api_client(runtime, aiohttp_client, tmp_path)
+    response = await client.post(
+        "/api/v1/catalogs/cleanup/preview",
+        json=initial(catalog, selected=[first["identity"]]),
+        headers=headers,
+    )
+    assert response.status == 200
+    plan = await response.json()
+    await observe(runtime, "applicable", False)
+    await observe(runtime, "applicable", True)
+    await advance(runtime, 2)
+    assert next(iter(runtime.state.tables["catalog_sighting"].values()))["seen_count"] == 2
+    before = runtime.state.model_dump()
+    response = await client.post(
+        "/api/v1/catalogs/cleanup/apply", json=application(plan), headers=headers
+    )
+    assert response.status == 409
+    body = await response.json()
+    assert body["error"] == "catalog_cleanup_conflict"
+    assert body["details"]["changed_entries"] == [
+        {"identity": first["identity"], "key": first["key"]}
+    ]
+    assert runtime.state.model_dump() == before
 
 
 async def test_cleanup_commit_failure_leaves_runtime_content_and_counts_unchanged(runtime, config):

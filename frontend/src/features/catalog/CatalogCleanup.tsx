@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { t } from '@/i18n';
-import { api, describeError } from '@/lib/api';
+import { api, ApiError, describeError, type ChangedEntry } from '@/lib/api';
 import { uuid } from '@/lib/uuid';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -21,9 +21,10 @@ export function CatalogCleanup({ catalog }: { catalog: Catalog }) {
   const [checked, setChecked] = useState(''); const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [result, setResult] = useState('');
   const [requestId, setRequestId] = useState(''); const sequence = useRef(0);
+  const [changedEntries, setChangedEntries] = useState<ChangedEntry[]>([]);
   const key = JSON.stringify([selected, reset]);
   const inspect = async (fresh = false, offset = 0, selectFiltered = false) => {
-    const seq = ++sequence.current; setBusy(true); setError(''); setConfirmed(false); setChecked('');
+    const seq = ++sequence.current; setBusy(true); setError(''); setChangedEntries([]); setConfirmed(false); setChecked('');
     try {
       const answer = await api<Plan>('catalogs/cleanup/preview', { method: 'POST', body: {
         catalog_id: catalog.catalog_id, definition_version: catalog.version,
@@ -43,7 +44,7 @@ export function CatalogCleanup({ catalog }: { catalog: Catalog }) {
       const answer = await api<{ removed: number; reset_counters: boolean }>('catalogs/cleanup/apply', { method: 'POST', body: { plan_id: plan.plan_id, plan_digest: plan.plan_digest, request_id: requestId, confirmed: true } });
       setResult(t(answer.reset_counters ? 'b20.cleanup.done' : 'b20.cleanup.removed', { n: answer.removed })); setPlan(null); setConfirmed(false);
       await Promise.all(['catalog-entries', 'catalog-history', 'catalog-masters', 'catalog-details', 'catalog-detail'].map(name => cache.invalidateQueries({ queryKey: [name] })));
-    } catch (failure) { setError(describeError(failure)); setChecked(''); }
+    } catch (failure) { setError(describeError(failure)); setChangedEntries(failure instanceof ApiError ? failure.changedEntries : []); setChecked(''); setConfirmed(false); }
     finally { setBusy(false); }
   };
   return <>
@@ -56,6 +57,7 @@ export function CatalogCleanup({ catalog }: { catalog: Catalog }) {
       <div className="space-y-4">
         <Notice tone="warn">{t('b20.cleanup.explain')}</Notice>
         {busy && <Spinner />}{error && <Notice tone="bad">{error}</Notice>}{result && <Notice tone="info">{result}</Notice>}
+        {changedEntries.length > 0 && <Notice tone="warn"><p>{t('b20.cleanup.changed')}</p><ul>{changedEntries.map(row => <li key={row.identity}>{titleLabel(row)}</li>)}</ul></Notice>}
         {plan && <>
           <p>{t('b20.cleanup.counts', { total: plan.total, transition: plan.counts.transition ?? 0, unclear: plan.counts.unclear ?? 0, protected: plan.counts.protected ?? 0 })}</p>
           <div className="grid gap-3 md:grid-cols-2">

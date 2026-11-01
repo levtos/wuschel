@@ -171,8 +171,11 @@ Verträge sehen weiterhin jede einzelne Beobachtung in der bisherigen Reihenfolg
 Die Katalogfrist wertet keine Verträge aus und erneuert keine Quellzeit.
 
 Identische Reports und Pause/Fortsetzen bleiben dieselbe Wiedergabe. Ein
-Paarwechsel oder ein positiv belegter neuer Start zählt neu. Repeat desselben
-Paars benötigt einen neuen Startmarker: derzeit beobachteter Wechsel von
+Paarwechsel oder ein positiv belegter neuer Start zählt neu. Auch ohne Player-Rahmen
+macht ein belegtes Sitzungsende (Anwendbarkeit entfällt oder Titelquelle leer,
+unbekannt bzw. nicht verfügbar) das nächste stabile Auftreten desselben Titels zu
+einer neuen Wiedergabe; Snapshot, Restore und Reconnect bleiben Baseline.
+Repeat desselben Paars benötigt einen neuen Startmarker: derzeit beobachteter Wechsel von
 idle/off nach playing oder Position am Titelende und anschließend am Anfang
 mit neuer Positionszeit. Beliebiges Zurückspulen ist kein Beweis. Fehlen Dauer
 oder verlässliche Positionsmarker, kann ein identischer Repeat nicht sicher
@@ -185,7 +188,9 @@ bestätigte Bereinigung entfernt ausschließlich ausgewählte Laufzeiteinträge;
 importierte und gepflegte Entscheidungen sind geschützt. Unklare Fälle sind
 über Filter bewusst gesammelt auswählbar, nur belegte Übergänge vorausgewählt.
 Fehlende oder unterbrochene Historie ist kein Löschbeweis. Vorschau bindet
-Bestand, Auswahl und Reset; Änderungen dazwischen verlangen eine neue Prüfung.
+aktive Revision, Katalogköpfe, Zählepoche, ausgewählte Sichtungen und Reset;
+geänderte ausgewählte Einträge werden im Konflikt benannt und verlangen eine neue Prüfung.
+Neue oder geänderte nicht ausgewählte Sichtungen blockieren nicht und werden beim Reset mit erfasst.
 Zählerreset gilt für alle verwalteten Kataloge, wird atomar mit Zählepoche
 gespeichert und setzt importierte Herkunftszahlen nicht wieder als laufende
 Zähler ein. Request-ID und gespeichertes Ergebnis verhindern doppelte Ausführung.

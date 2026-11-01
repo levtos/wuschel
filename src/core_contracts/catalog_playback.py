@@ -7,10 +7,48 @@ from typing import Any
 from .evidence import Observation
 from .managed_catalog import head_key, identity
 from .model import checksum
+from .quality import FieldValue
 
 PREFIX = "catalog_playback:"
 STABLE_SECONDS = 2
 TRANSITION_SECONDS = 10  # Reported split updates take up to eight seconds, plus stability.
+
+
+def end(tracker: dict[str, Any]) -> None:
+    for key in ("pending", "last", "last_raw", "last_session", "report"):
+        tracker.pop(key, None)
+
+
+def live_input(observation: Observation) -> bool:
+    return observation.observation_kind in {"live_change", "report"} and not (
+        observation.ha_restored
+        or observation.mqtt_retained
+        or observation.assumed_state
+        or observation.invalid_timestamp
+    )
+
+
+def finish(
+    state: Any, contract: str, fields: dict[str, FieldValue], origin: str, event: Observation | None
+) -> None:
+    """Observe positive non-applicability after the existing resolver has finished."""
+    if (
+        origin != "input"
+        or event is None
+        or not live_input(event)
+        or not fields
+        or not all(
+            field.status == "not_applicable" and field.positively_not_applicable
+            for field in fields.values()
+        )
+    ):
+        return
+    for name, tracker in state.tables["service_state"].items():
+        consumers = tracker.get("consumers", {})
+        if name.startswith(PREFIX) and contract in consumers:
+            consumers[contract] = False
+            if not any(consumers.values()):
+                end(tracker)
 
 
 def baseline_pending(state: Any) -> None:
@@ -23,6 +61,20 @@ def baseline_pending(state: Any) -> None:
 
 
 def frame(state: Any, observation: Observation) -> None:
+    for name, tracker in state.tables["service_state"].items():
+        if not name.startswith(PREFIX) or not live_input(observation):
+            continue
+        title_ended = observation.binding_id in tracker.get("title_bindings", []) and (
+            observation.availability != "available"
+            or observation.value is None
+            or isinstance(observation.value, str)
+            and not observation.value.strip()
+        )
+        player_ended = observation.binding_id in tracker.get("bindings", []) and (
+            observation.catalog_frame or {}
+        ).get("state") in {"off", "idle"}
+        if title_ended or player_ended:
+            end(tracker)
     if (
         observation.availability != "available"
         or observation.transform_error
@@ -95,6 +147,27 @@ def offer(
             return
     stream = PREFIX + checksum([head_key(catalog), scope, media, signal, source])
     old = ctx.state.tables["service_state"].get(stream, {})
+    consumers = (
+        dict(old.get("consumers", {}))
+        if old.get("consumer_revision") == ctx.state.active_revision
+        else {}
+    )
+    consumers[ctx.contract.contract_id] = True
+    title_evidence = set(ctx.inputs["title"].evidence) if "title" in ctx.inputs else references
+    old = {
+        **old,
+        "consumers": consumers,
+        "consumer_revision": ctx.state.active_revision,
+        "title_bindings": sorted(
+            item.binding_id for item in observations if item.reference in title_evidence
+        ),
+        "bindings": sorted(item.binding_id for item in observations),
+    }
+    ctx.state.tables["service_state"][stream] = old
+    if not raw.strip():
+        if ctx.origin == "input":
+            end(old)
+        return
     key = identity(scope, media, signal, raw)
     latest_frame = ctx.state.tables["service_state"].get("catalog_frame:" + source, {})
     session = latest_frame.get("session", 0)

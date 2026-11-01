@@ -7,6 +7,36 @@ import { wrap } from '../../../test/harness';
 import { installFakeApi, reply } from '../../../test/fakeApi';
 
 afterEach(() => vi.unstubAllGlobals());
+
+it('names selected entries changed since preview and blocks another apply until rechecked', async () => {
+  const fake = installFakeApi();
+  const row = { identity: 'synthetic.changed', key: '["Synthetic Artist","Synthetic Changed Title"]', kind: 'unclear', protected: false, first_seen: null, seen_count: 1, source: 'synthetic' };
+  fake.routes.push({ match: /^catalogs\/cleanup\/preview$/, respond: () => reply(200, {
+    plan_id: 'synthetic-plan', plan_digest: 'synthetic-digest', items: [row], counts: { unclear: 1 },
+    total: 1, filtered: 1, selected: [row.identity], reset_counters: true, next_offset: null,
+    counters_before: 1, catalog_count: 1, sources: ['synthetic'],
+  }) });
+  fake.routes.push({ match: /^catalogs\/cleanup\/apply$/, respond: () => reply(409, {
+    error: 'catalog_cleanup_conflict', details: { changed_entries: [{ identity: row.identity, key: row.key }] },
+  }) });
+  wrap(<CatalogCleanup catalog={{ catalog_id: 'synthetic', version: 1, classification_schema: { values: ['normal'] } }} />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: t('b20.cleanup.title') }));
+  const dialog = await screen.findByRole('dialog');
+  const confirmation = await within(dialog).findByRole('checkbox', { name: t('b20.cleanup.confirm', { n: 1 }) });
+  await user.click(confirmation);
+  const apply = within(dialog).getByRole('button', { name: t('b20.cleanup.apply') });
+  await waitFor(() => expect(apply).toBeEnabled());
+  await user.click(apply);
+  expect(await within(dialog).findByText(t('b20.cleanup.changed'))).toBeVisible();
+  expect(within(dialog).getByText('Synthetic Artist – Synthetic Changed Title')).toBeVisible();
+  expect(apply).toBeDisabled(); expect(confirmation).not.toBeChecked();
+  expect(fake.calls.filter(call => call.path === 'catalogs/cleanup/apply')).toHaveLength(1);
+  await user.click(within(dialog).getByRole('button', { name: t('b20.cleanup.reload') }));
+  await waitFor(() => expect(within(dialog).queryByText(t('b20.cleanup.changed'))).not.toBeInTheDocument());
+  expect(apply).toBeDisabled();
+});
+
 it('offers filtered bulk selection for unclear rows but never selects protected rows and requires confirmation', async () => {
   const fake = installFakeApi();
   const rows = [

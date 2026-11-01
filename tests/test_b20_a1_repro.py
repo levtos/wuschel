@@ -194,3 +194,32 @@ async def test_historical_export_preview_requires_explicit_validated_correction(
         runtime.state.tables["registry_revision"][str(runtime.state.active_revision)]["config"]
         == original
     )
+
+
+async def test_invalid_draft_export_still_requires_full_authoring_validation(
+    runtime, config, aiohttp_client, tmp_path
+):
+    import pytest
+
+    from core_contracts.validation import RegistryValidationError
+
+    await test_active_export_restored_connectivity_origin(runtime, config, aiohttp_client, tmp_path)
+    # Invalid drafts are deliberately modeled only inside the isolated MemoryStore.
+    document = copy.deepcopy(
+        runtime.state.tables["registry_revision"][str(runtime.state.active_revision)]["config"]
+    )
+    runtime.state.tables["registry_draft"]["synthetic.invalid"] = {
+        "draft_id": "synthetic.invalid",
+        "draft_version": 1,
+        "config": document,
+    }
+    with pytest.raises(RegistryValidationError) as caught:
+        await runtime.submit(
+            "portable_export",
+            {
+                "draft_id": "synthetic.invalid",
+                "draft_version": 1,
+                "expected_active_revision": runtime.state.active_revision,
+            },
+        )
+    assert any(issue.code == "adapter_value_origin_unsupported" for issue in caught.value.issues)

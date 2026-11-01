@@ -2174,6 +2174,9 @@ class Runtime:
                     for name in declaration.schema.fields
                 }
             required = [fields[k] for k, v in declaration.schema.fields.items() if v.required]
+            from .catalog_playback import finish as finish_catalog_playback
+
+            finish_catalog_playback(state, key, fields, contract_origin, input_event)
             healthy = all(v.quality == "healthy" for v in required)
             available = all(
                 fields[k].quality == "healthy" for k in declaration.schema.available_projection
