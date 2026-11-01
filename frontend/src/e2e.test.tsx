@@ -21,6 +21,7 @@ import { objects } from '@/features/sources/sourceMigration';
 import type { Draft, RevisionRow } from '@/lib/types';
 import { reserveRequest } from '@/lib/request-budget';
 import { episodeId as b14Episode, sleepRegistry as b14Registry } from '../test/b14-fixtures';
+import { Blob as NodeBlob } from 'node:buffer';
 
 /**
  * End-to-end against the REAL API and engine in an isolated, in-memory instance
@@ -736,4 +737,52 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     expect((await raw<RevisionRow>('registry/active')).body.checksum).toBe(active.checksum);
     cleanup();
   }, 240_000);
+  it('b20 downloads the active portable backup through the UI and checks those exact file bytes through the real API', async () => {
+    const config = { ...structuredClone(registry), config_schema_version: 3, fingerprint_version: 3,
+      catalogs: [{ catalog_id: 'synthetic.b20', kind: 'managed', version: 1,
+        identity_rule: { version: 1, fields: ['scope', 'media_type', 'signal_type', 'normalized_key'], normalizer: 'normalize_key' },
+        classification_schema: { type: 'enum', values: ['normal', 'boost'] }, unassigned_value: 'normal', master_depth: 1 }] };
+    const head = (await raw<RevisionRow | null>('registry/active')).body;
+    const draft = (await raw<Draft>('registry/drafts', json('POST', { config, display_name: 'Synthetic b20 backup' }))).body;
+    const activation = await raw<RevisionRow>(`registry/drafts/${draft.draft_id}/activate`, json('POST', await activationInput(draft, head?.revision ?? 0)));
+    expect(activation.status).toBe(200);
+    const active = (await raw<RevisionRow>('registry/active')).body;
+    const catalogHead = (await raw<{ content_revision: number }>('catalogs/entries?catalog_id=synthetic.b20&definition_version=1')).body.content_revision;
+    expect((await raw('catalogs/entries', json('POST', { catalog_id: 'synthetic.b20', definition_version: 1,
+      expected_active_revision: active.revision, expected_content_revision: catalogHead, request_id: crypto.randomUUID(), reason: 'Synthetic b20 backup fixture',
+      changes: [{ scope: 'synthetic', media_type: 'music', signal_type: 'title', key: 'Synthetic kept title', classification: 'boost' }] }))).status).toBe(200);
+    const organization = (await raw<{ items: { object: { kind: string; id: string }; editorial_version: number }[] }>('editorial')).body;
+    const existingOrganization = organization.items.find(row => row.object.kind === 'contract' && row.object.id === 'fixture.left');
+    expect((await raw('editorial', json('PUT', { object: { kind: 'contract', id: 'fixture.left' }, category: 'media', room: { mode: 'manual', name: 'Synthetic Room' }, expected_editorial_version: existingOrganization?.editorial_version ?? 0 }))).status).toBe(200);
+    const create = URL.createObjectURL; const revoke = URL.revokeObjectURL;
+    const blobs: Promise<string>[] = []; const filenames: string[] = [];
+    vi.stubGlobal('Blob', NodeBlob);
+    URL.createObjectURL = blob => { blobs.push((blob as unknown as NodeBlob).text()); return 'blob:synthetic-b20'; };
+    URL.revokeObjectURL = () => {};
+    const anchor = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { filenames.push(this.download); });
+    try {
+      render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Workbench onSetup={() => {}} live={store} /></QueryClientProvider>);
+      await f.go('#/import-export');
+      await user.click(await screen.findByRole('button', { name: 'Konfiguration sichern' }));
+      const dialog = await screen.findByRole('dialog', { name: 'Konfiguration sichern' });
+      expect(within(dialog).getByLabelText('Was möchtest du sichern?')).toHaveValue('active');
+      await user.click(within(dialog).getByRole('button', { name: 'Datei sichern' }));
+      await waitFor(() => expect(blobs).toHaveLength(1));
+      const text = await blobs[0]!; const fileData = JSON.parse(text);
+      expect(filenames[0]).toMatch(/^wuschel-\d{4}-\d{2}-\d{2}\.json$/);
+      expect(fileData.format).toBe('wuschel.configuration');
+      expect(fileData.catalog_contents[0].entries[0].key).toBe('Synthetic kept title');
+      expect(fileData.editorial.some((row: { room: { name: string } }) => row.room.name === 'Synthetic Room')).toBe(true);
+      const file = new File([text], filenames[0]!, { type: 'application/json' });
+      Object.defineProperty(file, 'text', { value: async () => text });
+      await user.upload(await screen.findByLabelText('Datei auswählen'), file);
+      await user.click(screen.getByRole('button', { name: 'Datei prüfen und Vorschau anzeigen' }));
+      await screen.findByRole('heading', { name: 'Aktualität zuordnen' });
+      expect(screen.queryByText('Die Anfrage ist ungültig.')).not.toBeInTheDocument();
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Als Entwurf einlesen' })).toBeEnabled());
+      // Checking the file does not activate or stage a configuration.
+      expect((await raw<RevisionRow>('registry/active')).body.revision).toBe(active.revision);
+    } finally { anchor.mockRestore(); URL.createObjectURL = create; URL.revokeObjectURL = revoke; }
+  }, 120_000);
+
 });

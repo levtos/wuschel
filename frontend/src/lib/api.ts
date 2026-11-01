@@ -124,6 +124,9 @@ export async function apiText(path: string, options: RequestOptions = {}): Promi
 }
 
 const MESSAGES: Record<string, string> = {
+  catalog_cleanup_conflict: uiText('b20.cleanup.conflict'),
+  catalog_cleanup_invalid: uiText('b20.cleanup.invalid'),
+  catalog_cleanup_limit: uiText('b20.cleanup.limit'),
   authoring_upgrade_required: uiText('b3.error.authoring_upgrade_required'),
   draft_base_conflict: uiText('b3.error.draft_base_conflict'),
   draft_base_unknown: uiText('b3.error.draft_base_unknown'),

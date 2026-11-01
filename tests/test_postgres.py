@@ -25,6 +25,51 @@ pytestmark = pytest.mark.postgres
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 
 
+async def test_b20_cleanup_reset_is_atomic_and_idempotent_after_reopen(database, config):
+    from .test_catalog_cleanup import application, initial, populated
+
+    store = PostgresStore(database, MIGRATIONS, tls=False)
+    await store.open()
+    runtime = Runtime(store, FakeClock(NOW), type_registry())
+    await runtime.start()
+    try:
+        catalog = await populated(runtime, config)
+        plan = await runtime.submit(
+            "catalog_cleanup_preview",
+            initial(catalog, select_filtered=True, filters={"kind": "unclear"}),
+        )
+        body = application(plan)
+        before = copy.deepcopy(runtime.state.tables["catalog_sighting"])
+
+        def fail():
+            raise RuntimeError("synthetic cleanup transaction failure")
+
+        store.before_commit = fail
+        with pytest.raises(RuntimeError, match="synthetic cleanup transaction failure"):
+            await runtime.submit("catalog_cleanup_apply", body)
+        saved = await store.load()
+        assert saved.tables["catalog_sighting"] == before
+        assert "catalog_counter_epoch" not in saved.tables["service_state"]
+        assert not await store.get("catalog_request", body["request_id"])
+        store.before_commit = None
+        await runtime.submit("recover", {})
+        result = await runtime.submit("catalog_cleanup_apply", body)
+        assert result["removed"] == 3
+        saved = await store.load()
+        assert saved.tables["catalog_sighting"] == {}
+        assert (
+            saved.tables["service_state"]["catalog_counter_epoch"]["request_id"]
+            == body["request_id"]
+        )
+        runtime.state = saved
+        runtime.catalog_cleanup_plans.clear()
+        assert await runtime.submit("catalog_cleanup_apply", body) == result
+    finally:
+        store.before_commit = None
+        await runtime.stop()
+        await store.close()
+
+
 async def test_alpha10_catalog_and_import_survive_reopen_with_atomic_history(database, config):
     from .test_managed_catalog import change, configured, request
     from .test_portable import export, plan, stage

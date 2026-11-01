@@ -48,6 +48,9 @@ class Observation(Model):
         default=(), max_length=512, exclude_if=lambda value: not value
     )
     value_raw: Any = None
+    catalog_frame: dict[str, Any] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     value_normalized: Any = None
     normalized: bool = False
     device_time: datetime | None = None

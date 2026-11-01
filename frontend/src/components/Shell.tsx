@@ -44,7 +44,7 @@ export function Shell(_props: { onSetup: () => void }) {
   const info = useInfo();
   const [collapsed, setCollapsed] = useCollapsedNavigation(info.data?.installation_id ?? null);
   const { pathname } = useLocation();
-  const moduleId = ['/import-export', '/catalog-care'].includes(pathname) ? 'changes' : pathname.split('/')[1] ?? '';
+  const moduleId = pathname === '/catalog-care' ? 'contracts' : pathname === '/import-export' ? 'changes' : pathname.split('/')[1] ?? '';
   const [expanded, setExpanded] = useState<string[]>([]);
   useEffect(() => { if (moduleId) setExpanded(previous => previous.includes(moduleId) ? previous : [...previous, moduleId]); }, [moduleId]);
 

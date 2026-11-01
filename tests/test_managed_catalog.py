@@ -323,9 +323,7 @@ async def test_catalog_change_cannot_start_machine_episode_from_old_evidence(run
 
 
 @pytest.mark.asyncio
-async def test_sightings_count_reports_only_and_assignment_preserves_measurement_time(
-    runtime, config
-):
+async def test_sightings_count_playbacks_and_assignment_preserves_measurement_time(runtime, config):
     from core_contracts.evidence import Observation
 
     from .test_declarative import schema
@@ -368,6 +366,9 @@ async def test_sightings_count_reports_only_and_assignment_preserves_measurement
         registry_revision=runtime.state.active_revision,
     )
     await runtime.submit("observation", observation)
+    assert runtime.state.tables["catalog_sighting"] == {}
+    runtime.clock.advance(2)
+    await runtime.submit("catalog_tick")
     assert sum(row["seen_count"] for row in runtime.state.tables["catalog_sighting"].values()) == 1
     for index, extra in enumerate(
         (
@@ -400,14 +401,14 @@ async def test_sightings_count_reports_only_and_assignment_preserves_measurement
             }
         ),
     )
-    assert sum(row["seen_count"] for row in runtime.state.tables["catalog_sighting"].values()) == 2
+    assert sum(row["seen_count"] for row in runtime.state.tables["catalog_sighting"].values()) == 1
     previous = runtime.state.tables["contract_state_current"]["fixture.echo"]["fields"]["value"]
     assert previous["value"] == "other" and previous["status"] == "valid"
     runtime.clock.advance(10)
     await runtime.submit("catalog_write", {"request": request(runtime)})
     current = runtime.state.tables["contract_state_current"]["fixture.echo"]["fields"]["value"]
     assert current["value"] == "example" and current["measured_at"] == previous["measured_at"]
-    assert sum(row["seen_count"] for row in runtime.state.tables["catalog_sighting"].values()) == 2
+    assert sum(row["seen_count"] for row in runtime.state.tables["catalog_sighting"].values()) == 1
 
 
 def lookup_rule(key):

@@ -58,6 +58,30 @@ def test_single_element_title_with_delimiter_is_not_split_into_an_artist():
     )
 
 
+@pytest.mark.parametrize(
+    "left,right",
+    [
+        (
+            ["Synthetic Artist A", "Synthetic shared title Alpha"],
+            ["Synthetic Artist A", "Synthetic shared title Beta"],
+        ),
+        (["Synthetic Artist A", "Synthetic Title"], ["Synthetic Artist B", "Synthetic Title"]),
+        (
+            ["Synthetic Ensemble", "Synthetic Title (North)"],
+            ["Synthetic Ensemble", "Synthetic Title (South)"],
+        ),
+        (["Éxample", "Synthetic Title"], ["Example", "Synthetic Title"]),
+    ],
+)
+def test_full_unicode_title_and_artist_parts_cannot_collapse(left, right):
+    assert candidate_key(entry(canonical(left))) != candidate_key(entry(canonical(right)))
+
+
+def test_display_label_does_not_reassign_identity_to_foreign_title():
+    original = entry(canonical([ARTIST, "Synthetic Original"]), display_name="Foreign - Display")
+    assert candidate_key(original) == candidate_key(entry(original["key"]))
+
+
 async def test_mixed_tc_and_local_sightings_propose_only_versions_without_mutation(runtime, config):
     source = observed("Synthetic Catalog Original", artist=ARTIST, title="Synthetic Beacon")
     catalog = await seeded(runtime, config, [source])

@@ -1,6 +1,7 @@
 # Wuschel – Übergabe an die Beta
 
-Stand: 20.10.2026 · Abschluss Alpha 10 · verfasst für den neuen Beta-Chat (Claude) und Codex.
+Fortgeschrieben am 01.11.2026 für b20 (#89). Der Alpha-10-Betriebsstand in §5 ist historisch.
+Technischer Beta-Bestand: b19; b20 ist der folgende Umsetzungsstand, bis Release und Installation getrennt belegt sind.
 Diese Datei ist die verbindliche Ausgangslage. Bei Widerspruch zu älteren Chats gilt diese Datei.
 
 ---
@@ -69,7 +70,13 @@ Mähnenfarben sind Erkennungsfarben, getrennt von den Statusfarben Grün/Gelb/Ro
 Steckbrief: `Levtos/control` → `assets/herde/` (Issue #60). HA-Seitenleiste kann nur MDI:
 `mdi:script-text-outline`.
 
-## 5. Live-Stand nach Alpha 10 (geprüft 20.10.2026)
+## 5. Historischer Live-Stand nach Alpha 10 (geprüft 20.10.2026)
+
+Die Tabelle beschreibt ausschließlich den damaligen Stand, nicht die heutige Installation.
+Die Bestandsaufnahme vom 30.10. in #80 belegt 85 implementierte Verträge und b19;
+#89 nennt b19 mit aktiver Konfiguration 10. Diese Angaben ersetzen keine aktuelle
+Gesundheitsprüfung. Umsetzungsnachweise: [Beta-Abschluss](beta/abschluss/A2.md),
+[Titelkatalog b17–b19](beta/titelkatalog/A2.md) und [b20](beta/b20/A2.md).
 
 | Bereich | Stand |
 |---|---|
@@ -103,14 +110,23 @@ dann nicht, ist es ein echter Fehler.
 - Beta = echte Verträge **Bereich für Bereich**, parallel zur Legacy-Integration. Keine DB-Resets mehr.
 - Zum Kern gehören laut Akte auch: Weckplanung als 1:1-Port (`wake.plan`, P4-60), Tagesphase
   (`day_phase`), erwartete Sonneneinstrahlung, Klima-Formeln, Titelkataloge (P4-38).
-- 1.0 = Produzenten speisen in Wuschel ein, Policies lesen nur noch Wuschel, Legacy wird abgeschaltet.
-- Reihenfolge der Bereiche ist mit Benni zu Beginn der Beta festzulegen.
+- **1.0-Grenze, Beschluss #80 vom 01.11.2026:** Alle Zustände, die Policies und
+  das künftige Engine-Modul benötigen, müssen valide vorhanden und von Benni
+  abgenommen sein. Dazu gehören Verträge, Werkzeuge und Quellen.
+- Engines folgen nach 1.0 (#74, ADR 0028). Consumer-Umstellung und Abschaltung
+  der Legacy-Integration sind kein 1.0-Kriterium mehr und brauchen eigene Aufträge.
+- Die Bereiche 1–5 und der technische Beta-Abschluss sind dokumentiert. b20
+  behebt die eingefrorene Sammlung aus #80/#89. Danach folgt die Vertragsinventur
+  aus dem Export, ohne in b20 neue Verträge oder Vorlagen anzulegen.
+- Der allgemeine Browser-Rundgang entfällt laut #89. Technische Fertigstellung,
+  Veröffentlichung, Installation und Bennis Live-Abnahme bleiben getrennt.
 
 ## 8. Entscheidungen für den Bereich Media / Titelkataloge (20.10.2026)
 
 Aktueller Bereich-5-Stand: [freigegebenes A1](beta/bereich-5/A1.md) und
 [A2-Umsetzung mit Prüfnachweisen](beta/bereich-5/A2.md). Zweites Review und
-Bennis zweites Go vor b15; Installation und echte Titelübernahme stehen aus.
+Bennis zweites Go vor b15. Die Titelübernahme und weitere Pflege sind inzwischen
+in #80 dokumentiert; dieser ursprüngliche A2-Nachweis ist kein aktueller Live-Befund.
 Die Entscheidungen in #75 ersetzen die unten noch als offen bezeichnete
 Apple-TV-Klassenbedeutung und den früheren Besuchsquellen-Vorschlag.
 
@@ -126,14 +142,14 @@ im Zuordnungsdialog. Die alten Zahlen bleiben nur intern, bis die Media-Module u
 | Spiele (PS5, PC, Switch) | Heimkino (0) · Grind (1) · Headset (2) |
 | Musik (HomePods) | normal (0) · Boost (1) · stumm (2) · **neu: leiser** |
 | Stash | normal (0) · privat (≥ 1) |
-| Apple TV | offen – erst festlegen, wofür eine Einordnung genutzt wird |
+| Apple TV | Die frühere offene Zweckfrage ist durch #75 und Bereich 5 ersetzt; maßgeblich ist dessen freigegebene Klassenlegende. |
 
 - **Spiele-Klasse 3 („Hintergrund-Grind“, Title_classifier#83) entfällt.** Wer führt, entscheidet die
   TV-Bildquelle (`actual_source`, M30-28 / P4-51 / P4-52 / P4-53). Das eine Spiel mit Klasse 3 wird Grind.
   Issue #83 als „überholt durch den Quellen-Contract“ schließen.
 - **Musik „leiser“:** Wunsch von Benni – ungeliebte Lieder bewusst leiser statt Sender wechseln. Stand
   bisher in keinem Dokument. Wuschel: neue Klasse mit Legende; Träller: Absenkung um einstellbaren Wert.
-- **Besuch:** neue Tatsache „Besuch da“ (von Hand ein/aus, Ende durch Schlaf wie bei Date Time);
+- **Besuch:** Die frühe Quellidee ist durch die Besuchs-/Date-Verträge in Bereich 5 ersetzt. Historischer Zweck: „Besuch da“ (bewusst ein/aus, Ende durch Schlaf wie bei Date Time);
   Träller: Lautstärke-Obergrenze für Musik. Akte: „Multi-User/Gäste zurückgestellt“, „Date Time“ (HomePods aus) ist etwas anderes.
 - **Quiet** (Anruf, Etagentür, stummer Song) bleibt eine eigene Wahrheit, **keine** Titelklasse (P4-63).
 - **Import aus dem Title Classifier:** in der Beta (Bereich Media), nach Gerät aufgeteilt; Musik- und
@@ -158,8 +174,7 @@ console.log("Exportiert:", data.version, "Version,", data.entries?.length, "Eint
 - MQTT- und Traber-Status zeigen vor der ersten Konfiguration „ausgeschaltet“ bzw. „–“. Richtig wäre
   „Wartet auf die erste Konfiguration“ (Ursache: Adapter verbinden sich erst mit aktiver Konfiguration).
 - Fenster „Offene Bedingungen“ schließt sich nicht, wenn man darin einen Link anklickt.
-- Katalogpflege: Geltungsbereich/Medienart/Signalart sind freie Textfelder – Auswahllisten verwenden.
-- Katalogpflege steht unter „Entwürfe & Konfigurationen“, wirkt aber sofort – an passendere Stelle verschieben.
+- Katalogpflege: Auswahllisten und Navigation unter „Verträge“ sind in b20 umgesetzt; Installation und Live-Abnahme stehen getrennt aus.
 - Import, „Aktualität zuordnen“ (25.10.2026, Bereich 2): Der Dialog zeigt alle Quellen eines vollständigen
   Pakets, auch unveränderte aus früheren Bereichen. Außerdem fehlt ein passender Sensortyp für Quellen
   wie Ortung, WLAN-Name oder HA-Verbindung (nur Kontakt/Temperatur/Bewegung/Zähler). Richtig wäre: nur
@@ -167,13 +182,14 @@ console.log("Exportiert:", data.version, "Version,", data.entries?.length, "Eint
 
 **Betrieb**
 - Proxmox-Thin-Pool überwachen (eigener Claude-Code-Auftrag, nicht im Wuschel-Chat).
-- Nach der ersten Beta-Woche: tatsächliche Datenrate messen und Speicherbedarf neu hochrechnen.
+- Tatsächliche Datenrate und Speicherbedarf bleiben Betriebsaufgaben. b20 misst Pflegezeiten synthetisch; es führt keinen Speicherumbau aus.
+- Gemessener Niederschlag, Connectivity DNS und Eltern-Standort haben getrennte offene Einrichtungsvoraussetzungen (Beta-Abschluss/#80). Temperaturprognose und Tür/Schloss bleiben bewusst vertagt.
 - GitHub-Repobeschreibung von `Levtos/wuschel` (Admin-Recht nötig) – prüfen, ob gesetzt.
 
 **Fachlich**
 - Parameter-Audit Media (Volume-Matrix, Track-Boost/-Mute, Subwoofer, Denon-Nachlauf) – dort fehlte bisher
   die Stelle, an der „leiser“ aufgefallen wäre.
-- Apple-TV-Katalog: Zweck klären.
+- Apple-TV-Katalog: Die frühere Zweckfrage ist durch #75 entschieden, kein neuer Klärungsauftrag.
 - **Bewusster Schlafstart mit Ambient-Sounds** (Wunsch Benni, 25.10.2026; Bereich 4 Schlummer und
   Bereich 5 Träller). Benni schläft meist mit Fernseher ein, möchte aber manchmal stattdessen
   Ambient-Sounds über die HomePods. Aufteilung nach ADR 0028:

@@ -17,7 +17,7 @@ import { ConfirmDialog } from '@/components/ui/dialog';
 import { Empty, KeyValue, Notice, PageHeader, Panel, PanelHeader } from '@/components/ui/layout';
 import { Input, Textarea } from '@/components/ui/form';
 import { draftLabel, ReviewDraftButton } from '@/features/authoring/DraftBar';
-import { downloadText, exportRegistry, parseRegistryJson, safeFilename } from '@/features/authoring/importExport';
+import { downloadDraft, parseRegistryJson } from '@/features/authoring/importExport';
 import { asArray } from '@/features/authoring/model';
 import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
 import { api, describeError } from '@/lib/api';
@@ -115,7 +115,7 @@ export default function DraftPage() {
         actions={
           <>
             {current ? <ReviewDraftButton size="md" checkFirst={!validNow} onReview={setActivationTarget}>{validNow && effect.data?.no_effect ? uiText('b3.complete') : undefined}</ReviewDraftButton> : <Button variant="primary" onClick={() => void (async () => { if (!doc.dirty || await doc.save() === 'saved') setContinuing(true); })()}>{draft.base_status === 'needs_review' ? uiText('beta3.c902a9a3c590') : CONTINUE}</Button>}
-            <Button disabled={config.config_schema_version === 4 && doc.dirty} onClick={() => { if (config.config_schema_version !== 4) downloadText(`${safeFilename(doc.displayName || draft.draft_id)}.json`, exportRegistry(config)); else void api('portable/export', { method: 'POST', body: { draft_id: draft.draft_id, draft_version: draft.draft_version, expected_active_revision: active.data?.revision ?? 0 } }).then(result => downloadText(`${safeFilename(doc.displayName || draft.draft_id)}.json`, JSON.stringify(result, null, 2))).catch(error => setExportError(describeError(error))); }}><Download size={14} /> {uiText("features.registry.DraftPage.export_366489")}</Button>
+            <Button disabled={doc.dirty} onClick={() => void downloadDraft(draft, active.data?.revision ?? 0, doc.displayName || draft.draft_id).catch(error => setExportError(describeError(error)))}><Download size={14} /> {uiText("features.registry.DraftPage.export_366489")}</Button>
           </>
         }
       />

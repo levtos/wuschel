@@ -6,6 +6,7 @@ import { Workbench } from '@/Workbench';
 import { emptyRegistry } from '@/features/authoring/model';
 import type { JsonObject } from '@/lib/json';
 import { importFreshnessSources } from '@/features/sources/freshness';
+import { t } from '@/i18n';
 import { installFakeApi, makeDraft, reply } from '../../../test/fakeApi';
 import { idleLive } from '../../../test/harness';
 
@@ -19,6 +20,21 @@ const preview = (digest = 'first') => ({ config: incoming, plan_digest: digest, 
 
 beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+it('requires an explicit historical-origin correction before enabling staging', async () => {
+  const { fake, user, stage } = await openImport(body => reply(200, body.remove_unsupported_origins
+    ? preview('corrected')
+    : { ...preview(), configuration_issues: [{ message: 'Synthetic compatibility issue' }], can_correct_origins: true, unresolved: ['configuration'] }));
+  expect(stage).toBeDisabled();
+  expect(screen.getByText('Synthetic compatibility issue')).toBeVisible();
+  expect(fake.calls.some(call => call.path === 'portable/stage')).toBe(false);
+  await user.click(screen.getByLabelText(t('b20.export.correct')));
+  await waitFor(() => expect(stage).toBeEnabled());
+  await user.click(stage);
+  await waitFor(() => expect(fake.calls.some(call => call.path === 'portable/stage')).toBe(true));
+  expect(fake.calls.find(call => call.path === 'portable/stage')?.body).toMatchObject({ remove_unsupported_origins: true, plan_digest: 'corrected' });
+  expect(fake.activations).toHaveLength(0);
+});
 
 async function openImport(respond: (body: any) => Response | Promise<Response> = () => reply(200, preview())) {
   const fake = installFakeApi({ revisions: [{ revision: 4, config: target, checksum: 'synthetic', created_at: '2026-10-26T00:00:00Z' }] });

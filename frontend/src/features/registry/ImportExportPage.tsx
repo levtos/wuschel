@@ -9,6 +9,7 @@ import { Notice, PageHeader, Panel, PanelHeader } from '@/components/ui/layout';
 import { downloadText } from '@/features/authoring/importExport';
 import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
 import { api, apiText, describeError } from '@/lib/api';
+import { uuid } from '@/lib/uuid';
 import { useActiveExport, useActiveRevision } from '@/lib/queries';
 import type { Draft } from '@/lib/types';
 import type { Registry } from '@/lib/types';
@@ -19,7 +20,7 @@ import { currentDraft } from './authoring';
 import { importFreshnessSources } from '@/features/sources/freshness';
 import { TitleImport } from './TitleImport';
 
-interface Preview { config: Registry; display_name_changes?: { id: string; before: string; after: string }[]; freshness_changed_sources?: string[]; catalog_entries?: number; editorial_entries?: number; plan_digest: string; added: number; reused: number; conflicts: string[]; unresolved: string[]; editorial_versions: Record<string, number>; editorial_changed: Record<string, boolean>; package: { config: Registry; editorial: { object: { kind: string; id: string }; category: string; room: { name: string } }[] } }
+interface Preview { configuration_issues?: { message: string }[]; can_correct_origins?: boolean; config: Registry; display_name_changes?: { id: string; before: string; after: string }[]; freshness_changed_sources?: string[]; catalog_entries?: number; editorial_entries?: number; plan_digest: string; added: number; reused: number; conflicts: string[]; unresolved: string[]; editorial_versions: Record<string, number>; editorial_changed: Record<string, boolean>; package: { config: Registry; editorial: { object: { kind: string; id: string }; category: string; room: { name: string } }[] } }
 type Resolution = 'keep' | 'file' | { new_id: string };
 
 export default function ImportExportPage() {
@@ -32,11 +33,12 @@ export default function ImportExportPage() {
   const [freshnessChoices, setFreshnessChoices] = useState<FreshnessChoices>({});
   const [checking, setChecking] = useState(false);
   const [checkedKey, setCheckedKey] = useState('');
+  const [removeUnsupportedOrigins, setRemoveUnsupportedOrigins] = useState(false);
   const requestSequence = useRef(0);
   const isContract = (() => { try { return JSON.parse(fileText).scope === 'contract'; } catch { return false; } })();
   const targetUnavailable = isContract && (!doc.draft || !currentDraft(doc.draft, active.data?.revision ?? 0) || doc.dirty);
   const body = () => ({ package_text: fileText, resolutions, editorial_choices: editorialChoices, freshness_choices: freshnessChoices, ...(isContract && doc.draft ? { target_draft_id: doc.draft.draft_id, target_draft_version: doc.draft.draft_version } : {}) });
-  const bodyText = JSON.stringify(body());
+  const bodyText = JSON.stringify({ ...body(), remove_unsupported_origins: removeUnsupportedOrigins });
   const previewKey = JSON.stringify([bodyText, active.data?.revision, targetUnavailable]);
   const previewOutdated = stale || (!!preview && checkedKey !== previewKey);
   const latestKey = useRef(previewKey); latestKey.current = previewKey;
@@ -51,7 +53,7 @@ export default function ImportExportPage() {
         // Its old key and stale flag still prohibit staging until acknowledgement.
         setPreview(result); setCheckedKey(previewKey); setStale(true); return;
       }
-      setPreview(result); setCheckedKey(previewKey); setRequestId(crypto.randomUUID()); setStale(false);
+      setPreview(result); setCheckedKey(previewKey); setRequestId(uuid()); setStale(false);
     } catch (failure) {
       if (sequence === requestSequence.current && latestKey.current === previewKey) setError(describeError(failure));
     } finally { if (sequence === requestSequence.current) setChecking(false); }
@@ -67,9 +69,9 @@ export default function ImportExportPage() {
   const editorialRows = preview?.package.editorial.filter(row => preview.editorial_changed[`${row.object.kind}:${row.object.id}`]) ?? [];
   const unchangedEditorial = preview ? preview.package.editorial.length - editorialRows.length : 0;
   const firstConflictIndex = preview?.conflicts.indexOf(preview.unresolved[0] ?? '') ?? -1;
-  const blockedReason = busy ? t('b12.staging') : checking || previewOutdated ? t('b10.previewUpdating') : error || (targetUnavailable ? t('alpha10.transfer.targetSave') : '');
+  const blockedReason = busy ? t('b12.staging') : checking || previewOutdated ? t('b10.previewUpdating') : error || (targetUnavailable ? t('alpha10.transfer.targetSave') : preview?.configuration_issues?.length ? t('b20.export.compatibility') : '');
   const save = async () => { if (!preview || previewOutdated || checking || error || targetUnavailable || preview.unresolved.length) return; setBusy(true); setError(''); try {
-    const draft = await api<Draft>('portable/stage', { method: 'POST', body: { ...body(), plan_digest: preview.plan_digest, request_id: requestId } });
+    const draft = await api<Draft>('portable/stage', { method: 'POST', body: { ...body(), remove_unsupported_origins: removeUnsupportedOrigins, plan_digest: preview.plan_digest, request_id: requestId } });
     await cache.invalidateQueries({ queryKey: ['registry', 'drafts'] }); if (draft.draft_id === doc.draft?.draft_id) doc.open(draft, { reload: true }); else doc.requestOpen(draft); navigate(`/changes/drafts/${encodeURIComponent(draft.draft_id)}`);
   } catch (failure) { setError(describeError(failure)); } finally { setBusy(false); } };
   const backup = async () => { setBusy(true); setError(''); try {
@@ -82,12 +84,13 @@ export default function ImportExportPage() {
     <Notice tone="info">{t('alpha10.transfer.history')}</Notice>
     <div className="mt-4"><TitleImport /></div>
     <Panel className="mt-5"><PanelHeader title={t('alpha10.transfer.read')} /><div className="space-y-4 p-5">
-      <Field label={t('alpha7.import.file')}>{p => <FileInput {...p} accept="application/json,.json" disabled={busy} onChange={async e => { const file = e.target.files?.[0]; if (!file) return; requestSequence.current++; setChecking(false); setStale(false); setRequestId(''); setPreview(null); setError(''); setResolutions({}); setEditorialChoices({}); setFreshnessChoices({}); setFilename(file.name); if (file.size > 50 * 1024 * 1024) { setError(t('alpha10.transfer.tooLarge')); setFileText(''); return; } setFileText(await file.text()); }} />}</Field>
+      <Field label={t('alpha7.import.file')}>{p => <FileInput {...p} accept="application/json,.json" disabled={busy} onChange={async e => { const file = e.target.files?.[0]; if (!file) return; requestSequence.current++; setChecking(false); setStale(false); setRequestId(''); setPreview(null); setError(''); setResolutions({}); setEditorialChoices({}); setFreshnessChoices({}); setRemoveUnsupportedOrigins(false); setFilename(file.name); if (file.size > 50 * 1024 * 1024) { setError(t('alpha10.transfer.tooLarge')); setFileText(''); return; } setFileText(await file.text()); }} />}</Field>
       <p className="text-sm text-muted">{filename || t('alpha10.transfer.choose')}</p>
       <Button disabled={!fileText || busy || checking || targetUnavailable} onClick={() => void check()}>{t('alpha10.transfer.preview')}</Button>
       {isContract && <Notice tone="info">{doc.draft ? t('alpha10.transfer.target', { name: doc.displayName || doc.draft.draft_id }) : t('alpha10.transfer.targetRequired')}{!doc.draft && <Button onClick={() => void doc.ensureDraft().catch(failure => setError(describeError(failure)))}>{t('alpha10.transfer.createTarget')}</Button>}{doc.dirty && <p>{t('alpha10.transfer.targetSave')}</p>}</Notice>}
       {!preview && error && <Notice tone="bad">{error}</Notice>}
       {preview && <section className="space-y-4" aria-live="polite">
+          {!!preview.configuration_issues?.length && <Notice tone="warn"><p>{t('b20.export.compatibility')}</p><ul>{preview.configuration_issues.map((issue, index) => <li key={index}>{issue.message}</li>)}</ul>{preview.can_correct_origins && <label><input type="checkbox" checked={removeUnsupportedOrigins} onChange={e => { setRemoveUnsupportedOrigins(e.target.checked); setStale(true); }} /> {t('b20.export.correct')}</label>}</Notice>}
         {preview.conflicts.length > 0 && <section aria-label={t('b12.conflicts', { count: preview.conflicts.length })} className="space-y-2">
           <h2>{t('b12.conflicts', { count: preview.conflicts.length })}</h2>
           {!isContract && <Button disabled={busy || checking || targetUnavailable} onClick={() => { setResolutions(previous => ({ ...previous, ...Object.fromEntries(preview.conflicts.map(key => [key, 'file' as const])) })); setError(''); setStale(true); }}>{t('b17.allConflictsFile')}</Button>}

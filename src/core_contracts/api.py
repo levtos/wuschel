@@ -127,6 +127,9 @@ class API:
                     if type(error) is ValueError
                     and str(error)
                     in {
+                        "catalog_cleanup_conflict",
+                        "catalog_cleanup_invalid",
+                        "catalog_cleanup_limit",
                         "title_sync_not_configured",
                         "title_sync_tls_required",
                         "title_sync_reader_required",
@@ -494,6 +497,11 @@ class API:
             result = await runtime.submit(
                 "catalog_care_" + path.rsplit("/", 1)[1],
                 {"request": await self.object_body(request), "_actor": request["actor"]},
+            )
+        elif path in {"catalogs/cleanup/preview", "catalogs/cleanup/apply"} and method == "POST":
+            result = await runtime.submit(
+                "catalog_cleanup_" + path.rsplit("/", 1)[1],
+                {**await self.object_body(request), "_actor": request["actor"]},
             )
         elif path == "catalogs/entries" and method == "GET":
             from .managed_catalog import definition, page

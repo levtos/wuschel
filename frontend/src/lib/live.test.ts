@@ -55,6 +55,18 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
 describe('live protocol', () => {
+  it('refreshes catalog subscribers on a catalog event and after reconnect snapshots', () => {
+    const store = create();
+    current().open(); current().receive({ type: 'welcome' }); current().receive(snapshot(5));
+    const before = store.getSnapshot().catalogVersion;
+    current().receive({ type: 'catalog_changed' });
+    expect(store.getSnapshot().catalogVersion).toBe(before + 1);
+    expect(store.getSnapshot().publicationSeq).toBe(5);
+    current().drop(); vi.advanceTimersByTime(1000);
+    current().open(); current().receive({ type: 'welcome' }); current().receive(snapshot(5));
+    expect(store.getSnapshot().catalogVersion).toBeGreaterThan(before + 1);
+    store.stop();
+  });
   it('records only observed HA connection transitions and clears them on installation mismatch', () => {
     const store = create({ now: () => Date.parse('2026-10-16T12:00:00Z') });
     const service = (ha: string) => current().receive({ type: 'service_state', ha });

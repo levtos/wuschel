@@ -29,6 +29,7 @@ export interface BrowserConnectionEvent {
 }
 
 export interface LiveSnapshot {
+  catalogVersion: number;
   connection: Connection;
   /** True while the shown contract state may be older than the server's. */
   stale: boolean;
@@ -63,6 +64,7 @@ export interface LiveOptions {
 }
 
 const INITIAL: LiveSnapshot = {
+  catalogVersion: 0,
   connection: 'connecting',
   stale: true,
   service: null,
@@ -193,6 +195,9 @@ export class LiveStore {
       case 'service_state':
         this.patch({ service: message as unknown as ServiceState, lastEventAt: now });
         break;
+      case 'catalog_changed':
+        this.patch({ catalogVersion: this.state.catalogVersion + 1, lastEventAt: now });
+        break;
       case 'snapshot':
         if (typeof message.epoch_id !== 'string' || !Number.isSafeInteger(message.publication_seq) || !message.contracts || typeof message.contracts !== 'object') {
           this.resync(socket);
@@ -200,6 +205,7 @@ export class LiveStore {
         }
         this.patch({
           connection: 'open',
+          catalogVersion: this.state.catalogVersion + 1,
           resyncCount: this.state.resyncCount + (this.state.epochId !== null && message.epoch_id !== this.state.epochId && this.state.connection !== 'resyncing' ? 1 : 0),
           stale: false,
           contracts: (message.contracts ?? {}) as Record<string, Envelope>,
