@@ -51,7 +51,7 @@ def status(row: dict[str, Any], entries: dict[str, Any]) -> str:
 
 def candidate_key(row: dict[str, Any]) -> str:
     metadata = row.get("tc_metadata") or {}
-    text = row.get("display_name") or row["key"]
+    text = row["key"]
     parts = text.split(" - ", 1)
     # Runtime compound keys carry artist/title separately, just like TC metadata.
     try:
@@ -72,19 +72,29 @@ def candidate_key(row: dict[str, Any]) -> str:
         else ""
     )
     title = metadata.get("title") if metadata.get("title") is not None else parts[-1]
-    artist = re.split(
-        r"\s+(?:feat\.?|ft\.?|featuring)\s+|\s*[&,]\s*", str(artist or ""), flags=re.I
-    )[0]
-
-    def words(value: str) -> list[str]:
-        return re.sub(r"[^a-z0-9]+", " ", value.lower()).split()
+    artist = re.split(r"\s+(?:feat\.?|ft\.?|featuring)\s+", str(artist or ""), flags=re.I)[0]
 
     seed = [
-        " ".join(words(artist)[:2]),
-        " ".join(words(re.sub(r"\([^)]*\)", " ", str(title or "")))[:3]),
+        normalize_key(artist),
+        normalize_key(re.sub(VERSION_PATTERN, " ", str(title or ""), flags=re.I)),
     ]
     return (
         canonical([row["scope"], row["media_type"], row["signal_type"], *seed]) if any(seed) else ""
+    )
+
+
+VERSION_PATTERN = r"\((?:[^()]*(?:remix|mix|edit|version)|live(?: at [^()]*)?)\)"
+
+
+def master_order(row: dict[str, Any]) -> tuple[Any, ...]:
+    text = canonical([row.get("tc_metadata") or {}, row["key"]])
+    return (
+        -bool(row.get("variant_count")),
+        bool(re.search(VERSION_PATTERN, text, re.I)),
+        -bool(re.search(r"\b(?:feat\.?|ft\.?|featuring)\s", text, re.I)),
+        -row.get("seen_count", 0),
+        epoch(row.get("first_seen")),
+        row["identity"],
     )
 
 
@@ -100,7 +110,9 @@ def all_rows(state: Any, catalog: Any) -> dict[str, dict[str, Any]]:
         if sighting["catalog"] != head_key(catalog):
             continue
         key = sighting["identity"]
-        if (entries.get(key, {}).get("tc_metadata") or {}).get("is_alias"):
+        if entries.get(key, {}).get("tombstone") or (
+            entries.get(key, {}).get("tc_metadata") or {}
+        ).get("is_alias"):
             continue
         row = rows.setdefault(
             key,
@@ -135,12 +147,17 @@ def all_rows(state: Any, catalog: Any) -> dict[str, dict[str, Any]]:
         telemetry = (row.get("tc_metadata") or {}).get("telemetry")
         if telemetry:
             row.update(telemetry)
+        if state.tables["service_state"].get("catalog_counter_epoch"):
+            row["seen_count"] = row.get("local_sightings", {}).get("seen_count", 0)
+        row["playback_counts"] = bool(state.tables["service_state"].get("catalog_counter_epoch"))
         seed = candidate_key(row) if not master and row["review_status"] != "hidden" else ""
         row["cluster_key"] = seed
         if seed:
             clusters[seed].append(key)
     for row in rows.values():
         row["candidate"] = len(clusters.get(row["cluster_key"], [])) > 1
+    for index, row in enumerate(sorted(rows.values(), key=master_order)):
+        row["master_order"] = index
     return rows
 
 
@@ -258,6 +275,10 @@ def listing(
         "content_revision": current["revision"],
         "next_cursor": next_cursor,
         "total": len(selected),
+        "filter_values": {
+            field: sorted({r[field] for r in all_rows(state, catalog).values()})
+            for field in ("scope", "media_type", "signal_type")
+        },
         "contexts": sorted(
             {
                 canonical([ctx["context"], ctx.get("source_app", "")])
@@ -280,16 +301,7 @@ def queue(
     for members in sorted(clusters.values(), key=lambda values: -len(values)):
         if len(members) < 2:
             continue
-        master = min(
-            members,
-            key=lambda r: (
-                -bool(r["variant_count"]),
-                -r.get("seen_count", 0),
-                epoch(r.get("first_seen")),
-                len(r.get("normalized_key", r["key"])),
-                r["identity"],
-            ),
-        )
+        master = min(members, key=master_order)
         result.append(
             {
                 "members": [

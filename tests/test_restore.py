@@ -130,3 +130,40 @@ async def test_overdue_deadline_with_unusable_guard_is_unknown(runtime, config):
     assert field["reasons"][0]["code"] == "deadline_overdue_unprocessed"
     machine = runtime.state.tables["node_state"]["fixture.echo"]["machine"]
     assert machine["deadline"]["fired"] is False
+
+
+async def test_b18_recovery_does_not_mutate_a_published_planner_snapshot(
+    runtime, config, monkeypatch
+):
+    import copy
+
+    from tests.conftest import activate
+    from tests.test_phase1a import observation
+
+    await activate(runtime, config)
+    await runtime.submit("observation", observation(runtime, True))
+    previous = runtime.state
+    previous_values = copy.deepcopy(previous.tables["source_observation_current"])
+    recovered = await runtime.store.load()
+
+    class GuardedObservation(dict):
+        def __setitem__(self, key, value):
+            assert runtime.state is not recovered, (
+                "published state changed under a background planner"
+            )
+            super().__setitem__(key, value)
+
+        def __deepcopy__(self, memo):
+            return copy.deepcopy(dict(self), memo)
+
+    recovered.tables["source_observation_current"] = {
+        key: GuardedObservation(value)
+        for key, value in recovered.tables["source_observation_current"].items()
+    }
+
+    async def load():
+        return recovered
+
+    monkeypatch.setattr(runtime.store, "load", load)
+    await runtime.submit("recover", {})
+    assert previous.tables["source_observation_current"] == previous_values

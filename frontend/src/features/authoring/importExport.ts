@@ -1,6 +1,8 @@
 import { t as uiText } from '@/i18n';
 import { isObject } from '@/lib/json';
 import type { Registry } from '@/lib/types';
+import { apiText } from '@/lib/api';
+import type { Draft } from '@/lib/types';
 
 export type ParsedImport = { ok: true; config: Registry; display_name?: string } | { ok: false; error: string };
 
@@ -26,6 +28,13 @@ export function parseRegistryJson(text: string): ParsedImport {
 
 export function exportRegistry(config: Registry): string {
   return JSON.stringify(config, null, 2);
+}
+
+export async function downloadDraft(draft: Draft, activeRevision: number, name: string): Promise<void> {
+  const data = await apiText('portable/export', { method: 'POST', body: {
+    draft_id: draft.draft_id, draft_version: draft.draft_version, expected_active_revision: activeRevision,
+  } });
+  downloadText(`${safeFilename(name)}.json`, data);
 }
 
 /** Browser download of generated text (no server round trip, no credentials involved). */

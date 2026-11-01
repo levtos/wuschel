@@ -1,4 +1,5 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
+import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { t } from '@/i18n';
@@ -13,6 +14,42 @@ const catalog: Catalog = { catalog_id: 'synthetic.music', version: 1, classifica
 const rows: Entry[] = ['one', 'two'].map(key => ({ identity: key, key: `Synthetic ${key}`, scope: 'synthetic', media_type: 'music', signal_type: 'title', classification: 'normal', master_key: null, display_name: '', note: '', effective_classification: 'normal', complete: true, semantic_digest: 'synthetic' }));
 const impact = { affected_keys: 2, affected_contracts: 0, context_effects: [], changes: rows };
 function mount() { wrap(<CatalogCare catalog={catalog} rows={rows} selected={Object.fromEntries(rows.map(row => [row.identity, row]))} setSelected={() => {}} revision={5} activeRevision={4} parameters="catalog_id=synthetic.music&definition_version=1" />); }
+
+it('discards a late automatic preview after a content revision change', async () => {
+  const fake = installFakeApi();
+  const pending: ((response: Response) => void)[] = [];
+  fake.routes.push({ match: /^catalogs\/care\/preview$/, respond: () => new Promise(resolve => pending.push(resolve)) });
+  let changeRevision!: () => void;
+  function Fixture() {
+    const [revision, setRevision] = useState(5);
+    changeRevision = () => setRevision(6);
+    return <CatalogCare catalog={catalog} rows={rows} selected={Object.fromEntries(rows.map(row => [row.identity, row]))} setSelected={() => {}} revision={revision} activeRevision={4} parameters="catalog_id=synthetic.music&definition_version=1" />;
+  }
+  wrap(<Fixture />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: t('b17.action.group') }));
+  await waitFor(() => expect(pending).toHaveLength(1));
+  act(() => changeRevision());
+  await waitFor(() => expect(pending).toHaveLength(2));
+  await act(async () => pending[1]!(reply(200, impact)));
+  await waitFor(() => expect(screen.getByRole('button', { name: t('alpha10.catalog.save') })).toBeEnabled());
+  await act(async () => pending[0]!(reply(400, { error: 'invalid_request' })));
+  expect(screen.getByRole('button', { name: t('alpha10.catalog.save') })).toBeEnabled();
+  expect(fake.calls.some(call => call.path === 'catalogs/care/write')).toBe(false);
+});
+
+it('automatically checks impacts and uses the server master ordering for manual selection', async () => {
+  const fake = installFakeApi();
+  fake.routes.push({ match: /^catalogs\/care\/preview$/, respond: () => reply(200, impact) });
+  const ranked = [{ ...rows[0]!, master_order: 9 }, { ...rows[1]!, master_order: 1 }];
+  wrap(<CatalogCare catalog={catalog} rows={ranked} selected={Object.fromEntries(ranked.map(row => [row.identity, row]))} setSelected={() => {}} revision={5} activeRevision={4} parameters="catalog_id=synthetic.music&definition_version=1" />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: t('b17.action.group') }));
+  expect(screen.getByLabelText(t('alpha10.catalog.master'))).toHaveValue('two');
+  await waitFor(() => expect(screen.getByRole('button', { name: t('alpha10.catalog.save') })).toBeEnabled());
+  expect(fake.calls.filter(call => call.path === 'catalogs/care/preview')).toHaveLength(1);
+  expect(fake.calls.find(call => call.path === 'catalogs/care/preview')?.body).toMatchObject({ master: 'two' });
+});
 
 const compoundRows: Entry[] = [
   { ...rows[0]!, key: '["Synthetic Ensemble","Synthetic Beacon"]', identity: 'synthetic.original' },

@@ -11,7 +11,7 @@ import aiohttp
 
 from ..evidence import Observation
 from ..ha_context import ContextIndex, HAContext
-from ..model import utc
+from ..model import checksum, utc
 from ..registry import Binding, RegistryConfig
 from ..runtime import Runtime
 from ..value_origin import normalize as normalize_origin
@@ -392,6 +392,27 @@ class BridgeAdapter:
                 invalid_timestamp = True
         context = None
         attribution = None
+        catalog_frame = None
+        if binding.adapter.ha_attribute in {"media_title", "media_artist"}:
+
+            def finite_metadata(name: str) -> int | float | None:
+                number = attributes.get(name)
+                return number if type(number) in {int, float} and isfinite(number) else None
+
+            catalog_frame = {
+                "source": checksum(binding.adapter.ha_entity_id),
+                "title": attributes.get("media_title")
+                if isinstance(attributes.get("media_title"), str)
+                else None,
+                "artist": attributes.get("media_artist")
+                if isinstance(attributes.get("media_artist"), str)
+                else None,
+                "state": (state or {}).get("state"),
+                "position": finite_metadata("media_position"),
+                "position_at": str(attributes.get("media_position_updated_at", ""))[:256],
+                "duration": finite_metadata("media_duration"),
+            }
+            catalog_frame["event"] = checksum([catalog_frame, (state or {}).get("last_updated")])
         if self.protocol_selected == 2:
             raw_context = (
                 (state or {}).get("context") if kind == "snapshot" else event.get("context")
@@ -406,6 +427,7 @@ class BridgeAdapter:
                 "source_origin": source.source_origin,
                 "value_raw": value,
                 "value_normalized": normalized,
+                **({"catalog_frame": catalog_frame} if catalog_frame else {}),
                 "normalized": True,
                 **origin_fields,
                 **times,

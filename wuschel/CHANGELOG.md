@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0b20 — Stabile Titelpaare, bestätigte Bereinigung und vollständige Sicherung
+
+- Der Katalog zählt stabile Wiedergaben statt einzelner Meldungen. Titel und Interpret werden nur im Katalog zusammengeführt; die bestehende Vertragsauswertung und ihre Zeitpunkte bleiben erhalten. Gleichbleibende Meldungen und Pause/Fortsetzen zählen nicht erneut. Repeat verlangt einen belegten neuen Start; ohne ausreichende Quellenmarker bleibt diese Grenze sichtbar.
+- Vollständige Unicode-Gruppenschlüssel verhindern Vorschläge durch gemeinsame Wortanfänge. Eine gemeinsame Masterregel und automatisch aktualisierte Auswirkungen gelten für Prüfliste und manuelle Auswahl. Katalogpflege steht unter Verträge, bietet Auswahllisten und lädt nach bestätigten Änderungen nach.
+- Bereinigung ausschließlich über die Vorschau: belegte Übergänge, unklare Fälle mit gefilterter Sammelauswahl und gesperrte geschützte Einträge. Entfernen und Zählerreset verlangen Deine ausdrückliche Bestätigung; Installation allein ändert keine Katalogdaten. Alle laufenden Katalogzähler beginnen beim bestätigten Reset bei null.
+- Konfiguration sichern funktioniert auch für bereits gespeicherte historische Herkunftsangaben. Die Datei bleibt unverändert vollständig; eine notwendige Korrektur wird erst beim Einlesen als Entwurf ausdrücklich angeboten. Aktuelle Entwurfssicherungen enthalten Katalogzuordnungen und redaktionelle Angaben.
+- Pflegezeiten sind getrennt messbar; der b18-Rest zur konsistenten Vorschau bei Datenbankwiederherstellung ist korrigiert. Kein Speicherumbau und keine neue Datenbankmigration. Nur amd64; Traber bleibt unverändert auf 1.0.0b11.
+- [Auftrag und Design #89](https://github.com/Levtos/wuschel/issues/89), [Umsetzung und Prüfnachweise](docs/beta/b20/A2.md). Installation erst nach Bennis Bestätigung des vzdump von LXC 108; Bereinigung und Live-Abnahme bleiben eigene Schritte.
+
 ## 1.0.0b19 — Variantenvorschläge für Wuschel-Sichtungen
 
 - Laufzeitschlüssel als JSON-Liste werden vor den bestehenden TC-Variantenregeln in Interpret und Titel zerlegt. Sichtungen ohne TC-Metadaten gruppieren damit nach Titel statt nach dem Interpretenpräfix. Getrennte TC-Felder bleiben führend; Vorschläge erfordern weiterhin deine Bestätigung.

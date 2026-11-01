@@ -22,18 +22,22 @@ export type ErrorKind =
   | 'network'
   | 'request';
 
+export interface ChangedEntry { identity: string; key: string }
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
   readonly issues: Issue[];
   readonly kind: ErrorKind;
-  constructor(status: number, code: string, issues: Issue[], detail: string) {
+  readonly changedEntries: ChangedEntry[];
+  constructor(status: number, code: string, issues: Issue[], detail: string, changedEntries: ChangedEntry[] = []) {
     super(detail);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
     this.issues = issues;
     this.kind = classify(status, code, issues);
+    this.changedEntries = changedEntries;
   }
 }
 
@@ -52,7 +56,7 @@ function classify(status: number, code: string, issues: Issue[]): ErrorKind {
 interface ErrorBody {
   error?: string;
   issues?: Issue[];
-  details?: { location?: (string | number)[]; type?: string }[];
+  details?: { location?: (string | number)[]; type?: string }[] | { changed_entries?: ChangedEntry[] };
 }
 
 export function issuesFromBody(body: ErrorBody | null | undefined): Issue[] {
@@ -97,7 +101,8 @@ async function request(path: string, options: RequestOptions, reserved = false):
     if (response.status === 429) await coolDownRequests(response.headers.get('Retry-After'));
     const body = (await response.json().catch(() => null)) as ErrorBody | null;
     const code = body?.error ?? 'invalid_response';
-    throw new ApiError(response.status, code, issuesFromBody(body), `${code} (${response.status})`);
+    throw new ApiError(response.status, code, issuesFromBody(body), `${code} (${response.status})`,
+      body?.details && !Array.isArray(body.details) ? body.details.changed_entries ?? [] : []);
   }
   return response;
 }
@@ -124,6 +129,9 @@ export async function apiText(path: string, options: RequestOptions = {}): Promi
 }
 
 const MESSAGES: Record<string, string> = {
+  catalog_cleanup_conflict: uiText('b20.cleanup.conflict'),
+  catalog_cleanup_invalid: uiText('b20.cleanup.invalid'),
+  catalog_cleanup_limit: uiText('b20.cleanup.limit'),
   authoring_upgrade_required: uiText('b3.error.authoring_upgrade_required'),
   draft_base_conflict: uiText('b3.error.draft_base_conflict'),
   draft_base_unknown: uiText('b3.error.draft_base_unknown'),

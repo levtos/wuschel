@@ -5,6 +5,7 @@ export const NAVIGATION: NavigationModule[] = [
   { id: 'contracts', label: t('alpha7.nav.contracts'), children: [
     { to: '/contracts/list/all', label: t('alpha7.nav.mine') },
     { to: '/contracts/relations/graph', label: t('alpha7.nav.relations') },
+    { to: '/catalog-care', label: t('alpha10.catalog.navigation') },
   ] },
   { id: 'templates', label: t('alpha7.nav.templates'), children: [
     { to: '/templates/own', label: t('alpha7.nav.ownTemplates') },
@@ -21,7 +22,6 @@ export const NAVIGATION: NavigationModule[] = [
     { to: '/changes/drafts', label: t('alpha7.nav.drafts') },
     { to: '/changes/versions', label: t('alpha7.nav.versions') },
     { to: '/import-export', label: t('alpha10.transfer.title') },
-    { to: '/catalog-care', label: t('alpha10.catalog.navigation') },
   ] },
   { id: 'settings', label: t('alpha7.nav.settings'), children: [
     { to: '/settings/system', label: t('alpha7.nav.system') },

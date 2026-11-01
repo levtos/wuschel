@@ -128,35 +128,20 @@ def lookup(ctx: Any, rule: Any, args: list[FieldValue]) -> FieldValue:
                 )
             }
         )
-    # Count new source reports only. Revision/tick/restore/replay never count.
+    # Only offer a catalog candidate. Contract evaluation remains immediate.
     evidence = tuple(e for arg in args for e in arg.evidence if not e.startswith("catalog:"))
-    from .evidence import Observation
+    from .catalog_playback import offer
 
-    eligible = {
-        item.reference
-        for row in ctx.state.tables["source_observation_current"].values()
-        if (item := Observation.model_validate(row)).observation_kind in {"live_change", "report"}
-        and not item.mqtt_retained
-        and not item.ha_restored
-    }
-    reports = tuple(e for e in evidence if e in eligible)
-    if ctx.origin == "input" and reports:
-        sighting_key = head_key(catalog) + ":" + key
-        previous = ctx.state.tables["catalog_sighting"].get(sighting_key, {})
-        report = checksum(reports)
-        if previous.get("report") != report:
-            ctx.state.tables["catalog_sighting"][sighting_key] = {
-                "catalog": head_key(catalog),
-                "identity": key,
-                "scope": scope,
-                "media_type": media,
-                "signal_type": signal,
-                "key": raw,
-                "first_seen": previous.get("first_seen", ctx.now.isoformat()),
-                "last_seen": ctx.now.isoformat(),
-                "seen_count": previous.get("seen_count", 0) + 1,
-                "report": report,
-            }
+    offer(
+        ctx,
+        catalog,
+        scope,
+        media,
+        signal,
+        raw,
+        evidence,
+        min((value.valid_until for value in args if value.valid_until), default=None),
+    )
     return result
 
 

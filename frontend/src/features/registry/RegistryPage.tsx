@@ -11,7 +11,7 @@ import { ConfirmDialog, Dialog } from '@/components/ui/dialog';
 import { Empty, Notice, PageHeader, Panel, Spinner } from '@/components/ui/layout';
 import { CreateDraftDialog } from '@/features/authoring/CreateDraftDialog';
 import { draftLabel } from '@/features/authoring/DraftBar';
-import { downloadText, exportRegistry, safeFilename } from '@/features/authoring/importExport';
+import { downloadDraft, downloadText, exportRegistry } from '@/features/authoring/importExport';
 import { changedPaths } from '@/features/authoring/locate';
 import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
 import { describeError } from '@/lib/api';
@@ -82,7 +82,7 @@ function DraftsTab() {
                 <div className="flex flex-wrap gap-1.5">
                   <Button size="sm" onClick={() => open(draft)}><Pencil size={13} /> {completed ? uiText('beta3.8e31363947a6') : currentDraft(draft, active.data?.revision ?? 0) ? uiText('beta3.84e45ee73411') : uiText('beta3.98040289d15a')}</Button>
                   <Button size="sm" onClick={() => setCopyOf(draft)}><Copy size={13} /> {uiText("features.registry.RegistryPage.duplizieren_9d400c")}</Button>
-                  <Button size="sm" onClick={() => downloadText(`${safeFilename(draftLabel(draft))}.json`, exportRegistry(draft.config))}><Download size={13} /> {uiText("features.registry.RegistryPage.export_366489")}</Button>
+                  <Button size="sm" disabled={doc.draft?.draft_id === draft.draft_id && doc.dirty} onClick={() => void downloadDraft(draft, active.data?.revision ?? 0, draftLabel(draft)).catch(failure => setError(describeError(failure)))}><Download size={13} /> {uiText("features.registry.RegistryPage.export_366489")}</Button>
                   <Button size="sm" variant="danger" disabled={completed} onClick={() => setDeleting(draft)}><Trash2 size={13} /> {uiText("features.registry.RegistryPage.loschen_6c2d35")}</Button>
                 </div>
               </li>
@@ -177,7 +177,7 @@ function RevisionsTab() {
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     <Button size="sm" onClick={() => setViewing(row)}><History size={13} /> {uiText("features.registry.RegistryPage.ansehen_8e3136")}</Button>
-                    <Button size="sm" onClick={() => downloadText(`registry-rev-${row.revision}.json`, exportRegistry(row.config))}><Download size={13} /> {uiText("features.registry.RegistryPage.export_366489")}</Button>
+                    <Button size="sm" onClick={() => downloadText(`registry-rev-${row.revision}.json`, exportRegistry(row.config))}><Download size={13} /> {uiText('b20.export.raw')}</Button>
                     <Button size="sm" onClick={() => setCopyOf(row)}><FolderOpen size={13} /> {uiText("features.registry.RegistryPage.als_draft_051157")}</Button>
                     {activeKnown && row.revision < activeNumber && <Button size="sm" variant="danger" onClick={() => setRolling(row)}><RotateCcw size={13} /> {uiText("features.registry.RegistryPage.zuruckrollen_1c5e6f")}</Button>}
                   </div>

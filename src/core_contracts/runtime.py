@@ -125,6 +125,7 @@ class Runtime:
         self.overflow_serial = 0
         self.next_evaluation: datetime | None = None
         self.evaluation_alarm: Alarm | None = None
+        self.catalog_alarm: Alarm | None = None
         self.last_clock = clock.now_utc()
         self.resubscribe = asyncio.Event()
         self.revision_changed = asyncio.Event()
@@ -132,9 +133,11 @@ class Runtime:
         self.subscribers: set[asyncio.Queue[dict[str, Any]]] = set()
         self.latches: dict[str, Bucket] = {}
         self.title_sync_plans: dict[str, dict[str, Any]] = {}
+        self.catalog_cleanup_plans: dict[str, dict[str, Any]] = {}
         self.pending_latches: dict[str, Bucket] | None = None
         self.stopping = False
         self.commit_duration = 0.0
+        self.catalog_care_timings: dict[str, float] = {}
         self.last_heartbeat = clock.monotonic()
         self.refresh_requests: asyncio.Queue[tuple[int, str]] = asyncio.Queue(256)
         self.pending_refresh: set[str] = set()
@@ -323,7 +326,16 @@ class Runtime:
             else request["package"]
         )
         target = self.state.tables["registry_draft"].get(request.get("target_draft_id", ""))
-        return await self._restore_numbers(package["config"], target["config"] if target else None)
+        from .validation import RegistryValidationError
+
+        try:
+            return await self._restore_numbers(
+                package["config"], target["config"] if target else None
+            )
+        except RegistryValidationError:
+            # Package integrity and structural parsing have already succeeded.
+            # The preview must display semantic issues before offering a correction.
+            return copy.deepcopy(package["config"])
 
     async def _definition_versions(self, config: RegistryConfig) -> None:
         from .validation import RegistryValidationError, ValidationIssue
@@ -622,7 +634,9 @@ class Runtime:
             self.context_index.clear_registered()
         state = self.state.clone()
         from .authoring import migrate
+        from .catalog_playback import baseline_pending
 
+        baseline_pending(state)
         await migrate(self, state, self.clock.now_utc())
         restored_config = self._config(state)
         if restored_config is not None:
@@ -677,12 +691,20 @@ class Runtime:
     async def submit(self, operation: str, payload: Any = None) -> Any:
         if self.stopping:
             raise RuntimeError("going_away")
+        if operation == "catalog_cleanup_preview":
+            from .catalog_cleanup import preview as cleanup_preview
+
+            if not self.persistence:
+                raise RuntimeError("persistence_unavailable")
+            return await cleanup_preview(self, payload)
         if operation == "title_sync_preview":
             from .title_sync_runs import preview
 
             if not self.persistence:
                 raise RuntimeError("persistence_unavailable")
             return await preview(self, payload)
+        if operation.startswith("catalog_care_"):
+            payload = {**payload, "_queued_at": self.clock.monotonic()}
         future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
         await self.queue.put(Work(operation, payload, future))
         return await asyncio.shield(future)
@@ -707,6 +729,10 @@ class Runtime:
         self.last_heartbeat = self.clock.monotonic()
         if not self.queue.full() and not self.stopping:
             self.queue.put_nowait(Work("tick", None))
+
+    def _catalog_tick(self) -> None:
+        if not self.queue.full() and not self.stopping:
+            self.queue.put_nowait(Work("catalog_tick", None))
 
     def ingest_snapshot(self, observations: list[Observation], revision: int | None = None) -> None:
         if self.stopping:
@@ -786,18 +812,18 @@ class Runtime:
             current_editorial = copy.deepcopy(self.state.tables["editorial_current"])
             current_mapping_rows = copy.deepcopy(self.state.tables.get("title_sync_mapping", {}))
             last_sequence = self.state.publication_seq
-            self.state = await self.store.load()
-            keep_newer(current_editorial, self.state.tables["editorial_current"])
+            recovered = await self.store.load()
+            keep_newer(current_editorial, recovered.tables["editorial_current"])
             from .title_sync import restore_mapping
 
             restore_mapping(
-                current_mapping_rows, self.state.tables.setdefault("title_sync_mapping", {})
+                current_mapping_rows, recovered.tables.setdefault("title_sync_mapping", {})
             )
-            rollback = self.state.publication_seq < last_sequence
-            self.state.publication_seq = max(last_sequence, self.state.publication_seq)
+            rollback = recovered.publication_seq < last_sequence
+            recovered.publication_seq = max(last_sequence, recovered.publication_seq)
             self.persistence = True
             self.first_snapshot = False
-            for observation in self.state.tables["source_observation_current"].values():
+            for observation in recovered.tables["source_observation_current"].values():
                 if observation["adapter"] not in {"ha_calendar", "manual"}:
                     observation["observation_kind"] = "restore"
             # Coalesced outage input is snapshot evidence, never replayed as events.
@@ -805,11 +831,14 @@ class Runtime:
             for obs in buffered.values():
                 if obs.registry_revision not in {None, self.state.active_revision}:
                     continue
-                if self._older_than_stored(self.state, obs):
+                if self._older_than_stored(recovered, obs):
                     continue
-                self.state.tables["source_observation_current"][obs.binding_id] = obs.model_copy(
+                recovered.tables["source_observation_current"][obs.binding_id] = obs.model_copy(
                     update={"observation_kind": "snapshot"}
                 ).storage_document()
+            # Publish only after recovery's in-place preparation is complete.
+            # Background catalog planners may still hold the previous reference.
+            self.state = recovered
             await self._restore("database_rollback" if rollback else "db_outage")
             for key, value in buffered.items():
                 if self.latest.get(key) is value:
@@ -908,7 +937,7 @@ class Runtime:
             self._broadcast(self.service_state())
             return None
         if not self.persistence:
-            if operation in {"tick", "gap"}:
+            if operation in {"tick", "catalog_tick", "gap"}:
                 return None
             if operation == "observation":
                 self.latest[payload.binding_id] = payload
@@ -959,9 +988,40 @@ class Runtime:
             from .title_sync_runs import process as sync_process
 
             return await sync_process(self, self.state, operation, payload, self.clock.now_utc())
+        care_started = self.clock.monotonic()
         state = self.state.clone()
         now = self.clock.now_utc()
         config = self._config(state)
+        if operation.startswith("catalog_care_"):
+            self.catalog_care_timings = {
+                "writer_wait_ms": (care_started - payload.get("_queued_at", care_started)) * 1000,
+                "state_copy_ms": (self.clock.monotonic() - care_started) * 1000,
+            }
+        if operation == "catalog_cleanup_snapshot":
+            return state
+        if operation == "catalog_cleanup_apply":
+            from uuid import UUID
+
+            from .catalog_cleanup import apply as cleanup_apply
+
+            cleanup_previous = await self.store.get(
+                "catalog_request", str(UUID(payload["request_id"]))
+            )
+            if cleanup_previous:
+                state.tables["catalog_request"][str(UUID(payload["request_id"]))] = cleanup_previous
+            result = cleanup_apply(self, state, payload)
+            if cleanup_previous:
+                return result
+            await self._commit(state)
+            self.catalog_cleanup_plans.pop(payload.get("plan_id"), None)
+            return result
+        if operation == "catalog_tick":
+            from .catalog_playback import flush
+
+            flush(state, now)
+            if state.tables != self.state.tables:
+                await self._commit(state)
+            return None
         if operation in {"title_preview", "title_stage"}:
             from .title_transfer import process as title_process
 
@@ -1033,6 +1093,7 @@ class Runtime:
             from .registry import safe_document
 
             care = operation.startswith("catalog_care_")
+            care_phase = self.clock.monotonic()
             care_digest = None
             if care:
                 from .catalog_care import CareRequest, change_request
@@ -1089,6 +1150,11 @@ class Runtime:
                         )
                     )
                 request = request.model_copy(update={"changes": tuple(changes)})
+            if care:
+                self.catalog_care_timings["catalog_plan_ms"] = (
+                    self.clock.monotonic() - care_phase
+                ) * 1000
+            care_phase = self.clock.monotonic()
             result = prepare(
                 state,
                 config,
@@ -1097,6 +1163,11 @@ class Runtime:
                 now,
                 expanded_limit=100_000 if restoring else 1000,
             )
+            if care:
+                self.catalog_care_timings["prepare_ms"] = (
+                    self.clock.monotonic() - care_phase
+                ) * 1000
+            care_phase = self.clock.monotonic()
             if operation == "catalog_preview":
                 care_effects: list[dict[str, str]] = []
                 if care:
@@ -1108,6 +1179,10 @@ class Runtime:
                             resolve_ref(item.ref, config)[0] in affected for item in contract.inputs
                         ):
                             affected.add(contract.contract_id)
+                if care:
+                    self.catalog_care_timings["impact_ms"] = (
+                        self.clock.monotonic() - care_phase
+                    ) * 1000
                 return {
                     "affected_keys": len(result["affected_keys"]),
                     "affected_contracts": len(affected),
@@ -1115,6 +1190,7 @@ class Runtime:
                         {
                             "context_effects": care_effects,
                             "changes": [row.model_dump(mode="json") for row in request.changes],
+                            "timings_ms": dict(self.catalog_care_timings),
                         }
                         if care
                         else {}
@@ -1136,11 +1212,20 @@ class Runtime:
                     self.pending_refresh.clear()
                     raise ValueError("catalog_evaluation_failed")
             result["publication_seq"] = state.publication_seq
+            if care:
+                self.catalog_care_timings["impact_ms"] = (
+                    self.clock.monotonic() - care_phase
+                ) * 1000
             state.tables["catalog_request"][request.request_id] = {
                 "digest": digest,
                 "result": result,
             }
+            care_phase = self.clock.monotonic()
             await self._commit(state, publication=bool(result["affected_keys"]))
+            if care:
+                self.catalog_care_timings["commit_ms"] = (
+                    self.clock.monotonic() - care_phase
+                ) * 1000
             return result
         if operation == "editorial_put":
             from .editorial import EditorialWrite, put
@@ -1578,6 +1663,9 @@ class Runtime:
             self.mqtt_revision_changed.set()
             return activation_result
         if operation == "gap":
+            from .catalog_playback import baseline_pending
+
+            baseline_pending(state)
             self._gap(state, str(payload))
             if config:
                 bindings = {
@@ -1612,6 +1700,9 @@ class Runtime:
                     and obs.binding_id in {b.binding_id for b in config.bindings}
                     and not self._older_than_stored(state, obs)
                 ):
+                    from .catalog_playback import frame
+
+                    frame(state, obs)
                     state.tables["source_observation_current"][obs.binding_id] = (
                         obs.storage_document()
                     )
@@ -1667,6 +1758,9 @@ class Runtime:
             from .mqtt_restore import remember as remember_mqtt
 
             obs = remember_mqtt(obs, config, self.types, self.clock.now_utc())
+            from .catalog_playback import frame
+
+            frame(state, obs)
             state.tables["source_observation_current"][obs.binding_id] = obs.storage_document()
             await self._record_observation(state, obs)
         elif operation != "tick":
@@ -2080,6 +2174,9 @@ class Runtime:
                     for name in declaration.schema.fields
                 }
             required = [fields[k] for k, v in declaration.schema.fields.items() if v.required]
+            from .catalog_playback import finish as finish_catalog_playback
+
+            finish_catalog_playback(state, key, fields, contract_origin, input_event)
             healthy = all(v.quality == "healthy" for v in required)
             available = all(
                 fields[k].quality == "healthy" for k in declaration.schema.available_projection
@@ -2330,6 +2427,12 @@ class Runtime:
         self, state: State, *, publication: bool = False, resync: bool = False
     ) -> None:
         started = self.clock.monotonic()
+        catalog_changed = (
+            state.tables["catalog_sighting"] != self.state.tables["catalog_sighting"]
+            or state.tables["catalog_head"] != self.state.tables["catalog_head"]
+            or state.tables["service_state"].get("catalog_counter_epoch")
+            != self.state.tables["service_state"].get("catalog_counter_epoch")
+        )
         from .authoring import archive_versions
 
         archive_versions(self.state, state)
@@ -2357,6 +2460,13 @@ class Runtime:
         previous_contracts = self.state.tables["contract_state_current"]
         previously_needed_ha = self.requires_ha_snapshot
         self.state = state
+        from .catalog_playback import next_due
+
+        if self.catalog_alarm:
+            self.catalog_alarm.cancel()
+        catalog_due = next_due(state, self.clock.now_utc())
+        if catalog_due and not self.stopping:
+            self.catalog_alarm = self.clock.call_at_utc(catalog_due, self._catalog_tick)
         if not self.requires_ha_snapshot:
             self.ha = self.bridge = "not_needed"
             self.bridge_subscriptions = 0
@@ -2380,6 +2490,8 @@ class Runtime:
         self.commit_duration = self.clock.monotonic() - started
         self._plan_evaluation()
         self.service_jobs_changed.set()
+        if catalog_changed:
+            self._broadcast({"type": "catalog_changed"})
         for key, envelope in state.tables["contract_state_current"].items():
             previous_fields = previous_contracts.get(key, {}).get("fields", {})
             for name, field in envelope["fields"].items():
@@ -2588,6 +2700,8 @@ class Runtime:
         if self.stopping:
             return
         self.stopping = True
+        if self.catalog_alarm:
+            self.catalog_alarm.cancel()
         for run in self.title_sync_plans.values():
             run["_cancelled"] = True
             if reading := run.get("_reading"):

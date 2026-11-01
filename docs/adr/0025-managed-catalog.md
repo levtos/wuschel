@@ -161,10 +161,40 @@ Import maximal 50 MiB/100.000 Einträge (streamend vorprüfen); alle anzuwendend
 gegen den tatsächlich gelesenen Bestand messen; überschrittenes Budget
 blockiert den Import, statt Atomarität in versteckte Teilcommits aufzulösen.
 
-Sichtungen sind belegte neue Quellreports, dedupliziert über Evidence-ID:
-Replay, Snapshot, Re-Evaluation und Retain zählen nicht. Kein Überschreiben
-von Klassifikation, kein Verlängern der Freshness. Sichtungs-Retention ist
-eigene Runtimepflege; Löschen ihrer Zähler löscht keine Katalogentscheidung.
+Beschluss b20 (#89, 01.11.2026): Eine Sichtung bedeutet eine **Wiedergabe**,
+nicht einen Quellreport. Der getrennte Katalog-Tracker bestätigt ein Paar erst
+nach mindestens 2 s Stabilität. Einseitiger Titel-/Interpretwechsel bleibt
+bis 10 s unter Übergangsschutz (bekannte Verzögerung bis 8 s plus 2 s Reserve).
+Ein echter Folgetitel desselben Interpreten wird deshalb später erfasst.
+Ein HA-Ereignis wird nur im Tracker als zusammengehöriges Paar betrachtet;
+Verträge sehen weiterhin jede einzelne Beobachtung in der bisherigen Reihenfolge.
+Die Katalogfrist wertet keine Verträge aus und erneuert keine Quellzeit.
+
+Identische Reports und Pause/Fortsetzen bleiben dieselbe Wiedergabe. Ein
+Paarwechsel oder ein positiv belegter neuer Start zählt neu. Auch ohne Player-Rahmen
+macht ein belegtes Sitzungsende (Anwendbarkeit entfällt oder Titelquelle leer,
+unbekannt bzw. nicht verfügbar) das nächste stabile Auftreten desselben Titels zu
+einer neuen Wiedergabe; Snapshot, Restore und Reconnect bleiben Baseline.
+Repeat desselben Paars benötigt einen neuen Startmarker: derzeit beobachteter Wechsel von
+idle/off nach playing oder Position am Titelende und anschließend am Anfang
+mit neuer Positionszeit. Beliebiges Zurückspulen ist kein Beweis. Fehlen Dauer
+oder verlässliche Positionsmarker, kann ein identischer Repeat nicht sicher
+gezählt werden; es wird keine Wiedergabe aus Reporthäufigkeit geraten.
+Replay, Snapshot, Restore, Reconnect, Re-Evaluation und Retain zählen nicht.
+Ausstehende Kandidaten werden nach Unterbrechung nicht nachgezählt.
+
+Keine Klassifikation wird überschrieben, keine Freshness verlängert. Die
+bestätigte Bereinigung entfernt ausschließlich ausgewählte Laufzeiteinträge;
+importierte und gepflegte Entscheidungen sind geschützt. Unklare Fälle sind
+über Filter bewusst gesammelt auswählbar, nur belegte Übergänge vorausgewählt.
+Fehlende oder unterbrochene Historie ist kein Löschbeweis. Vorschau bindet
+aktive Revision, Katalogköpfe, Zählepoche, ausgewählte Sichtungen und Reset;
+geänderte ausgewählte Einträge werden im Konflikt benannt und verlangen eine neue Prüfung.
+Neue oder geänderte nicht ausgewählte Sichtungen blockieren nicht und werden beim Reset mit erfasst.
+Zählerreset gilt für alle verwalteten Kataloge, wird atomar mit Zählepoche
+gespeichert und setzt importierte Herkunftszahlen nicht wieder als laufende
+Zähler ein. Request-ID und gespeichertes Ergebnis verhindern doppelte Ausführung.
+Kein Reset und keine Bereinigung bei Installation oder ohne Dialogbestätigung.
 
 ## Pflegeoberfläche
 

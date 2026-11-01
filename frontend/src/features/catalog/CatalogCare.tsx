@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { t } from '@/i18n';
 import { api, describeError } from '@/lib/api';
@@ -30,7 +30,7 @@ interface CareBody {
 }
 interface Group { members: Entry[]; master: string }
 interface Queue { groups: Group[]; content_revision: number; active_revision: number }
-interface Impact { affected_keys: number; affected_contracts: number; context_effects: { contract_id?: string; storage?: string; slot?: string }[]; changes: Entry[] }
+interface Impact { affected_keys: number; affected_contracts: number; context_effects: { contract_id?: string; storage?: string; slot?: string }[]; changes: Entry[]; timings_ms?: Record<string, number> }
 export function CatalogCare({ catalog, rows, selected, setSelected, revision, activeRevision, parameters }: {
   catalog: Catalog; rows: Entry[]; selected: Record<string, Entry>; setSelected: (value: Record<string, Entry>) => void;
   revision: number; activeRevision: number; parameters: string;
@@ -39,10 +39,13 @@ export function CatalogCare({ catalog, rows, selected, setSelected, revision, ac
   const [body, setBody] = useState<CareBody | null>(null); const [work, setWork] = useState<Queue | null>(null);
   const [members, setMembers] = useState<Entry[]>([]); const [impact, setImpact] = useState<{ value: Impact; body: string } | null>(null);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  const sequence = useRef(0); const latest = useRef('');
+  const [timings, setTimings] = useState<Record<string, number>>({});
+  latest.current = JSON.stringify(body);
   const classLabel = (value: string) => catalog.classification_schema.legend?.[value]?.display_name ?? value;
   const begin = (action: string, entries = Object.values(selected), queue: Queue | null = null) => {
     if (!entries.length) return;
-    const group = queue?.groups[0]; const master = group?.master ?? entries.find(row => !row.master_key)?.identity ?? entries[0]!.identity;
+    const group = queue?.groups[0]; const master = group?.master ?? [...entries].filter(row => !row.master_key).sort((a, b) => (a.master_order ?? Number.MAX_SAFE_INTEGER) - (b.master_order ?? Number.MAX_SAFE_INTEGER))[0]?.identity ?? entries[0]!.identity;
     setMembers(entries); setError(''); setImpact(null);
     setBody({ catalog_id: catalog.catalog_id, definition_version: catalog.version, expected_active_revision: queue?.active_revision ?? activeRevision,
       expected_content_revision: queue?.content_revision ?? revision, request_id: uuid(), reason: t('b17.careReason'),
@@ -55,21 +58,26 @@ export function CatalogCare({ catalog, rows, selected, setSelected, revision, ac
     else { setWork(null); setBody(null); }
   };
   const check = async () => {
-    if (!body) return; setBusy(true); setError(''); const submitted = JSON.stringify(body);
-    try { setImpact({ value: await api<Impact>('catalogs/care/preview', { method: 'POST', body }), body: submitted }); }
-    catch (failure) { setError(describeError(failure)); setImpact(null); } finally { setBusy(false); }
+    if (!body) return; const seq = ++sequence.current; setBusy(true); setError(''); const submitted = JSON.stringify(body); const started = performance.now();
+    try { const value = await api<Impact>('catalogs/care/preview', { method: 'POST', body }); if (seq === sequence.current && latest.current === submitted) { setImpact({ value, body: submitted }); setTimings(previous => ({ ...previous, ...(value.timings_ms ?? {}), preview: performance.now() - started })); } }
+    catch (failure) { if (seq === sequence.current && latest.current === submitted) { setError(describeError(failure)); setImpact(null); } } finally { if (seq === sequence.current) setBusy(false); }
   };
+  const payloadKey = JSON.stringify(body);
+  useEffect(() => { if (!body) return; setImpact(null); const timer = window.setTimeout(() => void check(), 200); return () => { window.clearTimeout(timer); sequence.current++; }; }, [payloadKey, revision, activeRevision]);
   const save = async () => {
-    if (!body || !impact || impact.body !== JSON.stringify(body)) return;
+    if (!body || !impact || impact.body !== JSON.stringify(body) || busy || error) return;
     setBusy(true); setError('');
     try {
+      const started = performance.now();
       const result = await api<{ content_revision: number }>('catalogs/care/write', { method: 'POST', body });
+      const write = performance.now() - started; const refreshing = performance.now();
       setSelected({});
       await cache.invalidateQueries({ queryKey: ['catalog-entries'] });
       await cache.invalidateQueries({ queryKey: ['catalog-history'] });
+      setTimings(previous => ({ ...previous, write, refresh: performance.now() - refreshing }));
       if (work) next({ ...work, groups: work.groups.slice(1), content_revision: result.content_revision });
       else setBody(null);
-    } catch (failure) { setError(describeError(failure)); } finally { setBusy(false); }
+    } catch (failure) { setError(describeError(failure)); setImpact(null); } finally { setBusy(false); }
   };
   const startQueue = async () => {
     setBusy(true); setError('');
@@ -90,11 +98,12 @@ export function CatalogCare({ catalog, rows, selected, setSelected, revision, ac
     </div>
     {Object.keys(selected).length > 100 && <Notice tone="warn">{t('b17.selectionLimit')}</Notice>}
     {error && !body && <Notice tone="bad">{error}</Notice>}
+    {!!Object.keys(timings).length && <details><summary>{t('b20.timing.title')}</summary><dl>{Object.entries(timings).map(([name, ms]) => <div key={name}><dt>{t(`b20.timing.${name}`)}</dt><dd>{t('b20.timing.value', { ms: Math.round(ms) })}</dd></div>)}</dl></details>}
     <Dialog open={!!body} onOpenChange={open => { if (!open && !busy) { setBody(null); setWork(null); } }} title={t(work ? 'b17.variantsCheck' : 'b17.bulk')} footer={<>
       {work && <><Button disabled={busy} onClick={() => next({ ...work, groups: work.groups.slice(1) })}>{t('b17.skip')}</Button>
         <Button disabled={busy} onClick={() => edit({ action: 'standalone_review' })}>{t('b17.keepIndependent')}</Button></>}
       <Button disabled={busy || !body || body.identities.length > 100} onClick={() => void check()}>{t('alpha10.catalog.preview')}</Button>
-      <Button variant="primary" disabled={busy || !body || !impact || impact.body !== JSON.stringify(body)} onClick={() => void save()}>{t('alpha10.catalog.save')}</Button>
+      <Button variant="primary" disabled={busy || !!error || !body || !impact || impact.body !== JSON.stringify(body)} onClick={() => void save()}>{t('alpha10.catalog.save')}</Button>
     </>}>
       <div className="space-y-4">
         <p>{t('b17.careDescription')}</p><Notice tone="warn">{t('b17.tcWins')}</Notice>

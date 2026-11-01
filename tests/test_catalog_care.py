@@ -61,7 +61,7 @@ async def test_status_and_sort_paging_count_source_once_and_never_reset_context(
 
 async def test_bulk_group_is_atomic_flattens_runtime_aliases_and_preserves_details(runtime, config):
     catalog = await seeded(
-        runtime, config, [observed("Synthetic Song (one)"), observed("Synthetic Song (two)")]
+        runtime, config, [observed("Synthetic Song (Remix)"), observed("Synthetic Song (Edit)")]
     )
     candidates = queue(runtime.state, catalog, "", "all", {})
     assert len(candidates["groups"]) == 1

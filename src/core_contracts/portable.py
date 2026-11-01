@@ -187,7 +187,9 @@ def export(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]:
         apply(runtime, state, draft, config, runtime.clock.now_utc())
     roots = [request["contract_id"]] if request.get("contract_id") else []
     document = closure(config, roots[0]) if roots else storage_document(config)
-    checked = validate(document, runtime.types)
+    # A backup reads a committed snapshot, not a new authoring submission.
+    # Historical documents can predate stricter cross-object authoring rules.
+    checked = RegistryConfig.model_validate(document)
     refs = {f"contract:{c.contract_id}" for c in checked.contracts} | {
         f"template:{d.type_id}" for d in checked.definitions
     }
@@ -370,7 +372,42 @@ def preview(
             else request["package"]
         )
     )
-    incoming = validate(package["config"], runtime.types)
+    from .validation import RegistryValidationError
+
+    corrected_sources: set[str] = set()
+    incoming_document = copy.deepcopy(package["config"])
+    try:
+        incoming = validate(incoming_document, runtime.types)
+    except RegistryValidationError as error:
+        issues = [issue.model_dump(mode="json") for issue in error.issues]
+        can_correct = all(
+            issue.code == "adapter_value_origin_unsupported" for issue in error.issues
+        )
+        if request.get("remove_unsupported_origins") is True and can_correct:
+            corrected_sources = {str(issue.object_id) for issue in error.issues}
+            for source in incoming_document["sources"]:
+                if source["source_id"] in corrected_sources:
+                    source.pop("value_origin", None)
+            incoming = validate(incoming_document, runtime.types)
+        else:
+            # Integrity was checked by read_package. Invalid authoring settings
+            # remain visible and cannot be staged or activated.
+            return {
+                "package": package,
+                "config": incoming_document,
+                "configuration_issues": issues,
+                "can_correct_origins": can_correct,
+                "can_stage": False,
+                "plan_digest": checksum([package, issues, state.active_revision]),
+                "added": 0,
+                "reused": 0,
+                "conflicts": [],
+                "unresolved": ["configuration"],
+                "editorial_versions": {},
+                "editorial_changed": {},
+                "catalog_entries": sum(len(c["entries"]) for c in package["catalog_contents"]),
+                "editorial_entries": len(package["editorial"]),
+            }
     # Verify the original declared digests before adapting a plan to stored numbers.
     for content in package["catalog_contents"]:
         original_catalog = next(
@@ -430,6 +467,13 @@ def preview(
         if key in old_objects and not same_object(key, row, old_objects[key])
     ]
     resolutions = request.get("resolutions", {})
+    resolutions = dict(resolutions) if isinstance(resolutions, dict) else resolutions
+    if isinstance(resolutions, dict):
+        for source_id in corrected_sources:
+            key = "sources:" + source_id
+            original = objects(package["config"]).get(key)
+            if key in old_objects and same_object(key, original, old_objects[key]):
+                resolutions[key] = "file"
     if not isinstance(resolutions, dict) or any(
         not isinstance(key, str)
         or not (
@@ -745,7 +789,7 @@ def stage(
     plan = preview(runtime, state, request, restored=restored)
     if request.get("plan_digest") != plan["plan_digest"]:
         raise ValueError("import_plan_conflict")
-    if plan["unresolved"]:
+    if plan.get("can_stage") is False or plan["unresolved"]:
         raise ValueError("import_unresolved_conflicts")
     target = state.tables["registry_draft"].get(plan["target_draft_id"])
     from .authoring import base_fields, guard, open_count
