@@ -245,6 +245,7 @@ async def preview(runtime: Any, body: dict[str, Any]) -> dict[str, Any]:
         since = min((datetime.fromisoformat(r["first_seen"]) for r in sightings), default=now)
         history: list[dict[str, Any]] = []
         history_complete = True
+        history_bytes = 0
         for binding in config.bindings:
             if binding.adapter.ha_attribute not in {"media_artist", "media_title"}:
                 continue
@@ -261,7 +262,8 @@ async def preview(runtime: Any, body: dict[str, Any]) -> dict[str, Any]:
                     ),
                 )
                 history.extend(page["items"])
-                if len(history) > LIMIT:
+                history_bytes += len(canonical(page["items"]).encode())
+                if len(history) > LIMIT or history_bytes > 50 * 1024 * 1024:
                     history_complete = False
                     break
                 cursor = page["next_cursor"]

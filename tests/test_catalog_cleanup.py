@@ -78,6 +78,7 @@ async def test_unclear_bulk_filter_across_pages_and_protected_content(runtime, c
     assert len(plan["selected"]) == 201
     assert plan["filtered"] == 201
     body = application(plan)
+    body["request_id"] = body["request_id"].upper()
     result = await runtime.submit("catalog_cleanup_apply", body)
     assert result["removed"] == 201
     assert runtime.state.tables["catalog_sighting"] == {}
@@ -85,6 +86,9 @@ async def test_unclear_bulk_filter_across_pages_and_protected_content(runtime, c
     assert list(all_rows(runtime.state, catalog).values())[0]["seen_count"] == 0
     assert await runtime.submit("catalog_cleanup_apply", body) == result
     assert len(await runtime.store.rows("catalog_request")) == requests_before + 1
+    # Append-only requests may be outside the loaded runtime window after restart.
+    runtime.state.tables["catalog_request"].clear()
+    assert await runtime.submit("catalog_cleanup_apply", body) == result
 
 
 async def test_no_confirmation_protected_selection_changed_head_and_owner_rejected(runtime, config):

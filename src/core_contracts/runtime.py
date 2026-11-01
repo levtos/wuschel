@@ -1000,11 +1000,15 @@ class Runtime:
         if operation == "catalog_cleanup_snapshot":
             return state
         if operation == "catalog_cleanup_apply":
+            from uuid import UUID
+
             from .catalog_cleanup import apply as cleanup_apply
 
-            cleanup_previous = await self.store.get("catalog_request", str(payload["request_id"]))
+            cleanup_previous = await self.store.get(
+                "catalog_request", str(UUID(payload["request_id"]))
+            )
             if cleanup_previous:
-                state.tables["catalog_request"][str(payload["request_id"])] = cleanup_previous
+                state.tables["catalog_request"][str(UUID(payload["request_id"]))] = cleanup_previous
             result = cleanup_apply(self, state, payload)
             if cleanup_previous:
                 return result

@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import example from '../test/fixtures/example-registry.json';
 import { flow } from '../test/flow';
-import { installFakeApi, type FakeApi } from '../test/fakeApi';
+import { installFakeApi, reply, type FakeApi } from '../test/fakeApi';
 import { idleLive } from '../test/harness';
 import { Workbench } from '@/Workbench';
 import type { JsonObject } from '@/lib/json';
@@ -91,10 +91,18 @@ describe('Alpha-4 example registry: complete manual-first flow', () => {
     expect(savedConfig(imported.draft_id)).toEqual(expected);
 
     // Export (real button) → import into a new draft → identical, and the editor shows the real types.
+    api.routes.push({ match: /^portable\/export$/, method: 'POST', respond: (_path, body) => {
+      const draft = api.drafts.get(body.draft_id);
+      if (!draft || draft.draft_version !== body.draft_version) return reply(409, { error: 'draft_version_conflict' });
+      return reply(200, { format: 'wuschel.configuration', format_version: 1, scope: 'configuration', config: draft.config, catalog_contents: [], editorial: [] });
+    } });
     await f.go('#/registry');
     await user.click((await screen.findAllByRole('button', { name: /Speichern als Datei/ }))[0]!);
     await waitFor(() => expect(exported).toHaveLength(1));
-    expect(Object.keys(JSON.parse(exported[0]!).x_future)).toEqual(['z', 'a']);
+    const portable = JSON.parse(exported[0]!);
+    expect(portable.format).toBe('wuschel.configuration');
+    expect(portable.config).toEqual(expected);
+    expect(Object.keys(portable.config.x_future)).toEqual(['z', 'a']);
     await f.createDraft('Reimport', "Einlesen (JSON)", exported[0]);
     const second = [...api.drafts.values()].find((d) => d.display_name === 'Reimport')!;
     expect(second.config).toEqual(expected);
