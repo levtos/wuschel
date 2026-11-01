@@ -15,7 +15,8 @@ TRANSITION_SECONDS = 10  # Reported split updates take up to eight seconds, plus
 
 
 def end(tracker: dict[str, Any]) -> None:
-    for key in ("pending", "last", "last_raw", "last_session", "report"):
+    # Keep the previous pair as the reference for split-attribute transitions.
+    for key in ("pending", "last", "last_session", "report"):
         tracker.pop(key, None)
 
 

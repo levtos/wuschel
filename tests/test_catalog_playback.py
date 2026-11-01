@@ -56,6 +56,23 @@ async def test_split_pair_and_repeated_reports_count_real_playbacks(
     assert counts(runtime) == {original: 1, target: 1}
 
 
+@pytest.mark.parametrize("empty_seconds", [0.5, 0.7, 1.1])
+async def test_briefly_empty_title_preserves_transition_protection(runtime, config, empty_seconds):
+    await music(runtime, config)
+    await advance(runtime, 2)
+    original = canonical(["Synthetic Artist A", "Synthetic Title A"])
+    target = canonical(["Synthetic Artist B", "Synthetic Title B"])
+    assert counts(runtime) == {original: 1}
+    await observe(runtime, "title", "")
+    await advance(runtime, empty_seconds)
+    await observe(runtime, "title", "Synthetic Title B")
+    await advance(runtime, 3)
+    assert counts(runtime) == {original: 1}
+    await observe(runtime, "artist", "Synthetic Artist B")
+    await advance(runtime, 2)
+    assert counts(runtime) == {original: 1, target: 1}
+
+
 async def test_same_artist_next_title_waits_out_split_window(runtime, config):
     await music(runtime, config)
     await advance(runtime, 2)
