@@ -136,3 +136,26 @@ it('keeps the current variant group after a conflict and never advances or retri
   await user.click(screen.getByRole('button', { name: 'Überspringen' }));
   expect(screen.getByText('Noch 1 Gruppen zu prüfen')).toBeInTheDocument();
 });
+
+it('distinguishes the Master selection from the class inherited by its variants', async () => {
+  installFakeApi();
+  mount();
+  await userEvent.click(screen.getByRole('button', { name: t('b17.action.group') }));
+  expect(screen.getByLabelText('Master')).toHaveValue('one');
+  expect(screen.getByLabelText('Klasse des Masters')).toHaveValue('normal');
+  expect(screen.queryByLabelText('Klasse', { exact: true })).not.toBeInTheDocument();
+});
+
+it.each([
+  'catalog_master_missing', 'catalog_master_not_selected', 'catalog_master_is_variant',
+  'catalog_master_scope_mismatch', 'catalog_master_has_variants', 'catalog_master_invalid',
+])('explains %s without losing the selected group or sending a write', async code => {
+  const fake = installFakeApi();
+  fake.routes.push({ match: /^catalogs\/care\/preview$/, respond: () => reply(400, { error: code }) });
+  mount();
+  await userEvent.click(screen.getByRole('button', { name: t('b17.action.group') }));
+  await screen.findByText(t(`codes.${code}`));
+  expect(screen.getByLabelText('Master')).toHaveValue('one');
+  expect(screen.getByRole('button', { name: t('alpha10.catalog.save') })).toBeDisabled();
+  expect(fake.calls.some(call => call.path === 'catalogs/care/write')).toBe(false);
+});

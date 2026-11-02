@@ -90,6 +90,17 @@ def frame(state: Any, observation: Observation) -> None:
     value = observation.catalog_frame
     if not value:
         return
+    # Display metadata is durable independently of playback counting. A later
+    # name report, pause or snapshot must not require another playback.
+    app_id, app_name = value.get("app_id"), value.get("app_name")
+    if app_id and isinstance(app_name, str) and app_name.strip():
+        app_name = app_name.strip()[:256]
+        name_key = "catalog_app_name:" + checksum(app_id)
+        if state.tables["service_state"].get(name_key, {}).get("display_name") != app_name:
+            state.tables["service_state"][name_key] = {"display_name": app_name}
+            for row in state.tables["catalog_sighting"].values():
+                if row.get("signal_type") == "app" and row["key"] == app_id:
+                    row["display_name"] = app_name
     key = "catalog_frame:" + value["source"]
     old = state.tables["service_state"].get(key, {})
     if old.get("event") == value["event"]:

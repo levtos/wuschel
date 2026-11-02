@@ -99,24 +99,38 @@ def master_order(row: dict[str, Any]) -> tuple[Any, ...]:
 def all_rows(state: Any, catalog: Any) -> dict[str, dict[str, Any]]:
     current = head(state, catalog)
     entries = current["entries"]
-    app_names = {
-        frame["app_id"]: frame["app_name"]
-        for observation in state.tables["source_observation_current"].values()
-        if (frame := observation.get("catalog_frame") or {}).get("app_id") and frame.get("app_name")
-    }
     rows = {
         key: {"identity": key, **row}
         for key, row in entries.items()
         if not row["tombstone"] and not (row.get("tc_metadata") or {}).get("is_alias")
     }
+    owners = {
+        canonical(
+            [row["scope"], row["media_type"], row["signal_type"], metadata["source_identity"]]
+        ): key
+        for key, row in rows.items()
+        if (metadata := row.get("tc_metadata"))
+    }
     for sighting in state.tables["catalog_sighting"].values():
         if sighting["catalog"] != head_key(catalog):
             continue
         key = sighting["identity"]
-        if (entries.get(key, {}).get("tombstone") and not sighting.get("after_removal")) or (
-            entries.get(key, {}).get("tc_metadata") or {}
-        ).get("is_alias"):
+        if entries.get(key, {}).get("tombstone") and not sighting.get("after_removal"):
             continue
+        metadata = entries.get(key, {}).get("tc_metadata") or {}
+        if metadata.get("is_alias"):
+            key = owners.get(
+                canonical(
+                    [
+                        sighting["scope"],
+                        sighting["media_type"],
+                        sighting["signal_type"],
+                        metadata["source_identity"],
+                    ]
+                )
+            )
+            if key is None:
+                continue
         row = rows.setdefault(
             key,
             {
@@ -127,9 +141,14 @@ def all_rows(state: Any, catalog: Any) -> dict[str, dict[str, Any]]:
                 "note": "",
             },
         )
-        row["local_sightings"] = {
-            field: sighting[field] for field in ("first_seen", "last_seen", "seen_count")
-        }
+        local = {field: sighting[field] for field in ("first_seen", "last_seen", "seen_count")}
+        if previous := row.get("local_sightings"):
+            local = {
+                "first_seen": min(previous["first_seen"], local["first_seen"], key=epoch),
+                "last_seen": max(previous["last_seen"], local["last_seen"], key=epoch),
+                "seen_count": previous["seen_count"] + local["seen_count"],
+            }
+        row["local_sightings"] = local
         if not row.get("display_name"):
             row["display_name"] = sighting.get("display_name", "")
         if not row.get("tc_metadata"):
@@ -153,9 +172,15 @@ def all_rows(state: Any, catalog: Any) -> dict[str, dict[str, Any]]:
         if not row.get("display_name"):
             row["display_name"] = (row.get("tc_metadata") or {}).get("app_name") or ""
         if row.get("signal_type") == "app":
-            row["display_name"] = app_names.get(row["key"], row.get("display_name", ""))
+            row["display_name"] = state.tables["service_state"].get(
+                "catalog_app_name:" + checksum(row["key"]), {}
+            ).get("display_name") or row.get("display_name", "")
         if telemetry:
             row.update(telemetry)
+        # Wuschel playback dates take precedence over historical import dates;
+        # keep the original telemetry unchanged in tc_metadata.
+        if local_sightings := row.get("local_sightings"):
+            row.update({field: local_sightings[field] for field in ("first_seen", "last_seen")})
         if state.tables["service_state"].get("catalog_counter_epoch"):
             row["seen_count"] = row.get("local_sightings", {}).get("seen_count", 0)
         row["playback_counts"] = bool(state.tables["service_state"].get("catalog_counter_epoch"))
@@ -359,20 +384,20 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
     action = request.action
     if action == "group":
         if request.master is None:
-            raise ValueError("catalog_master_invalid")
+            raise ValueError("catalog_master_missing")
         if request.master not in selected:
-            raise ValueError("catalog_master_invalid")
+            raise ValueError("catalog_master_not_selected")
         master_row = rows[request.master]
         if master_row.get("master_identity"):
-            raise ValueError("catalog_master_invalid")
+            raise ValueError("catalog_master_is_variant")
         for key in selected:
             if any(
                 rows[key][field] != master_row[field]
                 for field in ("scope", "media_type", "signal_type")
             ):
-                raise ValueError("catalog_master_invalid")
+                raise ValueError("catalog_master_scope_mismatch")
             if key != request.master and rows[key]["variant_count"]:
-                raise ValueError("catalog_master_invalid")
+                raise ValueError("catalog_master_has_variants")
     for key, row in selected.items():
         if action in {"classify", "ungroup"}:
             if (
