@@ -446,10 +446,14 @@ class API:
             )
         elif path == "catalogs" and method == "GET":
             from .catalog_models import ManagedCatalog
+            from .catalog_scope import device_scope
 
             result = (
                 [
-                    c.model_dump(mode="json")
+                    {
+                        **c.model_dump(mode="json"),
+                        "device_scope": device_scope(config, c.catalog_id, c.version),
+                    }
                     for c in config.catalogs
                     if isinstance(c, ManagedCatalog)
                 ]
@@ -497,6 +501,11 @@ class API:
             result = await runtime.submit(
                 "catalog_care_" + path.rsplit("/", 1)[1],
                 {"request": await self.object_body(request), "_actor": request["actor"]},
+            )
+        elif path in {"catalogs/scope/preview", "catalogs/scope/apply"} and method == "POST":
+            result = await runtime.submit(
+                "catalog_scope_" + path.rsplit("/", 1)[1],
+                {**await self.object_body(request), "_actor": request["actor"]},
             )
         elif path in {"catalogs/cleanup/preview", "catalogs/cleanup/apply"} and method == "POST":
             result = await runtime.submit(

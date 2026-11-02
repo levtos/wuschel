@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { t } from '@/i18n';
+import { uuid } from '@/lib/uuid';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/controls';
 import { Field, Input } from '@/components/ui/form';
@@ -58,7 +59,7 @@ export function ManualSourcePanel({ sourceId }: { sourceId: string }) {
   };
   const send = async (action: 'set' | 'retract') => {
     if (busy || pending) return; setBusy(true); setResult('');
-    const body: JsonObject = { request_id: crypto.randomUUID(), expected_active_revision: active.data!.revision, action, value: action === 'set' ? value : null, confirm_unbounded: confirm,
+    const body: JsonObject = { request_id: uuid(), expected_active_revision: active.data!.revision, action, value: action === 'set' ? value : null, confirm_unbounded: confirm,
       ...(action === 'set' && originMetadata.kind && !Array.isArray(value) ? { value_origin: originMetadata } : {}),
       ...(from && action === 'set' ? { valid_from: new Date(from).toISOString() } : {}), ...(until && action === 'set' ? { valid_until: new Date(until).toISOString() } : {}) };
     setPending(body);

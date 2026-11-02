@@ -9,6 +9,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Notice, Spinner } from '@/components/ui/layout';
 import type { Catalog, Entry } from './CatalogPage';
 import { titleLabel } from './titleLabel';
+import { catalogLabel, contextLabel } from './catalogLabels';
 
 export function MasterVariants({ catalog, entry, onOpen }: { catalog: Catalog; entry: Entry; onOpen: (row: Entry) => void }) {
   const [open, setOpen] = useState(false); const [after, setAfter] = useState('');
@@ -133,13 +134,14 @@ export function CatalogDetail({ catalog, entry, onClose, onOpen }: { catalog: Ca
     <p>{t('b17.detailDescription')}</p>
     {data.isPending ? <Spinner /> : data.isError ? <Notice tone="bad">{describeError(data.error)}</Notice> : value && <div className="space-y-4">
       <h3>{titleLabel(value)}</h3>
+      <details><summary>{t('alpha10.technical')}</summary><p>{catalog.catalog_id} · {catalog.version}</p><p>{value.signal_type === 'app' ? value.key : value.identity} · {value.scope} · {value.media_type} · {value.signal_type}</p></details>
       <p>{t('b17.effectiveClass')}: {catalog.classification_schema.legend?.[value.effective_classification]?.display_name ?? value.effective_classification}</p>
       {data.data.master && <Button onClick={() => open(data.data!.master!)}>{t('alpha10.catalog.master')}: {titleLabel(data.data.master)}</Button>}
       <p>{t(`b17.status.${value.review_status ?? 'open'}`)}</p>
       {meta && <dl><dt>{t('b17.artist')}</dt><dd>{meta.artist ?? '—'}</dd><dt>{t('b17.title')}</dt><dd>{meta.title ?? '—'}</dd><dt>{t('b17.sourceClass')}</dt><dd>{meta.source_class}</dd></dl>}
       <p>{t('b17.totalSightings', { n: value.seen_count ?? 0, first: value.first_seen ?? '—', last: value.last_seen ?? '—' })}</p>
       <h3>{t('b17.contexts')}</h3>
-      <ul>{data.data.contexts?.map((ctx, index) => <li key={index}><p>{ctx.context} · {ctx.source_app} · {ctx.catalog_id ?? t('alpha10.catalog.unassigned')} · {t('b17.override')}: {ctx.enum_override ?? '—'}</p><p>{t('b17.effectiveClass')}: {ctx.effective_classification ?? t('alpha10.catalog.unassigned')}</p><p>{t('b17.totalSightings', { n: ctx.telemetry?.seen_count ?? 0, first: ctx.telemetry?.first_seen ?? '—', last: ctx.telemetry?.last_seen ?? '—' })}</p></li>)}</ul>
+      <ul>{data.data.contexts?.map((ctx, index) => <li key={index}><p>{contextLabel(ctx.context)} · {ctx.source_app ? contextLabel(ctx.source_app) : ''} · {ctx.catalog_id ? catalogLabel({ catalog_id: ctx.catalog_id, version: 1 }) : t('alpha10.catalog.unassigned')} · {t('b17.override')}: {ctx.enum_override ?? '—'}</p><p>{t('b17.effectiveClass')}: {ctx.effective_classification ?? t('alpha10.catalog.unassigned')}</p><p>{t('b17.totalSightings', { n: ctx.telemetry?.seen_count ?? 0, first: ctx.telemetry?.first_seen ?? '—', last: ctx.telemetry?.last_seen ?? '—' })}</p></li>)}</ul>
       {value.local_sightings && <p>{t('b17.localSightings', { n: value.local_sightings.seen_count })}</p>}
       <h3>{t('b17.variants')}</h3><ul>{data.data.variants.map(row => <li key={row.identity}><Button onClick={() => open(row)}>{titleLabel(row)}</Button></li>)}</ul>
       <Button disabled={!data.data.next_cursor} onClick={() => setAfter(data.data?.next_cursor ?? '')}>{t('alpha10.catalog.next')}</Button>

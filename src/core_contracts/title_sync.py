@@ -138,8 +138,15 @@ def plan(
         mapping = Mapping.model_validate(body["mapping"])
     else:
         mapping = Mapping.model_validate(saved["mapping"])
-    mapping_doc = mapping.model_dump(mode="json")
     config = runtime._config(state)
+    from .catalog_scope import device_scope, validate_target
+
+    for mapping_key, mapped_target in mapping.mappings.items():
+        scope = device_scope(config, mapped_target.catalog_id, mapped_target.definition_version)
+        if "mapping" not in body and scope and mapped_target.scope == "default":
+            mapping.mappings[mapping_key] = mapped_target.model_copy(update={"scope": scope})
+        validate_target(config, mapping.mappings[mapping_key])
+    mapping_doc = mapping.model_dump(mode="json")
     catalogs: dict[tuple[str, int], Any] = {}
     heads: dict[str, dict[str, Any]] = {}
 

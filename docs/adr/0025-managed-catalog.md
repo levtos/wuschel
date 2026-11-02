@@ -83,6 +83,10 @@ UI zeigt vorher die betroffenen Varianten.
 
 ## A-06: genaue Regel nur für betroffene Schlüssel
 
+Korrektur b21 (#92): Die ausdrücklich bestätigte Bereichskorrektur nutzt denselben
+Writer und A-06; sie ändert keine Definitionen, erhält Master/Varianten gemeinsam
+und läuft weder beim Start noch bei der Installation automatisch.
+
 Statischer Fingerprint enthält Definition/Version/Identitätsregel,
 Lookup-Ausdruck, Inputs und relevante Parameter, **keinen globalen Headzähler**.
 Jede Auswertung erfasst ihren Lookup-Trace, auch einen negativen Treffer

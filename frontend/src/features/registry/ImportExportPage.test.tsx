@@ -19,6 +19,27 @@ const packageText = JSON.stringify({ scope: 'config', config: incoming });
 const preview = (digest = 'first') => ({ config: incoming, plan_digest: digest, added: 1, reused: 28, conflicts: [], unresolved: [], editorial_versions: {}, editorial_changed: {}, package: { config: incoming, editorial: [] } });
 
 beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
+it('renders the import/export page and stages a checked import over HTTP without randomUUID', async () => {
+  vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto), randomUUID: undefined });
+  const { fake, user, stage } = await openImport();
+  expect(screen.getByRole('button', { name: 'Konfiguration sichern' })).toBeInTheDocument();
+  fake.routes.push({ match: /^portable\/export$/, respond: () => reply(200, { synthetic: true }) });
+  const create = vi.fn(() => 'blob:synthetic');
+  const originalCreate = URL.createObjectURL; const originalRevoke = URL.revokeObjectURL;
+  URL.createObjectURL = create; URL.revokeObjectURL = vi.fn();
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  try {
+    await user.click(screen.getByRole('button', { name: 'Konfiguration sichern' }));
+    await user.click(await screen.findByRole('button', { name: t('alpha9.export.saveFile') }));
+    await waitFor(() => expect(create).toHaveBeenCalledOnce());
+    expect(fake.calls.find(call => call.path === 'portable/export')?.body).toEqual({ expected_active_revision: 4 });
+    expect(click).toHaveBeenCalledOnce();
+  } finally { URL.createObjectURL = originalCreate; URL.revokeObjectURL = originalRevoke; click.mockRestore(); }
+  await user.click(stage);
+  await waitFor(() => expect(window.location.hash).toBe('#/changes/drafts/imported'));
+  expect(fake.calls.find(call => call.path === 'portable/stage')?.body).toMatchObject({ request_id: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+  expect(fake.activations).toHaveLength(0);
+});
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 it('requires an explicit historical-origin correction before enabling staging', async () => {

@@ -44,8 +44,6 @@ def status(row: dict[str, Any], entries: dict[str, Any]) -> str:
     master = entries.get(row.get("master_identity") or "", {})
     if row.get("reviewed_at") or master.get("reviewed_at") or master.get("hidden_at"):
         return "reviewed"
-    if not row.get("tc_metadata") and row.get("classification") is not None:
-        return "reviewed"
     return "open"
 
 
@@ -101,6 +99,11 @@ def master_order(row: dict[str, Any]) -> tuple[Any, ...]:
 def all_rows(state: Any, catalog: Any) -> dict[str, dict[str, Any]]:
     current = head(state, catalog)
     entries = current["entries"]
+    app_names = {
+        frame["app_id"]: frame["app_name"]
+        for observation in state.tables["source_observation_current"].values()
+        if (frame := observation.get("catalog_frame") or {}).get("app_id") and frame.get("app_name")
+    }
     rows = {
         key: {"identity": key, **row}
         for key, row in entries.items()
@@ -110,7 +113,7 @@ def all_rows(state: Any, catalog: Any) -> dict[str, dict[str, Any]]:
         if sighting["catalog"] != head_key(catalog):
             continue
         key = sighting["identity"]
-        if entries.get(key, {}).get("tombstone") or (
+        if (entries.get(key, {}).get("tombstone") and not sighting.get("after_removal")) or (
             entries.get(key, {}).get("tc_metadata") or {}
         ).get("is_alias"):
             continue
@@ -127,6 +130,8 @@ def all_rows(state: Any, catalog: Any) -> dict[str, dict[str, Any]]:
         row["local_sightings"] = {
             field: sighting[field] for field in ("first_seen", "last_seen", "seen_count")
         }
+        if not row.get("display_name"):
+            row["display_name"] = sighting.get("display_name", "")
         if not row.get("tc_metadata"):
             row.update(row["local_sightings"])
     children: dict[str, int] = defaultdict(int)
@@ -145,6 +150,10 @@ def all_rows(state: Any, catalog: Any) -> dict[str, dict[str, Any]]:
             semantic_digest=semantic(entries, key, catalog),
         )
         telemetry = (row.get("tc_metadata") or {}).get("telemetry")
+        if not row.get("display_name"):
+            row["display_name"] = (row.get("tc_metadata") or {}).get("app_name") or ""
+        if row.get("signal_type") == "app":
+            row["display_name"] = app_names.get(row["key"], row.get("display_name", ""))
         if telemetry:
             row.update(telemetry)
         if state.tables["service_state"].get("catalog_counter_epoch"):
@@ -263,6 +272,8 @@ def listing(
         except ValueError, KeyError, TypeError, UnicodeError:
             raise ValueError("catalog_content_conflict") from None
     page = selected[offset : offset + limit]
+    from .title_sync import current_mapping
+
     next_cursor = (
         base64.urlsafe_b64encode(
             canonical({"binding": binding, "offset": offset + limit}).encode()
@@ -278,6 +289,10 @@ def listing(
         "filter_values": {
             field: sorted({r[field] for r in all_rows(state, catalog).values()})
             for field in ("scope", "media_type", "signal_type")
+        },
+        "context_targets": {
+            key: {"catalog_id": target["catalog_id"], "scope": target["scope"]}
+            for key, target in current_mapping(state)["mapping"]["mappings"].items()
         },
         "contexts": sorted(
             {

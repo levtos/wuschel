@@ -3,7 +3,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ConflictDialog } from '@/features/authoring/DraftBar';
 import { useWorkingDocument, WorkingDocumentProvider } from '@/features/authoring/WorkingDocument';
 import type { Draft } from '@/lib/types';
@@ -14,6 +14,18 @@ import { idleLive } from '../../../test/harness';
 import { ActivateDialog, RollbackDialog } from './ActivationDialogs';
 
 const user = userEvent.setup();
+it('checks and explicitly activates a configuration over HTTP without randomUUID', async () => {
+  vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto), randomUUID: undefined });
+  try {
+    const api = installFakeApi({ drafts: [makeDraft('http', sampleConfig())], revisions: [{ revision: 4, config: sampleConfig(), checksum: 'synthetic', created_at: 'x' }] });
+    renderDialog(<ActivateDialog draft={api.drafts.get('http') as unknown as Draft} open onOpenChange={() => {}} />);
+    await screen.findByText(/Hier siehst du die geplanten Änderungen/);
+    await user.click(screen.getByRole('checkbox', { name: /Ich habe die Auswirkungen geprüft/ }));
+    await user.click(screen.getByRole('button', { name: 'Jetzt übernehmen' }));
+    await screen.findByText('Konfiguration 5 ist übernommen.');
+    expect(api.calls.find(call => call.path.endsWith('/activate'))?.body).toMatchObject({ request_id: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+  } finally { vi.unstubAllGlobals(); }
+});
 
 /** Minimal surface over the working document, driven like the real UI. */
 function Surface({ draft }: { draft: Draft }) {

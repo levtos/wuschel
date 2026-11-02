@@ -1,7 +1,7 @@
 # Wuschel – Übergabe an die Beta
 
-Fortgeschrieben am 01.11.2026 für b20 (#89). Der Alpha-10-Betriebsstand in §5 ist historisch.
-Technischer Beta-Bestand: b19; b20 ist der folgende Umsetzungsstand, bis Release und Installation getrennt belegt sind.
+Fortgeschrieben am 02.11.2026 für b21 (#92). Der Alpha-10-Betriebsstand in §5 ist historisch.
+Technischer Beta-Bestand: b20, veröffentlicht und installiert ([Installationsnachweis](https://github.com/levtos/wuschel/issues/89#issuecomment-6563843039)). b21 ist der folgende Umsetzungsstand ([Nachweise](beta/b21/A2.md)); Review, Release und Installation werden getrennt belegt.
 Diese Datei ist die verbindliche Ausgangslage. Bei Widerspruch zu älteren Chats gilt diese Datei.
 
 ---

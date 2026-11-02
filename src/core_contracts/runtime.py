@@ -992,6 +992,10 @@ class Runtime:
         state = self.state.clone()
         now = self.clock.now_utc()
         config = self._config(state)
+        if operation in {"catalog_scope_preview", "catalog_scope_apply"}:
+            from .catalog_scope import process as scope_process
+
+            return await scope_process(self, state, operation, payload, now)
         if operation.startswith("catalog_care_"):
             self.catalog_care_timings = {
                 "writer_wait_ms": (care_started - payload.get("_queued_at", care_started)) * 1000,

@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { uuid } from '@/lib/uuid';
 import { useOptionalWorkingDocument } from '@/features/authoring/WorkingDocument';
 import { ActivationPreview, activateWithReceipt, CONTINUE } from './authoring';
 import { validationLabel } from '@/i18n/codes';
@@ -112,7 +113,7 @@ export function ActivateDialog({ draft, open, onOpenChange }: { draft: Draft; op
   const doc = useOptionalWorkingDocument();
   const [preview, setPreview] = useState<ActivationPreview | null>(null);
   const [retentionConfirmed, setRetentionConfirmed] = useState(false);
-  const requestId = useRef(crypto.randomUUID());
+  const requestId = useRef(uuid());
   const [uncertain, setUncertain] = useState(false);
   const subject = `draft:${draft.draft_id}@${draft.draft_version}`;
   const { check, expected, currentRevision, restart, key } = useCheck(open, subject, async () => {
@@ -135,7 +136,7 @@ export function ActivateDialog({ draft, open, onOpenChange }: { draft: Draft; op
   const result = done?.subject === subject ? done.revision : null;
   useEffect(() => {
     setConfirmedFor(null);
-    setPreview(null); setRetentionConfirmed(false); requestId.current = crypto.randomUUID();
+    setPreview(null); setRetentionConfirmed(false); requestId.current = uuid();
     setNote('');
     setDone(null);
     activate.reset();
