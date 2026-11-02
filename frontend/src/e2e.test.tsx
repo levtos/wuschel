@@ -193,8 +193,8 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     const rollback = await screen.findByRole('dialog', { name: /Auf Konfiguration 1 zurücksetzen/ });
     // The real shared scheduler can wait for its 61-second window after this fast scripted flow.
     await user.click(await within(rollback).findByRole('checkbox', { name: /Ich möchte Konfiguration 1 als neue Konfiguration 3/ }, { timeout: 65_000 }));
-    await user.click(within(rollback).getByRole('button', { name: "Zurücksetzen" }));
-    await within(rollback).findByText(/Konfiguration 3 ist übernommen/, {}, { timeout: 20_000 });
+    await clickReadyButton(user, within(rollback).getByRole('button', { name: "Zurücksetzen" }), 'Zurücksetzen');
+    await within(rollback).findByText(/Konfiguration 3 ist übernommen/);
     await user.click(within(rollback).getAllByRole('button', { name: /Konfiguration ansehen|Schließen/ }).at(-1)!);
     await expectSameAsActive(registry); // revision 3 carries revision 1's content again
     expect((await raw<{ items: { operation: string }[] }>('history/query/activations')).body.items.map((i) => i.operation)).toEqual(['rollback', 'activate', 'activate']);
@@ -699,14 +699,18 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     window.location.hash = '#/contracts/list/all';
     store.start();
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Workbench onSetup={() => {}} live={store} /></QueryClientProvider>);
-    const table = await screen.findByRole('table', { name: 'Verträge' });
-    const sleepLink = await within(table).findByRole('link', { name: 'Schlafzustand' });
-    const sleepRow = sleepLink.closest('tr')!;
-    await waitFor(() => expect(sleepRow).toHaveTextContent('Zustand: Vor dem Schlaf'));
+    await screen.findByRole('table', { name: 'Verträge' });
+    const contractRow = (name: string, value?: string) => waitFor(() => {
+      const row = screen.getByRole('link', { name }).closest('tr');
+      expect(row).toBeInTheDocument();
+      if (value) expect(row).toHaveTextContent(value);
+      return row!;
+    });
+    const sleepRow = await contractRow('Schlafzustand', 'Zustand: Vor dem Schlaf');
     expect(sleepRow).not.toHaveTextContent(b14Episode);
-    const internal = within(table).getByRole('link', { name: 'Schlafablauf (intern)' }).closest('tr')!;
+    const internal = await contractRow('Schlafablauf (intern)');
     expect(internal).not.toHaveTextContent(b14Episode);
-    await user.click(sleepLink);
+    await user.click(within(sleepRow).getByRole('link', { name: 'Schlafzustand' }));
     await screen.findByRole('heading', { name: 'Wert jetzt' });
     // #97 P10: keep the identifier available only after opening technical details.
     expect(screen.queryByText(b14Episode)).not.toBeInTheDocument();
@@ -715,9 +719,8 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await user.click(screen.getByText('Technische Details'));
     expect(await screen.findByTestId('value-episode_id')).toHaveTextContent(b14Episode);
     await f.go('#/contracts/list/all');
-    const wakeLink = await screen.findByRole('link', { name: 'Weckplan' });
-    await waitFor(() => expect(wakeLink.closest('tr')).toHaveTextContent('Plan heute: Geplant'));
-    await user.click(wakeLink);
+    const wakeRow = await contractRow('Weckplan', 'Plan heute: Geplant');
+    await user.click(within(wakeRow).getByRole('link', { name: 'Weckplan' }));
     await screen.findByRole('heading', { name: 'Wert jetzt' });
     expect(screen.getByTestId('value-decision')).toHaveTextContent('Weckregel');
     expect(screen.getByTestId('value-minimum_sleep_applied')).toHaveTextContent('Nein');
