@@ -77,6 +77,11 @@ class ContractSensor(SensorEntity):
             "status": self.row.get("status", "unknown"),
             "quality": self.row.get("quality", "degraded"),
             "since_at": self.row.get("since_at"),
+            **(
+                {"primary_field": self.row["primary_field"], "fields": self.row["fields"]}
+                if "fields" in self.row
+                else {}
+            ),
         }
 
     async def async_added_to_hass(self):

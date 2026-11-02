@@ -1,5 +1,7 @@
 """A bounded transport cache, never an evaluator of contract truth."""
 
+import copy
+import json
 import math
 import re
 from uuid import UUID
@@ -35,7 +37,7 @@ class Projection:
             raise ValueError("projection_selection_invalid")
         checked = {}
         for row in rows:
-            if not isinstance(row, dict) or set(row) != {
+            required = {
                 "contract_id",
                 "name",
                 "value",
@@ -43,7 +45,11 @@ class Projection:
                 "quality",
                 "since_at",
                 "unit",
-            }:
+            }
+            if not isinstance(row, dict) or set(row) not in (
+                required,
+                required | {"primary_field", "fields"},
+            ):
                 raise ValueError("projection_row_invalid")
             key = row["contract_id"]
             if (
@@ -74,7 +80,50 @@ class Projection:
                 for name in ("since_at", "unit")
             ):
                 raise ValueError("projection_attribute_invalid")
-            checked[key] = dict(row)
+            if "fields" in row:
+                fields = row["fields"]
+                if (
+                    not isinstance(fields, dict)
+                    or not 1 <= len(fields) <= 64
+                    or not isinstance(row["primary_field"], str)
+                    or row["primary_field"] not in fields
+                ):
+                    raise ValueError("projection_fields_invalid")
+                for name, field in fields.items():
+                    if (
+                        not isinstance(name, str)
+                        or not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_]{0,127}", name)
+                        or not isinstance(field, dict)
+                        or set(field) != {"value", "status", "quality", "since_at", "unit"}
+                    ):
+                        raise ValueError("projection_fields_invalid")
+                    if field["status"] not in {
+                        "valid",
+                        "held",
+                        "unknown",
+                        "unresolved",
+                        "not_applicable",
+                    } or field["quality"] not in {"healthy", "degraded"}:
+                        raise ValueError("projection_status_invalid")
+                    if field["status"] not in {"valid", "held"} and field["value"] is not None:
+                        raise ValueError("projection_value_invalid")
+                    if any(
+                        field[attr] is not None
+                        and (not isinstance(field[attr], str) or len(field[attr]) > 256)
+                        for attr in ("since_at", "unit")
+                    ):
+                        raise ValueError("projection_attribute_invalid")
+                if any(
+                    row[name] != fields[row["primary_field"]][name]
+                    for name in ("value", "status", "quality", "since_at", "unit")
+                ):
+                    raise ValueError("projection_primary_mismatch")
+                try:
+                    if len(json.dumps(fields, allow_nan=False).encode()) > 65536:
+                        raise ValueError("projection_fields_invalid")
+                except TypeError, OverflowError, RecursionError:
+                    raise ValueError("projection_fields_invalid") from None
+            checked[key] = copy.deepcopy(row)
         if (
             self.installation_id == installation_id
             and self.epoch_id == epoch

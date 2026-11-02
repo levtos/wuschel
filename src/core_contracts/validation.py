@@ -633,18 +633,13 @@ def validate_document(
             None,
         )
         if contract.ha_projection:
-            projection_field = declaration.schema.fields.get("value")
-            if projection_field is None or projection_field.type not in {
-                "bool",
-                "number",
-                "text",
-                "enum",
-                "timestamp",
-            }:
+            from .ha_projection import primary_field
+
+            if primary_field(declaration.schema) is None:
                 add(
                     "ha_projection_scalar_required",
                     path + "/ha_projection",
-                    "scalar value field required",
+                    "scalar primary field required",
                     key,
                 )
         if declared_definition and contract.enabled and declaration.definition is not None:

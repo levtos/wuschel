@@ -20,7 +20,7 @@ import { currentDraft } from './authoring';
 import { importFreshnessSources } from '@/features/sources/freshness';
 import { TitleImport } from './TitleImport';
 
-interface Preview { configuration_issues?: { message: string }[]; can_correct_origins?: boolean; config: Registry; display_name_changes?: { id: string; before: string; after: string }[]; freshness_changed_sources?: string[]; catalog_entries?: number; editorial_entries?: number; plan_digest: string; added: number; reused: number; conflicts: string[]; unresolved: string[]; editorial_versions: Record<string, number>; editorial_changed: Record<string, boolean>; package: { config: Registry; editorial: { object: { kind: string; id: string }; category: string; room: { name: string } }[] } }
+interface Preview { catalog_migrations?: { catalog_id: string; entries: number; before: Record<string, number>; after: Record<string, number> }[]; configuration_issues?: { message: string }[]; can_correct_origins?: boolean; config: Registry; display_name_changes?: { id: string; before: string; after: string }[]; freshness_changed_sources?: string[]; catalog_entries?: number; editorial_entries?: number; plan_digest: string; added: number; reused: number; conflicts: string[]; unresolved: string[]; editorial_versions: Record<string, number>; editorial_changed: Record<string, boolean>; package: { config: Registry; editorial: { object: { kind: string; id: string }; category: string; room: { name: string } }[] } }
 type Resolution = 'keep' | 'file' | { new_id: string };
 
 export default function ImportExportPage() {
@@ -102,6 +102,7 @@ export default function ImportExportPage() {
         {!previewOutdated && preview.freshness_changed_sources && <p>{t(preview.freshness_changed_sources.length === 1 ? 'b4.fileChangeOne' : 'b4.fileChanges', { count: preview.freshness_changed_sources.length })}</p>}
         <p>{t('alpha10.transfer.counts', { added: preview.added, reused: preview.reused, conflicts: preview.conflicts.length })}</p>
         <p>{t('alpha10.transfer.contents', { n: preview.catalog_entries ?? 0, metadata: preview.editorial_entries ?? 0 })}</p>
+        {!!preview.catalog_migrations?.length && <Notice tone="warn"><h2>{t('b22.interface.migration')}</h2><p>{t('b22.interface.preserve')}</p><ul>{preview.catalog_migrations.map((row, index) => <li key={row.catalog_id}>{t('b22.interface.catalogCount', { n: index + 1, count: row.entries })}</li>)}</ul></Notice>}
         {!!preview.display_name_changes?.length && <section aria-label={t('b14.import.names')}><h2>{t('b14.import.names')}</h2><ul>{preview.display_name_changes.map(change => <li key={change.id}>{t('b14.import.rename', { before: change.before || change.id, after: change.after || change.id })}</li>)}</ul></section>}
         <Notice tone="warn">{t('alpha10.transfer.addresses')}</Notice>
         <h2>{t('alpha10.transfer.metadata')}</h2>

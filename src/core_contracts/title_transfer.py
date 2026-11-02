@@ -27,14 +27,20 @@ class TargetMapping(Model):
     profile: Literal["game", "music", "private"]
 
 
-def classification(profile: str, value: int) -> str:
+def classification(profile: str, value: int, catalog: Any = None) -> str:
     if profile == "game":
-        return {0: "heimkino", 1: "grind", 2: "headset", 3: "grind"}[value]
-    if profile == "music":
-        return {0: "normal", 1: "boost", 2: "stumm"}[value]
-    if profile == "private":
-        return "normal" if value == 0 else "privat"
-    raise ValueError("title_import_profile")
+        result = {0: "heimkino", 1: "grind", 2: "headset", 3: "grind"}[value]
+    elif profile == "music":
+        result = {0: "normal", 1: "boost", 2: "stumm"}[value]
+    elif profile == "private":
+        result = "normal" if value == 0 else "privat"
+    else:
+        raise ValueError("title_import_profile")
+    if catalog is not None and catalog.version >= 2:
+        from .interface_upgrade import CLASS_CODES
+
+        result = CLASS_CODES.get(result, result)
+    return result
 
 
 def music_forms(key: str) -> Iterator[str]:
@@ -236,8 +242,10 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                         (c for c in master_row.get("contexts", []) if context_key(c) == key), {}
                     )
                     master_value = master_context.get("enum_override")
-                    if classification(profile, value) != classification(
-                        profile, master_row["enum"] if master_value is None else master_value
+                    if classification(profile, value, catalog) != classification(
+                        profile,
+                        master_row["enum"] if master_value is None else master_value,
+                        catalog,
                     ):
                         raise ValueError("title_sync_variant_override")
                 return EntryChange(
@@ -246,7 +254,7 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                     signal_type=source_row["signal_type"],
                     key=primary,
                     display_name=item["display_name"],
-                    classification=None if master else classification(profile, value),
+                    classification=None if master else classification(profile, value, catalog),
                     master_key=parent_primary,
                     note=old.get("note", ""),
                     reviewed_at=source_row.get("reviewed_at"),

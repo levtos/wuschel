@@ -130,6 +130,7 @@ class BridgeAdapter:
         self.projection_connected = asyncio.Event()
         self.projection_disconnected = asyncio.Event()
         self.projection_supported = False
+        self.projection_fields_supported = False
         self.contexts = ContextIndex()
         runtime.context_index = self.contexts
         self.subscription_count = 0
@@ -642,6 +643,7 @@ class BridgeAdapter:
             self.runtime.bridge_protocol_selected = self.protocol_selected
             self.runtime.bridge_features = features
             self.projection_supported = "contract_projection" in features
+            self.projection_fields_supported = "contract_projection_fields" in features
             command_subscription = None
             if "command_ingress_v1" in features and self.runtime.installation_id:
                 response = await self._response(
@@ -811,7 +813,19 @@ class BridgeAdapter:
                 connection = self.connection
                 previous: dict[str, Any] | None = None
                 while connection is not None and connection is self.connection:
-                    payload = snapshot(self.runtime)
+                    payload = snapshot(
+                        self.runtime, include_fields=self.projection_fields_supported
+                    )
+                    if (
+                        payload["contracts"]
+                        and self.projection_supported
+                        and not self.projection_fields_supported
+                        and previous is None
+                    ):
+                        LOGGER.warning(
+                            "projection_fields_unavailable",
+                            extra={"error_type": "UnsupportedFeature"},
+                        )
                     if self.projection_supported and payload != previous:
                         future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
                         identifier = None

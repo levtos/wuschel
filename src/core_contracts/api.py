@@ -156,6 +156,8 @@ class API:
                         "catalog_definition_missing",
                         "catalog_evaluation_failed",
                         "import_format_unknown",
+                        "interface_upgrade_invalid",
+                        "interface_upgrade_conflict",
                         "import_legacy_format_unknown",
                         "import_digest_mismatch",
                         "import_object_digest_mismatch",

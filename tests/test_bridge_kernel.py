@@ -544,3 +544,58 @@ async def test_companion_refresh_uses_registered_device_only_and_metadata_prefer
     ]
     registration.area_id = None
     assert source_metadata(hass, ["device_tracker.phone"])[0]["area_name"] == "Wohnzimmer"
+
+
+@pytest.mark.ha
+async def test_multifield_projection_sensor_attributes_in_real_ha_kernel(tmp_path):
+    from homeassistant import bootstrap
+
+    from custom_components.traber.projection import Projection
+    from custom_components.traber.sensor import ContractSensor
+
+    hass = kernel(tmp_path)
+    loader.async_setup(hass)
+    assert await bootstrap.async_load_base_functionality(hass)
+    assert await async_setup_component(hass, "sensor", {})
+    projection = Projection()
+    installation, epoch, owner = str(uuid4()), str(uuid4()), object()
+    fields = {
+        "state": {
+            "value": "active",
+            "status": "valid",
+            "quality": "healthy",
+            "since_at": "2026-01-01T00:00:00Z",
+            "unit": None,
+        },
+        "detail": {
+            "value": "Synthetic detail",
+            "status": "valid",
+            "quality": "degraded",
+            "since_at": "2026-01-01T00:01:00Z",
+            "unit": None,
+        },
+    }
+    row = {
+        "contract_id": "example.public.state",
+        "name": "Synthetic public contract",
+        **fields["state"],
+        "primary_field": "state",
+        "fields": fields,
+    }
+    message = {
+        "installation_id": installation,
+        "epoch_id": epoch,
+        "publication_seq": 1,
+        "contracts": [row],
+    }
+    assert projection.accept(owner, installation, message)
+    sensor = ContractSensor(projection, installation, row["contract_id"])
+    await hass.data[DATA_COMPONENT].async_add_entities([sensor])
+    await hass.async_block_till_done()
+    state = hass.states.get(sensor.entity_id)
+    assert state.state == "active"
+    assert state.attributes["primary_field"] == "state"
+    assert state.attributes["fields"]["detail"] == fields["detail"]
+    assert state.attributes["fields"]["detail"]["quality"] == "degraded"
+    projection.disconnect(owner)
+    assert hass.states.get(sensor.entity_id).state == "unavailable"

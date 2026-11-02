@@ -72,6 +72,15 @@ async function openImport(respond: (body: any) => Response | Promise<Response> =
   return { fake, user, stage: screen.getByRole('button', { name: 'Als Entwurf einlesen' }) };
 }
 
+it('shows complete catalog migration counts without activating an import', async () => {
+  const { fake } = await openImport(() => reply(200, { ...preview(), catalog_migrations: [{ catalog_id: 'example.synthetic', entries: 18, before: { privat: 18 }, after: { private: 18 } }] }));
+  expect(screen.getByText(t('b22.interface.migration'))).toBeVisible();
+  expect(screen.getByText(t('b22.interface.catalogCount', { n: 1, count: 18 }))).toBeVisible();
+  expect(screen.getByText(t('b22.interface.preserve'))).toBeVisible();
+  expect(fake.activations).toHaveLength(0);
+  expect(fake.calls.some(call => call.path === 'portable/stage')).toBe(false);
+});
+
 it('keeps reused sources implicit and allows unknown sensor types and file rules without a forced choice', async () => {
   const { fake, user, stage } = await openImport();
   expect(screen.queryByText(/source.existing.0 ·/)).not.toBeInTheDocument();

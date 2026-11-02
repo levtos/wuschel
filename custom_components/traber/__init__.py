@@ -124,7 +124,13 @@ async def async_setup_entry(hass, entry):
                 "bridge_version": VERSION,
                 "ha_epoch_id": HA_EPOCH_ID,
                 "features": list(OPERATIONS)
-                + ["ha_context", "area_metadata", "contract_projection", "command_ingress_v1"]
+                + [
+                    "ha_context",
+                    "area_metadata",
+                    "contract_projection",
+                    "contract_projection_fields",
+                    "command_ingress_v1",
+                ]
                 if selected == 2
                 else [],
             },

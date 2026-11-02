@@ -232,16 +232,18 @@ def plan(
             )
             parent_value = parent_ctx.get("enum_override")
             parent_class = classification(
-                target.profile, parent["enum"] if parent_value is None else parent_value
+                target.profile, parent["enum"] if parent_value is None else parent_value, catalog
             )
             if (
                 ctx.get("enum_override") is not None
-                and classification(target.profile, ctx["enum_override"]) != parent_class
+                and classification(target.profile, ctx["enum_override"], catalog) != parent_class
             ):
                 raise ValueError("title_sync_variant_override")
             parent_key = add(parent, target, parent_ctx, number, dependency=True)
         override = ctx.get("enum_override")
-        value = classification(target.profile, row["enum"] if override is None else override)
+        value = classification(
+            target.profile, row["enum"] if override is None else override, catalog
+        )
         primary = own_keys[0]
         ident = identity(target.scope, row["media_type"], row["signal_type"], primary)
         old = target_head(catalog)["entries"].get(ident, {})
