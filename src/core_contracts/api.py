@@ -801,6 +801,20 @@ class API:
                 "next_due": due.isoformat() if due else None,
                 "temporal": temporal,
                 "trace": node.get("trace"),
+                **(
+                    {
+                        "inputs": {
+                            name: value.model_dump(mode="json")
+                            for name, value in runtime.inspect_inputs(
+                                contract, config, state
+                            ).items()
+                        },
+                        "assessed_at": runtime.clock.now_utc().isoformat(),
+                        "input_epoch_id": state.epoch_id,
+                    }
+                    if request.query.get("include_inputs") == "1"
+                    else {}
+                ),
                 "machine": {
                     "states": machine.definition.states,
                     "initial": machine.definition.initial,

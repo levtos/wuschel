@@ -1897,6 +1897,20 @@ class Runtime:
             self.snapshot_pending = False
             self._broadcast(self.service_state())
 
+    def inspect_inputs(
+        self, contract: Contract, config: RegistryConfig, state: State
+    ) -> dict[str, FieldValue]:
+        """Canonical input assessment for read-only UI; sensor caches stay isolated."""
+        view = state.model_copy(
+            update={
+                "tables": {
+                    **state.tables,
+                    "service_state": copy.deepcopy(state.tables["service_state"]),
+                }
+            }
+        )
+        return self._inputs(contract, config, view)
+
     def _inputs(
         self,
         contract: Contract,

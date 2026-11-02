@@ -186,6 +186,9 @@ export interface TemporalState {
 export interface TraceRecord extends JsonObject {}
 
 export interface ContractDiagnosis {
+  inputs?: Record<string, FieldValue>;
+  assessed_at?: string;
+  input_epoch_id?: string;
   contract_id: string;
   registry_revision: number;
   start_case: string | null;

@@ -8,6 +8,7 @@ import { MiniHistory } from './MiniHistory';
 import { contractFieldLabel, contractTypeId } from './presentation';
 import { historyPoints, mergePublications, publication } from './historyModel';
 import { useHistoryWindow, useWindowHistory } from './historyWindow';
+import { technicalValue } from './outputPresentation';
 
 function remembered(contractId: string): string[] {
   try { const value: unknown = JSON.parse(localStorage.getItem(`wuschel.history.open:${contractId}`) ?? '[]'); return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []; }
@@ -38,7 +39,7 @@ export function ContractHistory({ envelope, fields, stale }: { envelope: Envelop
   };
   return <Panel><PanelHeader title={t('alpha7.contract.history')} description={t('alpha7.contract.historyScope')} /><div className="space-y-5 p-5">
     <label className="text-sm">{t('beta5.history.window')} <select value={window.hours} onChange={event => window.select(Number(event.target.value) === 168 ? 168 : 24)}><option value={24}>{t('beta5.history.day')}</option><option value={168}>{t('beta5.history.week')}</option></select></label>
-    {Object.keys(envelope.fields).map(name => <section key={name} className="space-y-3">
+    {Object.keys(envelope.fields).filter(name => fields[name]?.technical !== true && !technicalValue(name, envelope.fields[name])).map(name => <section key={name} className="space-y-3">
       <h3><Button aria-expanded={open.includes(name)} onClick={() => toggle(name)}>{t('b22.history.toggle', { name: contractFieldLabel(contractTypeId(envelope), name) })}</Button></h3>
       {open.includes(name) && <><Button size="sm" disabled={history.isFetching || gaps.isFetching} onClick={() => { if (!window.refresh()) { void history.refetch(); void gaps.refetch(); } }}>{t('b22.history.reload')}</Button>
         {history.isPending || gaps.isPending ? <Spinner /> : history.isError || gaps.isError ? <p role="alert" className="text-sm text-bad">{t('alpha7.contract.historyUnavailable')}</p> : <MiniHistory name={name} contractTypeId={contractTypeId(envelope)} schema={fields[name]} since={since} until={until} now={until} stale={stale} current={stale ? undefined : envelope.fields[name]} points={historyPoints(rows, envelope.contract_id, name, envelope.registry_revision, gaps.data ?? [])} />}

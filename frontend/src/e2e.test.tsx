@@ -708,9 +708,12 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     expect(internal).not.toHaveTextContent(b14Episode);
     await user.click(sleepLink);
     await screen.findByRole('heading', { name: 'Wert jetzt' });
-    expect(screen.getByTestId('value-episode_id')).toHaveTextContent(b14Episode);
+    // #97 P10: keep the identifier available only after opening technical details.
+    expect(screen.queryByText(b14Episode)).not.toBeInTheDocument();
     expect(screen.getByTestId('value-entry_origin')).toHaveTextContent('Zu Beginn');
     expect(screen.getByTestId('value-last_action_origin')).toHaveTextContent('Bestätigt');
+    await user.click(screen.getByText('Technische Details'));
+    expect(await screen.findByTestId('value-episode_id')).toHaveTextContent(b14Episode);
     await f.go('#/contracts/list/all');
     const wakeLink = await screen.findByRole('link', { name: 'Weckplan' });
     await waitFor(() => expect(wakeLink.closest('tr')).toHaveTextContent('Plan heute: Geplant'));

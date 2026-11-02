@@ -13,6 +13,15 @@ export function formatTime(value: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? t('alpha7.time.unknown') : dateTime.format(date);
 }
 
+/** Calendar dates have no time zone; reject overflow dates instead of shifting them. */
+export function formatDate(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return value;
+  const date = new Date(`${value}T00:00:00Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return t('alpha7.time.unknown');
+  return new Intl.DateTimeFormat('de-DE', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
+}
+
 export function shortId(value: string, length = 8): string {
   return value.length > length ? `${value.slice(0, length)}…` : value;
 }

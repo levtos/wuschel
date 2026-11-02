@@ -2,7 +2,7 @@ import { t as uiText } from '@/i18n';
 import type { Tone } from '@/components/ui/badge';
 import type { Connection } from './live';
 import type { FieldStatus, FieldValue, ServiceState } from './types';
-import { formatDuration, formatMeasurement, formatNumber, formatTime } from './format';
+import { formatDate, formatDuration, formatMeasurement, formatNumber, formatTime } from './format';
 import { codeLabel, fieldLabel } from '@/i18n/codes';
 import { valueText } from './valueText';
 import type { FieldSchema } from '@/features/authoring/model';
@@ -45,6 +45,7 @@ function structuredValue(value: unknown): string {
   if (typeof value === 'boolean') return uiText(value ? 'lib.status.ja_cde9e5' : 'lib.status.nein_90ebc1');
   if (typeof value === 'number') return formatNumber(value);
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return formatTime(value);
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return formatDate(value);
   if (Array.isArray(value)) return value.map(structuredValue).join(' · ');
   if (typeof value === 'object') return Object.entries(value).map(([key, item]) => `${fieldLabel(key)}: ${structuredValue(item)}`).join('; ');
   return String(value);

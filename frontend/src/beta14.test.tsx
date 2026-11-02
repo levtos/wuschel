@@ -9,6 +9,7 @@ import type { Json, JsonObject } from '@/lib/json';
 import { installFakeApi } from '../test/fakeApi';
 import { idleLive } from '../test/harness';
 import { episodeId, sleepRegistry } from '../test/b14-fixtures';
+import userEvent from '@testing-library/user-event';
 
 const valid = (value: Json): FieldValue => ({ status: 'valid', quality: 'healthy', value, evidence: [], reasons: [] });
 function envelope(id: string, type: string): Envelope {
@@ -53,11 +54,14 @@ it('shows only core values in the real contract list layout', async () => {
 it('keeps the episode and translated secondary fields in the detail view', async () => {
   app('#/contracts/view/synthetic.b14.state');
   await screen.findByRole('heading', { name: 'Wert jetzt' });
-  expect(screen.getByTestId('value-episode_id')).toHaveTextContent(episodeId);
+  // #97 P10 explicitly moves technical identifiers out of the main view.
+  expect(screen.queryByText(episodeId)).not.toBeInTheDocument();
   expect(screen.getByTestId('value-entry_origin')).toHaveTextContent('Zu Beginn');
   expect(screen.getByTestId('value-last_action_origin')).toHaveTextContent('Bestätigt');
   expect(screen.getByText('Schlafkontext aktiv')).toBeVisible();
   expect(screen.queryByText('entry_origin')).not.toBeInTheDocument();
+  await userEvent.click(screen.getByText('Technische Details'));
+  expect(await screen.findByTestId('value-episode_id')).toHaveTextContent(episodeId);
 });
 
 it('translates the wake decision and field labels in the detail view', async () => {

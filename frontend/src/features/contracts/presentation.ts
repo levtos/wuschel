@@ -7,6 +7,7 @@ import { isObject, type JsonObject } from '@/lib/json';
 import { displayValue, FIELD_STATUS } from '@/lib/status';
 import type { Envelope, FieldValue, HaEntity, Reason, Registry } from '@/lib/types';
 import type { Tone } from '@/components/ui/badge';
+import { outputFields, technicalValue } from './outputPresentation';
 
 export function fieldsForContract(contract: JsonObject, config: Registry | null, types: TypeEntry[]) {
   const type = types.find(item => item.type_id === contract.type_id && item.type_version === contract.type_version);
@@ -37,7 +38,7 @@ export function fieldsForContract(contract: JsonObject, config: Registry | null,
     const unit = asObject(source?.value_schema).unit;
     if (typeof unit === 'string') fields.value = { ...fields.value, unit };
   }
-  return fields;
+  return outputFields(str(contract.type_id), fields);
 }
 
 const SLEEP_TYPES = new Set(['sleep.flow', 'sleep.state_view', 'wake.plan_view']);
@@ -58,6 +59,8 @@ export function contractFieldLabel(typeId: string | undefined, name: string): st
 
 /** Translate only the known sleep/wake contract vocabulary, never arbitrary text. */
 export function contractFieldValue(typeId: string | undefined, name: string, field: FieldValue, schema?: FieldSchema): string {
+  if (field.status === 'not_applicable') return t('b22.na.noProof');
+  if (technicalValue(name, field)) return t('b22.output.technical');
   if (typeId && SLEEP_TYPES.has(typeId) && ['valid', 'held'].includes(field.status) && typeof field.value === 'string') {
     const namespace = typeId === 'wake.plan_view' || name.startsWith('wake_') ? 'wake' : 'sleep';
     const codeField = ['value', 'entry_origin', 'last_action_origin', 'status', 'decision', 'wake_status', 'wake_decision'].includes(name);
@@ -77,7 +80,7 @@ export function contractValue(envelope: Envelope | null, fields: Record<string, 
     return t('b14.sleep.state', { value: value('value') }) + (deadline && deadline.value != null && ['valid', 'held'].includes(deadline.status) ? ` · ${t('b14.sleep.deadline', { value: value('deadline_at') })}` : '');
   }
   if (typeId === 'wake.plan_view') return `${t('b14.wake.next', { value: value('next_wake_start') })} · ${t('b14.wake.status', { value: value('status') })}`;
-  return Object.entries(envelope.fields).map(([name, field]) => `${Object.keys(envelope.fields).length > 1 ? `${fieldLabel(name)}: ` : ''}${contractFieldValue(typeId, name, field, fields[name])}`).join(' · ');
+  return Object.entries(envelope.fields).filter(([name, field]) => fields[name]?.technical !== true && !technicalValue(name, field)).map(([name, field]) => `${Object.keys(envelope.fields).length > 1 ? `${fieldLabel(name)}: ` : ''}${contractFieldValue(typeId, name, field, fields[name])}`).join(' · ');
 }
 
 export const CONTRACT_CATEGORIES = ['healthy', 'degraded', 'unknown', 'off', 'draft'] as const;
@@ -92,7 +95,7 @@ export function contractState(envelope: Envelope | null, enabled: boolean, draft
   if (stale) details.push(t('alpha7.contract.state.oldConnectionHelp'));
   const codes = Object.values(envelope?.fields ?? {}).flatMap(field => field.reasons.map(reason => reason.code));
   if (codes.includes('input_stale')) details.push(t('post1.state.staleExtra'));
-  for (const [name, field] of Object.entries(envelope?.fields ?? {})) if (field.status !== 'valid') details.push(t('post1.state.fieldExtra', { name: fieldLabel(name), state: FIELD_STATUS[field.status].label }));
+  for (const [name, field] of Object.entries(envelope?.fields ?? {})) if (field.status !== 'valid' && !technicalValue(name, field)) details.push(t('post1.state.fieldExtra', { name: fieldLabel(name), state: field.status === 'not_applicable' ? t('b22.na.short') : FIELD_STATUS[field.status].label }));
   if (envelope?.state_machine?.manual_restart || codes.includes('manual_restart')) details.push(t('alpha7.contract.state.manualHelp'));
   return { category, label: t(`alpha7.contract.state.${key}`), tone, hint: [t(`alpha7.contract.state.${key}Help`), ...details].join(' ') };
 }
@@ -110,7 +113,7 @@ export function contractSources(contractId: string, config: Registry | null, ent
     const roleKey = typeId === 'opening_zone.facts' && inputName.startsWith('member_')
       ? 'inputs.opening_zone.facts.member' : ['sleep.state_view', 'wake.plan_view'].includes(typeId)
         ? `inputs.${typeId}.flow` : `inputs.${typeId}.${inputName}`;
-    const role = hasTranslation(roleKey) ? t(roleKey) : t('beta16.inputs.role', { name: fieldLabel(inputName) });
+    const role = hasTranslation(roleKey) ? t(roleKey) : '';
     if (target.kind === 'contract') {
       const parent = contracts.find(item => item.contract_id === target.id);
       return [{ id: target.id, name: contractTitle(parent, target.id), sourceIndex: -1, kind: 'contract' as const,
@@ -124,6 +127,18 @@ export function contractSources(contractId: string, config: Registry | null, ent
     return [{ id: target.id, name, entityId, sourceIndex, kind: 'source' as const, inputName, ref, role,
       href: `/sources/devices?item=${sourceIndex}` }];
   });
+}
+
+export interface ContractInputGroup extends ContractSource { members: ContractSource[] }
+export function groupedInputs(inputs: ContractSource[]): ContractInputGroup[] {
+  const groups = new Map<string, ContractInputGroup>();
+  for (const input of inputs) {
+    const key = `${input.kind}:${input.id}`;
+    const group = groups.get(key);
+    if (group) { if (!group.members.some(member => member.ref === input.ref)) group.members.push(input); }
+    else groups.set(key, { ...input, members: [input] });
+  }
+  return [...groups.values()];
 }
 
 export interface ContractSourcePath { source: ContractSource; owner: string; path: string[]; ids: string[] }

@@ -12,9 +12,9 @@ import { formatDuration, formatTime } from '@/lib/format';
 import { api } from '@/lib/api';
 import { POLL_MS } from '@/lib/queries';
 import { ContractHistory } from './ContractHistory';
-import type { Envelope, Registry } from '@/lib/types';
+import type { ContractDiagnosis, Envelope, Registry } from '@/lib/types';
 import { problemAdvice } from '@/features/overview/overviewModel';
-import { affectedContractInputs, contractFieldLabel, contractFieldValue, contractSourcePaths, contractSources, contractState, contractTitle, contractTypeId } from './presentation';
+import { affectedContractInputs, contractSourcePaths, contractSources, contractState, contractTitle } from './presentation';
 import { reasonLabel } from '@/i18n/codes';
 import { ContractStateChip } from './ContractStateChip';
 import { MachineRestartPanel } from './MachineRestartPanel';
@@ -30,7 +30,10 @@ export function observationTime(observation: JsonObject): string | undefined {
   return value && Number.isFinite(Date.parse(value)) ? value : undefined;
 }
 
-import { freshnessLabel } from '@/features/sources/freshness';
+import { CurrentValues } from './CurrentValues';
+import { InputOrigins } from './InputOrigins';
+import { contractDefinition } from './inputPresentation';
+import { consumersOfContract } from '@/features/authoring/usage';
 
 export function ContractSummary({ envelope, stale, fields, config, machine }: { envelope: Envelope; stale: boolean; fields: Record<string, FieldSchema>; config: Registry | null; machine: boolean }) {
   const [advanced, setAdvanced] = useState(false);
@@ -39,6 +42,13 @@ export function ContractSummary({ envelope, stale, fields, config, machine }: { 
   const paths = contractSourcePaths(envelope.contract_id, config, ha.entities);
   const problems = affectedContractInputs(envelope, config, ha.entities);
   const indirectManual = [...new Map(paths.filter(path => path.owner !== envelope.contract_id && asArray(config?.sources).map(asObject)[path.source.sourceIndex]?.origin === 'manual').map(path => [`${path.owner}:${path.source.id}`, path])).values()];
+  const facts = useQuery({ queryKey: ['contract-inputs', envelope.contract_id, envelope.registry_revision, envelope.epoch_id, envelope.publication_seq], queryFn: () => api<ContractDiagnosis>(`diagnostics/contracts/${encodeURIComponent(envelope.contract_id)}?include_inputs=1`), enabled: sources.length > 0 && !stale, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false });
+  const inputs = !stale && facts.data?.registry_revision === envelope.registry_revision && facts.data.input_epoch_id === envelope.epoch_id ? facts.data.inputs ?? {} : {};
+  const names = Object.fromEntries(sources.map(source => [source.inputName, source.name]));
+  const definition = contractDefinition(envelope, config);
+  const internal = (contract: JsonObject | undefined) => contract?.type_id === 'sleep.flow' || /\(intern\)/i.test(str(contract?.display_name));
+  const currentContract = asArray(config?.contracts).filter(isObject).find(contract => contract.contract_id === envelope.contract_id);
+  const consumers = consumersOfContract(config, envelope.contract_id).map(id => asArray(config?.contracts).filter(isObject).find(contract => contract.contract_id === id)).filter((contract): contract is JsonObject => !!contract && !internal(contract));
   const reasons = Object.values(envelope.fields).flatMap(field => field.reasons);
   const affected = problems.find(source => source.kind === 'source');
   const affectedName = affected ? str(asArray(config?.sources).filter(isObject)[affected.sourceIndex]?.display_name) || affected.name : '';
@@ -50,24 +60,16 @@ export function ContractSummary({ envelope, stale, fields, config, machine }: { 
     {[...new Set(reasons.filter(reason => reason.code === 'calendar_coverage_missing').map(reason => reason.detail).filter(Boolean))].map(message => <p key={message} role="status" className="rounded-xl border border-warn p-4 text-sm">{message}</p>)}
     {Object.values(envelope.fields).some(field => field.configuration?.complete === false) && <Panel className="p-5"><h3 className="font-medium">{t('alpha8.configuration.title')}</h3><p className="text-sm text-muted">{t('alpha8.configuration.validHint')}</p><ul className="mt-2 text-sm">{Object.entries(envelope.fields).flatMap(([name, field]) => (field.configuration?.hints ?? []).map((hint, index) => <li key={`${name}:${index}`}>{hint.message || t('alpha8.configuration.unassigned')}</li>))}</ul></Panel>}
     <Panel><PanelHeader title={t('alpha7.contract.now')} aside={<ContractStateChip envelope={envelope} enabled={envelope.enabled} stale={stale} />} />
-      <div className="flex flex-wrap gap-x-12 gap-y-5 p-6">{Object.entries(envelope.fields).map(([name, field]) => <div key={name}>
-        {Object.keys(envelope.fields).length > 1 && <p className="mb-1 text-sm text-muted">{contractFieldLabel(contractTypeId(envelope), name)}</p>}
-        <p className="text-4xl font-semibold tabular-nums" data-testid={`value-${name}`}>{contractFieldValue(contractTypeId(envelope), name, field, fields[name])}</p>
-        {field.since_at && <p className="mt-1 text-sm text-muted">{t('b22.fact.since', { time: formatTime(field.since_at) })}</p>}
-        {field.value_origin && <p className="mt-2 text-sm text-muted">{t('alpha9.valueOrigin.label')}: {t(`alpha9.valueOrigin.${field.value_origin.kind}`)}</p>}
-        {!!field.input_origins?.length && <p className="mt-1 text-xs text-muted">{t('alpha9.valueOrigin.inputs', { kinds: [...new Set(field.input_origins.map(origin => t(`alpha9.valueOrigin.${origin.kind}`)))].join(', ') })}</p>}
-        {field.plausibility === 'suspicious' && <p className="mt-2 text-sm text-warn">{t('alpha9.sensor.suspicious')}</p>}
-        {!!field.valid_until && <p className="mt-1 text-xs text-muted">{t('alpha9.manual.validUntil')}: {formatTime(field.valid_until)}</p>}
-        {(field.attribution || sources.some(source => source.entityId)) && <p className="mt-2 text-xs text-muted">{t(field.attribution?.kind === 'known_automatic' ? 'alpha9.context.automatic' : 'alpha9.context.unknown')}</p>}
-      </div>)}</div>
+      <CurrentValues envelope={envelope} fields={fields} config={config} inputs={inputs} names={names} attribution={sources.some(source => !!source.entityId)} />
       <p className="px-6 pb-4 text-xs text-muted">{t('alpha7.contract.liveVersion', { version: envelope.registry_revision, time: formatTime(envelope.published_at) })}</p>
       <p className="px-6 pb-4 text-sm">{t('beta16.inputs.reliability', { state: contractState(envelope, true).label })}</p>
     </Panel>
-    <Panel><PanelHeader title={t('alpha7.contract.why')} /><p className="p-5 text-sm">{why}{affected && <> {t(age ? 'post1.why.inputAge' : 'post1.why.inputAgeUnknown', { name: affectedName, age })}</>}</p>{problems.length > 0 && <ul className="px-5 pb-5 text-sm">{problems.map(input => <li key={input.inputName}>{t('beta16.inputs.affected')} <Link to={input.href} className="underline">{input.name}</Link>: {[...new Set(input.reasons.map(reason => reasonLabel(reason.code)))].join(' · ')}</li>)}</ul>}</Panel>
-    <Panel><PanelHeader title={t('alpha7.contract.where')} /><div className="p-5">
-      {sources.length ? <ul className="space-y-3">{sources.map(source => <li key={source.inputName}><span className="mr-2 text-xs text-muted">{t(`beta16.inputs.${source.kind}`)}</span><Link className="font-medium hover:text-fg" to={source.href}>{source.name}</Link><p className="text-sm text-muted">{source.role}</p>{config && source.kind === 'source' && <p className="text-sm text-muted">{freshnessLabel(config, asArray(config.sources).filter(isObject)[source.sourceIndex] ?? {})}</p>}</li>)}</ul> : <p className="text-sm text-muted">{t('alpha7.contract.noSource')}</p>}
-      {ha.isError && <p className="mt-2 text-xs text-muted">{t('alpha7.contract.namesUnavailable')}</p>}
-    </div></Panel>
+    {internal(currentContract) && <Panel className="p-5"><p>{t('b22.output.internalFeeds')}</p>{consumers.length ? <ul>{consumers.map(contract => <li key={str(contract.contract_id)}><Link className="underline" to={`/contracts/view/${encodeURIComponent(str(contract.contract_id))}`}>{contractTitle(contract)}</Link></li>)}</ul> : <p>{t('b22.output.noConsumers')}</p>}</Panel>}
+    <InputOrigins envelope={envelope} config={config} sources={sources} inputs={inputs} why={why} rule={str(definition.description)}>
+      {affected && <p className="text-sm">{t(age ? 'post1.why.inputAge' : 'post1.why.inputAgeUnknown', { name: affectedName, age })}</p>}
+      {problems.length > 0 && <ul className="text-sm">{[...new Map(problems.map(input => [`${input.kind}:${input.id}`, input])).values()].map(input => <li key={`${input.kind}:${input.id}`}>{t('beta16.inputs.affected')} <Link to={input.href} className="underline">{input.name}</Link>: {[...new Set(problems.filter(row => row.kind === input.kind && row.id === input.id).flatMap(row => row.reasons.map(reason => reasonLabel(reason.code))))].join(' · ')}</li>)}</ul>}
+      {ha.isError && <p className="text-xs text-muted">{t('alpha7.contract.namesUnavailable')}</p>}
+    </InputOrigins>
     <ContractHistory key={envelope.contract_id} envelope={envelope} fields={fields} stale={stale} />
     {[...new Map(sources.filter(source => source.kind === 'source' && asArray(config?.sources).map(asObject)[source.sourceIndex]?.origin === 'manual').map(source => [source.id, source])).values()].map(source => <ManualSourcePanel key={source.id} sourceId={source.id} />)}
     {indirectManual.map(path => <p key={`${path.owner}:${path.source.id}`} className="text-sm text-muted">{t('beta16.inputs.manualAt', { name: path.source.name })} <Link className="underline" to={`/contracts/view/${encodeURIComponent(path.owner)}`}>{contractTitle(asArray(config?.contracts).filter(isObject).find(item => item.contract_id === path.owner), path.owner)}</Link></p>)}
