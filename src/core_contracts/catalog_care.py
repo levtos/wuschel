@@ -99,12 +99,16 @@ def master_order(row: dict[str, Any]) -> tuple[Any, ...]:
     )
 
 
-def all_rows(state: Any, catalog: Any) -> dict[str, dict[str, Any]]:
+def all_rows(
+    state: Any, catalog: Any, *, identities: set[str] | None = None
+) -> dict[str, dict[str, Any]]:
     entries = discovered_entries(state, catalog)
     rows = {
         key: {"identity": key, **row}
         for key, row in entries.items()
-        if not row["tombstone"] and not (row.get("tc_metadata") or {}).get("is_alias")
+        if (identities is None or key in identities)
+        and not row["tombstone"]
+        and not (row.get("tc_metadata") or {}).get("is_alias")
     }
     owners = {
         canonical(
@@ -133,6 +137,8 @@ def all_rows(state: Any, catalog: Any) -> dict[str, dict[str, Any]]:
             )
             if key is None:
                 continue
+        if identities is not None and key not in identities:
+            continue
         row = rows.setdefault(
             key,
             {
@@ -156,8 +162,12 @@ def all_rows(state: Any, catalog: Any) -> dict[str, dict[str, Any]]:
         if not row.get("tc_metadata"):
             row.update(row["local_sightings"])
     children: dict[str, int] = defaultdict(int)
-    for row in rows.values():
-        if row.get("master_identity"):
+    for row in entries.values():
+        if (
+            row.get("master_identity")
+            and not row["tombstone"]
+            and not (row.get("tc_metadata") or {}).get("is_alias")
+        ):
             children[row["master_identity"]] += 1
     clusters: dict[str, list[str]] = defaultdict(list)
     for key, row in rows.items():
@@ -471,7 +481,7 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
         raise ValueError("active_revision_conflict")
     if current["revision"] != request.expected_content_revision:
         raise ValueError("catalog_content_conflict")
-    rows = all_rows(state, catalog)
+    rows = all_rows(state, catalog, identities=set(request.identities))
     if len(set(request.identities)) != len(request.identities) or any(
         key not in rows for key in request.identities
     ):
@@ -490,7 +500,11 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
             target_master = identity(
                 first["scope"], first["media_type"], first["signal_type"], name
             )
-            if target_master in rows or target_master in current["entries"]:
+            if (
+                target_master in current["entries"]
+                or target_master in discovered_entries(state, catalog)
+                or head_key(catalog) + ":" + target_master in state.tables["catalog_sighting"]
+            ):
                 raise ValueError("catalog_master_name_conflict")
             if request.classification is None:
                 raise ValueError("catalog_class_invalid")
@@ -561,6 +575,8 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
     }
     for key, row in current["entries"].items():
         metadata = row.get("tc_metadata") or {}
+        if not metadata.get("is_alias"):
+            continue
         owner = owners.get(
             canonical(
                 [

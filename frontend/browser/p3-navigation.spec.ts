@@ -35,9 +35,13 @@ test('Back restores filters and the main scroll position in Firefox', async ({ p
   await page.getByLabel('Kategorie', { exact: true }).selectOption('media');
   await page.getByLabel('Verträge suchen', { exact: true }).fill('Synthetic entry');
   await expect(page).toHaveURL(/category=media/);
+  await expect(page).toHaveURL(/q=Synthetic(?:\+|%20)entry/);
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   const target = page.getByRole('link', { name: 'Synthetic entry 030', exact: true });
-  await target.scrollIntoViewIfNeeded();
+  await expect(async () => {
+    await target.scrollIntoViewIfNeeded();
+    expect(await main.evaluate(element => element.scrollTop)).toBeGreaterThan(100);
+  }).toPass();
   const position = await main.evaluate(element => element.scrollTop);
   expect(position).toBeGreaterThan(100);
   await target.click();

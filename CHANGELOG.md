@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0b22 — Bedienung, Vorlagen und Feldzeitpunkte (Kandidat)
+
+- Zwölf Pakete aus [#97](https://github.com/Levtos/wuschel/issues/97): lokale Bearbeitung am Objekt, sichere Browser-Sitzung und Navigation, gerichtete Abhängigkeiten, Hierarchiepflege sowie verständliche Werte, Eingänge und aufklappbare Verläufe.
+- Katalogpflege lädt gezielt; gemeinsame Masterregeln, Stash-Slots, Apple-TV-Erfassung sowie Fakten-/Kalendervorlagen sind ergänzt. Englische Schnittstellencodes und ihre atomare Katalogüberführung sind vorbereitet; private Importdateien bleiben außerhalb des Repositorys.
+- Öffentliche Verträge werden mit allen Feldern nach Traber gespiegelt; interne Verträge bleiben ausgenommen. Abgeleitete Felder tragen stabile Zeitmarken mit b13-Zahlengleichheit und ehrlichen Wiederanlaufgrenzen. Bestehende Quellen- und Ablaufzeitpunkte behalten ihre Bedeutung.
+- Wuschel und Traber sind als b22-Kandidat vorbereitet. Store-Angebot bleibt b21; ausschließlich amd64. Kein automatischer Import, keine Bereinigung oder Zählerrücksetzung. Review und Benni-Go vor Merge, Release und Installation.
+- [Paketnachweise](docs/beta/b22/P12.md); gemeinsame CI und Review gehören zum Abschluss dieses Kandidaten.
+
 ## 1.0.0b20 — Stabile Titelpaare, bestätigte Bereinigung und vollständige Sicherung
 
 - Der Katalog zählt stabile Wiedergaben statt einzelner Meldungen. Titel und Interpret werden nur im Katalog zusammengeführt; die bestehende Vertragsauswertung und ihre Zeitpunkte bleiben erhalten. Gleichbleibende Meldungen und Pause/Fortsetzen zählen nicht erneut. Repeat verlangt einen belegten neuen Start; ohne ausreichende Quellenmarker bleibt diese Grenze sichtbar.

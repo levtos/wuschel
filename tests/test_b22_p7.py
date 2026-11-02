@@ -19,6 +19,7 @@ from core_contracts.interface_upgrade import upgrade_package
 from core_contracts.managed_catalog import head, validate_heads
 from core_contracts.model import checksum
 from core_contracts.portable import read_package
+from core_contracts.quality import FieldValue
 from core_contracts.registry import validate
 from dev.build_apple_tv_templates import build, catalog
 from dev.build_apple_tv_templates import settings as defaults
@@ -277,7 +278,8 @@ async def test_new_episode_inherits_known_master_immediately_without_extra_revis
     await classify(runtime, parent["identity"])
     before = copy.deepcopy(head(runtime.state, cat))
     await send(runtime, "Synthetic series", "Synthetic episode two")
-    assert value(runtime)["value"] == "private" and value(runtime)["configuration"]["complete"]
+    assert value(runtime)["value"] == "private"
+    assert FieldValue.model_validate(value(runtime)).configuration.complete
     await advance(runtime, 10)
     variants = detail(runtime.state, cat, parent["identity"])["variants"]
     assert len(variants) == 2 and all(

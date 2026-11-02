@@ -86,7 +86,7 @@ async def test_legacy_mqtt_origin_can_be_corrected_in_draft_without_changing_act
     assert (await client.post("/api/v1/registry/freshness", json=saved["config"])).status == 200
     assert (await client.post(path + "/validate", headers=headers, json={})).status == 200
     assert runtime.state.active_revision == int(revision)
-    assert runtime.state.tables["registry_revision"][revision] == historical
+    assert await runtime.store.get("registry_revision", revision) == historical
     assert runtime.snapshot()["contracts"]["fixture.echo"]["fields"]["value"]["status"] == "unknown"
     response = await client.post(
         path + "/activate",
@@ -99,7 +99,7 @@ async def test_legacy_mqtt_origin_can_be_corrected_in_draft_without_changing_act
     assert (
         field["status"] == "valid" and field["value"] == "ready" and field["quality"] == "healthy"
     )
-    assert runtime.state.tables["registry_revision"][revision] == historical
+    assert await runtime.store.get("registry_revision", revision) == historical
 
 
 @pytest.mark.parametrize("alias", [False, True])

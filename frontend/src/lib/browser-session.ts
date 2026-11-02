@@ -57,7 +57,7 @@ export class BrowserSession {
     await previous;
     try {
       await this.waitReady(signal);
-      if (version !== this.documentVersion) throw new DOMException('Old document', 'AbortError');
+      if (version !== this.documentVersion) throw new DOMException('old_document', 'AbortError');
       return await work();
     } finally { release(); }
   }
@@ -73,7 +73,7 @@ export class BrowserSession {
 export const browserSession = new BrowserSession();
 
 export function assertIngressResponse(response: Response, version = browserSession.getDocumentVersion()) {
-  if (version !== browserSession.getDocumentVersion()) throw new DOMException('Old document', 'AbortError');
+  if (version !== browserSession.getDocumentVersion()) throw new DOMException('old_document', 'AbortError');
   if ([401, 403].includes(response.status) || response.headers.get('Content-Type')?.includes('text/html')) {
     browserSession.expire();
     throw new SessionExpired([401, 403].includes(response.status) ? response.status : 401);

@@ -63,6 +63,15 @@ def baseline_pending(state: Any) -> None:
 
 def frame(state: Any, observation: Observation) -> None:
     for name, tracker in state.tables["service_state"].items():
+        if (
+            name.startswith(PREFIX)
+            and observation.observation_kind == "snapshot"
+            and observation.binding_id in tracker.get("bindings", [])
+            and (pending := tracker.pop("pending", None))
+        ):
+            tracker.update(
+                last=pending["identity"], last_raw=pending["key"], last_session=pending["session"]
+            )
         if not name.startswith(PREFIX) or not live_input(observation):
             continue
         title_ended = observation.binding_id in tracker.get("title_bindings", []) and (
@@ -216,7 +225,9 @@ def offer(
     ]
     if ctx.origin != "input" or not eligible:
         # A snapshot establishes a baseline, never a new playback.
-        if ctx.origin in {"snapshot", "restore"}:
+        if ctx.origin in {"snapshot", "restore"} or (
+            ctx.origin == "revision" and selected.observation_kind == "snapshot"
+        ):
             ctx.state.tables["service_state"][stream] = {
                 **old,
                 "last": key,

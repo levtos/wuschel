@@ -233,6 +233,32 @@ async def test_group_paging_search_and_variant_filter_never_promote_a_child(runt
         listing(runtime.state, catalog, grouped=True, limit=1, after=flat_page["next_cursor"])
 
 
+async def test_targeted_care_keeps_unselected_children_in_master_validation(runtime, config):
+    catalog = await seed_catalog(runtime, config, CATALOGS[0])
+    ids = list(all_rows(runtime.state, catalog))
+    await runtime.submit(
+        "catalog_care_write",
+        {
+            "request": request(
+                runtime,
+                catalog,
+                ids,
+                new_master_name=None,
+                master=ids[0],
+            )
+        },
+    )
+    selected = all_rows(runtime.state, catalog, identities={ids[0]})
+    assert set(selected) == {ids[0]}
+    assert selected[ids[0]]["variant_count"] == 1
+    before = copy.deepcopy(head(runtime.state, catalog))
+    with pytest.raises(ValueError, match="catalog_master_has_variants"):
+        await runtime.submit(
+            "catalog_care_preview", {"request": request(runtime, catalog, [ids[0]])}
+        )
+    assert head(runtime.state, catalog) == before
+
+
 def test_existing_care_request_digests_do_not_gain_an_optional_field():
     old = {
         "catalog_id": "synthetic",

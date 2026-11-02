@@ -399,6 +399,9 @@ async def test_single_entry_preview_and_failed_commit_keep_discovered_graph_atom
     runtime.store.before_commit = None
     assert runtime.state.model_dump() == before
     assert runtime.store.state.model_dump() == persisted
+    assert not runtime.persistence
+    await runtime.submit("recover")
+    assert runtime.persistence
     await runtime.submit("catalog_write", {"request": request})
     validate_heads(runtime.state, runtime.config)
     assert len(head(runtime.state, catalog)["entries"]) == 2

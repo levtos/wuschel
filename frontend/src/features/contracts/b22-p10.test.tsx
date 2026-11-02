@@ -13,6 +13,7 @@ import { groupedInputs, contractSources, contractFieldValue } from './presentati
 import { notApplicableValue } from './inputPresentation';
 import { installFakeApi, reply, sampleConfig } from '../../../test/fakeApi';
 import { readFileSync, readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { hasValueLabel, valueText } from '@/lib/valueText';
 import { Workbench } from '@/Workbench';
 import { idleLive } from '../../../test/harness';
@@ -62,7 +63,7 @@ it('puts the catalog explanation beside the German class and does not translate 
 });
 
 it('requires German labels for every enum code in every shipped template file', () => {
-  const root = new URL('../../../../examples/', import.meta.url);
+  const root = resolve(process.cwd(), '../examples');
   const files = readdirSync(root).filter(name => name.includes('templates') && name.endsWith('.json'));
   const missing: string[] = [];
   let count = 0;
@@ -73,7 +74,7 @@ it('requires German labels for every enum code in every shipped template file', 
     if (object.type === 'enum' && Array.isArray(object.value_catalog)) for (const code of object.value_catalog) { count++; if (!hasValueLabel(String(code), object as FieldSchema)) missing.push(`${path}:${String(code)}`); }
     for (const [key, item] of Object.entries(object)) visit(item, `${path}/${key}`);
   }
-  for (const name of files) visit(JSON.parse(readFileSync(new URL(name, root), 'utf8')), name);
+  for (const name of files) visit(JSON.parse(readFileSync(resolve(root, name), 'utf8')), name);
   expect(count).toBeGreaterThan(74);
   expect(missing).toEqual([]);
 });
@@ -101,8 +102,7 @@ it('renders one upstream link rather than ten duplicates in the real contract li
   location.hash = '#/contracts/list/all';
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Workbench live={idleLive()} onSetup={() => {}} /></QueryClientProvider>);
   const table = await screen.findByRole('table', { name: 'Verträge' });
-  const link = await within(table).findByRole('link', { name: 'Synthetische Sicht' });
-  const row = link.closest('tr')!;
+  const row = await within(table).findByRole('row', { name: /Synthetische Sicht/ });
   expect(within(row).getAllByRole('link', { name: /Synthetischer Ablauf/ })).toHaveLength(1);
   await userEvent.click(within(row).getByText('10 Werte'));
   expect(within(row).getAllByRole('listitem')).toHaveLength(10);

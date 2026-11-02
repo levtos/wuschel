@@ -189,7 +189,13 @@ def test_fact_definitions_are_portable_and_well_typed():
 async def test_pc_power_exact_thresholds_hysteresis_host_independence_and_unknown(runtime, config):
     doc = configuration(config, "device.pc_power")
     # An independent host source is deliberately never wired into the power fact.
-    doc["sources"].append(source("host", schema()))
+    doc["sources"].append(copy.deepcopy(doc["sources"][0]))
+    doc["sources"][-1].update(
+        source_id="source.host",
+        source_type="boolean",
+        physical_source_key="synthetic.host",
+        value_schema=schema(),
+    )
     doc["bindings"].append(
         {"binding_id": "binding.host", "source_id": "source.host", "adapter": {"kind": "manual"}}
     )
@@ -249,7 +255,7 @@ async def test_distance_is_public_meters_and_media_state_uses_field_since(runtim
     await activate(runtime, configuration(config, "presence.distance"))
     await observe(runtime, "meters", 123.5)
     assert value(runtime)["value"] == 123.5
-    assert runtime.config.definitions[0].schema.fields["value"].unit == "m"
+    assert runtime.config.definitions[0].output_schema.fields["value"].unit == "m"
     await activate(runtime, configuration(config, "media.device_state"))
     for name, raw in (
         ("state", "playing"),

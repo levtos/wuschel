@@ -142,7 +142,20 @@ async def populated(runtime, config, *, large=True):
             ],
         }
     )
-    prepare(state, runtime.config, request, {"kind": "synthetic"}, runtime.clock.now_utc())
+    for offset in range(0, len(request.changes), 1000):
+        prepare(
+            state,
+            runtime.config,
+            request.model_copy(
+                update={
+                    "changes": request.changes[offset : offset + 1000],
+                    "expected_content_revision": offset // 1000,
+                    "request_id": str(uuid4()),
+                }
+            ),
+            {"kind": "synthetic"},
+            runtime.clock.now_utc(),
+        )
     prepare(
         state,
         runtime.config,

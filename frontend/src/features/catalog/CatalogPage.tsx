@@ -76,7 +76,7 @@ export default function CatalogPage() {
       <input type="checkbox" aria-label={t('b17.selectTitle', { title: titleLabel(entry) })} checked={!!selected[entry.identity]} onChange={event => setSelected(previous => { const next = { ...previous }; if (event.target.checked) next[entry.identity] = entry; else delete next[entry.identity]; return next; })} />
       <div className="min-w-0 flex-1"><p className="break-words font-medium">{titleLabel(entry)}</p>{entry.display_metadata?.artist && <p className="text-sm text-muted">{t('b22.stash.performers')}: {entry.display_metadata.artist}</p>}
         <CatalogMediaFacts metadata={entry.catalog_metadata} />
-        {nested ? <Badge>{t('alpha10.catalog.variant')}</Badge> : (entry.variant_count ?? 0) > 0 && <Badge>{t('alpha10.catalog.master')}</Badge>}
+        {nested ? <Badge>{t('b22.catalog.variantRole')}</Badge> : (entry.variant_count ?? 0) > 0 && <Badge>{t('alpha10.catalog.master')}</Badge>}
         <Badge tone={entry.review_status === 'hidden' ? 'info' : entry.review_status === 'reviewed' ? 'ok' : 'bad'}>{t(`b17.status.${entry.review_status ?? 'open'}`)}</Badge>
         {!entry.complete && <Badge>{t('b21.withoutClass')}</Badge>}{entry.candidate && <p>{t('b17.candidate')}</p>}
         {entry.matches_filter === false && <p className="text-sm text-muted">{t('b22.catalog.variantMatch', { n: entry.matching_variant_count ?? 0 })}</p>}

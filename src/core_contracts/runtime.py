@@ -2221,6 +2221,15 @@ class Runtime:
                     name: unknown(ReasonCode.EVALUATION_ERROR, key, now)
                     for name in declaration.schema.fields
                 }
+            from .field_since import track_fields
+
+            fields = track_fields(
+                fields,
+                previous_contracts.get(key, {}).get("fields", {}),
+                now,
+                compatible=case == "valid",
+                restoring=origin == "restore",
+            )
             required = [fields[k] for k, v in declaration.schema.fields.items() if v.required]
             from .catalog_playback import finish as finish_catalog_playback
 
