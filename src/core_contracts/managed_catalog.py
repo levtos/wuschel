@@ -3,7 +3,7 @@
 import copy
 from typing import Any
 
-from .catalog_models import CatalogWrite, ManagedCatalog
+from .catalog_models import CatalogWrite, EntryChange, ManagedCatalog
 from .model import checksum
 from .persistence import State
 from .quality import ConfigurationHint, ConfigurationStatus, FieldValue, derive
@@ -47,6 +47,37 @@ def head(state: State, catalog: ManagedCatalog) -> dict[str, Any]:
             "entries": {},
         },
     )
+
+
+def discovered_entries(state: Any, catalog: ManagedCatalog) -> dict[str, Any]:
+    """Virtual unclassified hierarchy from stable sightings; saved care wins.
+
+    Discovery never creates a content revision or a classification. A subsequent
+    explicit care request persists the selected rows through the ordinary writer.
+    """
+    entries: dict[str, Any] = head(state, catalog)["entries"]
+    discovered = [
+        row
+        for row in state.tables["catalog_sighting"].values()
+        if row["catalog"] == head_key(catalog)
+        and (row.get("master_key") or row.get("hierarchy_master"))
+    ]
+    if not discovered:
+        return entries
+    result = dict(entries)
+    for row in discovered:
+        result.setdefault(
+            row["identity"],
+            {
+                **row,
+                "classification": None,
+                "master_key": row.get("master_key"),
+                "master_identity": row.get("master_identity"),
+                "note": "",
+                "tombstone": False,
+            },
+        )
+    return result
 
 
 def effective(
@@ -98,6 +129,10 @@ def suspend_machine(node: dict[str, Any]) -> None:
 def lookup(ctx: Any, rule: Any, args: list[FieldValue]) -> FieldValue:
     if any(not value.usable(ctx.now) for value in args):
         return derive(None, args, ctx.now)
+    if getattr(rule, "profile", None) == "stash_slot":
+        from .stash_catalog import lookup as slot_lookup
+
+        return slot_lookup(ctx, rule, args)
     document = ctx.state.tables["registry_revision"][str(ctx.state.active_revision)]["config"]
     from .registry import RegistryConfig
 
@@ -166,11 +201,34 @@ def prepare(
         raise ValueError("catalog_definition_conflict")
     # Existing entry revisions are immutable; only direct changes create new rows.
     entries = dict(old["entries"])
-    direct: set[str] = set()
+    before_view = discovered_entries(state, catalog)
+    changes = list(request.changes)
+    requested = {identity(row.scope, row.media_type, row.signal_type, row.key) for row in changes}
+    # Every explicit write path (including the single-entry editor) saves a
+    # required discovered studio atomically, without inventing a classification.
     for change in request.changes:
+        if change.master_key:
+            parent = identity(
+                change.scope, change.media_type, change.signal_type, change.master_key
+            )
+            if parent not in entries and parent not in requested and parent in before_view:
+                changes.append(
+                    EntryChange.model_validate(
+                        {
+                            key: value
+                            for key, value in before_view[parent].items()
+                            if key in EntryChange.model_fields
+                        }
+                    )
+                )
+                requested.add(parent)
+    if len(changes) > 1000:
+        raise ValueError("catalog_expansion_limit")
+    direct: set[str] = set()
+    for change in changes:
         row = change.model_dump(mode="json")
         key = identity(change.scope, change.media_type, change.signal_type, change.key)
-        for optional in ("reviewed_at", "hidden_at", "tc_metadata"):
+        for optional in ("reviewed_at", "hidden_at", "tc_metadata", "display_metadata"):
             if optional not in change.model_fields_set and optional in entries.get(key, {}):
                 row[optional] = entries[key][optional]
         if not normalize_key(change.key):
@@ -192,23 +250,26 @@ def prepare(
         )
         row["normalized_key"] = normalize_key(change.key)
         entries[key] = row
-    for key, row in entries.items():
+    after_view = {**before_view, **entries} if before_view is not old["entries"] else entries
+    for key in direct:
+        effective(entries, key, catalog)
+    for key, row in after_view.items():
         if not row["tombstone"]:
             if row.get("master_identity") == key:
                 raise ValueError("catalog_master_invalid")
-            effective(entries, key, catalog)
+            effective(after_view, key, catalog)
     # A direct change can affect only itself and children of an old/new master.
     # Still validate the whole graph above, including deletions and cycles.
     candidates = direct | {
         key
-        for rows in (old["entries"], entries)
+        for rows in (before_view, after_view)
         for key, row in rows.items()
         if row.get("master_identity") in direct
     }
     affected = {
         key
         for key in candidates
-        if semantic(entries, key, catalog) != semantic(old["entries"], key, catalog)
+        if semantic(after_view, key, catalog) != semantic(before_view, key, catalog)
     }
     if len(affected) > expanded_limit:
         raise ValueError("catalog_expansion_limit")
@@ -347,8 +408,9 @@ def validate_heads(state: Any, config: Any) -> None:
 
 def entry_view(state: State, catalog: ManagedCatalog, key: str) -> dict[str, Any]:
     current = head(state, catalog)
-    row = current["entries"].get(key)
-    value, complete, master = effective(current["entries"], key, catalog)
+    entries = discovered_entries(state, catalog)
+    row = entries.get(key)
+    value, complete, master = effective(entries, key, catalog)
     return {
         "content_revision": current["revision"],
         "active_revision": state.active_revision,
@@ -398,11 +460,8 @@ def page(
     if not 1 <= limit <= 100 or len(query) > 1024 or view not in {"all", "unassigned", "masters"}:
         raise ValueError("catalog_page_invalid")
     current = head(state, catalog)
-    rows = {
-        key: {"identity": key, **row}
-        for key, row in current["entries"].items()
-        if not row["tombstone"]
-    }
+    entries = discovered_entries(state, catalog)
+    rows = {key: {"identity": key, **row} for key, row in entries.items() if not row["tombstone"]}
     for sighting in state.tables["catalog_sighting"].values():
         if sighting["catalog"] == head_key(catalog):
             key = sighting["identity"]
@@ -423,8 +482,11 @@ def page(
     for key, row in sorted(rows.items()):
         if any(value and row.get(name) != value for name, value in filters.items()):
             continue
-        value, complete, master = effective(current["entries"], key, catalog)
-        if key <= after or (query and normalize_key(query) not in normalize_key(row["key"])):
+        value, complete, master = effective(entries, key, catalog)
+        searchable = " ".join(
+            [row["key"], row.get("display_name", ""), *(row.get("display_metadata") or {}).values()]
+        )
+        if key <= after or (query and normalize_key(query) not in normalize_key(searchable)):
             continue
         if view == "unassigned" and complete or view == "masters" and master:
             continue
@@ -433,7 +495,7 @@ def page(
                 **row,
                 "effective_classification": value,
                 "complete": complete,
-                "semantic_digest": semantic(current["entries"], key, catalog),
+                "semantic_digest": semantic(entries, key, catalog),
             }
         )
     return {

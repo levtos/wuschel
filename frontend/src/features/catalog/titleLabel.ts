@@ -1,6 +1,6 @@
 import { t } from '@/i18n';
 
-interface NamedKey { key: string; display_name?: string; signal_type?: string }
+interface NamedKey { key: string; display_name?: string; signal_type?: string; display_metadata?: { title?: string; artist?: string } }
 
 /** Decode runtime compound keys without changing the keys sent back to the API. */
 export function titleKeyParts(key: string): { artist: string; title: string } | null {
@@ -15,6 +15,7 @@ export function titleKeyParts(key: string): { artist: string; title: string } | 
 }
 
 export function titleLabel(row: NamedKey): string {
+  if (row.display_metadata?.title) return row.display_metadata.title;
   if (row.display_name) return row.display_name;
   if (row.signal_type === 'app') return t('b21.app.unknown');
   const parts = titleKeyParts(row.key);

@@ -394,7 +394,10 @@ class BridgeAdapter:
         context = None
         attribution = None
         catalog_frame = None
-        if binding.adapter.ha_attribute in {"media_title", "media_artist", "app_id"}:
+        if (
+            binding.adapter.ha_attribute in {"media_title", "media_artist", "app_id"}
+            or binding.adapter.catalog_profile
+        ):
 
             def finite_metadata(name: str) -> int | float | None:
                 number = attributes.get(name)
@@ -420,6 +423,13 @@ class BridgeAdapter:
                 else None,
             }
             catalog_frame["event"] = checksum([catalog_frame, (state or {}).get("last_updated")])
+            if binding.adapter.catalog_profile == "stash_slot":
+                from ..stash_catalog import metadata as stash_metadata
+
+                catalog_frame.update(stash_metadata(attributes))
+                catalog_frame["event"] = checksum(
+                    [catalog_frame, (state or {}).get("last_updated")]
+                )
         if self.protocol_selected == 2:
             raw_context = (
                 (state or {}).get("context") if kind == "snapshot" else event.get("context")

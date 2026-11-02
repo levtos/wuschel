@@ -16,6 +16,9 @@ class AdapterConfig(Model):
     ha_entity_id: str | None = None
     ha_attribute: str | None = None
     ha_time_attribute: str | None = None
+    catalog_profile: Literal["stash_slot"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     mqtt_topic: str | None = None
     mqtt_value_path: str | None = None
     mqtt_time_path: str | None = None
@@ -33,6 +36,10 @@ class AdapterConfig(Model):
 
     @model_validator(mode="after")
     def address(self) -> Self:
+        if self.catalog_profile and (
+            self.kind != "ha_attribute" or self.ha_attribute != "scene_id"
+        ):
+            raise ValueError("catalog_profile_requires_scene_binding")
         if self.kind == "manual" and any(
             value is not None
             for value in (

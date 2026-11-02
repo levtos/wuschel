@@ -10,7 +10,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from .catalog_models import CatalogWrite, EntryChange
-from .managed_catalog import effective, head, head_key, identity, semantic
+from .managed_catalog import discovered_entries, effective, head, head_key, identity, semantic
 from .model import Model, canonical, checksum
 from .text_rules import normalize_key
 
@@ -100,8 +100,7 @@ def master_order(row: dict[str, Any]) -> tuple[Any, ...]:
 
 
 def all_rows(state: Any, catalog: Any) -> dict[str, dict[str, Any]]:
-    current = head(state, catalog)
-    entries = current["entries"]
+    entries = discovered_entries(state, catalog)
     rows = {
         key: {"identity": key, **row}
         for key, row in entries.items()
@@ -187,6 +186,12 @@ def all_rows(state: Any, catalog: Any) -> dict[str, dict[str, Any]]:
         if state.tables["service_state"].get("catalog_counter_epoch"):
             row["seen_count"] = row.get("local_sightings", {}).get("seen_count", 0)
         row["playback_counts"] = bool(state.tables["service_state"].get("catalog_counter_epoch"))
+        if (
+            sighting_metadata := state.tables["catalog_sighting"]
+            .get(head_key(catalog) + ":" + key, {})
+            .get("display_metadata")
+        ):
+            row["display_metadata"] = sighting_metadata
         seed = candidate_key(row) if not master and row["review_status"] != "hidden" else ""
         row["cluster_key"] = seed
         if seed:

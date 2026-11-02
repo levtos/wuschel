@@ -1,7 +1,7 @@
 """Versioned managed definitions; no mutable contents in configuration."""
 
 from datetime import datetime
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import Field, model_validator
 
@@ -130,6 +130,9 @@ class EntryChange(Model):
     master_key: str | None = Field(default=None, max_length=1024)
     tombstone: bool = False
     display_name: str = Field(default="", max_length=1024)
+    display_metadata: (
+        dict[Literal["title", "artist"], Annotated[str, Field(max_length=1024)]] | None
+    ) = Field(default=None, max_length=2, exclude_if=lambda value: value is None)
     note: str = Field(default="", max_length=1024)
     reviewed_at: datetime | None = Field(default=None, exclude_if=lambda value: value is None)
     hidden_at: datetime | None = Field(default=None, exclude_if=lambda value: value is None)

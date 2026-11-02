@@ -142,7 +142,7 @@ export function CatalogDetail({ catalog, entry, onClose, onOpen }: { catalog: Ca
   return <Dialog open={!!entry} onOpenChange={shown => { if (!shown) { setAfter(''); onClose(); } }} title={t('b17.details')}>
     <p>{t('b17.detailDescription')}</p>
     {data.isPending ? <Spinner /> : data.isError ? <Notice tone="bad">{describeError(data.error)}</Notice> : value && <div className="space-y-4">
-      <h3>{titleLabel(value)}</h3>
+      <h3>{titleLabel(value)}</h3>{value.display_metadata?.artist && <p>{t('b22.stash.performers')}: {value.display_metadata.artist}</p>}
       <details><summary>{t('alpha10.technical')}</summary><p>{catalog.catalog_id} · {catalog.version}</p><p>{value.signal_type === 'app' ? value.key : value.identity} · {value.scope} · {value.media_type} · {value.signal_type}</p></details>
       <p>{t('b17.effectiveClass')}: {catalog.classification_schema.legend?.[value.effective_classification]?.display_name ?? value.effective_classification}</p>
       {data.data.master && <Button onClick={() => open(data.data!.master!)}>{t('alpha10.catalog.master')}: {titleLabel(data.data.master)}</Button>}

@@ -319,6 +319,19 @@ Das ist weder eine erlernte Zuordnung noch eine automatische Fachänderung.
 Erst ausdrückliche Pflege legt eine abweichende append-only Inhaltsrevision an.
 Die erstmalige Sichtung darf dadurch keinen zusätzlichen A-06-Reset erzeugen.
 
+## Stash-Slots (b22, P6)
+
+Das ausdrücklich konfigurierte Slot-Profil verwendet die Szenenkennung als
+Variantenschlüssel und den normalisierten, mit `studio:` namensräumlich getrennten
+Studio-Hash als Masterschlüssel. Titel und Darsteller sind nur Anzeigemetadaten.
+Stabile Entdeckungen führen die unklassifizierte Zweiebenenbeziehung ausschließlich
+in der Sichtungshaltung; sie erzeugen keine Inhaltsrevision und keinen zusätzlichen
+A-06-Lauf. Neue Szenen können die bestätigte Studioklasse verwenden. Gespeicherte
+Zuordnungen und Herauslösungen haben Vorrang. Explizite Pflege materialisiert einen
+erforderlichen, noch ungespeicherten Studio-Master unklassifiziert atomar mit der
+Szene, damit Export und Restore ohne Sichtungshistorie einen vollständigen Graphen
+erhalten. Je Slot gilt die bestehende b20-Wiedergabe- und Baseline-Regel.
+
 ## A2-Pflichttests
 
 Append-only/Tombstone/FKs, Definition immutable/Lebenszyklus, negative Treffer
