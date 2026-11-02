@@ -109,6 +109,7 @@ it('starts a draft-only contract with an explicit draft state and no invented li
   await user.click(await screen.findByRole('button', { name: 'Ohne Gerät anlegen' }));
   await user.type(screen.getByLabelText("Vertragskennung"), 'mein.neuer');
   await user.click(screen.getByRole('button', { name: 'Anlegen' }));
+  await user.click(await screen.findByRole('tab', { name: 'Zustand' }));
   expect(await screen.findByText('Dieser Vertrag gehört zum Entwurf. Prüfe ihn und wähle Übernehmen, damit er Werte liefern kann.')).toBeVisible();
   expect(screen.queryByTestId('value-value')).not.toBeInTheDocument();
   expect(api.revisions).toHaveLength(0);
