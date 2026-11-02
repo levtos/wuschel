@@ -94,6 +94,8 @@ it('shows now, a sentence for why, named origin and history with gaps', async ()
   expect(screen.getByRole('heading', { name: 'Warum?' })).toBeVisible();
   expect(screen.getByText("Alle benötigten Angaben sind vorhanden und verwendbar.")).toBeVisible();
   expect(await screen.findByRole('link', { name: 'Zimmerthermometer' })).toBeVisible();
+  // #97 P9 loads this field's history only after explicit expansion.
+  await userEvent.click(screen.getByRole('button', { name: 'Verlauf: Wert' }));
   const chart = await screen.findByRole('img', { name: 'Verlauf: Wert' });
   expect(chart.querySelectorAll('polyline')).toHaveLength(2);
   expect(screen.queryByText('publication_seq')).not.toBeInTheDocument();

@@ -12,7 +12,25 @@ export function fieldsForContract(contract: JsonObject, config: Registry | null,
   const type = types.find(item => item.type_id === contract.type_id && item.type_version === contract.type_version);
   const fields = { ...type?.fields };
   const definition = asArray(config?.definitions).filter(isObject).find(item => item.type_id === contract.type_id && item.type_version === contract.type_version);
-  for (const [name, rule] of Object.entries(asObject(definition?.outputs))) if (isObject(rule) && rule.op === 'temporal' && rule.operation === 'age' && fields[name]) fields[name] = { ...fields[name], unit: 's' };
+  for (const [name, rule] of Object.entries(asObject(definition?.outputs))) {
+    if (isObject(rule) && rule.op === 'temporal' && rule.operation === 'age' && fields[name]) fields[name] = { ...fields[name], unit: 's' };
+    if (fields[name]?.type !== 'enum') continue;
+    // Display metadata follows the actual lookup, never a catalog guessed from
+    // a class name shared by several unrelated catalogs.
+    const catalogs = new Map<string, JsonObject>();
+    const visit = (value: unknown, depth = 0) => {
+      if (depth > 64) return;
+      if (Array.isArray(value)) { value.forEach(child => visit(child, depth + 1)); return; }
+      if (!isObject(value)) return;
+      if (value.op === 'managed_catalog_lookup') {
+        const catalog = asArray(config?.catalogs).filter(isObject).find(item => item.catalog_id === value.catalog_id && item.version === value.definition_version);
+        if (catalog) catalogs.set(`${str(catalog.catalog_id)}@${String(catalog.version)}`, catalog);
+      }
+      Object.values(value).forEach(child => visit(child, depth + 1));
+    };
+    visit(rule);
+    if (catalogs.size === 1) fields[name] = { ...fields[name]!, legend: { ...asObject(fields[name]?.legend), ...asObject(asObject([...catalogs.values()][0]!.classification_schema).legend) } };
+  }
   if (contract.type_id === 'test.echo' && fields.value) {
     const input = asArray(contract.inputs).filter(isObject)[0];
     const source = asArray(config?.sources).filter(isObject).find(item => item.source_id === input?.ref);
