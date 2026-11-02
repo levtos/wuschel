@@ -3234,5 +3234,14 @@
   "b21.repair.pc": "PC-Katalog vollständig leeren",
   "b21.repair.explain": "Hier kannst du importierte Zuordnungen in den Gerätebereich verschieben. Doppelte Einträge werden zusammengeführt; eine gesetzte Live-Klasse hat Vorrang. Master und Varianten bleiben verbunden. Die ausgewählte PC-Leerung entfernt alle dortigen Einträge und Sichtungen. Die Bestätigung wirkt sofort.",
   "b21.repair.counts": "{moved} verschieben, {collisions} zusammenführen, {removed} entfernen",
-  "b21.repair.done": "Die einmalige Korrektur ist abgeschlossen. Eine Wiederholung führt sie nicht erneut aus."
+  "b21.repair.done": "Die einmalige Korrektur ist abgeschlossen. Eine Wiederholung führt sie nicht erneut aus.",
+  "b22.calendar.name": "Kalender",
+  "b22.calendar.coverage": "Abdeckung des Feiertagskalenders prüfen",
+  "b22.calendar.coverageOff": "Aus",
+  "b22.calendar.coverageOn": "Ein",
+  "b22.calendar.months": "Vorausschau in Monaten",
+  "b22.calendar.coverageHelp": "Wenn im gewählten Zeitraum kein Termin mehr vorliegt, sind Quelle und Vertrag eingeschränkt. Für Feiertage sind 12 Monate vorgesehen.",
+  "b22.fact.since": "Seit {time}",
+  "alpha9.category.system": "System",
+  "codes.calendar_coverage_missing": "Abdeckung des Feiertagskalenders fehlt"
 }

@@ -72,4 +72,15 @@ Betroffen: M30-41 §9, G1/G2, Build-Spezifikation §8/§9/§13/§18/§21,
 Adapter, Scheduler, Source-Schema, Retention/Restore und Vertrags-Evidence.
 Neue Sprach-/Schemafähigkeiten werden explizit ausgewiesen; alte Bindings bleiben unverändert.
 
+P8/b22 (#97): Optional prüft `calendar_coverage_months` an einer Feiertagsquelle
+die künftige Abdeckung (1–24 Monate, Vorschlag 12). Die zusätzliche, lesende
+Prüfung läuft in einzelnen Fenstern von höchstens 31 Tagen über denselben Kanal;
+Termin- und Antwortgrenzen bleiben bestehen. Sie speichert nur belegte Daten und
+Fristen zur Abdeckung, keine fernen Termine im fachlichen Cache. Ohne belegten
+künftigen Termin bleibt der Eingang `unknown/calendar_coverage_missing` und die
+Gesundheit eingeschränkt. Quelle und Vertrag zeigen das letzte belegte Ende oder
+ausdrücklich „Ende unbekannt“. Neue Verknüpfung, veraltete Antwort und abgelaufener
+Nachweis können keine Abdeckung bestätigen. Die normale 31-Tage-Auswertung und
+deren absolute Gültigkeitsfrist werden durch die Prüfung nicht verlängert.
+
 Quelle: [calendar.get_events — Parameter, Antwort und exklusives Ende](https://www.home-assistant.io/actions/calendar.get_events/).

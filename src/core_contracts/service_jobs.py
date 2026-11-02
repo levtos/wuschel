@@ -6,6 +6,7 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from .calendar_cache import normalize_events
+from .calendar_coverage import status as coverage_status
 from .evidence import Observation
 from .model import checksum
 from .persistence import State
@@ -32,7 +33,9 @@ def calendar_error_code(value: Any) -> str:
     )
 
 
-def calendar_status(state: State, config: RegistryConfig | None) -> list[dict[str, Any]]:
+def calendar_status(
+    state: State, config: RegistryConfig | None, now: datetime | None = None
+) -> list[dict[str, Any]]:
     """Cache metadata for the source view, deliberately excluding event data."""
     return [
         {
@@ -43,9 +46,17 @@ def calendar_status(state: State, config: RegistryConfig | None) -> list[dict[st
             "error_code": calendar_error_code(row.get("error_code"))
             if row.get("failures")
             else None,
+            **(
+                {"coverage": coverage_status(state, binding, source.calendar_coverage_months, now)}
+                if now and source.calendar_coverage_months
+                else {}
+            ),
         }
         for binding in (config.bindings if config else [])
         if binding.adapter.kind == "ha_calendar"
+        for source in [
+            next(s for s in (config.sources if config else []) if s.source_id == binding.source_id)
+        ]
         for row in [state.tables["service_state"].get(f"calendar:{binding.binding_id}", {})]
     ]
 
@@ -85,6 +96,10 @@ def plan_calendars(state: State, config: RegistryConfig, now: datetime) -> None:
         if row.get("cache_key") != key:
             zone = ZoneInfo("Europe/Berlin")
             tomorrow = now.astimezone(zone).date() + timedelta(days=1)
+            signature = checksum(binding.model_dump(mode="json", exclude={"display_name"}))
+            last_event_end = (
+                row.get("last_event_end") if row.get("binding_signature") == signature else None
+            )
             row = rows[identity] = {
                 "cache_key": key,
                 "binding_id": binding.binding_id,
@@ -92,6 +107,8 @@ def plan_calendars(state: State, config: RegistryConfig, now: datetime) -> None:
                 "day_change_at": datetime.combine(tomorrow, time(), zone).isoformat(),
                 "failures": 0,
                 "failure_warning_emitted": row.get("failure_warning_emitted", False),
+                "binding_signature": signature,
+                "last_event_end": last_event_end,
             }
         job = jobs.get(row.get("job_id", ""), {})
         if (
@@ -118,6 +135,9 @@ def plan_calendars(state: State, config: RegistryConfig, now: datetime) -> None:
             "created_at": now.isoformat(),
         }
         row["job_id"] = identifier
+    from .calendar_coverage import plan as plan_coverage
+
+    plan_coverage(state, config, now)
     for identity in list(rows):
         if identity.startswith("calendar:") and identity not in active:
             del rows[identity]
@@ -143,6 +163,11 @@ def complete_calendar(
     response: dict[str, Any],
     now: datetime,
 ) -> Observation | None:
+    if job.get("coverage"):
+        from .calendar_coverage import complete as complete_coverage
+
+        complete_coverage(state, config, job, response, now)
+        return None
     row = state.tables["service_state"].get(job["state_key"], {})
     binding = next(
         (binding for binding in config.bindings if binding.binding_id == job["binding_id"]), None
@@ -164,6 +189,11 @@ def complete_calendar(
             events = normalize_events(
                 response.get("data"), adapter.ha_entity_id, start, end, adapter.window.timezone
             )
+            ends = [event["end"] for event in events] + (
+                [row["last_event_end"]] if row.get("last_event_end") else []
+            )
+            if ends:
+                row["last_event_end"] = max(ends, key=datetime.fromisoformat)
             row.update(
                 {
                     "window_start": start.isoformat(),

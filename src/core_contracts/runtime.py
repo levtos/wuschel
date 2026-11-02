@@ -1340,11 +1340,21 @@ class Runtime:
                 )
                 await self._record_observation(state, service_observation)
             if config:
+                coverage_source = next(
+                    (
+                        b.source_id
+                        for b in config.bindings
+                        if job.get("coverage") and b.binding_id == job["binding_id"]
+                    ),
+                    None,
+                )
                 self._evaluate(
                     state,
                     config,
-                    origin="input" if service_observation else "timer",
-                    trigger_source=service_observation.source_id if service_observation else None,
+                    origin="input" if service_observation or coverage_source else "timer",
+                    trigger_source=service_observation.source_id
+                    if service_observation
+                    else coverage_source,
                 )
             calendar_row = state.tables["service_state"].get(job.get("state_key", ""), {})
             warn_calendar_failure = (
@@ -1970,6 +1980,12 @@ class Runtime:
             ):
                 observation = observation.model_copy(update={"mqtt_revalidated": False})
             value = assess(observation, source.freshness, now, ref, liveness)
+            if calendar_binding and source.calendar_coverage_months:
+                from .calendar_coverage import assess as assess_coverage
+
+                value = assess_coverage(
+                    value, state, calendar_binding, source.calendar_coverage_months, now
+                )
             if source.sensor_profile:
                 from .sensor_profile import assess_sensor
 

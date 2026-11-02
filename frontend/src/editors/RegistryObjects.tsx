@@ -17,7 +17,7 @@ import { useHaEntities } from '@/lib/queries';
 import { sourceCast } from '@/lib/sourceCast';
 import { formatNumber } from '@/lib/format';
 import { Link } from 'react-router';
-import { CalendarFields } from '@/features/sources/CalendarSourceDialog';
+import { CalendarCoverageField, CalendarFields } from '@/features/sources/CalendarSourceDialog';
 import { BindingRefreshEditor } from '@/features/sources/BindingRefreshEditor';
 import { RefreshPlanEditor, type RefreshSource } from './RefreshPlanEditor';
 import { AddButton, Fld, IconButton, IssuesAt, NumberField, SectionTitle } from './common';
@@ -106,6 +106,7 @@ export function SourceEditor({ value, onChange, pointer, dependencyIds, sourceId
       <Fld label={uiText('alpha7.device.name')} pointer={join(pointer, 'display_name')}>
         {(p) => <Input {...p} value={str(value.display_name)} onChange={(e) => set({ display_name: e.target.value })} />}
       </Fld>
+      {(value.calendar_coverage_months !== undefined || asArray(freshnessConfig?.bindings).some(binding => asObject(binding).source_id === value.source_id && asObject(asObject(binding).adapter).kind === 'ha_calendar')) && <CalendarCoverageField value={value.calendar_coverage_months === undefined ? undefined : Number(value.calendar_coverage_months)} onChange={months => set({ calendar_coverage_months: months })} />}
       <Collapsible title={uiText('alpha7.device.advanced')}>
       <div className="grid gap-3 sm:grid-cols-2">
         <Fld label={uiText("editors.RegistryObjects.source_id_a3a484")} pointer={join(pointer, 'source_id')} hint={uiText("editors.RegistryObjects.beginnt_mit_source_ea3ff7")}>

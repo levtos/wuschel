@@ -694,7 +694,7 @@ class API:
         elif path == "sources/calendar-status" and method == "GET":
             from .service_jobs import calendar_status
 
-            result = calendar_status(state, config)
+            result = calendar_status(state, config, runtime.clock.now_utc())
         elif path == "diagnostics/problems" and method == "GET":
             result = {
                 "configuration_problems": [

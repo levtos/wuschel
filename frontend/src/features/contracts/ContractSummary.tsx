@@ -97,11 +97,13 @@ export function ContractSummary({ envelope, stale, fields, config, machine }: { 
   const age = measured && Date.parse(measured) <= Date.now() ? formatDuration((Date.now() - Date.parse(measured)) / 1000) : null;
   const why = stale ? t('alpha7.contract.state.oldConnectionHelp') : reasons.length ? problemAdvice(reasons, config, envelope.contract_id).text : contractState(envelope, true).hint;
   return <div className="space-y-4">
+    {[...new Set(reasons.filter(reason => reason.code === 'calendar_coverage_missing').map(reason => reason.detail).filter(Boolean))].map(message => <p key={message} role="status" className="rounded-xl border border-warn p-4 text-sm">{message}</p>)}
     {Object.values(envelope.fields).some(field => field.configuration?.complete === false) && <Panel className="p-5"><h3 className="font-medium">{t('alpha8.configuration.title')}</h3><p className="text-sm text-muted">{t('alpha8.configuration.validHint')}</p><ul className="mt-2 text-sm">{Object.entries(envelope.fields).flatMap(([name, field]) => (field.configuration?.hints ?? []).map((hint, index) => <li key={`${name}:${index}`}>{hint.message || t('alpha8.configuration.unassigned')}</li>))}</ul></Panel>}
     <Panel><PanelHeader title={t('alpha7.contract.now')} aside={<ContractStateChip envelope={envelope} enabled={envelope.enabled} stale={stale} />} />
       <div className="flex flex-wrap gap-x-12 gap-y-5 p-6">{Object.entries(envelope.fields).map(([name, field]) => <div key={name}>
         {Object.keys(envelope.fields).length > 1 && <p className="mb-1 text-sm text-muted">{contractFieldLabel(contractTypeId(envelope), name)}</p>}
         <p className="text-4xl font-semibold tabular-nums" data-testid={`value-${name}`}>{contractFieldValue(contractTypeId(envelope), name, field, fields[name])}</p>
+        {field.since_at && <p className="mt-1 text-sm text-muted">{t('b22.fact.since', { time: formatTime(field.since_at) })}</p>}
         {field.value_origin && <p className="mt-2 text-sm text-muted">{t('alpha9.valueOrigin.label')}: {t(`alpha9.valueOrigin.${field.value_origin.kind}`)}</p>}
         {!!field.input_origins?.length && <p className="mt-1 text-xs text-muted">{t('alpha9.valueOrigin.inputs', { kinds: [...new Set(field.input_origins.map(origin => t(`alpha9.valueOrigin.${origin.kind}`)))].join(', ') })}</p>}
         {field.plausibility === 'suspicious' && <p className="mt-2 text-sm text-warn">{t('alpha9.sensor.suspicious')}</p>}

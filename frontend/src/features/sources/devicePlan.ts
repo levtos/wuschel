@@ -37,6 +37,7 @@ export interface DeviceOptions {
   freshnessSelection?: JsonObject;
   fieldType?: 'number' | 'bool' | 'text';
   sourceId?: string; contractId?: string;
+  repairSourceId?: string;
   contract?: 'new' | { id: string; input: string };
 }
 
@@ -47,10 +48,13 @@ export function planDevice(config: Registry, entity: HaEntity, options: DeviceOp
   const sources = asArray(next.sources).filter(isObject); const bindings = asArray(next.bindings).filter(isObject);
   const dependencies = asArray(next.dependencies).filter(isObject); const contracts = asArray(next.contracts).filter(isObject);
   const definitions = asArray(next.definitions).filter(isObject);
-  const existing = bindings.find(binding => asObject(binding.adapter).kind === 'ha_state' && asObject(binding.adapter).ha_entity_id === entity.entity_id);
+  const existing = options.repairSourceId ? bindings.find(binding => binding.source_id === options.repairSourceId && asObject(binding.adapter).kind === 'ha_state') : bindings.find(binding => asObject(binding.adapter).kind === 'ha_state' && asObject(binding.adapter).ha_entity_id === entity.entity_id);
+  if (options.repairSourceId && !existing) throw new DevicePlanError(t('alpha7.device.missingConfiguredSource'));
+  if (options.repairSourceId && bindings.some(binding => binding !== existing && asObject(binding.adapter).ha_entity_id === entity.entity_id)) throw new DevicePlanError(t('alpha7.device.duplicateSource'));
   let source = sources.find(item => item.source_id === existing?.source_id);
   if (existing && !source) throw new DevicePlanError(t('alpha7.device.missingConfiguredSource'));
-  const label = options.name?.trim() || entity.display_name || entity.entity_id;
+  const proposedLabel = options.name?.trim() || entity.display_name;
+  const label = proposedLabel && proposedLabel !== entity.entity_id ? proposedLabel : t('alpha7.device.name');
   const type = options.fieldType ?? fieldTypeFor(entity);
   const schema = { type, required: true, physical_state: false, ...(type === 'number' && entity.unit ? { unit: entity.unit } : {}) };
   if (!source) {
@@ -58,17 +62,18 @@ export function planDevice(config: Registry, entity: HaEntity, options: DeviceOp
     const dependency = dependencies.find(item => item.kind === 'ha' && item.monitor === 'internal');
     const dependencyId = dependency ? str(dependency.dependency_id) : unique('dep.ha', dependencies.map(item => str(item.dependency_id)));
     if (!dependency) dependencies.push({ dependency_id: dependencyId, kind: 'ha', monitor: 'internal' });
-    const sourceId = options.sourceId || unique(`source.${suffix(entity.entity_id)}`, sources.map(item => str(item.source_id)));
+    const sourceId = options.sourceId || unique('source.device', sources.map(item => str(item.source_id)));
     if (sources.some(item => item.source_id === sourceId)) throw new DevicePlanError(t('alpha7.device.duplicateSource'));
-    source = { source_id: sourceId, display_name: label, source_type: type === 'number' ? 'numeric' : type === 'bool' ? 'boolean' : 'text', value_schema: schema, source_origin: 'local', dependency_id: dependencyId, physical_source_key: `ha.${entity.entity_id}`, freshness: options.freshness ?? freshnessPreset(options.preset ?? presetFor(entity)) };
+    source = { source_id: sourceId, display_name: label, source_type: type === 'number' ? 'numeric' : type === 'bool' ? 'boolean' : 'text', value_schema: schema, source_origin: 'local', dependency_id: dependencyId, physical_source_key: unique('physical.device', sources.map(item => str(item.physical_source_key))), freshness: options.freshness ?? freshnessPreset(options.preset ?? presetFor(entity)) };
     sources.push(source);
     if (options.preset && options.preset !== 'other') { source.sensor_kind = options.preset; source.sensor_kind_origin = 'confirmed'; }
-    bindings.push({ binding_id: unique(`binding.${suffix(entity.entity_id)}`, bindings.map(item => str(item.binding_id))), display_name: label, source_id: sourceId, adapter: { kind: 'ha_state', ha_entity_id: entity.entity_id }, transform: sourceCast(source)! });
+    bindings.push({ binding_id: unique('binding.device', bindings.map(item => str(item.binding_id))), display_name: label, source_id: sourceId, adapter: { kind: 'ha_state', ha_entity_id: entity.entity_id }, transform: sourceCast(source)! });
   } else if (existing) {
     const cast = sourceCast(source);
     if (!cast) throw new DevicePlanError(t('alpha7.device.advancedMapping'));
     if (options.fieldType && options.fieldType !== cast.target) throw new DevicePlanError(t('alpha7.device.existingTypeLocked'));
     if (cast.target === 'number' && (asObject(source.value_schema).unit ?? '') !== (entity.unit ?? '')) throw new DevicePlanError(t('alpha7.device.existingTypeLocked'));
+    if (options.repairSourceId) existing.adapter = { ...asObject(existing.adapter), ha_entity_id: entity.entity_id };
     if (options.name?.trim()) source.display_name = options.name.trim();
     if (options.freshness && !deepEqual(options.freshness, effectiveRule(next, source))) Object.assign(source, ownRule(source, options.freshness));
     // Complete a metadata import without reinterpreting the immutable existing source schema.
@@ -76,7 +81,7 @@ export function planDevice(config: Registry, entity: HaEntity, options: DeviceOp
   }
   let contractId: string | undefined;
   if (options.contract === 'new') {
-    contractId = options.contractId || unique(suffix(label), contracts.map(item => str(item.contract_id)));
+    contractId = options.contractId || unique('device.state', contracts.map(item => str(item.contract_id)));
     if (contracts.some(item => item.contract_id === contractId)) throw new DevicePlanError(t('alpha7.device.duplicateContract'));
     const valueSchema = isObject(source.value_schema) ? source.value_schema : { type: source.source_type === 'numeric' ? 'number' : source.source_type === 'boolean' ? 'bool' : 'text', required: true, physical_state: false };
     const typeId = unique(`test.geraet_${suffix(contractId)}`, definitions.map(item => str(item.type_id)));

@@ -16,6 +16,7 @@ class ReasonCode(StrEnum):
     INPUT_UNAVAILABLE = "input_unavailable"
     INPUT_UNKNOWN = "input_unknown"
     INPUT_STALE = "input_stale"
+    CALENDAR_COVERAGE = "calendar_coverage_missing"
     INPUT_NOT_YET_VALID = "input_not_yet_valid"
     VALUE_VALIDITY_GAP = "value_validity_gap"
     SENSOR_STUCK = "sensor_stuck_suspected"
