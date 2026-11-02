@@ -62,6 +62,6 @@ it('roundtrips language 5, raises it only on edits and traverses date, pattern a
 
 it('offers the time category and its bundled icon', () => {
   wrap(<><CategoryBadge category="time" /><CategorySelect value="other" onChange={() => {}} /></>);
-  expect(screen.getByRole('option', { name: 'Zeit, Tag und Sonne' })).toBeInTheDocument();
+  expect(screen.getByRole('option', { name: 'Zeit & Tag' })).toBeInTheDocument();
   expect(categoryIcons.time).toBe('mdi:weather-sunset');
 });

@@ -48,13 +48,14 @@ interface CollectionProps {
   subtitle: (item: JsonObject) => string;
   usage: (item: JsonObject, config: JsonObject) => ReactNode;
   copyKeys?: string[];
+  update?: (config: JsonObject, next: JsonObject, pointer: string) => JsonObject;
   onMove?: (id: string) => void;
   onEntity?: (sourceId: string, bindingId?: string) => void;
 }
 
 import { freshnessLabel } from './freshness';
 
-function Collection({ name, idKey, singular, make, render, subtitle, usage, onMove, onEntity }: CollectionProps) {
+function Collection({ name, idKey, singular, make, render, subtitle, usage, onMove, onEntity, update }: CollectionProps) {
   const src = useAuthoringSource();
   const doc = useWorkingDocument();
   const active = useActiveRevision();
@@ -112,7 +113,11 @@ function Collection({ name, idKey, singular, make, render, subtitle, usage, onMo
     setEditingId(str(current[idKey]));
     const next = new URLSearchParams(filterParams); next.delete('edit'); setFilterParams(next, { replace: true });
   }, [filterParams, current, src.editable]);
-  const editable = src.editable && !!current && editingId === current[idKey];
+  const editable = src.editable && !!current && editingId === str(current[idKey]);
+  const updateCurrent = (next: JsonObject) => {
+    if (editable) setEditingId(str(next[idKey]));
+    doc.edit(c => update ? update(c, next, `/${name}/${selected}`) : ({ ...setAt(c, `/${name}/${selected}`, next), ...(name === 'catalogs' && next.kind === 'managed' ? { config_schema_version: 3, fingerprint_version: 3 } : name === 'sources' && (next.sensor_profile || next.value_origin) ? { config_schema_version: Math.max(2, Number(c.config_schema_version ?? 1)) } : {}) }));
+  };
   const beginEdit = async () => { setAddError(''); try { if (editable) { if (await doc.save() === 'saved') setEditingId(null); } else { const id = str(current?.[idKey]); const next = await doc.ensureDraft(); if (!asArray(next[name]).filter(isObject).some(row => row[idKey] === id)) throw new Error(uiText('b22.object.missing')); setPendingSelection(id); setEditingId(id); } } catch (error) { setAddError(describeError(error)); } };
 
   return (
@@ -150,10 +155,10 @@ function Collection({ name, idKey, singular, make, render, subtitle, usage, onMo
             {activeSource?.origin === 'manual' && !editable ? <>
               <ManualSourcePanel key={str(current.source_id)} sourceId={str(current.source_id)} />
               <Collapsible title={uiText('alpha9.manual.configuration')}><fieldset disabled={!editable} className="min-w-0">
-              {render(current, `/${name}/${selected}`, (next) => doc.edit((c) => ({ ...setAt(c, `/${name}/${selected}`, next), ...(name === 'sources' && (next.sensor_profile || next.value_origin) ? { config_schema_version: Math.max(2, Number(c.config_schema_version ?? 1)) } : {}) })), config)}
+              {render(current, `/${name}/${selected}`, updateCurrent, config)}
             </fieldset></Collapsible>
             </> : <><fieldset disabled={!editable} className="min-w-0">
-              {render(current, `/${name}/${selected}`, (next) => doc.edit((c) => ({ ...setAt(c, `/${name}/${selected}`, next), ...(name === 'catalogs' && next.kind === 'managed' ? { config_schema_version: 3, fingerprint_version: 3 } : name === 'sources' && (next.sensor_profile || next.value_origin) ? { config_schema_version: Math.max(2, Number(c.config_schema_version ?? 1)) } : {}) })), config)}
+              {render(current, `/${name}/${selected}`, updateCurrent, config)}
             </fieldset></>}
           </div>
         )}
@@ -273,6 +278,12 @@ export default function SourcesPage() {
               <Collection
                 name="bindings"
                 idKey="binding_id"
+                update={(current, next, pointer) => {
+                  const adapter = asObject(next.adapter);
+                  const changed = setAt(current, pointer, next);
+                  if (adapter.kind !== 'ha_calendar') return next.refresh !== undefined ? { ...changed, config_schema_version: Math.max(2, Number(current.config_schema_version ?? 1)) } : changed;
+                  return { ...changed, config_schema_version: Math.max(2, Number(current.config_schema_version ?? 1)), sources: asArray(current.sources).map(source => isObject(source) && source.source_id === next.source_id ? { ...source, freshness: { ...asObject(source.freshness), mode: 'periodic_ttl', interval_s: adapter.max_age_s ?? 3600 } } : source) };
+                }}
                 onEntity={(sourceId, bindingId) => void beginEntity(sourceId, bindingId)}
                 singular={uiText("features.sources.SourcesPage.binding_164c69")}
                 subtitle={(b) => `${codeLabel((isObject(b.adapter) ? b.adapter : {}).kind)} → ${str(b.source_id)}`}
@@ -291,17 +302,7 @@ export default function SourcesPage() {
                   <BindingEditor
                     value={item}
                     pointer={pointer}
-                    onChange={next => {
-                      const adapter = asObject(next.adapter);
-                      if (adapter.kind !== 'ha_calendar') {
-                        if (next.refresh !== undefined) doc.edit(current => ({ ...setAt(current, pointer, next), config_schema_version: Math.max(2, Number(current.config_schema_version ?? 1)) }));
-                        else onChange(next);
-                        return;
-                      }
-                      doc.edit(current => ({ ...setAt(current, pointer, next), config_schema_version: Math.max(2, Number(current.config_schema_version ?? 1)),
-                        sources: asArray(current.sources).map(source => isObject(source) && source.source_id === next.source_id
-                          ? { ...source, freshness: { ...asObject(source.freshness), mode: 'periodic_ttl', interval_s: adapter.max_age_s ?? 3600 } } : source) }));
-                    }}
+                    onChange={onChange}
                     schema={registrySchema}
                     sourceIds={asArray(config.sources).filter(isObject).map((s) => str(s.source_id))}
                     catalogIds={asArray(config.catalogs).filter(isObject).map((c) => str(c.catalog_id))}

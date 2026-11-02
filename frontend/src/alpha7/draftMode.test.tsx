@@ -69,7 +69,7 @@ it('returns to an object with unsaved edits retained and requires its own edit a
   const name = await screen.findByLabelText('Name');
   await user.type(name, 'Fenster im Zimmer');
   await user.click(screen.getByRole('link', { name: 'Verknüpfungen' }));
-  expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+  await waitFor(() => expect(screen.queryByLabelText('Name')).not.toBeInTheDocument());
   await user.click(screen.getByRole('link', { name: 'Meine Quellen' }));
   expect(await screen.findByLabelText('Name')).toBeDisabled();
   await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));

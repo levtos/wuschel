@@ -7,7 +7,7 @@ import { CatalogCare, CatalogDetail } from './CatalogCare';
 import CatalogPage from './CatalogPage';
 import type { Catalog, Entry } from './CatalogPage';
 import { wrap } from '../../../test/harness';
-import { installFakeApi, reply } from '../../../test/fakeApi';
+import { delayedBody, installFakeApi, reply } from '../../../test/fakeApi';
 
 afterEach(() => vi.unstubAllGlobals());
 const catalog: Catalog = { catalog_id: 'synthetic.music', version: 1, classification_schema: { values: ['normal', 'boost'], legend: { normal: { display_name: 'Normal', description: 'Synthetic' }, boost: { display_name: 'Bevorzugt', description: 'Synthetic' } } } };
@@ -18,7 +18,10 @@ function mount() { wrap(<CatalogCare catalog={catalog} rows={rows} selected={Obj
 it('discards a late automatic preview after a content revision change', async () => {
   const fake = installFakeApi();
   const pending: ((response: Response) => void)[] = [];
-  fake.routes.push({ match: /^catalogs\/care\/preview$/, respond: () => new Promise(resolve => pending.push(resolve)) });
+  fake.routes.push({ match: /^catalogs\/care\/preview$/, respond: () => {
+    const status = pending.length ? 200 : 400;
+    return delayedBody(new Promise(resolve => pending.push(resolve)), status);
+  } });
   let changeRevision!: () => void;
   function Fixture() {
     const [revision, setRevision] = useState(5);

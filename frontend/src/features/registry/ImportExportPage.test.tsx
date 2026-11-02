@@ -7,7 +7,7 @@ import { emptyRegistry } from '@/features/authoring/model';
 import type { JsonObject } from '@/lib/json';
 import { importFreshnessSources } from '@/features/sources/freshness';
 import { t } from '@/i18n';
-import { installFakeApi, makeDraft, reply } from '../../../test/fakeApi';
+import { delayedBody, installFakeApi, makeDraft, reply } from '../../../test/fakeApi';
 import { idleLive } from '../../../test/harness';
 
 const rule = (interval_s = 8400) => ({ mode: 'report_heartbeat', interval_s, future_tolerance_s: 0 });
@@ -142,7 +142,7 @@ it('shows a failed recheck beside staging, keeps it blocked and ignores an older
   let count = 0; let resolveOld!: (value: Response) => void;
   const { user, stage } = await openImport(() => {
     count++;
-    if (count === 2) return new Promise(resolve => { resolveOld = resolve; });
+    if (count === 2) return delayedBody(new Promise(resolve => { resolveOld = resolve; }));
     if (count === 3) return reply(409, { error: 'draft_version_conflict' });
     return reply(200, preview());
   });

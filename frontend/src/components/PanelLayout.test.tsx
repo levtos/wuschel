@@ -121,6 +121,7 @@ it('keeps the actual source editor and dirty draft unchanged; layout actions sen
   wrap(<LayoutPreferencesProvider value="one"><WorkingDocumentProvider validateDebounceMs={3_600_000}><Open /></WorkingDocumentProvider></LayoutPreferencesProvider>);
   await user.click(screen.getByText('Open'));
   await user.click(await screen.findByRole('button', { name: /source.a/ }));
+  await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
   const input = screen.getByLabelText('Name');
   await user.type(input, 'unsaved');
   await adjust();
@@ -143,7 +144,7 @@ it('keeps navigation accessible and marks definitions active while collapsed; si
   await waitFor(() => expect(client.getQueryData(['info'])).toBeTruthy());
   await user.click(screen.getByRole('button', { name: 'Navigation einklappen' }));
   const nav = within(screen.getByRole('navigation', { name: 'Hauptnavigation' }));
-  expect(nav.getByRole('button', { name: 'Vorlagen' })).toHaveAttribute('aria-current', 'true');
+  expect(nav.getByRole('button', { name: 'Verträge' })).toHaveAttribute('aria-current', 'true');
   expect(nav.getAllByRole('button')).toHaveLength(5);
   expect(nav.getAllByRole('link')).toHaveLength(1);
   view.unmount();

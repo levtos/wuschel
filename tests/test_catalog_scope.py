@@ -189,7 +189,15 @@ async def test_import_provenance_and_telemetry_survive_collision_and_reset_epoch
     row = all_rows(runtime.state, catalog)[ident]
     assert row["tc_metadata"]["source_identity"] == original["source_identity"]
     assert row["tc_metadata"]["contexts"] == original["contexts"]
-    assert row["seen_count"] == 17 and row["first_seen"] == original["telemetry"]["first_seen"]
+    assert row["seen_count"] == 17
+    # #97 P1 gives actual Wuschel playback dates priority; import evidence remains intact.
+    assert row["first_seen"] == "2032-01-02T00:00:00Z"
+    assert row["last_seen"] == "2032-01-04T00:00:00Z"
+    assert row["tc_metadata"]["telemetry"] == {
+        "first_seen": original["telemetry"]["first_seen"],
+        "last_seen": "2032-01-04T00:00:00Z",
+        "seen_count": 17,
+    }
     runtime.state.tables["service_state"]["catalog_counter_epoch"] = {"at": "2032-01-03T00:00:00Z"}
     assert all_rows(runtime.state, catalog)[ident]["seen_count"] == 5
 

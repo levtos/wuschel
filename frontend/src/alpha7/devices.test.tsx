@@ -86,7 +86,7 @@ it('adds a missing contract input through the guide and explains an incompatible
   await user.click(within(wizard).getByRole('button', { name: 'Gerät hinzufügen' }));
   await user.click(screen.getByLabelText('Weitere Entwurfsaktionen'));
   await user.click(await screen.findByRole('button', { name: 'Speichern' }));
-  await waitFor(() => expect([...api.drafts.values()][0]!.config.contracts).toEqual([expect.objectContaining({ inputs: [{ name: 'geraet', ref: 'source.binary_sensor_fenster' }] })]));
+  await waitFor(() => expect([...api.drafts.values()][0]!.config.contracts).toEqual([expect.objectContaining({ inputs: [{ name: 'geraet', ref: 'source.device' }] })]));
   expect(window.location.hash).toBe('#/contracts/view/fenster?tab=config');
 });
 
@@ -122,6 +122,8 @@ it('keeps selection across source subpages and keeps the editor mounted while cl
   expect(screen.getByLabelText("Quellenkennung")).toBe(id);
   await user.type(id, 'source.temperatur');
   expect(screen.getByLabelText("Quellenkennung")).toBe(id);
+  expect(id).toHaveValue('source.temperatur');
+  expect(screen.getByLabelText('Name')).toBeEnabled();
   await user.type(screen.getByLabelText('Name'), 'Mein Sensor');
   await user.click(screen.getByRole('link', { name: 'Verknüpfungen' }));
   await screen.findByRole('heading', { level: 1, name: 'Verknüpfungen' });

@@ -73,6 +73,7 @@ REASONS = {
     ReasonCode.INPUT_UNAVAILABLE: "The source reports unavailable.",
     ReasonCode.INPUT_UNKNOWN: "Decisive input has no usable value.",
     ReasonCode.INPUT_STALE: "The measurement exceeds its configured freshness interval.",
+    ReasonCode.CALENDAR_COVERAGE: "The requested calendar window is not fully covered by confirmed fetches.",
     ReasonCode.INPUT_NOT_YET_VALID: "The manual input is not valid yet.",
     ReasonCode.VALUE_VALIDITY_GAP: "No value is valid at the requested instant.",
     ReasonCode.SENSOR_STUCK: "Explicit sensor profile suspects an unchanged numeric value.",

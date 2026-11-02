@@ -226,7 +226,7 @@ def prepare(
                     )
                 )
                 requested.add(parent)
-    if len(changes) > 1000:
+    if len(changes) > expanded_limit:
         raise ValueError("catalog_expansion_limit")
     direct: set[str] = set()
     for change in changes:

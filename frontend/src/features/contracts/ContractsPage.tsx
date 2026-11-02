@@ -265,7 +265,7 @@ export default function ContractsPage() {
       </LayoutPanel></PanelLayout>
       <SourceProblems rows={filtered} config={src.config} />
       {live.stale && live.contracts && <p className="mt-2 text-xs text-warn">{uiText("features.contracts.ContractsPage.live_zustand_moglicherweise_veraltet_57c06a")}{live.connection}).</p>}
-      <NewContractDialog open={creating} onOpenChange={setCreating} onCreated={(id) => navigate(`/contracts/view/${encodeURIComponent(id)}`)} />
+      <NewContractDialog open={creating} onOpenChange={setCreating} onCreated={(id) => navigate(`/contracts/view/${encodeURIComponent(id)}?tab=config&edit=1`)} />
     </>
   );
 }

@@ -1,19 +1,21 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { t } from '@/i18n';
 import { SchemaForm } from '@/editors/SchemaForm';
 import type { JsonObject } from '@/lib/json';
 import { asObject } from '@/features/authoring/model';
 import { Stateful, wrap } from '../../../test/harness';
 import { installFakeApi, reply } from '../../../test/fakeApi';
-import generated from '../../../../examples/apple-tv-templates-b22.json';
 import CatalogPage from './CatalogPage';
 import { CatalogMediaFacts } from './CatalogMediaFacts';
 
 afterEach(() => vi.unstubAllGlobals());
 
 it('edits source and app stability and parsing through the delivered schema without JSON', async () => {
+  const generated = JSON.parse(readFileSync(resolve(process.cwd(), '../examples/apple-tv-templates-b22.json'), 'utf8'));
   const schema = generated.settings_schema as unknown as JsonObject;
   const initial = { stability_s: 2, live_stability_s: 60, default_mode: 'standalone', apps: [{ app_id: 'synthetic.app', app_name: 'Synthetic app', mode: 'episode_in_second', stability_s: 4, live_stability_s: 90 }] };
   let result: JsonObject = initial;

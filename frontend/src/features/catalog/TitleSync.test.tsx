@@ -142,8 +142,9 @@ it('shows errors and loading beside the actions and cancels a busy run without s
   expect(apply.closest('.sticky')).toContainElement(loading);
   const abort = screen.getByRole('button', { name: 'Abbrechen' }); expect(abort).toBeEnabled();
   await user.click(abort);
-  await waitFor(() => expect(fake.calls.some(call => call.path === 'title-sync/cancel')).toBe(true));
+  expect(fake.calls.some(call => call.path === 'title-sync/cancel')).toBe(false);
   await act(async () => finish(reply(200, { changed: 1, complete: false, page: 1 })));
+  await waitFor(() => expect(fake.calls.some(call => call.path === 'title-sync/cancel')).toBe(true));
   expect(screen.queryByRole('table')).not.toBeInTheDocument();
   expect(fake.calls.filter(call => call.path === 'title-sync/apply')).toHaveLength(1);
   expect(fake.activations).toHaveLength(0);

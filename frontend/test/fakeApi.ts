@@ -50,6 +50,14 @@ export interface FakeApi {
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
+/** Headers have arrived; only the payload remains delayed, as with streamed HTTP. */
+export function delayedBody(pending: Promise<Response>, status = 200): Response {
+  const response = json(status, null);
+  response.json = async () => (await pending).json();
+  response.text = async () => (await pending).text();
+  return response;
+}
+
 export function installFakeApi(initial: { revisions?: FakeRevision[]; drafts?: FakeDraft[] } = {}): FakeApi {
   const savedVersions = new Map<string, FakeDraft>((initial.drafts ?? []).map(d => [`${d.draft_id}:${d.draft_version}`, structuredClone(d)]));
   const api: FakeApi = {
