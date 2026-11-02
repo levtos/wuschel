@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { t } from '@/i18n';
@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { catalogLabel, catalogValue, contextLabel } from './catalogLabels';
 
 export interface Catalog { catalog_id: string; version: number; device_scope?: string | null; display_name?: string; classification_schema: { values: string[]; legend?: Record<string, { display_name: string; description: string }> } }
-export interface Entry { master_order?: number; playback_counts?: boolean; tombstone?: boolean; identity: string; key: string; scope: string; media_type: string; signal_type: string; classification: string | null; master_key: string | null; display_name: string; note: string; effective_classification: string; complete: boolean; first_seen?: string; last_seen?: string; seen_count?: number; semantic_digest: string; review_status?: string; candidate?: boolean; variant_count?: number; local_sightings?: { seen_count: number }; tc_metadata?: { artist?: string | null; title?: string | null; source_class: number; contexts: { context: string; source_app: string; enum_override?: number | null; telemetry?: { seen_count: number; first_seen: string; last_seen: string } | null }[] } }
+export interface Entry { master_identity?: string | null; matches_filter?: boolean; matching_variant_count?: number; master_order?: number; playback_counts?: boolean; tombstone?: boolean; identity: string; key: string; scope: string; media_type: string; signal_type: string; classification: string | null; master_key: string | null; display_name: string; note: string; effective_classification: string; complete: boolean; first_seen?: string; last_seen?: string; seen_count?: number; semantic_digest: string; review_status?: string; candidate?: boolean; variant_count?: number; local_sightings?: { seen_count: number }; tc_metadata?: { artist?: string | null; title?: string | null; source_class: number; contexts: { context: string; source_app: string; enum_override?: number | null; telemetry?: { seen_count: number; first_seen: string; last_seen: string } | null }[] } }
 interface Page { items: Entry[]; content_revision: number; next_cursor: string | null; contexts?: string[]; context_targets?: Record<string, { catalog_id: string; scope: string }>; filter_values?: Record<string, string[]> }
 
 export default function CatalogPage() {
@@ -38,7 +38,7 @@ export default function CatalogPage() {
   const [note, setNote] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const [expected, setExpected] = useState(0); const [expectedActive, setExpectedActive] = useState(0); const [comparison, setComparison] = useState('');
   const [scopeFilter, setScopeFilter] = useState(''); const [mediaFilter, setMediaFilter] = useState(''); const [signalFilter, setSignalFilter] = useState(''); const [masterQuery, setMasterQuery] = useState(''); const [requestId, setRequestId] = useState('');
-  const parameters = new URLSearchParams({ catalog_id: catalog?.catalog_id ?? '', definition_version: String(catalog?.version ?? 1), view: view === 'history' ? 'all' : view, q: query, after, scope: scopeFilter, media_type: mediaFilter, signal_type: signalFilter, context: contextFilter, structure, sort, variants_first: String(variantsFirst) });
+  const parameters = new URLSearchParams({ catalog_id: catalog?.catalog_id ?? '', definition_version: String(catalog?.version ?? 1), view: view === 'history' ? 'all' : view, q: query, after, scope: scopeFilter, media_type: mediaFilter, signal_type: signalFilter, context: contextFilter, structure, sort, variants_first: String(variantsFirst), grouped: 'true' });
   const entries = useQuery({ queryKey: ['catalog-entries', catalog?.catalog_id, catalog?.version, view, query, after, scopeFilter, mediaFilter, signalFilter, contextFilter, structure, sort, variantsFirst], enabled: !!catalog && view !== 'history', queryFn: () => api<Page>(`catalogs/care?${parameters}`) });
   const masters = useQuery({ queryKey: ['catalog-masters', catalog?.catalog_id, masterQuery], enabled: !!catalog && !!editing, queryFn: () => api<Page>(`catalogs/entries?${new URLSearchParams({ catalog_id: catalog!.catalog_id, definition_version: String(catalog!.version), view: 'masters', q: masterQuery })}`) });
   const history = useQuery({ queryKey: ['catalog-history', catalog?.catalog_id, after], enabled: !!catalog && view === 'history', queryFn: () => api<{ revision: number; head_revision: number; active_revision: number; at: string; reason: string; affected: string[] }[]>(`catalogs/history?${parameters}`) });
@@ -46,7 +46,7 @@ export default function CatalogPage() {
   const restoreBody = () => ({ catalog_id: catalog!.catalog_id, definition_version: catalog!.version, restore_revision: past, expected_active_revision: expectedActive, expected_content_revision: expected, request_id: restoringId, reason: t('alpha10.catalog.restoreReason') });
   const restore = async () => { if (!catalog || past === null || !impactCurrent) return; setBusy(true); setError(''); try {
     await api('catalogs/entries', { method: 'POST', body: restoreBody() });
-    setPast(null); await cache.invalidateQueries({ queryKey: ['catalog-entries'] }); await cache.invalidateQueries({ queryKey: ['catalog-history'] });
+    setPast(null); await cache.invalidateQueries({ queryKey: ['catalog-entries'] }); await cache.invalidateQueries({ queryKey: ['catalog-history'] }); await cache.invalidateQueries({ queryKey: ['catalog-details'] }); await cache.invalidateQueries({ queryKey: ['catalog-masters'] });
   } catch (failure) { setError(describeError(failure)); } finally { setBusy(false); } };
   const open = (entry: Entry) => { setEditing(entry); setClassification(entry.classification ?? catalog?.classification_schema.values[0] ?? ''); setMode(entry.master_key ? 'variant' : 'independent'); setMaster(entry.master_key ?? ''); setNote(entry.note); setExpected(entries.data?.content_revision ?? 0); setExpectedActive(active.data?.revision ?? 0); setComparison(''); setMasterQuery(''); setRequestId(uuid()); setError(''); };
   useEffect(() => { setRequestId(uuid()); setImpact(null); }, [classification, master, mode, note, editing, past, expected, expectedActive]);
@@ -62,11 +62,26 @@ export default function CatalogPage() {
     setBusy(true); setError('');
     try {
       await api('catalogs/entries', { method: 'POST', body: body() });
-      setEditing(null); await cache.invalidateQueries({ queryKey: ['catalog-entries'] }); await cache.invalidateQueries({ queryKey: ['catalog-history'] });
+      setEditing(null); await cache.invalidateQueries({ queryKey: ['catalog-entries'] }); await cache.invalidateQueries({ queryKey: ['catalog-history'] }); await cache.invalidateQueries({ queryKey: ['catalog-details'] }); await cache.invalidateQueries({ queryKey: ['catalog-masters'] });
     } catch (failure) { setError(describeError(failure)); }
     finally { setBusy(false); }
   };
   const label = catalogValue;
+  const renderEntry = (entry: Entry, nested = false): ReactNode => <li key={entry.identity} data-catalog-role={nested ? 'variant' : 'root'} className="py-3">
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      <input type="checkbox" aria-label={t('b17.selectTitle', { title: titleLabel(entry) })} checked={!!selected[entry.identity]} onChange={event => setSelected(previous => { const next = { ...previous }; if (event.target.checked) next[entry.identity] = entry; else delete next[entry.identity]; return next; })} />
+      <div className="min-w-0 flex-1"><p className="break-words font-medium">{titleLabel(entry)}</p>
+        {nested ? <Badge>{t('alpha10.catalog.variant')}</Badge> : (entry.variant_count ?? 0) > 0 && <Badge>{t('alpha10.catalog.master')}</Badge>}
+        <Badge tone={entry.review_status === 'hidden' ? 'info' : entry.review_status === 'reviewed' ? 'ok' : 'bad'}>{t(`b17.status.${entry.review_status ?? 'open'}`)}</Badge>
+        {!entry.complete && <Badge>{t('b21.withoutClass')}</Badge>}{entry.candidate && <p>{t('b17.candidate')}</p>}
+        {entry.matches_filter === false && <p className="text-sm text-muted">{t('b22.catalog.variantMatch', { n: entry.matching_variant_count ?? 0 })}</p>}
+        <p className="text-sm text-muted">{label('scope', entry.scope)} · {label('media_type', entry.media_type)} · {label('signal_type', entry.signal_type)} · {entry.complete ? catalog!.classification_schema.legend?.[entry.effective_classification]?.display_name ?? entry.effective_classification : t('alpha10.catalog.unassigned')}</p>
+        {nested && <p className="text-sm text-muted">{t('b22.catalog.inheritedClass')}</p>}
+        {entry.last_seen && <p className="text-xs text-muted">{t(entry.playback_counts ? 'b20.catalog.seen' : 'alpha10.catalog.seen', { n: entry.seen_count ?? 0, date: new Date(entry.last_seen).toLocaleString('de-DE') })}</p>}
+      </div><Button onClick={() => setDetails(entry)}>{t('b17.details')}</Button><Button onClick={() => open(entry)}>{t('alpha10.catalog.edit')}</Button>
+    </div>
+    {!nested && (entry.variant_count ?? 0) > 0 && <MasterVariants catalog={catalog!} entry={entry} onOpen={setDetails} renderEntry={row => renderEntry(row, true)} parameters={parameters.toString()} />}
+  </li>;
   return <>
     <PageHeader title={t('alpha10.catalog.title')} description={t('b17.catalogDescription')} actions={<TitleSync catalogs={catalogs.data ?? []} />} />
     <div id="title-sync-panel" />
@@ -91,7 +106,7 @@ export default function CatalogPage() {
       <details><summary>{t('alpha10.technical')}</summary><p>{catalog.catalog_id} · {catalog.version}</p></details>
       <CatalogCleanup key={`cleanup-${catalog.catalog_id}@${catalog.version}`} catalog={catalog} />
       {view === 'history' ? history.isPending ? <Spinner /> : history.isError ? <Notice tone="bad">{t('alpha10.catalog.loadError')}</Notice> : <><ul className="divide-y divide-line">{history.data?.map(row => <li key={row.revision} className="py-3"><p>{t('alpha10.catalog.revision', { n: row.revision })} · {new Date(row.at).toLocaleString('de-DE')}</p><p>{row.reason}</p><p className="text-sm text-muted">{t('alpha10.catalog.affected', { n: row.affected.length })}</p><Button onClick={() => { setPast(row.revision); setPastAfter(''); setExpected(row.head_revision); setExpectedActive(row.active_revision); setRestoringId(uuid()); setError(''); }}>{t('alpha10.catalog.historyOpen')}</Button></li>)}</ul><div className="flex gap-3"><Button disabled={!after} onClick={() => setAfter('')}>{t('alpha10.catalog.first')}</Button><Button disabled={history.data?.length !== 100} onClick={() => setAfter(String(history.data!.at(-1)!.revision))}>{t('alpha10.catalog.older')}</Button></div></> : entries.isPending ? <Spinner /> : entries.isError ? <Notice tone="bad">{t('alpha10.catalog.loadError')}</Notice> : <>
-        {entries.data?.items.length === 0 ? <Empty title={t('alpha10.catalog.empty')}>{t('alpha10.catalog.emptyHelp')}</Empty> : <ul className="divide-y divide-line">{entries.data?.items.map(entry => <li key={entry.identity} className="flex flex-wrap items-center justify-between gap-4 py-3"><input type="checkbox" aria-label={t('b17.selectTitle', { title: titleLabel(entry) })} checked={!!selected[entry.identity]} onChange={event => setSelected(previous => { const next = { ...previous }; if (event.target.checked) next[entry.identity] = entry; else delete next[entry.identity]; return next; })} /><div className="min-w-0 flex-1"><p className="break-words font-medium">{titleLabel(entry)}</p><Badge tone={entry.review_status === 'hidden' ? 'info' : entry.review_status === 'reviewed' ? 'ok' : 'bad'}>{t(`b17.status.${entry.review_status ?? 'open'}`)}</Badge>{!entry.complete && <Badge>{t('b21.withoutClass')}</Badge>}{entry.candidate && <p>{t('b17.candidate')}</p>}<p className="text-sm text-muted">{label('scope', entry.scope)} · {label('media_type', entry.media_type)} · {label('signal_type', entry.signal_type)} · {entry.complete ? catalog.classification_schema.legend?.[entry.effective_classification]?.display_name ?? entry.effective_classification : t('alpha10.catalog.unassigned')}</p>{entry.master_key && <p className="text-sm">{t('alpha10.catalog.master')}: {titleLabel({ key: entry.master_key })}</p>}{entry.last_seen && <p className="text-xs text-muted">{t(entry.playback_counts ? 'b20.catalog.seen' : 'alpha10.catalog.seen', { n: entry.seen_count ?? 0, date: new Date(entry.last_seen).toLocaleString('de-DE') })}</p>}</div>{(entry.variant_count ?? 0) > 0 && <MasterVariants catalog={catalog} entry={entry} onOpen={setDetails} />}<Button onClick={() => setDetails(entry)}>{t('b17.details')}</Button><Button onClick={() => open(entry)}>{t('alpha10.catalog.edit')}</Button></li>)}</ul>}
+        {entries.data?.items.length === 0 ? <Empty title={t('alpha10.catalog.empty')}>{t('alpha10.catalog.emptyHelp')}</Empty> : <ul className="divide-y divide-line" aria-label={t('b22.catalog.entryList')}>{entries.data?.items.map(entry => renderEntry(entry))}</ul>}
         <div className="flex gap-3"><Button disabled={!after} onClick={() => setAfter('')}>{t('alpha10.catalog.first')}</Button><Button disabled={!entries.data?.next_cursor} onClick={() => setAfter(entries.data?.next_cursor ?? '')}>{t('alpha10.catalog.next')}</Button></div>
       </>}
     </Panel>}

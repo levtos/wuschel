@@ -148,6 +148,8 @@ class API:
                         "catalog_master_is_variant",
                         "catalog_master_scope_mismatch",
                         "catalog_master_has_variants",
+                        "catalog_master_name_invalid",
+                        "catalog_master_name_conflict",
                         "catalog_variant_override",
                         "catalog_class_invalid",
                         "catalog_key_empty",
@@ -483,7 +485,13 @@ class API:
             }
             if path.endswith("detail"):
                 result = detail(
-                    state, catalog, request.query["identity"], request.query.get("after", "")
+                    state,
+                    catalog,
+                    request.query["identity"],
+                    request.query.get("after", ""),
+                    query=request.query.get("q", ""),
+                    view=request.query.get("view", "all"),
+                    filters=filters,
                 )
             elif path.endswith("queue"):
                 result = queue(
@@ -503,6 +511,7 @@ class API:
                     filters=filters,
                     sort=request.query.get("sort", "newest"),
                     variants_first=request.query.get("variants_first") == "true",
+                    grouped=request.query.get("grouped") == "true",
                 )
         elif path in {"catalogs/care/preview", "catalogs/care/write"} and method == "POST":
             result = await runtime.submit(

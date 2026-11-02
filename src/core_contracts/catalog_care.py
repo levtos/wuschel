@@ -10,7 +10,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from .catalog_models import CatalogWrite, EntryChange
-from .managed_catalog import effective, head, head_key, semantic
+from .managed_catalog import effective, head, head_key, identity, semantic
 from .model import Model, canonical, checksum
 from .text_rules import normalize_key
 
@@ -27,6 +27,9 @@ class CareRequest(Model):
     ]
     identities: tuple[str, ...] = Field(min_length=1, max_length=100)
     master: str | None = None
+    new_master_name: str | None = Field(
+        default=None, min_length=1, max_length=1024, exclude_if=lambda value: value is None
+    )
     classification: str | None = None
 
 
@@ -252,6 +255,7 @@ def listing(
     filters: dict[str, str] | None = None,
     sort: str = "identity",
     variants_first: bool = False,
+    grouped: bool = False,
 ) -> dict[str, Any]:
     filters = filters or {}
     if (
@@ -280,9 +284,37 @@ def listing(
         )
         return (0 if variants_first and row["candidate"] else 1, key, row["identity"])
 
-    selected.sort(key=order)
+    matching_entries = len(selected)
+    if grouped:
+        groups: dict[str, dict[str, Any]] = {}
+        ranks: dict[str, tuple[Any, ...]] = {}
+        matched = {row["identity"] for row in selected}
+        for row in selected:
+            root = row.get("master_identity") or row["identity"]
+            if root not in groups:
+                groups[root] = {
+                    **rows[root],
+                    "matches_filter": root in matched,
+                    "matching_variant_count": 0,
+                }
+                ranks[root] = order(row)
+            ranks[root] = min(ranks[root], order(row))
+            if row["identity"] != root:
+                groups[root]["matching_variant_count"] += 1
+        selected = sorted(groups.values(), key=lambda row: ranks[row["identity"]])
+    else:
+        selected.sort(key=order)
     binding = checksum(
-        [head_key(catalog), current["revision"], query, view, filters, sort, variants_first]
+        [
+            head_key(catalog),
+            current["revision"],
+            query,
+            view,
+            filters,
+            sort,
+            variants_first,
+            grouped,
+        ]
     )
     offset = 0
     if after:
@@ -312,6 +344,7 @@ def listing(
         "content_revision": current["revision"],
         "next_cursor": next_cursor,
         "total": len(selected),
+        **({"matching_entries": matching_entries} if grouped else {}),
         "filter_values": {
             field: sorted({r[field] for r in rows.values()})
             for field in ("scope", "media_type", "signal_type")
@@ -383,22 +416,50 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
         raise ValueError("catalog_page_invalid")
     selected = {key: fields(rows[key]) for key in request.identities}
     action = request.action
+    target_master = request.master
+    if request.new_master_name is not None and action != "group":
+        raise ValueError("catalog_master_name_invalid")
     if action == "group":
-        if request.master is None:
-            raise ValueError("catalog_master_missing")
-        if request.master not in selected:
-            raise ValueError("catalog_master_not_selected")
-        master_row = rows[request.master]
-        if master_row.get("master_identity"):
-            raise ValueError("catalog_master_is_variant")
+        if request.new_master_name is not None:
+            if request.master is not None or not normalize_key(request.new_master_name):
+                raise ValueError("catalog_master_name_invalid")
+            name = request.new_master_name.strip()
+            first = rows[request.identities[0]]
+            target_master = identity(
+                first["scope"], first["media_type"], first["signal_type"], name
+            )
+            if target_master in rows or target_master in current["entries"]:
+                raise ValueError("catalog_master_name_conflict")
+            if request.classification is None:
+                raise ValueError("catalog_class_invalid")
+            master_row = {
+                **{field: first[field] for field in ("scope", "media_type", "signal_type")},
+                "key": name,
+                "display_name": name,
+                "classification": request.classification,
+                "master_key": None,
+                "note": "",
+                "tombstone": False,
+            }
+        else:
+            if target_master is None:
+                raise ValueError("catalog_master_missing")
+            if target_master not in selected:
+                raise ValueError("catalog_master_not_selected")
+            master_row = rows[target_master]
+            if master_row.get("master_identity"):
+                raise ValueError("catalog_master_is_variant")
         for key in selected:
             if any(
                 rows[key][field] != master_row[field]
                 for field in ("scope", "media_type", "signal_type")
             ):
                 raise ValueError("catalog_master_scope_mismatch")
-            if key != request.master and rows[key]["variant_count"]:
+            if key != target_master and rows[key]["variant_count"]:
                 raise ValueError("catalog_master_has_variants")
+        if request.new_master_name is not None:
+            assert target_master is not None
+            selected[target_master] = master_row
     for key, row in selected.items():
         if action in {"classify", "ungroup"}:
             if (
@@ -409,12 +470,11 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
                 raise ValueError("catalog_variant_override")
             row.update(classification=request.classification, master_key=None)
         if action == "group":
-            if key == request.master:
+            if key == target_master:
                 if request.classification is not None:
                     row["classification"] = request.classification
             else:
-                assert request.master is not None
-                row.update(classification=None, master_key=rows[request.master]["key"])
+                row.update(classification=None, master_key=master_row["key"])
         if action in {"review", "standalone_review", "group", "classify", "ungroup"}:
             row["reviewed_at"] = now.isoformat()
         if action == "open":
@@ -467,20 +527,48 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
     )
 
 
-def detail(state: Any, catalog: Any, key: str, after: str = "") -> dict[str, Any]:
+def detail(
+    state: Any,
+    catalog: Any,
+    key: str,
+    after: str = "",
+    *,
+    query: str = "",
+    view: str = "all",
+    filters: dict[str, str] | None = None,
+) -> dict[str, Any]:
     from .managed_catalog import definition, identity
     from .registry import RegistryConfig
     from .title_sync import current_mapping, keys
 
+    filters = filters or {}
+    if (
+        len(query) > 1024
+        or view not in {"all", "unassigned", "masters", "open", "reviewed", "hidden"}
+        or filters.keys() - {"scope", "media_type", "signal_type", "context", "structure"}
+        or any(len(value) > 16384 for value in filters.values())
+    ):
+        raise ValueError("catalog_page_invalid")
     rows = all_rows(state, catalog)
     row = rows.get(key)
     if row is None:
         raise ValueError("catalog_page_invalid")
-    variants = [
-        item
-        for ident, item in sorted(rows.items())
+    child_rows = {
+        ident: item
+        for ident, item in rows.items()
         if item.get("master_identity") == key and ident > after
-    ]
+    }
+    # Master/variant filters choose the outer groups, not the children displayed
+    # within a group. Search, device, context and review filters still apply.
+    variants = sorted(
+        filtered(
+            child_rows,
+            query,
+            "all" if view == "masters" else view,
+            {name: value for name, value in filters.items() if name != "structure"},
+        ),
+        key=lambda item: item["identity"],
+    )
     contexts = []
     source = row.get("tc_metadata") or {}
     config = RegistryConfig.model_validate(

@@ -81,6 +81,15 @@ braucht eine atomare Entscheidung über alle Kinder (neu zuordnen oder
 selbständig mit ausdrücklich bestätigter Klassifikation). Keine hängenden FKs.
 UI zeigt vorher die betroffenen Varianten.
 
+P5/b22 (#97): Die Pflege kann einen frei benannten Master ohne vorherige Sichtung
+zusammen mit den ausgewählten Varianten in derselben Revision anlegen. Die Klasse
+gehört ausschließlich dem Master; Bereichsprüfung, Zwei-Ebenen-Grenze, OCC und
+Idempotenz bleiben bestehen. Ein bereits belegter oder entfernter Namensschlüssel
+wird nicht still überschrieben. Die gruppierte Pflegeliste blättert über Master
+statt über einzelne Varianten. Treffer auf Varianten zeigen ihren Master als
+Kontext; die eingerückte Unterliste beachtet Suche und Filter. Die Einzelzähler
+werden dadurch weder summiert noch verändert.
+
 ## A-06: genaue Regel nur für betroffene Schlüssel
 
 Korrektur b21 (#92): Die ausdrücklich bestätigte Bereichskorrektur nutzt denselben
