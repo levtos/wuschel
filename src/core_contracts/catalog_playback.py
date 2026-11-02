@@ -63,6 +63,15 @@ def baseline_pending(state: Any) -> None:
 
 def frame(state: Any, observation: Observation) -> None:
     for name, tracker in state.tables["service_state"].items():
+        if (
+            name.startswith(PREFIX)
+            and observation.observation_kind == "snapshot"
+            and observation.binding_id in tracker.get("bindings", [])
+            and (pending := tracker.pop("pending", None))
+        ):
+            tracker.update(
+                last=pending["identity"], last_raw=pending["key"], last_session=pending["session"]
+            )
         if not name.startswith(PREFIX) or not live_input(observation):
             continue
         title_ended = observation.binding_id in tracker.get("title_bindings", []) and (
@@ -90,6 +99,17 @@ def frame(state: Any, observation: Observation) -> None:
     value = observation.catalog_frame
     if not value:
         return
+    # Display metadata is durable independently of playback counting. A later
+    # name report, pause or snapshot must not require another playback.
+    app_id, app_name = value.get("app_id"), value.get("app_name")
+    if app_id and isinstance(app_name, str) and app_name.strip():
+        app_name = app_name.strip()[:256]
+        name_key = "catalog_app_name:" + checksum(app_id)
+        if state.tables["service_state"].get(name_key, {}).get("display_name") != app_name:
+            state.tables["service_state"][name_key] = {"display_name": app_name}
+            for row in state.tables["catalog_sighting"].values():
+                if row.get("signal_type") == "app" and row["key"] == app_id:
+                    row["display_name"] = app_name
     key = "catalog_frame:" + value["source"]
     old = state.tables["service_state"].get(key, {})
     if old.get("event") == value["event"]:
@@ -124,6 +144,8 @@ def offer(
     raw: str,
     evidence: tuple[str, ...],
     expires: datetime | None = None,
+    *,
+    hierarchy: dict[str, Any] | None = None,
 ) -> None:
     references = set(evidence)
     observations = [
@@ -135,7 +157,9 @@ def offer(
         return
     framed = [item for item in observations if item.catalog_frame]
     selected = max(framed or observations, key=lambda item: item.ingest_seq)
-    selected_frame = selected.catalog_frame if media == "music" and signal == "title" else None
+    selected_frame = (
+        selected.catalog_frame if hierarchy or media == "music" and signal == "title" else None
+    )
     source = (
         selected_frame["source"]
         if selected_frame
@@ -147,6 +171,7 @@ def offer(
         if len({item.catalog_frame["event"] for item in framed if item.catalog_frame}) > 1:
             return
     stream = PREFIX + checksum([head_key(catalog), scope, media, signal, source])
+    ctx.state.detach_rows("service_state", [stream])
     old = ctx.state.tables["service_state"].get(stream, {})
     consumers = (
         dict(old.get("consumers", {}))
@@ -170,6 +195,20 @@ def offer(
             end(old)
         return
     key = identity(scope, media, signal, raw)
+    if hierarchy:
+        row_key = head_key(catalog) + ":" + key
+        if existing := ctx.state.tables["catalog_sighting"].get(row_key):
+            ctx.state.detach_rows("catalog_sighting", [row_key])
+            ctx.state.tables["catalog_sighting"][row_key] = {
+                **existing,
+                "display_metadata": hierarchy["display_metadata"],
+                "display_name": hierarchy["display_metadata"].get("title", ""),
+                **(
+                    {"catalog_metadata": hierarchy["catalog_metadata"]}
+                    if "catalog_metadata" in hierarchy
+                    else {}
+                ),
+            }
     latest_frame = ctx.state.tables["service_state"].get("catalog_frame:" + source, {})
     session = latest_frame.get("session", 0)
     eligible = [
@@ -186,7 +225,9 @@ def offer(
     ]
     if ctx.origin != "input" or not eligible:
         # A snapshot establishes a baseline, never a new playback.
-        if ctx.origin in {"snapshot", "restore"}:
+        if ctx.origin in {"snapshot", "restore"} or (
+            ctx.origin == "revision" and selected.observation_kind == "snapshot"
+        ):
             ctx.state.tables["service_state"][stream] = {
                 **old,
                 "last": key,
@@ -213,10 +254,28 @@ def offer(
         tracker.pop("pending", None)
         return
     pending = old.get("pending", {})
-    if pending.get("identity") == key and pending.get("session") == session:
+    same_candidate = pending.get("hierarchy") == hierarchy
+    if hierarchy and hierarchy.get("profile") == "apple_tv_title":
+        same_candidate = (pending.get("hierarchy") or {}).get("fingerprint") == hierarchy[
+            "fingerprint"
+        ]
+    if pending.get("identity") == key and pending.get("session") == session and same_candidate:
         pending["expires"] = expires.isoformat() if expires else None
+        if hierarchy:
+            pending["hierarchy"] = hierarchy
+            pending["display_name"] = hierarchy["display_metadata"].get("title", "")
         return
-    delay = STABLE_SECONDS
+    delay = hierarchy.get("stability_s", STABLE_SECONDS) if hierarchy else STABLE_SECONDS
+    if (
+        hierarchy
+        and (pair := hierarchy.get("transition_pair"))
+        and (before_pair := old.get("last_pair"))
+    ):
+        if (
+            before_pair[0] == pair[0]
+            and sum(a != b for a, b in zip(before_pair[1:], pair[1:], strict=True)) == 1
+        ):
+            delay = max(delay, TRANSITION_SECONDS)
     if media == "music" and old.get("last_raw"):
         try:
             before, after = json.loads(old["last_raw"]), json.loads(raw)
@@ -230,13 +289,15 @@ def offer(
         ):
             delay = TRANSITION_SECONDS
     tracker["pending"] = {
+        **({"hierarchy": hierarchy} if hierarchy else {}),
         "catalog": head_key(catalog),
         "identity": key,
         "scope": scope,
         "media_type": media,
         "signal_type": signal,
         "key": raw,
-        "display_name": next(
+        "display_name": (hierarchy["display_metadata"].get("title", "") if hierarchy else "")
+        or next(
             (
                 item.catalog_frame["app_name"]
                 for item in observations
@@ -272,10 +333,57 @@ def flush(state: Any, now: datetime) -> None:
         if datetime.fromisoformat(pending["due"]) > now:
             continue
         current_frame = state.tables["service_state"].get("catalog_frame:" + pending["source"], {})
+        if hierarchy := pending.get("hierarchy"):
+            if hierarchy.get("profile") == "apple_tv_title":
+                candidate = current_frame.get("title_candidate") or {}
+                matches = (
+                    candidate.get("key") == pending["key"]
+                    and candidate.get("fingerprint") == hierarchy["fingerprint"]
+                )
+            else:
+                from .stash_catalog import studio_key
+
+                matches = (
+                    current_frame.get("catalog_profile") == "stash_slot"
+                    and current_frame.get("scene_id") == pending["key"]
+                    and bool(current_frame.get("studio"))
+                    and studio_key(current_frame["studio"]) == hierarchy["master_key"]
+                )
+            if not matches:
+                tracker.pop("pending", None)
+                continue
         if current_frame.get("state") in {"paused", "idle", "off", "unavailable", "unknown"}:
             tracker.pop("pending", None)
             continue
         sighting_key = pending["catalog"] + ":" + pending["identity"]
+        hierarchy = pending.get("hierarchy")
+        if hierarchy and hierarchy.get("master_key"):
+            parent = identity(
+                pending["scope"],
+                pending["media_type"],
+                pending["signal_type"],
+                hierarchy["master_key"],
+            )
+            parent_key = pending["catalog"] + ":" + parent
+            if parent_key not in state.tables["catalog_sighting"]:
+                state.tables["catalog_sighting"][parent_key] = {
+                    **{
+                        key: pending[key]
+                        for key in ("catalog", "scope", "media_type", "signal_type", "source")
+                    },
+                    "identity": parent,
+                    "key": hierarchy["master_key"],
+                    "display_name": hierarchy["master_display_name"],
+                    "first_seen": pending["observed_at"],
+                    "last_seen": pending["observed_at"],
+                    "seen_count": 0,
+                    "hierarchy_master": True,
+                    **(
+                        {"catalog_metadata": hierarchy["catalog_metadata"]}
+                        if "catalog_metadata" in hierarchy
+                        else {}
+                    ),
+                }
         previous = state.tables["catalog_sighting"].get(sighting_key, {})
         tombstone = (
             state.tables["catalog_head"]
@@ -285,6 +393,26 @@ def flush(state: Any, now: datetime) -> None:
             .get("tombstone", False)
         )
         state.tables["catalog_sighting"][sighting_key] = {
+            **(
+                {
+                    "master_key": hierarchy["master_key"],
+                    "master_identity": parent,
+                }
+                if hierarchy and hierarchy.get("master_key")
+                else {}
+            ),
+            **(
+                {
+                    "display_metadata": hierarchy["display_metadata"],
+                    **(
+                        {"catalog_metadata": hierarchy["catalog_metadata"]}
+                        if "catalog_metadata" in hierarchy
+                        else {}
+                    ),
+                }
+                if hierarchy
+                else {}
+            ),
             **{
                 k: pending[k]
                 for k in (
@@ -307,6 +435,10 @@ def flush(state: Any, now: datetime) -> None:
         tracker.update(
             last=pending["identity"], last_raw=pending["key"], last_session=pending["session"]
         )
+        if hierarchy and hierarchy.get("transition_pair"):
+            tracker["last_pair"] = hierarchy["transition_pair"]
+        else:
+            tracker.pop("last_pair", None)
         tracker.pop("pending", None)
 
 

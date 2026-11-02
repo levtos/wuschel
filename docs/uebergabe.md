@@ -49,7 +49,7 @@ steckt, steht nur in der Verknüpfung und lässt sich austauschen, ohne Policy-C
 - Wörterbuch: Vertrag, Vorlage, Entwurf, Übernehmen, Version (= Vorlagenversion), Konfiguration
   (= übernommener Gesamtstand), Programmversion (App), Quelle, Verknüpfung, Aktualität, Nachweis,
   Bereitschaft, Zusammenführung, Berechnung, Ablauf, HA-Anbindung, Durchlauf.
-  „Details“ statt „Was kann ich tun?“, „Ansehen | Bearbeiten“, „Fehlersuche“, „Technische Details“
+  „Details“ statt „Was kann ich tun?“, Bearbeiten direkt am Objekt (b22/P3, #97), „Fehlersuche“, „Technische Details“
   für Prüfsummen; „Erweitert“ nur dort, wo man eine eigene Kennung eingeben kann.
 
 ## 4. Namen, Farben, Bilder (Einhorn-Herde)

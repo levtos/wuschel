@@ -1,7 +1,7 @@
 {
   "name": "wuschel-workbench",
   "private": true,
-  "version": "1.0.0b21",
+  "version": "1.0.0b22",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,8 @@
     "build": "vite build",
     "test": "vitest run",
     "verify:dist": "node scripts/check-dist.mjs",
-    "test:e2e": "vitest run src/e2e.test.tsx"
+    "test:e2e": "vitest run src/e2e.test.tsx",
+    "test:firefox": "playwright test --config playwright.config.ts"
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^4.0.0",

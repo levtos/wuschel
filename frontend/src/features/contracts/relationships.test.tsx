@@ -32,7 +32,8 @@ it('links the immediate sleep state, owns controls at the flow, and hides techni
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter>
     <ContractSummary envelope={envelope} stale={false} fields={{}} config={config} machine={false} />
   </MemoryRouter></QueryClientProvider>);
-  const where = screen.getByRole('heading', { name: 'Woher?' }).closest('section') ?? screen.getByRole('heading', { name: 'Woher?' }).parentElement!.parentElement!;
+  // #97 P10 replaces the two panels with one origin/cause panel.
+  const where = screen.getByRole('heading', { name: 'Woher kommt der Wert?' }).closest('section') ?? screen.getByRole('heading', { name: 'Woher kommt der Wert?' }).parentElement!.parentElement!;
   expect(within(where).getByRole('link', { name: 'Schlafzustand' })).toHaveAttribute('href', '/contracts/view/sleep.state');
   expect(screen.getByText('Schlafzustand: Beginnt der Schlaf, endet Besuch/Date; während des Schlafs wird Start ignoriert; sonst bestimmen die Knöpfe.')).toBeVisible();
   expect(screen.getByTestId('value-value')).toHaveTextContent('Nein');

@@ -10,25 +10,38 @@ import { describeError } from '@/lib/api';
 import { useHaCatalog } from './useHaCatalog';
 import { DurationField, invalidDurations } from '@/components/SecondsField';
 
-export interface CalendarSettings { past: number; future: number; refreshMinutes: number; validMinutes: number }
+export interface CalendarSettings { past: number; future: number; refreshMinutes: number; validMinutes: number; coverageMonths?: number }
 export const calendarDefaults: CalendarSettings = { past: 1, future: 14, refreshMinutes: 15, validMinutes: 60 };
-export function validCalendarSettings(value: CalendarSettings) {
-  return [value.past, value.future, value.refreshMinutes * 60, value.validMinutes * 60].every(Number.isInteger) && value.past >= 0 && value.future >= 1 && value.past + value.future <= 31 && value.refreshMinutes >= 1 && value.refreshMinutes <= 1440 && value.validMinutes >= value.refreshMinutes && value.validMinutes <= 10080;
+export function CalendarCoverageField({ value, onChange }: { value?: number; onChange: (months?: number) => void }) {
+  return <div className="space-y-2"><Field label={t('b22.calendar.coverage')}>{props => <Select {...props} value={value === undefined ? 'off' : 'on'} onChange={event => onChange(event.target.value === 'on' ? 12 : undefined)}><option value="off">{t('b22.calendar.coverageOff')}</option><option value="on">{t('b22.calendar.coverageOn')}</option></Select>}</Field>{value !== undefined && <Field label={t('b22.calendar.months')}>{props => <Input {...props} type="number" min={1} max={24} step={1} value={Number.isFinite(value) ? value : ''} onChange={event => onChange(event.target.valueAsNumber)} />}</Field>}<p className="text-sm text-muted">{t('b22.calendar.coverageHelp')}</p></div>;
 }
-export function planCalendar(config: JsonObject, entity: string, name: string, settings: CalendarSettings) {
+export function validCalendarSettings(value: CalendarSettings) {
+  return (value.coverageMonths === undefined || Number.isInteger(value.coverageMonths) && value.coverageMonths >= 1 && value.coverageMonths <= 24) && [value.past, value.future, value.refreshMinutes * 60, value.validMinutes * 60].every(Number.isInteger) && value.past >= 0 && value.future >= 1 && value.past + value.future <= 31 && value.refreshMinutes >= 1 && value.refreshMinutes <= 1440 && value.validMinutes >= value.refreshMinutes && value.validMinutes <= 10080;
+}
+export function planCalendar(config: JsonObject, entity: string, name: string, settings: CalendarSettings, repairSourceId?: string): { config: JsonObject & { sources: JsonObject[]; bindings: JsonObject[]; config_schema_version: number }; sourceIndex: number } {
   if (!/^calendar\.[a-z0-9_]+$/.test(entity) || !validCalendarSettings(settings)) throw new Error(t('alpha9.form.unavailable'));
   for (const key of ['sources', 'bindings', 'dependencies']) if (config[key] !== undefined && (!Array.isArray(config[key]) || !asArray(config[key]).every(isObject))) throw new Error(t('alpha9.form.unavailable'));
   const next = clone(config);
+  name = name.trim() && name !== entity ? name.trim() : t('b22.calendar.name');
   const sources = asArray(next.sources).filter(isObject); const bindings = asArray(next.bindings).filter(isObject); const dependencies = asArray(next.dependencies).filter(isObject);
-  if (bindings.some(binding => asObject(binding.adapter).kind === 'ha_calendar' && asObject(binding.adapter).ha_entity_id === entity)) throw new Error(t('alpha7.device.reused'));
+  if (bindings.some(binding => binding.source_id !== repairSourceId && asObject(binding.adapter).kind === 'ha_calendar' && asObject(binding.adapter).ha_entity_id === entity)) throw new Error(t('alpha7.device.reused'));
+  if (repairSourceId) {
+    const source = sources.find(row => row.source_id === repairSourceId); const binding = bindings.find(row => row.source_id === repairSourceId && asObject(row.adapter).kind === 'ha_calendar');
+    if (!source || !binding) throw new Error(t('alpha9.form.unavailable'));
+    source.display_name = name;
+    if (settings.coverageMonths === undefined) delete source.calendar_coverage_months; else source.calendar_coverage_months = settings.coverageMonths;
+    binding.adapter = { ...asObject(binding.adapter), ha_entity_id: entity, window: { timezone: 'Europe/Berlin', past_days: settings.past, future_days: settings.future }, refresh_s: settings.refreshMinutes*60, max_age_s: settings.validMinutes*60 };
+    return { config: { ...next, sources, bindings, config_schema_version: Math.max(2, Number(next.config_schema_version ?? 1)) }, sourceIndex: sources.indexOf(source) };
+  }
   let dependency = dependencies.find(item => item.kind === 'ha' && item.monitor === 'internal');
   if (!dependency) { dependency = { dependency_id: uniqueName('dep.ha', dependencies.map(item => str(item.dependency_id))), kind: 'ha', monitor: 'internal' }; dependencies.push(dependency); }
-  const sourceId = uniqueName(`source.${entity.replace('.', '_')}`, sources.map(item => str(item.source_id)));
+  const sourceId = uniqueName('source.calendar', sources.map(item => str(item.source_id)));
   sources.push({ source_id: sourceId, source_type: 'state', source_origin: 'local', display_name: name,
-    dependency_id: dependency.dependency_id!, physical_source_key: uniqueName(`physical.${entity.replace('.', '_')}`, sources.map(item => str(item.physical_source_key))),
+    dependency_id: dependency.dependency_id!, physical_source_key: uniqueName('physical.calendar', sources.map(item => str(item.physical_source_key))),
+    ...(settings.coverageMonths === undefined ? {} : { calendar_coverage_months: settings.coverageMonths }),
     value_schema: { type: 'object', required: true, physical_state: false },
     freshness: { mode: 'periodic_ttl', interval_s: settings.validMinutes*60, future_tolerance_s: 0 } });
-  bindings.push({ binding_id: uniqueName(`binding.${entity.replace('.', '_')}`, bindings.map(item => str(item.binding_id))), source_id: sourceId,
+  bindings.push({ binding_id: uniqueName('binding.calendar', bindings.map(item => str(item.binding_id))), source_id: sourceId,
     adapter: { kind: 'ha_calendar', ha_entity_id: entity, window: { timezone: 'Europe/Berlin', past_days: settings.past, future_days: settings.future }, refresh_s: settings.refreshMinutes*60, max_age_s: settings.validMinutes*60 } });
   return { config: { ...next, config_schema_version: Math.max(2, Number(next.config_schema_version ?? 1)), sources, bindings, dependencies }, sourceIndex: sources.length-1 };
 }
@@ -59,6 +72,7 @@ export function CalendarSourceDialog({ open, onOpenChange, onAdded }: { open: bo
       {ha.isError && <p role="alert">{t('alpha7.device.unavailable')}</p>}
       <Field label={t('alpha7.device.name')}>{props => <Input {...props} value={name} maxLength={128} onChange={event => setName(event.target.value)} />}</Field>
       <CalendarFields value={settings} onChange={setSettings} />
+      <CalendarCoverageField value={settings.coverageMonths} onChange={coverageMonths => setSettings(current => ({ ...current, coverageMonths }))} />
       <p className="text-sm text-muted">{t('alpha8.parameters.draftHint')}</p>
       {error && <p role="alert">{error}</p>}
     </div>

@@ -7,7 +7,7 @@ import { CatalogCare, CatalogDetail } from './CatalogCare';
 import CatalogPage from './CatalogPage';
 import type { Catalog, Entry } from './CatalogPage';
 import { wrap } from '../../../test/harness';
-import { installFakeApi, reply } from '../../../test/fakeApi';
+import { delayedBody, installFakeApi, reply } from '../../../test/fakeApi';
 
 afterEach(() => vi.unstubAllGlobals());
 const catalog: Catalog = { catalog_id: 'synthetic.music', version: 1, classification_schema: { values: ['normal', 'boost'], legend: { normal: { display_name: 'Normal', description: 'Synthetic' }, boost: { display_name: 'Bevorzugt', description: 'Synthetic' } } } };
@@ -18,7 +18,10 @@ function mount() { wrap(<CatalogCare catalog={catalog} rows={rows} selected={Obj
 it('discards a late automatic preview after a content revision change', async () => {
   const fake = installFakeApi();
   const pending: ((response: Response) => void)[] = [];
-  fake.routes.push({ match: /^catalogs\/care\/preview$/, respond: () => new Promise(resolve => pending.push(resolve)) });
+  fake.routes.push({ match: /^catalogs\/care\/preview$/, respond: () => {
+    const status = pending.length ? 200 : 400;
+    return delayedBody(new Promise(resolve => pending.push(resolve)), status);
+  } });
   let changeRevision!: () => void;
   function Fixture() {
     const [revision, setRevision] = useState(5);
@@ -135,4 +138,27 @@ it('keeps the current variant group after a conflict and never advances or retri
   expect(screen.getByLabelText(t('alpha10.catalog.master'))).toHaveValue('one');
   await user.click(screen.getByRole('button', { name: 'Überspringen' }));
   expect(screen.getByText('Noch 1 Gruppen zu prüfen')).toBeInTheDocument();
+});
+
+it('distinguishes the Master selection from the class inherited by its variants', async () => {
+  installFakeApi();
+  mount();
+  await userEvent.click(screen.getByRole('button', { name: t('b17.action.group') }));
+  expect(screen.getByLabelText('Master')).toHaveValue('one');
+  expect(screen.getByLabelText('Klasse des Masters')).toHaveValue('normal');
+  expect(screen.queryByLabelText('Klasse', { exact: true })).not.toBeInTheDocument();
+});
+
+it.each([
+  'catalog_master_missing', 'catalog_master_not_selected', 'catalog_master_is_variant',
+  'catalog_master_scope_mismatch', 'catalog_master_has_variants', 'catalog_master_invalid',
+])('explains %s without losing the selected group or sending a write', async code => {
+  const fake = installFakeApi();
+  fake.routes.push({ match: /^catalogs\/care\/preview$/, respond: () => reply(400, { error: code }) });
+  mount();
+  await userEvent.click(screen.getByRole('button', { name: t('b17.action.group') }));
+  await screen.findByText(t(`codes.${code}`));
+  expect(screen.getByLabelText('Master')).toHaveValue('one');
+  expect(screen.getByRole('button', { name: t('alpha10.catalog.save') })).toBeDisabled();
+  expect(fake.calls.some(call => call.path === 'catalogs/care/write')).toBe(false);
 });

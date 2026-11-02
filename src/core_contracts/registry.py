@@ -66,6 +66,9 @@ class Source(Model):
     manual_structured_schema: Literal["wake_exception_v1"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    calendar_coverage_months: int | None = Field(
+        default=None, ge=1, le=24, strict=True, exclude_if=lambda value: value is None
+    )
 
     @model_serializer(mode="wrap")
     def selection_document(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
@@ -273,6 +276,12 @@ class RegistryConfig(Model):
 
     @model_validator(mode="after")
     def versioned_capabilities(self) -> Self:
+        for source in self.sources:
+            if source.calendar_coverage_months is not None and not any(
+                b.source_id == source.source_id and b.adapter.kind == "ha_calendar"
+                for b in self.bindings
+            ):
+                raise ValueError("calendar_coverage_requires_calendar")
         if sum(contract.ha_projection and contract.enabled for contract in self.contracts) > 256:
             raise ValueError("ha_projection_limit")
         if (
@@ -550,6 +559,7 @@ def observation_fingerprints(config: RegistryConfig) -> dict[str, str]:
             "freshness_selection",
             "sensor_kind",
             "sensor_kind_origin",
+            "calendar_coverage_months",
             "display_name",
         ):
             document.pop(field, None)

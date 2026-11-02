@@ -84,7 +84,6 @@ it('keeps valid unassigned values healthy and lists configuration separately', a
 });
 
 it('uses status colors for known counts and equally sized quick actions', async () => {
-  const user = userEvent.setup();
   installFakeApi({ revisions: [{ revision: 4, config, checksum: 'sum', created_at: at }] });
   const live = idleLive();
   vi.spyOn(live, 'getSnapshot').mockReturnValue({ ...live.getSnapshot(), stale: false, registryRevision: 4, contracts: { room: { ...envelope('room', 'healthy'), fields: {} } } });
@@ -94,7 +93,7 @@ it('uses status colors for known counts and equally sized quick actions', async 
   expect(screen.getByRole('link', { name: '0 eingeschränkt' }).querySelector('span')).toHaveClass('text-warn');
   expect(screen.getByRole('link', { name: '1 ausgeschaltet' }).querySelector('span')).toHaveClass('text-muted');
   expect(screen.getByRole('link', { name: '1 eingeschaltet' }).querySelector('span')).toHaveClass('text-fg');
-  await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
+  expect(screen.queryByRole('button', { name: 'Bearbeiten' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Änderungen übernehmen' })).not.toBeInTheDocument();
   for (const action of [screen.getByRole('button', { name: 'Neuer Vertrag' }), screen.getByRole('button', { name: 'Import & Export' })]) expect(action).toHaveClass('min-h-11');
 });

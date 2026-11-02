@@ -1,7 +1,7 @@
 import { PageLoading } from '@/components/PageLoading';
 import { t as uiText } from '@/i18n';
 import { ArrowLeft, Stethoscope, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { LayoutPanel, PanelLayout } from '@/components/PanelLayout';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +27,8 @@ import { describeError } from '@/lib/api';
 import { ContractExport } from '@/features/registry/ContractExport';
 import { OpeningHeartbeatSettings } from './OpeningHeartbeatSettings';
 import { effectiveRule, ownRule } from '@/features/sources/freshness';
+import { ObjectActions } from '@/features/authoring/ObjectActions';
+import { WakePlanningDialog } from './WakePlanningDialog';
 
 export default function ContractDetailPage() {
   const { contractId = '' } = useParams();
@@ -40,6 +42,10 @@ export default function ContractDetailPage() {
   const [removing, setRemoving] = useState(false);
   const [deviceInput, setDeviceInput] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
+  const [editing, setEditing] = useState(false); const [wakeOpen, setWakeOpen] = useState(false); const requestedEdit = useRef(false);
+  const selectedContract = useRef(contractId); selectedContract.current = contractId;
+  const previousDraft = useRef(doc.draft?.draft_id);
+  useEffect(() => { if (previousDraft.current && previousDraft.current !== doc.draft?.draft_id) { setEditing(false); setWakeOpen(false); } previousDraft.current = doc.draft?.draft_id; }, [doc.draft?.draft_id]);
   const list = asArray(src.config?.contracts).filter(isObject);
   const index = list.findIndex((c) => str(c.contract_id) === contractId);
   const contract = index >= 0 ? list[index]! : null;
@@ -47,6 +53,22 @@ export default function ContractDetailPage() {
   const draftOnly = src.source === 'draft' && active.data !== undefined && !activeContract;
   const candidate = live.contracts?.[contractId];
   const envelope = activeContract && candidate && candidate.registry_revision === active.data?.revision ? candidate : null;
+
+  const beginEdit = async () => {
+    setActionError('');
+    try {
+      if (editing && src.editable) { if (await doc.save() === 'saved') setEditing(false); return; }
+      const current = await doc.ensureDraft();
+      if (selectedContract.current !== contractId) return;
+      if (!asArray(current.contracts).filter(isObject).some(row => row.contract_id === contractId)) { setActionError(uiText('b22.object.missing')); return; }
+      setEditing(true); setParams(previous => { const next = new URLSearchParams(previous); next.set('tab', 'config'); next.delete('edit'); return next; }, { replace: true });
+    } catch (failure) { setActionError(describeError(failure)); }
+  };
+  useEffect(() => {
+    if (params.get('edit') !== '1') { requestedEdit.current = false; return; }
+    if (contract && !requestedEdit.current) { requestedEdit.current = true; void beginEdit(); }
+  }, [params, !!contract]);
+  useEffect(() => { setEditing(false); setWakeOpen(false); }, [contractId]);
 
   if (src.loading && !contract) return <PageLoading title={uiText('alpha7.nav.contracts')} description={uiText('alpha9.pages.contract')} />;
 
@@ -86,23 +108,16 @@ export default function ContractDetailPage() {
         description={uiText('alpha9.pages.contract')}
         actions={
           <>
-            <Button variant="primary" disabled={doc.starting || doc.saving} disabledReason={uiText('alpha7.copy.inProgress')} onClick={async () => {
-              setActionError('');
-              try {
-                if (src.editable) { if (await doc.save() !== 'saved') setActionError(uiText('alpha7.draft.saveBeforeReview')); }
-                else {
-                  if (doc.draft && !asArray(doc.config?.contracts).filter(isObject).some(item => item.contract_id === contractId)) { setActionError(uiText('alpha9.contract.missingInDraft')); return; }
-                  await doc.ensureDraft(); setParams({ tab: 'config' });
-                }
-              } catch (failure) { setActionError(describeError(failure)); }
-            }}>{uiText(src.editable ? 'alpha9.actions.saveDraft' : 'alpha9.actions.editContract')}</Button>
+            <ObjectActions key={contractId} collection="contracts" idKey="contract_id" value={contract} editing={editing && src.editable} onEdit={beginEdit} onSaved={() => setEditing(false)} toggle primary />
+            {asObject(typeEntry?.parameterSchema?.properties).wake_settings && <Button disabled={doc.starting || doc.saving} onClick={async () => { setActionError(''); try { const current = await doc.ensureDraft(); if (selectedContract.current !== contractId) return; if (!asArray(current.contracts).filter(isObject).some(row => row.contract_id === contractId)) throw new Error(uiText('b22.object.missing')); setWakeOpen(true); } catch (error) { setActionError(describeError(error)); } }}>{uiText('b22.wake.edit')}</Button>}
             {draftOnly ? <Badge tone="info">{uiText('alpha7.contract.state.draft')}</Badge> : <Badge>{enabled ? uiText("features.contracts.ContractDetailPage.aktiviert_acb27b") : uiText("features.contracts.ContractDetailPage.deaktiviert_10f33e")}</Badge>}
             <ContractExport contractId={contractId} source={src.source === 'draft' ? 'draft' : 'active'} />
             <Button size="sm" onClick={() => navigate(`/settings/diagnostics?contract=${encodeURIComponent(contractId)}`)}><Stethoscope size={14} /> {uiText("features.contracts.ContractDetailPage.diagnose_64dd65")}</Button>
-            {src.editable && <Button size="sm" variant="danger" onClick={() => setRemoving(true)}><Trash2 size={14} /> {uiText("features.contracts.ContractDetailPage.entfernen_382837")}</Button>}
+            {src.editable && editing && <Button size="sm" variant="danger" onClick={() => setRemoving(true)}><Trash2 size={14} /> {uiText("features.contracts.ContractDetailPage.entfernen_382837")}</Button>}
           </>
         }
       />
+      {wakeOpen && typeEntry?.parameterSchema && <WakePlanningDialog contractId={contractId} parameterSchema={typeEntry.parameterSchema} onClose={() => setWakeOpen(false)} />}
       <ReadOnlyNotice what={uiText("features.contracts.ContractDetailPage.contract_konfiguration_d1e14f")} />
       {actionError && <p role="alert" className="mb-3 text-sm text-bad">{actionError}</p>}
       <EditorialPanel object={{ kind: 'contract', id: contractId }} />
@@ -128,7 +143,7 @@ export default function ContractDetailPage() {
             label: uiText("features.contracts.ContractDetailPage.konfiguration_8df29d"),
             content: (
               <Panel className="max-w-4xl p-5">
-                <fieldset disabled={!src.editable} className="min-w-0">
+                <fieldset disabled={!src.editable || !editing} className="min-w-0">
                   <ContractEditor value={contract} pointer={pointer} types={src.types} refs={refs} refreshSources={refreshSources} onChange={(next) => doc.edit((c) => ({ ...setAt(c, pointer, next), ...(next.refresh_plan !== undefined ? { config_schema_version: Math.max(2, Number(c.config_schema_version ?? 1)) } : {}) }))} onAddDevice={setDeviceInput} />
                   <OpeningHeartbeatSettings config={src.config ?? {}} contract={contract} onChange={(sourceIndex, interval) => doc.edit(c => { const source = asObject(asArray(c.sources)[sourceIndex]); return setAt(c, `/sources/${sourceIndex}`, ownRule(source, { ...effectiveRule(c, source), interval_s: interval })); })} />
                 </fieldset>

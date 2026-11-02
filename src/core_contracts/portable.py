@@ -222,6 +222,20 @@ def export(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]:
                     "entries": [row for _, row in sorted(current["entries"].items())],
                 }
             )
+            if request.get("draft_id"):
+                migration = next(
+                    (
+                        row.get("class_migration")
+                        for row in draft.get("portable", {})
+                        .get("package", {})
+                        .get("catalog_contents", [])
+                        if row["catalog_id"] == catalog.catalog_id
+                        and row["definition_version"] == catalog.version
+                    ),
+                    None,
+                )
+                if migration:
+                    contents[-1]["class_migration"] = copy.deepcopy(migration)
     if sum(len(c["entries"]) for c in contents) > 100_000:
         raise ValueError("export_entry_limit")
     result: dict[str, Any] = {
@@ -327,7 +341,17 @@ def read_package(value: Any) -> dict[str, Any]:
     if not isinstance(value["catalog_contents"], list) or any(
         not isinstance(content, dict)
         or set(content)
-        != {"catalog_id", "definition_version", "definition_digest", "source_revision", "entries"}
+        not in (
+            {"catalog_id", "definition_version", "definition_digest", "source_revision", "entries"},
+            {
+                "catalog_id",
+                "definition_version",
+                "definition_digest",
+                "source_revision",
+                "entries",
+                "class_migration",
+            },
+        )
         or not isinstance(content["entries"], list)
         or any(not isinstance(row, dict) for row in content["entries"])
         for content in value["catalog_contents"]
@@ -658,6 +682,9 @@ def preview(
             raise ValueError("import_freshness_choices_invalid")
         if not unresolved:
             validate(document, runtime.types)
+    from .interface_upgrade import migration_preview
+
+    catalog_migrations = migration_preview(state, package["catalog_contents"])
     heads = {
         head_key(c): head(state, c)["revision"]
         for c in incoming.catalogs
@@ -739,6 +766,7 @@ def preview(
         "resolutions": resolutions,
         "freshness_choices": freshness_choices,
         "catalog_entries": sum(len(content["entries"]) for content in package["catalog_contents"]),
+        "catalog_migrations": catalog_migrations,
         "editorial_entries": len(package["editorial"]),
         "target_draft_id": target["draft_id"] if target else None,
         "target_draft_version": target["draft_version"] if target else None,
@@ -855,6 +883,9 @@ def apply(
         raise ValueError("import_plan_conflict")
     if state.active_revision != plan["expected_active_revision"]:
         raise ValueError("import_plan_conflict")
+    from .interface_upgrade import migrate_runtime, migration_preview
+
+    migration_preview(state, plan["package"]["catalog_contents"])
     title_import = plan.get("title_import")
     if title_import:
         import_key = "title:" + title_import["import_id"]
@@ -900,6 +931,7 @@ def apply(
             body = body.model_copy(update={"changes": tuple(changes)})
             result = prepare(state, config, body, plan["actor"], now, expanded_limit=100_000)
             latches = invalidate(state, result, latches, context_effects)
+    migrate_runtime(state, plan["package"]["catalog_contents"], now)
     for row in plan["package"]["editorial"]:
         ref = ObjectRef.model_validate(row["object"])
         old = state.tables["editorial_current"].get(ref.key)

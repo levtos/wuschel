@@ -10,9 +10,9 @@ const listeners = new Set<(value: 24 | 168) => void>();
 /** One selection for all contract charts; a fixed duration, never a sample count. */
 export function useHistoryWindow() {
   const [selected, setSelected] = useState(hours);
-  const [until, setUntil] = useState(() => Math.floor(Date.now() / 60_000) * 60_000);
-  useEffect(() => { listeners.add(setSelected); const timer = setInterval(() => setUntil(Math.floor(Date.now() / 60_000) * 60_000), 60_000); return () => { listeners.delete(setSelected); clearInterval(timer); }; }, []);
-  return { hours: selected, since: until - selected * 3_600_000, until, select: (next: 24 | 168) => { hours = next; for (const notify of listeners) notify(next); } };
+  const [until, setUntil] = useState(() => Date.now());
+  useEffect(() => { listeners.add(setSelected); return () => { listeners.delete(setSelected); }; }, []);
+  return { hours: selected, since: until - selected * 3_600_000, until, refresh: () => { const next = Date.now(); if (next === until) return false; setUntil(next); return true; }, select: (next: 24 | 168) => { hours = next; setUntil(Date.now()); for (const notify of listeners) notify(next); } };
 }
 
 export async function windowHistory(kind: string, contractId: string | undefined, since: number, until: number, signal?: AbortSignal): Promise<HistoryItem[]> {
@@ -32,4 +32,4 @@ export async function windowHistory(kind: string, contractId: string | undefined
   return [...rows, ...boundary.items];
 }
 
-export const useWindowHistory = (kind: string, contractId: string | undefined, since: number, until: number) => useQuery({ queryKey: ['chart-history', kind, contractId, since, until], queryFn: ({ signal }) => windowHistory(kind, contractId, since, until, signal), retry: false });
+export const useWindowHistory = (kind: string, contractId: string | undefined, since: number, until: number, enabled = true) => useQuery({ queryKey: ['chart-history', kind, contractId, since, until], queryFn: ({ signal }) => windowHistory(kind, contractId, since, until, signal), enabled, retry: false, refetchInterval: false, refetchOnWindowFocus: false, refetchOnReconnect: false, refetchOnMount: 'always', staleTime: 0 });

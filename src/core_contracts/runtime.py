@@ -989,7 +989,11 @@ class Runtime:
 
             return await sync_process(self, self.state, operation, payload, self.clock.now_utc())
         care_started = self.clock.monotonic()
-        state = self.state.clone()
+        state = (
+            self.state.catalog_clone()
+            if operation in {"catalog_care_preview", "catalog_care_write"}
+            else self.state.clone()
+        )
         now = self.clock.now_utc()
         config = self._config(state)
         if operation in {"catalog_scope_preview", "catalog_scope_apply"}:
@@ -1336,11 +1340,21 @@ class Runtime:
                 )
                 await self._record_observation(state, service_observation)
             if config:
+                coverage_source = next(
+                    (
+                        b.source_id
+                        for b in config.bindings
+                        if job.get("coverage") and b.binding_id == job["binding_id"]
+                    ),
+                    None,
+                )
                 self._evaluate(
                     state,
                     config,
-                    origin="input" if service_observation else "timer",
-                    trigger_source=service_observation.source_id if service_observation else None,
+                    origin="input" if service_observation or coverage_source else "timer",
+                    trigger_source=service_observation.source_id
+                    if service_observation
+                    else coverage_source,
                 )
             calendar_row = state.tables["service_state"].get(job.get("state_key", ""), {})
             warn_calendar_failure = (
@@ -1883,6 +1897,20 @@ class Runtime:
             self.snapshot_pending = False
             self._broadcast(self.service_state())
 
+    def inspect_inputs(
+        self, contract: Contract, config: RegistryConfig, state: State
+    ) -> dict[str, FieldValue]:
+        """Canonical input assessment for read-only UI; sensor caches stay isolated."""
+        view = state.model_copy(
+            update={
+                "tables": {
+                    **state.tables,
+                    "service_state": copy.deepcopy(state.tables["service_state"]),
+                }
+            }
+        )
+        return self._inputs(contract, config, view)
+
     def _inputs(
         self,
         contract: Contract,
@@ -1966,6 +1994,12 @@ class Runtime:
             ):
                 observation = observation.model_copy(update={"mqtt_revalidated": False})
             value = assess(observation, source.freshness, now, ref, liveness)
+            if calendar_binding and source.calendar_coverage_months:
+                from .calendar_coverage import assess as assess_coverage
+
+                value = assess_coverage(
+                    value, state, calendar_binding, source.calendar_coverage_months, now
+                )
             if source.sensor_profile:
                 from .sensor_profile import assess_sensor
 
@@ -2025,6 +2059,13 @@ class Runtime:
         evaluation_errors: set[str] = set()
         from .service_jobs import plan_calendars
 
+        # Care forks share evidence and unrelated nodes read-only. These existing
+        # planners and sensor assessments can mutate nested service rows.
+        state.detach_rows(
+            "service_state",
+            (key for key in state.tables["service_state"] if not key.startswith("catalog_")),
+        )
+        state.detach_rows("service_job", state.tables["service_job"])
         plan_calendars(state, config, self.clock.now_utc())
         calendar_changed = self._calendar_observations(state, config, origin)
         now, seq = self.clock.now_utc(), state.publication_seq + 1
@@ -2074,6 +2115,8 @@ class Runtime:
                     or not replacement.enabled
                     or old_node.get("fingerprint") != fps.get(old.contract_id)
                 ):
+                    state.detach_rows("node_state", [old.contract_id])
+                    old_node = state.tables["node_state"].get(old.contract_id, {})
                     self._dispose(old, old_node, state)
                     old_node.pop("trace", None)
         affected = affected_sources(
@@ -2119,6 +2162,7 @@ class Runtime:
                 for at in state.tables["node_state"].get(key, {}).get("clock_due", [])
             ):
                 contract_origin = "input"
+            state.detach_rows("node_state", [key])
             node = state.tables["node_state"].get(key)
             case = start_case(
                 ever_active=bool(lifecycle and lifecycle.get("ever_active")),
@@ -2177,6 +2221,15 @@ class Runtime:
                     name: unknown(ReasonCode.EVALUATION_ERROR, key, now)
                     for name in declaration.schema.fields
                 }
+            from .field_since import track_fields
+
+            fields = track_fields(
+                fields,
+                previous_contracts.get(key, {}).get("fields", {}),
+                now,
+                compatible=case == "valid",
+                restoring=origin == "restore",
+            )
             required = [fields[k] for k, v in declaration.schema.fields.items() if v.required]
             from .catalog_playback import finish as finish_catalog_playback
 
@@ -2445,6 +2498,8 @@ class Runtime:
             from .notifications import plan_notices
 
             if self.first_snapshot or not self.requires_ha_snapshot:
+                state.detach_rows("service_state", ["notice:signal", "notice:configuration"])
+                state.detach_rows("service_job", state.tables["service_job"])
                 plan_notices(
                     state, config, self.clock.now_utc(), self.installation_id, self.ingress_slug
                 )

@@ -11,6 +11,12 @@ function app(hash = '#/sources/devices') {
   window.location.hash = hash;
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Workbench onSetup={() => {}} live={idleLive()} /></QueryClientProvider>);
 }
+// #97 P3 replaces the global mode switch with an action at an object.
+async function beginDraft(user: UserEvent) {
+  await user.click(await screen.findByRole('button', { name: 'Quelle hinzufügen' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Gerät aus Home Assistant hinzufügen' });
+  await user.click(within(dialog).getByRole('button', { name: 'Abbrechen' }));
+}
 async function draftPage(user: UserEvent) {
   await user.click(await screen.findByRole('link', { name: 'Änderungen ansehen' }));
 }
@@ -36,7 +42,7 @@ it.each([
 
 it('makes a successful explicit check visible', async () => {
   const user = userEvent.setup(); installFakeApi(); app();
-  await user.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
+  await beginDraft(user);
   await draftPage(user);
   await user.click(await screen.findByRole('button', { name: 'Änderungen prüfen' }));
   expect(await screen.findByText('Keine Fehler')).toBeVisible();
@@ -50,21 +56,26 @@ it('starts a named draft automatically from a creation action and stays on the s
   expect(fake.drafts.size).toBe(1);
   expect([...fake.drafts.values()][0]?.display_name).toMatch(/^Änderungen vom /);
   expect(window.location.hash).toMatch(/^#\/sources\/devices(?:\?|$)/);
-  expect(screen.getByRole('button', { name: 'Bearbeiten' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.queryByRole('group', { name: 'Ansicht' })).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Name')).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Änderungen übernehmen' })).toBeVisible();
   expect(screen.queryByText(/schreibgeschützte Ansicht/)).not.toBeInTheDocument();
 });
 
-it('switches to live and back while retaining unsaved edits and the current editor', async () => {
+it('returns to an object with unsaved edits retained and requires its own edit action', async () => {
   const user = userEvent.setup(); const fake = installFakeApi(); app();
   await user.click(await screen.findByRole('button', { name: 'Quelle hinzufügen' }));
   await user.click(await screen.findByRole('button', { name: 'Ohne Gerät anlegen' }));
   const name = await screen.findByLabelText('Name');
   await user.type(name, 'Fenster im Zimmer');
-  await user.click(screen.getByRole('button', { name: "Ansehen" }));
-  expect(screen.getByText('Deine Änderungen bleiben im Entwurf erhalten.')).toBeVisible();
-  expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+  await user.click(screen.getByRole('link', { name: 'Verknüpfungen' }));
+  await waitFor(() => expect(screen.queryByLabelText('Name')).not.toBeInTheDocument());
+  await user.click(screen.getByRole('link', { name: 'Meine Quellen' }));
+  expect(await screen.findByLabelText('Name')).toBeDisabled();
   await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
   expect(await screen.findByLabelText('Name')).toHaveValue('Fenster im Zimmer');
+  expect(screen.getByLabelText('Name')).toBeEnabled();
+  expect(screen.queryByRole('button', { name: 'Ansehen' })).not.toBeInTheDocument();
   expect(fake.drafts.size).toBe(1);
   expect(fake.revisions).toHaveLength(0);
 });
@@ -73,7 +84,7 @@ it('opens the error list in place and gives visible feedback after an explicit c
   const user = userEvent.setup(); const fake = installFakeApi();
   fake.routes.push({ match: /^registry\/validate$/, method: 'POST', respond: () => reply(200, { valid: false, issues: [{ code: 'config_incomplete', path: '/contracts', message: 'raw technical message' }] }) });
   app();
-  await user.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
+  await beginDraft(user);
   await draftPage(user);
   await user.click(await screen.findByRole('button', { name: 'Änderungen prüfen' }));
   await user.click(await screen.findByRole('button', { name: '1 Fehler' }));
@@ -97,7 +108,7 @@ it('saves the candidate and opens confirmation from the single draft action with
 
 it('shows the committed activation acknowledgement while cache refreshes are still pending', async () => {
   const user = userEvent.setup(); const fake = installFakeApi(); app();
-  await user.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
+  await beginDraft(user);
   await review(user);
   const dialog = await screen.findByRole('dialog', { name: 'Konfiguration übernehmen' });
   await user.click(await within(dialog).findByRole('checkbox', { name: /Auswirkungen geprüft/ }));

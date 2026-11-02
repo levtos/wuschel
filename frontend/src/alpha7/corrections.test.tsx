@@ -8,7 +8,7 @@ import { WorkingDocumentProvider, useWorkingDocument } from '@/features/authorin
 import { DiffView } from '@/features/registry/DiffView';
 import type { ValidationResult } from '@/lib/types';
 import verdict from '../../test/fixtures/validate-ok.json';
-import { installFakeApi, makeDraft, reply, sampleConfig } from '../../test/fakeApi';
+import { delayedBody, installFakeApi, makeDraft, reply, sampleConfig } from '../../test/fakeApi';
 
 const emptyVerdict = (): ValidationResult => ({ ...structuredClone(verdict), diff: { ...structuredClone(verdict.diff), analysis: 'static', predicts_values: false, added: [], affected_contracts: [], objects: {} } });
 function Editor() {
@@ -23,7 +23,7 @@ beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
 it('uses only the current server object diff, including zero, while active export is still loading', async () => {
   const fake = installFakeApi(); const user = userEvent.setup();
   let respond: ((response: Response) => void) | undefined;
-  fake.routes.push({ match: /^registry\/active\/export$/, respond: () => new Promise(() => {}) });
+  fake.routes.push({ match: /^registry\/active\/export$/, respond: () => delayedBody(new Promise(() => {})) });
   fake.routes.push({ match: /^registry\/validate$/, respond: () => new Promise(resolve => { respond = resolve; }) });
   editor(); await user.click(screen.getByText('Open'));
   expect(screen.getByLabelText('Anzahl der Änderungen')).toHaveTextContent('…');

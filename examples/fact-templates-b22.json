@@ -1,0 +1,451 @@
+[
+  {
+    "type_id": "device.battery",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Akkustand",
+    "inputs": [
+      {
+        "name": "level",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "%"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "%"
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "input",
+        "name": "level"
+      }
+    }
+  },
+  {
+    "type_id": "device.charging",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Laden",
+    "inputs": [
+      {
+        "name": "charging",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "input",
+        "name": "charging"
+      }
+    }
+  },
+  {
+    "type_id": "presence.distance",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Entfernung",
+    "inputs": [
+      {
+        "name": "meters",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "m"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "m"
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "input",
+        "name": "meters"
+      }
+    }
+  },
+  {
+    "type_id": "communication.call_active",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Anruf aktiv",
+    "inputs": [
+      {
+        "name": "state",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "map",
+        "arg": {
+          "op": "input",
+          "name": "state"
+        },
+        "entries": {
+          "\"idle\"": false,
+          "\"dialing\"": true,
+          "\"talking\"": true,
+          "\"ringing\"": true
+        },
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    }
+  },
+  {
+    "type_id": "device.pc_power",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "PC-Leistung",
+    "inputs": [
+      {
+        "name": "watts",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "W"
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        },
+        "watts": {
+          "type": "number",
+          "required": true,
+          "physical_state": false,
+          "unit": "W"
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "bucket",
+        "id": "power",
+        "arg": {
+          "op": "input",
+          "name": "watts"
+        },
+        "classes": [
+          false,
+          true
+        ],
+        "initial": {
+          "unknown": true
+        },
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        },
+        "boundaries": [
+          {
+            "at": {
+              "op": "literal",
+              "value": 20,
+              "schema": {
+                "type": "number",
+                "required": true,
+                "physical_state": false,
+                "unit": "W"
+              }
+            },
+            "hysteresis": {
+              "lower": {
+                "op": "literal",
+                "value": 6,
+                "schema": {
+                  "type": "number",
+                  "required": true,
+                  "physical_state": false,
+                  "unit": "W"
+                }
+              },
+              "upper": {
+                "op": "literal",
+                "value": 20,
+                "schema": {
+                  "type": "number",
+                  "required": true,
+                  "physical_state": false,
+                  "unit": "W"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "watts": {
+        "op": "input",
+        "name": "watts"
+      }
+    }
+  },
+  {
+    "type_id": "media.device_state",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Medienzustand",
+    "inputs": [
+      {
+        "name": "state",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "title",
+        "schema": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "artist",
+        "schema": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "off",
+            "idle",
+            "standby",
+            "playing",
+            "paused",
+            "buffering",
+            "on"
+          ]
+        },
+        "title": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        },
+        "artist": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "map",
+        "arg": {
+          "op": "input",
+          "name": "state"
+        },
+        "entries": {
+          "\"off\"": "off",
+          "\"idle\"": "idle",
+          "\"standby\"": "standby",
+          "\"playing\"": "playing",
+          "\"paused\"": "paused",
+          "\"buffering\"": "buffering",
+          "\"on\"": "on"
+        },
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "off",
+            "idle",
+            "standby",
+            "playing",
+            "paused",
+            "buffering",
+            "on"
+          ]
+        }
+      },
+      "title": {
+        "op": "input",
+        "name": "title"
+      },
+      "artist": {
+        "op": "input",
+        "name": "artist"
+      }
+    }
+  },
+  {
+    "type_id": "media.device_power_facts",
+    "type_version": 1,
+    "language_version": 6,
+    "display_name": "Mediengerät mit Betriebszustand",
+    "inputs": [
+      {
+        "name": "active",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "title",
+        "schema": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "artist",
+        "schema": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "off",
+            "on"
+          ]
+        },
+        "title": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        },
+        "artist": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "map",
+        "arg": {
+          "op": "input",
+          "name": "active"
+        },
+        "entries": {
+          "false": "off",
+          "true": "on"
+        },
+        "schema": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "off",
+            "on"
+          ]
+        }
+      },
+      "title": {
+        "op": "input",
+        "name": "title"
+      },
+      "artist": {
+        "op": "input",
+        "name": "artist"
+      }
+    }
+  }
+]

@@ -25,7 +25,7 @@ export function MasterDetail({
   addDisabled,
   title,
   empty,
-  children,
+  children, search: controlledSearch, onSearchChange,
 }: {
   items: ListItem[];
   selected: string | null;
@@ -35,9 +35,10 @@ export function MasterDetail({
   addDisabled?: boolean;
   title: string;
   empty: ReactNode;
-  children: ReactNode;
+  children: ReactNode; search?: string; onSearchChange?: (value: string) => void;
 }) {
-  const [search, setSearch] = useState('');
+  const [localSearch, setLocalSearch] = useState('');
+  const search = controlledSearch ?? localSearch; const setSearch = onSearchChange ?? setLocalSearch;
   const needle = search.trim().toLowerCase();
   const shown = needle ? items.filter((i) => `${i.label} ${i.sub ?? ''}`.toLowerCase().includes(needle)) : items;
   return (

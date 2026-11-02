@@ -103,6 +103,7 @@ export function flow(user: UserEvent) {
       await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Neuer Vertrag' })).not.toBeInTheDocument(), { timeout: 65_000 });
       await user.click(await screen.findByRole('tab', { name: 'Konfiguration' }));
       const selects = await screen.findAllByLabelText("Verknüpfter Wert");
+      await waitFor(() => selects.forEach(select => expect(select).toBeEnabled()), { timeout: 65_000 });
       for (const [i, ref] of refs.entries()) await user.selectOptions(selects[i]!, ref);
     }
   };

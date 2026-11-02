@@ -47,7 +47,7 @@ export function ContractLiveState({ envelope, stale, fields = {} }: { envelope: 
                 {field.reasons.length > 0 && (
                   <ul className="flex flex-col gap-0.5 text-xs">
                     {field.reasons.map((reason, i) => (
-                      <li key={i} className="flex flex-wrap items-center gap-2"><Badge tone="warn">{reasonLabel(reason.code)}</Badge><span className="text-muted">{uiText("components.ContractLiveState.eingang_ea63c1")}{reason.input}{reason.source_id ? uiText("components.ContractLiveState.v0_8b43bb", { v0: (reason.source_id) }) : ''}{reason.detail ? uiText("components.ContractLiveState.v0_8b43bb", { v0: (codeLabel(reason.detail)) }) : ''} {uiText("components.ContractLiveState.seit_905c7f")}{formatTime(reason.since)}</span></li>
+                      <li key={i} className="flex flex-wrap items-center gap-2"><Badge tone="warn">{reasonLabel(reason.code)}</Badge><span className="text-muted">{uiText("components.ContractLiveState.eingang_ea63c1")}{reason.input}{reason.source_id ? uiText("components.ContractLiveState.v0_8b43bb", { v0: (reason.source_id) }) : ''}{reason.detail ? uiText("components.ContractLiveState.v0_8b43bb", { v0: (reason.code === 'calendar_coverage_missing' ? reason.detail : codeLabel(reason.detail)) }) : ''} {uiText("components.ContractLiveState.seit_905c7f")}{formatTime(reason.since)}</span></li>
                     ))}
                   </ul>
                 )}

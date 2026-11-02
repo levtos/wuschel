@@ -1,0 +1,1805 @@
+[
+  {
+    "type_id": "day.context_at",
+    "type_version": 2,
+    "language_version": 6,
+    "display_name": "Tagesart für ein Datum",
+    "inputs": [
+      {
+        "name": "date",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "holidays",
+        "schema": {
+          "type": "object",
+          "required": false,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "appointments",
+        "schema": {
+          "type": "object",
+          "required": false,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "or",
+              "args": [
+                {
+                  "op": "calendar_active",
+                  "arg": {
+                    "op": "input",
+                    "name": "holidays"
+                  },
+                  "pattern": {
+                    "op": "literal",
+                    "value": "*",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  },
+                  "all_day_only": true,
+                  "on_date": {
+                    "op": "input",
+                    "name": "date"
+                  }
+                },
+                {
+                  "op": "calendar_active",
+                  "arg": {
+                    "op": "input",
+                    "name": "appointments"
+                  },
+                  "pattern": {
+                    "op": "parameter",
+                    "name": "vacation_pattern"
+                  },
+                  "all_day_only": true,
+                  "on_date": {
+                    "op": "input",
+                    "name": "date"
+                  }
+                }
+              ]
+            },
+            "then": {
+              "op": "literal",
+              "value": "day_off",
+              "schema": {
+                "type": "text",
+                "required": true,
+                "physical_state": false
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "or",
+                  "args": [
+                    {
+                      "op": "calendar_active",
+                      "arg": {
+                        "op": "input",
+                        "name": "holidays"
+                      },
+                      "pattern": {
+                        "op": "literal",
+                        "value": "*",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": false
+                        }
+                      },
+                      "all_day_only": true,
+                      "on_date": {
+                        "op": "input",
+                        "name": "date"
+                      }
+                    },
+                    {
+                      "op": "calendar_active",
+                      "arg": {
+                        "op": "input",
+                        "name": "appointments"
+                      },
+                      "pattern": {
+                        "op": "parameter",
+                        "name": "vacation_pattern"
+                      },
+                      "all_day_only": true,
+                      "on_date": {
+                        "op": "input",
+                        "name": "date"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "then": {
+              "op": "first_match",
+              "cases": [
+                {
+                  "when": {
+                    "op": "map",
+                    "arg": {
+                      "op": "calendar_at",
+                      "at": {
+                        "op": "input",
+                        "name": "date"
+                      },
+                      "field": "weekday"
+                    },
+                    "schema": {
+                      "type": "bool",
+                      "required": true,
+                      "physical_state": false
+                    },
+                    "entries": {
+                      "1": true,
+                      "2": true,
+                      "3": true,
+                      "4": true,
+                      "5": true,
+                      "6": false,
+                      "7": false
+                    }
+                  },
+                  "then": {
+                    "op": "literal",
+                    "value": "workday",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  }
+                },
+                {
+                  "when": {
+                    "op": "not",
+                    "args": [
+                      {
+                        "op": "map",
+                        "arg": {
+                          "op": "calendar_at",
+                          "at": {
+                            "op": "input",
+                            "name": "date"
+                          },
+                          "field": "weekday"
+                        },
+                        "schema": {
+                          "type": "bool",
+                          "required": true,
+                          "physical_state": false
+                        },
+                        "entries": {
+                          "1": true,
+                          "2": true,
+                          "3": true,
+                          "4": true,
+                          "5": true,
+                          "6": false,
+                          "7": false
+                        }
+                      }
+                    ]
+                  },
+                  "then": {
+                    "op": "literal",
+                    "value": "weekend",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "parameter_schema": {
+      "vacation_pattern": {
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        },
+        "label": "Ganztägiger Urlaub"
+      }
+    }
+  },
+  {
+    "type_id": "day.is_workday",
+    "type_version": 2,
+    "language_version": 6,
+    "display_name": "Arbeitstag",
+    "inputs": [
+      {
+        "name": "context",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ],
+      "fixture": false
+    },
+    "outputs": {
+      "value": {
+        "op": "compare",
+        "comparison": "eq",
+        "left": {
+          "op": "input",
+          "name": "context"
+        },
+        "right": {
+          "op": "literal",
+          "value": "workday",
+          "schema": {
+            "type": "text",
+            "required": true,
+            "physical_state": false
+          }
+        }
+      }
+    }
+  },
+  {
+    "type_id": "media.appletv_class",
+    "type_version": 2,
+    "language_version": 6,
+    "display_name": "media.appletv_class",
+    "inputs": [
+      {
+        "name": "applicable",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "title",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "normal",
+            "private"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "applicable"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "not_applicable",
+                "arg": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              "entries": {
+                "false": "normal"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "private"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "input",
+              "name": "applicable"
+            },
+            "then": {
+              "op": "managed_catalog_lookup",
+              "catalog_id": "media.appletv",
+              "definition_version": 2,
+              "scope": {
+                "op": "literal",
+                "value": "appletv",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "media_type": {
+                "op": "literal",
+                "value": "video",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "signal_type": {
+                "op": "literal",
+                "value": "app",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "key": {
+                "op": "input",
+                "name": "title"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "private"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.homepods_class",
+    "type_version": 2,
+    "language_version": 6,
+    "display_name": "media.homepods_class",
+    "inputs": [
+      {
+        "name": "applicable",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "title",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "artist",
+        "schema": {
+          "type": "text",
+          "required": false,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "normal",
+            "boost",
+            "mute",
+            "quieter"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "applicable"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "not_applicable",
+                "arg": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              "entries": {
+                "false": "normal"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "boost",
+                  "mute",
+                  "quieter"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "input",
+              "name": "applicable"
+            },
+            "then": {
+              "op": "managed_catalog_lookup",
+              "catalog_id": "media.homepods",
+              "definition_version": 2,
+              "scope": {
+                "op": "literal",
+                "value": "homepods",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "media_type": {
+                "op": "literal",
+                "value": "music",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "signal_type": {
+                "op": "literal",
+                "value": "title",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "key": {
+                "op": "first_match",
+                "cases": [
+                  {
+                    "when": {
+                      "op": "compare",
+                      "left": {
+                        "op": "input",
+                        "name": "title"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "value": "",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": false
+                        }
+                      },
+                      "comparison": "ne"
+                    },
+                    "then": {
+                      "op": "first_match",
+                      "cases": [
+                        {
+                          "when": {
+                            "op": "compare",
+                            "left": {
+                              "op": "input",
+                              "name": "artist"
+                            },
+                            "right": {
+                              "op": "literal",
+                              "value": "",
+                              "schema": {
+                                "type": "text",
+                                "required": true,
+                                "physical_state": false
+                              }
+                            },
+                            "comparison": "ne"
+                          },
+                          "then": {
+                            "op": "compound_key",
+                            "args": [
+                              {
+                                "op": "input",
+                                "name": "artist"
+                              },
+                              {
+                                "op": "input",
+                                "name": "title"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "when": {
+                            "op": "compare",
+                            "left": {
+                              "op": "input",
+                              "name": "artist"
+                            },
+                            "right": {
+                              "op": "literal",
+                              "value": "",
+                              "schema": {
+                                "type": "text",
+                                "required": true,
+                                "physical_state": false
+                              }
+                            },
+                            "comparison": "eq"
+                          },
+                          "then": {
+                            "op": "compound_key",
+                            "args": [
+                              {
+                                "op": "input",
+                                "name": "title"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "boost",
+                  "mute",
+                  "quieter"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.lead_device",
+    "type_version": 2,
+    "language_version": 6,
+    "display_name": "media.lead_device",
+    "inputs": [
+      {
+        "name": "tv",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "device",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "playing",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "ps5",
+            "appletv",
+            "homepods",
+            "none",
+            "other"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "input",
+              "name": "tv"
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "input",
+                "name": "device"
+              },
+              "entries": {
+                "\"ps5\"": "ps5",
+                "\"appletv\"": "appletv",
+                "\"other\"": "other"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "ps5",
+                  "appletv",
+                  "homepods",
+                  "none",
+                  "other"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "tv"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "input",
+                "name": "playing"
+              },
+              "entries": {
+                "true": "homepods",
+                "false": "none"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "ps5",
+                  "appletv",
+                  "homepods",
+                  "none"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.pc_class",
+    "type_version": 2,
+    "language_version": 6,
+    "display_name": "media.pc_class",
+    "inputs": [
+      {
+        "name": "applicable",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "title",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "home_cinema",
+            "grind",
+            "headset"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "applicable"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "not_applicable",
+                "arg": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              "entries": {
+                "false": "home_cinema"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "home_cinema",
+                  "grind",
+                  "headset"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "input",
+              "name": "applicable"
+            },
+            "then": {
+              "op": "managed_catalog_lookup",
+              "catalog_id": "media.pc",
+              "definition_version": 2,
+              "scope": {
+                "op": "literal",
+                "value": "pc",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "media_type": {
+                "op": "literal",
+                "value": "game",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "signal_type": {
+                "op": "literal",
+                "value": "title",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "key": {
+                "op": "input",
+                "name": "title"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "home_cinema",
+                  "grind",
+                  "headset"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.private_time",
+    "type_version": 2,
+    "language_version": 6,
+    "display_name": "media.private_time",
+    "inputs": [
+      {
+        "name": "streams",
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "appletv",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "app_class",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {
+      "positive": {
+        "op": "or",
+        "args": [
+          {
+            "op": "compare",
+            "left": {
+              "op": "input",
+              "name": "streams"
+            },
+            "right": {
+              "op": "literal",
+              "value": 0,
+              "schema": {
+                "type": "number",
+                "required": true,
+                "physical_state": false
+              }
+            },
+            "comparison": "gt"
+          },
+          {
+            "op": "and",
+            "args": [
+              {
+                "op": "input",
+                "name": "appletv"
+              },
+              {
+                "op": "compare",
+                "left": {
+                  "op": "input",
+                  "name": "app_class"
+                },
+                "right": {
+                  "op": "literal",
+                  "value": "private",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "comparison": "eq"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "outputs": {
+      "value": {
+        "op": "fusion",
+        "strategy": "first_usable",
+        "args": [
+          {
+            "op": "temporal",
+            "id": "private_end",
+            "operation": "grace",
+            "args": [
+              {
+                "op": "first_match",
+                "cases": [
+                  {
+                    "when": {
+                      "op": "ref",
+                      "name": "positive"
+                    },
+                    "then": {
+                      "op": "literal",
+                      "value": true,
+                      "schema": {
+                        "type": "bool",
+                        "required": true,
+                        "physical_state": false
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "duration_s": {
+              "op": "parameter",
+              "name": "private_end_grace_s"
+            }
+          },
+          {
+            "op": "ref",
+            "name": "positive"
+          }
+        ]
+      }
+    },
+    "parameter_schema": {
+      "private_end_grace_s": {
+        "schema": {
+          "type": "number",
+          "required": true,
+          "physical_state": false
+        },
+        "minimum": 0.001,
+        "maximum": 31536000,
+        "label": "Endfrist in Sekunden"
+      }
+    }
+  },
+  {
+    "type_id": "media.ps5_class",
+    "type_version": 2,
+    "language_version": 6,
+    "display_name": "media.ps5_class",
+    "inputs": [
+      {
+        "name": "applicable",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "title",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "home_cinema",
+            "grind",
+            "headset"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "applicable"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "not_applicable",
+                "arg": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              "entries": {
+                "false": "home_cinema"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "home_cinema",
+                  "grind",
+                  "headset"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "input",
+              "name": "applicable"
+            },
+            "then": {
+              "op": "managed_catalog_lookup",
+              "catalog_id": "media.ps5",
+              "definition_version": 2,
+              "scope": {
+                "op": "literal",
+                "value": "ps5",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "media_type": {
+                "op": "literal",
+                "value": "game",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "signal_type": {
+                "op": "literal",
+                "value": "title",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "key": {
+                "op": "input",
+                "name": "title"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "home_cinema",
+                  "grind",
+                  "headset"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.quiet_facts",
+    "type_version": 2,
+    "language_version": 6,
+    "display_name": "media.quiet_facts",
+    "inputs": [
+      {
+        "name": "door",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "playing",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "track_class",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "entry_door_open": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        },
+        "track_muted": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": []
+    },
+    "rules": {},
+    "outputs": {
+      "entry_door_open": {
+        "op": "compare",
+        "left": {
+          "op": "input",
+          "name": "door"
+        },
+        "right": {
+          "op": "literal",
+          "value": "open",
+          "schema": {
+            "type": "text",
+            "required": true,
+            "physical_state": false
+          }
+        },
+        "comparison": "eq"
+      },
+      "track_muted": {
+        "op": "and",
+        "args": [
+          {
+            "op": "input",
+            "name": "playing"
+          },
+          {
+            "op": "compare",
+            "left": {
+              "op": "input",
+              "name": "track_class"
+            },
+            "right": {
+              "op": "literal",
+              "value": "mute",
+              "schema": {
+                "type": "text",
+                "required": true,
+                "physical_state": false
+              }
+            },
+            "comparison": "eq"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.stash_class",
+    "type_version": 2,
+    "language_version": 6,
+    "display_name": "media.stash_class",
+    "inputs": [
+      {
+        "name": "applicable",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "title",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "normal",
+            "private"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "applicable"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "not_applicable",
+                "arg": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              "entries": {
+                "false": "normal"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "private"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "input",
+              "name": "applicable"
+            },
+            "then": {
+              "op": "managed_catalog_lookup",
+              "catalog_id": "media.stash",
+              "definition_version": 2,
+              "scope": {
+                "op": "literal",
+                "value": "stash",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "media_type": {
+                "op": "literal",
+                "value": "video",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "signal_type": {
+                "op": "literal",
+                "value": "title",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "key": {
+                "op": "input",
+                "name": "title"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "private"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.tv_device",
+    "type_version": 2,
+    "language_version": 6,
+    "display_name": "media.tv_device",
+    "inputs": [
+      {
+        "name": "tv",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "source",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "ps5",
+            "appletv",
+            "other",
+            "none"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "tv"
+                }
+              ]
+            },
+            "then": {
+              "op": "literal",
+              "value": "none",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "ps5",
+                  "appletv",
+                  "other",
+                  "none"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "input",
+              "name": "tv"
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "managed_catalog_lookup",
+                "catalog_id": "media.tv_device",
+                "definition_version": 2,
+                "scope": {
+                  "op": "literal",
+                  "value": "tv",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "media_type": {
+                  "op": "literal",
+                  "value": "source",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "signal_type": {
+                  "op": "literal",
+                  "value": "title",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "key": {
+                  "op": "input",
+                  "name": "source"
+                },
+                "schema": {
+                  "type": "enum",
+                  "required": true,
+                  "physical_state": false,
+                  "value_catalog": [
+                    "ps5",
+                    "appletv",
+                    "other"
+                  ]
+                }
+              },
+              "entries": {
+                "\"ps5\"": "ps5",
+                "\"appletv\"": "appletv",
+                "\"other\"": "other"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "ps5",
+                  "appletv",
+                  "other",
+                  "none"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type_id": "media.tv_usage",
+    "type_version": 3,
+    "language_version": 6,
+    "display_name": "media.tv_usage",
+    "inputs": [
+      {
+        "name": "applicable",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "source",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "tv",
+            "streaming",
+            "gaming",
+            "other"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "input",
+                  "name": "applicable"
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "not_applicable",
+                "arg": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              "entries": {
+                "false": "tv"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "tv",
+                  "streaming",
+                  "gaming",
+                  "other"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "input",
+              "name": "applicable"
+            },
+            "then": {
+              "op": "configuration_hint",
+              "arg": {
+                "op": "managed_catalog_lookup",
+                "catalog_id": "media.tv_activity",
+                "definition_version": 2,
+                "scope": {
+                  "op": "literal",
+                  "value": "tv",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "media_type": {
+                  "op": "literal",
+                  "value": "source",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "signal_type": {
+                  "op": "literal",
+                  "value": "title",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "key": {
+                  "op": "input",
+                  "name": "source"
+                },
+                "schema": {
+                  "type": "enum",
+                  "required": true,
+                  "physical_state": false,
+                  "value_catalog": [
+                    "tv",
+                    "streaming",
+                    "gaming",
+                    "other"
+                  ]
+                }
+              },
+              "when": {
+                "op": "compare",
+                "left": {
+                  "op": "managed_catalog_lookup",
+                  "catalog_id": "media.tv_activity",
+                  "definition_version": 2,
+                  "scope": {
+                    "op": "literal",
+                    "value": "tv",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  },
+                  "media_type": {
+                    "op": "literal",
+                    "value": "source",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  },
+                  "signal_type": {
+                    "op": "literal",
+                    "value": "title",
+                    "schema": {
+                      "type": "text",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  },
+                  "key": {
+                    "op": "input",
+                    "name": "source"
+                  },
+                  "schema": {
+                    "type": "enum",
+                    "required": true,
+                    "physical_state": false,
+                    "value_catalog": [
+                      "tv",
+                      "streaming",
+                      "gaming",
+                      "other"
+                    ]
+                  }
+                },
+                "right": {
+                  "op": "literal",
+                  "value": "other",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "comparison": "eq"
+              },
+              "code": "activity_mapping_missing",
+              "message": "Für diese TV-Quelle fehlt die Nutzungsart."
+            }
+          }
+        ]
+      }
+    }
+  }
+]

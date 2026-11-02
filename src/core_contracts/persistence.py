@@ -1,19 +1,21 @@
 """Dedicated, locked PostgreSQL writer and atomic platform changesets."""
 
+from __future__ import annotations
+
 import asyncio
 import copy
 import hashlib
 import json
 import logging
 import ssl
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Protocol
 
 import asyncpg
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 from .history import CONTRACT_SQL, HISTORY_TABLES, TIME_SQL, HistoryQuery, page, timestamp
 from .model import canonical
@@ -153,6 +155,69 @@ class State(BaseModel):
     epoch_id: str = ""
     tables: dict[str, dict[str, dict[str, Any]]] = Field(default_factory=empty_tables)
     publications: dict[int, dict[str, Any]] = Field(default_factory=dict)
+    _catalog_base: State | None = PrivateAttr(default=None)
+
+    def catalog_clone(self) -> State:
+        """Writer-local care fork: containers are owned, rows stay read-only until detached.
+
+        Only catalog care uses this path. Other operations retain their full clone.
+        Never retain this fork across writer operations or expose it to a caller.
+        """
+        result = State.model_construct(
+            generation=self.generation,
+            active_revision=self.active_revision,
+            publication_seq=self.publication_seq,
+            epoch_id=self.epoch_id,
+            tables={name: dict(rows) for name, rows in self.current_tables().items()},
+            publications={},
+        )
+        result._catalog_base = self
+        return result
+
+    def detach_rows(self, table: str, keys: Iterable[str]) -> None:
+        """Own nested mutable rows before a care follow-up edits them in place."""
+        if self._catalog_base is None:
+            return
+        rows, base = self.tables[table], self._catalog_base.tables[table]
+        for key in keys:
+            if key in rows and rows[key] is base.get(key):
+                rows[key] = copy.deepcopy(rows[key])
+
+    def committed_copy(self, previous: State, *, retain_history: bool = False) -> State:
+        """Independent store snapshot, reusing only the store's own unchanged values.
+
+        Runtime and store never share mutable rows. Identity against the writer's
+        base proves which subtrees can reuse the previous store snapshot.
+        """
+        assert self._catalog_base is not None
+        missing = object()
+
+        def owned(value: Any, base: Any, stored: Any) -> Any:
+            if value is base and stored is not missing:
+                return stored
+            if isinstance(value, dict) and isinstance(base, dict) and isinstance(stored, dict):
+                return {
+                    key: owned(item, base.get(key, missing), stored.get(key, missing))
+                    for key, item in value.items()
+                }
+            return copy.deepcopy(value)
+
+        tables = {}
+        for name, rows in self.tables.items():
+            copied = owned(rows, self._catalog_base.tables[name], previous.tables[name])
+            tables[name] = (
+                {**previous.tables[name], **copied}
+                if retain_history and name in ARCHIVE
+                else copied
+            )
+        return State.model_construct(
+            generation=self.generation,
+            active_revision=self.active_revision,
+            publication_seq=self.publication_seq,
+            epoch_id=self.epoch_id,
+            tables=tables,
+            publications=copy.deepcopy(self.publications),
+        )
 
     def clone(self) -> State:
         return State(
@@ -430,6 +495,11 @@ class PostgresStore:
             if state.generation != previous.generation:
                 raise ValueError("stale changeset")
             changes = await asyncio.to_thread(encoded_changes, previous, state)
+            care_snapshot = (
+                await asyncio.to_thread(state.committed_copy, previous)
+                if state._catalog_base is not None
+                else None
+            )
             async with connection.transaction():
                 for statement, arguments in changes:
                     await connection.execute(statement, *arguments)
@@ -440,7 +510,13 @@ class PostgresStore:
                     self.before_commit()
             state.generation += 1
             state.compact()
-            self._committed = await asyncio.to_thread(state.clone)
+            if care_snapshot is None:
+                self._committed = await asyncio.to_thread(state.clone)
+            else:
+                care_snapshot.generation = state.generation
+                care_snapshot.compact()
+                self._committed = care_snapshot
+            state._catalog_base = None
 
     async def get(self, table: str, key: str) -> dict[str, Any] | None:
         if table not in TABLES or self.pool is None:
@@ -745,6 +821,15 @@ class MemoryStore:
             raise ValueError("stale changeset")
         if self.before_commit:
             self.before_commit()
+        if state._catalog_base is not None:
+            stored = state.committed_copy(self.state, retain_history=True)
+            stored.publications = {**self.state.publications, **stored.publications}
+            state.generation += 1
+            stored.generation = state.generation
+            self.state = stored
+            state.compact()
+            state._catalog_base = None
+            return
         for table, rows in state.tables.items():
             if table not in ARCHIVE:
                 self.state.tables[table] = copy.deepcopy(rows)

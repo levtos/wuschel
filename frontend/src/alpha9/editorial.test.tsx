@@ -42,7 +42,8 @@ it('loads local area icons and uses the house for unknown icons or external mark
   expect(await mdiPath('https://example.org/icon.svg')).toBe(await mdiPath('mdi:home'));
   expect(await mdiPath('mdi:not-in-the-pinned-set')).toBe(await mdiPath('mdi:home'));
   expect(fetch).not.toHaveBeenCalled();
-  expect(CATEGORIES).toHaveLength(9);
+  expect(CATEGORIES).toHaveLength(10);
+  expect(CATEGORIES).toContain('system');
   expect(CATEGORIES).toContain('devices');
   expect(CATEGORIES).toContain('time');
   expect(groupItems([{ category: 'climate' }], row => row.category)).toEqual([['climate', [{ category: 'climate' }]]]);

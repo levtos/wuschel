@@ -21,8 +21,10 @@ Category = Literal[
     "openings",
     "time",
     "devices",
+    "system",
 ]
 CATEGORIES = {
+    "system": "mdi:cog",
     "devices": "mdi:devices",
     "climate": "mdi:thermometer",
     "light_cover": "mdi:lightbulb",

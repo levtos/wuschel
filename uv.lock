@@ -760,7 +760,7 @@ wheels = [
 
 [[package]]
 name = "wuschel"
-version = "1.0.0b21"
+version = "1.0.0b22"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },

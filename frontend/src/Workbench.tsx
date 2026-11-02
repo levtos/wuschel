@@ -5,6 +5,7 @@ import { RouteError } from '@/components/RouteError';
 import { Shell } from '@/components/Shell';
 import { PageLoading } from '@/components/PageLoading';
 import { WorkingDocumentProvider } from '@/features/authoring/WorkingDocument';
+import { RestartRecovery } from '@/features/authoring/RestartRecovery';
 import type { LiveStore } from '@/lib/live';
 import { LiveProvider } from '@/lib/live-context';
 import { CapabilitySchemaProvider } from '@/lib/schema-context';
@@ -67,6 +68,7 @@ export function Workbench({ onSetup, live }: { onSetup: () => void; live?: LiveS
       <SetupContext.Provider value={onSetup}>
         <CapabilitySchemaProvider>
           <WorkingDocumentProvider>
+            <RestartRecovery />
             <RouterProvider router={router} />
           </WorkingDocumentProvider>
         </CapabilitySchemaProvider>

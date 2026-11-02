@@ -1,5 +1,6 @@
 import { t as uiText } from '@/i18n';
 import { coolDownRequests, reserveRequest } from '@/lib/request-budget';
+import { assertIngressResponse, browserSession } from '@/lib/browser-session';
 
 export interface Connection {
   host: string; port: number; database: string; user: string; password?: string;
@@ -34,11 +35,17 @@ const errors: Record<string, string> = {
 };
 export class SetupError extends Error {}
 export async function setupRequest<T>(path: string, body?: unknown, csrf = ''): Promise<T> {
-  await reserveRequest();
-  const response = await fetch(`./api/v1/setup/${path}`, {
+  const sessionDocument = browserSession.getDocumentVersion();
+  const response = await browserSession.run(async () => {
+    await reserveRequest();
+    await browserSession.waitReady();
+    const result = await fetch(`./api/v1/setup/${path}`, {
     method: body === undefined ? 'GET' : 'POST',
     headers: body === undefined ? {} : { 'Content-Type': 'application/json', 'X-Setup-CSRF': csrf },
     body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    assertIngressResponse(result, sessionDocument);
+    return result;
   });
   if (response.status === 429) await coolDownRequests(response.headers.get('Retry-After'));
   const value = await response.json().catch(() => ({ error: 'invalid_response' }));

@@ -4,12 +4,13 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import './index.css';
 import { t } from './i18n';
+import { ApiError } from './lib/api';
 
 document.title = t('product.name');
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 2_000 },
+    queries: { retry: (count, error) => !(error instanceof ApiError && error.kind === 'auth') && count < 1, refetchOnWindowFocus: false, staleTime: 2_000 },
     mutations: { retry: false },
   },
 });

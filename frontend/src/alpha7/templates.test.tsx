@@ -52,7 +52,8 @@ it('lets Live viewers inspect every template tab while metadata and semantic con
     expect(target).toBeEnabled(); await user.click(target); expect(target).toHaveAttribute('aria-selected', 'true');
     if (tab.source === "Verknüpfungen") expect(within(screen.getByRole('tabpanel')).queryByText('bool', { exact: true })).not.toBeInTheDocument();
   }
-  expect(screen.getByRole('button', { name: 'Bearbeiten' })).toHaveAttribute('aria-pressed', 'false');
+  expect(screen.queryByRole('button', { name: 'Ansehen' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Neue Version' })).toBeEnabled();
   expect(api.calls.some(call => ['POST', 'PUT', 'DELETE'].includes(call.method))).toBe(false);
 });
 

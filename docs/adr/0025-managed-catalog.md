@@ -81,6 +81,15 @@ braucht eine atomare Entscheidung über alle Kinder (neu zuordnen oder
 selbständig mit ausdrücklich bestätigter Klassifikation). Keine hängenden FKs.
 UI zeigt vorher die betroffenen Varianten.
 
+P5/b22 (#97): Die Pflege kann einen frei benannten Master ohne vorherige Sichtung
+zusammen mit den ausgewählten Varianten in derselben Revision anlegen. Die Klasse
+gehört ausschließlich dem Master; Bereichsprüfung, Zwei-Ebenen-Grenze, OCC und
+Idempotenz bleiben bestehen. Ein bereits belegter oder entfernter Namensschlüssel
+wird nicht still überschrieben. Die gruppierte Pflegeliste blättert über Master
+statt über einzelne Varianten. Treffer auf Varianten zeigen ihren Master als
+Kontext; die eingerückte Unterliste beachtet Suche und Filter. Die Einzelzähler
+werden dadurch weder summiert noch verändert.
+
 ## A-06: genaue Regel nur für betroffene Schlüssel
 
 Korrektur b21 (#92): Die ausdrücklich bestätigte Bereichskorrektur nutzt denselben
@@ -146,6 +155,14 @@ Crash nach Commit/vor Response: dieselbe Request-ID liefert das gespeicherte
 Ergebnis. DB-Ausfall: keine optimistische grüne Anzeige/Publication.
 Leser sehen konsistent alten oder neuen Stand, niemals neuen Head mit altem
 Ergebnis. Snapshot- und Exportleser verwenden denselben Snapshot-/Commitzaun.
+
+Umsetzung b22, Paket 2 (#97): Pflegevorgänge isolieren die Tabellencontainer
+und kopieren verschachtelte Zeilen erst vor ihrer Änderung. Bestehende
+Katalogeinträge und unbetroffene Folgezustände werden dabei nur gelesen.
+Der Store hält weiterhin einen vom Laufzeitzustand unabhängigen Stand;
+unveränderte Teilbäume werden ausschließlich aus seinem eigenen vorherigen
+Stand wiederverwendet. Writer, OCC, A-06 und die gemeinsame Transaktion für
+Katalogkopf, Ergebnisse, Zustände und Anfragebeleg bleiben unverändert.
 
 ## Gleichzeitiges Bearbeiten und begrenzte Last
 
@@ -301,6 +318,33 @@ festgelegten logischen Standard „manual + active“ in der Sichtungshaltung.
 Das ist weder eine erlernte Zuordnung noch eine automatische Fachänderung.
 Erst ausdrückliche Pflege legt eine abweichende append-only Inhaltsrevision an.
 Die erstmalige Sichtung darf dadurch keinen zusätzlichen A-06-Reset erzeugen.
+
+## Stash-Slots (b22, P6)
+
+Das ausdrücklich konfigurierte Slot-Profil verwendet die Szenenkennung als
+Variantenschlüssel und den normalisierten, mit `studio:` namensräumlich getrennten
+Studio-Hash als Masterschlüssel. Titel und Darsteller sind nur Anzeigemetadaten.
+Stabile Entdeckungen führen die unklassifizierte Zweiebenenbeziehung ausschließlich
+in der Sichtungshaltung; sie erzeugen keine Inhaltsrevision und keinen zusätzlichen
+A-06-Lauf. Neue Szenen können die bestätigte Studioklasse verwenden. Gespeicherte
+Zuordnungen und Herauslösungen haben Vorrang. Explizite Pflege materialisiert einen
+erforderlichen, noch ungespeicherten Studio-Master unklassifiziert atomar mit der
+Szene, damit Export und Restore ohne Sichtungshistorie einen vollständigen Graphen
+erhalten. Je Slot gilt die bestehende b20-Wiedergabe- und Baseline-Regel.
+
+## Apple-TV-Titel (b22, P7)
+
+Ein ausdrücklich konfiguriertes Profil zerlegt Titel je App anhand geschlossener
+Regeltypen und derselben HA-Beobachtung. App-bezogene, getrennte Schlüsselräume für
+Master und Variante erhalten die Zwei-Ebenen-Grenze. Live-TV und Sender sind
+Merkmale/Filter, keine zusätzliche Ebene; eine Live-Sendung ohne Folgenangabe ist
+ein einzelner Titeleintrag. Der bestehende App-Katalog bleibt unabhängig.
+Entdeckung, automatische Elternbeziehung, bestätigte Klassenvererbung und Vorrang
+ausdrücklicher Pflege folgen dem P6-Pfad. Keine automatische Inhaltsrevision,
+kein künstlicher A-06-Lauf durch Erfassung. Stabilitätszeiten sind je Quelle/App
+konfigurierbar, standardmäßig zwei Sekunden bzw. 60 Sekunden für Live-TV; der
+b20-Übergangsschutz bleibt als Untergrenze bei einseitigem Paarwechsel erhalten.
+Anzeigenamen ändern keine Titelidentität und starten keine neue Stabilitätsfrist.
 
 ## A2-Pflichttests
 

@@ -1,0 +1,644 @@
+[
+  {
+    "type_id": "media.stash_slot",
+    "type_version": 1,
+    "language_version": 7,
+    "display_name": "Stash-Slot",
+    "inputs": [
+      {
+        "name": "scene",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "state",
+        "schema": {
+          "type": "text",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "normal",
+            "private"
+          ]
+        },
+        "active": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      "available_projection": [
+        "value",
+        "active"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "map",
+                  "arg": {
+                    "op": "input",
+                    "name": "state"
+                  },
+                  "entries": {
+                    "\"playing\"": true,
+                    "\"paused\"": true,
+                    "\"buffering\"": true,
+                    "\"idle\"": false,
+                    "\"off\"": false,
+                    "\"standby\"": false
+                  },
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "not_applicable",
+                "arg": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              "entries": {
+                "false": "normal"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "private"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "map",
+              "arg": {
+                "op": "input",
+                "name": "state"
+              },
+              "entries": {
+                "\"playing\"": true,
+                "\"paused\"": true,
+                "\"buffering\"": true,
+                "\"idle\"": false,
+                "\"off\"": false,
+                "\"standby\"": false
+              },
+              "schema": {
+                "type": "bool",
+                "required": true,
+                "physical_state": false
+              }
+            },
+            "then": {
+              "op": "managed_catalog_lookup",
+              "profile": "stash_slot",
+              "catalog_id": "media.stash",
+              "definition_version": 2,
+              "scope": {
+                "op": "literal",
+                "value": "stash",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "media_type": {
+                "op": "literal",
+                "value": "video",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "signal_type": {
+                "op": "literal",
+                "value": "scene",
+                "schema": {
+                  "type": "text",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "key": {
+                "op": "input",
+                "name": "scene"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "private"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "active": {
+        "op": "map",
+        "arg": {
+          "op": "input",
+          "name": "state"
+        },
+        "entries": {
+          "\"playing\"": true,
+          "\"paused\"": true,
+          "\"buffering\"": true,
+          "\"idle\"": false,
+          "\"off\"": false,
+          "\"standby\"": false
+        },
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      }
+    }
+  },
+  {
+    "type_id": "media.stash_class",
+    "type_version": 3,
+    "language_version": 6,
+    "display_name": "Stash-Klasse aus vier Slots",
+    "inputs": [
+      {
+        "name": "slot_1_active",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "slot_1_class",
+        "schema": {
+          "type": "enum",
+          "required": false,
+          "physical_state": false,
+          "value_catalog": [
+            "normal",
+            "private"
+          ]
+        }
+      },
+      {
+        "name": "slot_2_active",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "slot_2_class",
+        "schema": {
+          "type": "enum",
+          "required": false,
+          "physical_state": false,
+          "value_catalog": [
+            "normal",
+            "private"
+          ]
+        }
+      },
+      {
+        "name": "slot_3_active",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "slot_3_class",
+        "schema": {
+          "type": "enum",
+          "required": false,
+          "physical_state": false,
+          "value_catalog": [
+            "normal",
+            "private"
+          ]
+        }
+      },
+      {
+        "name": "slot_4_active",
+        "schema": {
+          "type": "bool",
+          "required": true,
+          "physical_state": false
+        }
+      },
+      {
+        "name": "slot_4_class",
+        "schema": {
+          "type": "enum",
+          "required": false,
+          "physical_state": false,
+          "value_catalog": [
+            "normal",
+            "private"
+          ]
+        }
+      }
+    ],
+    "schema": {
+      "fields": {
+        "value": {
+          "type": "enum",
+          "required": true,
+          "physical_state": false,
+          "value_catalog": [
+            "normal",
+            "private"
+          ]
+        }
+      },
+      "available_projection": [
+        "value"
+      ]
+    },
+    "rules": {},
+    "outputs": {
+      "value": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "or",
+              "args": [
+                {
+                  "op": "and",
+                  "args": [
+                    {
+                      "op": "input",
+                      "name": "slot_1_active"
+                    },
+                    {
+                      "op": "compare",
+                      "left": {
+                        "op": "input",
+                        "name": "slot_1_class"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "value": "private",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": false
+                        }
+                      },
+                      "comparison": "eq"
+                    }
+                  ]
+                },
+                {
+                  "op": "and",
+                  "args": [
+                    {
+                      "op": "input",
+                      "name": "slot_2_active"
+                    },
+                    {
+                      "op": "compare",
+                      "left": {
+                        "op": "input",
+                        "name": "slot_2_class"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "value": "private",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": false
+                        }
+                      },
+                      "comparison": "eq"
+                    }
+                  ]
+                },
+                {
+                  "op": "and",
+                  "args": [
+                    {
+                      "op": "input",
+                      "name": "slot_3_active"
+                    },
+                    {
+                      "op": "compare",
+                      "left": {
+                        "op": "input",
+                        "name": "slot_3_class"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "value": "private",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": false
+                        }
+                      },
+                      "comparison": "eq"
+                    }
+                  ]
+                },
+                {
+                  "op": "and",
+                  "args": [
+                    {
+                      "op": "input",
+                      "name": "slot_4_active"
+                    },
+                    {
+                      "op": "compare",
+                      "left": {
+                        "op": "input",
+                        "name": "slot_4_class"
+                      },
+                      "right": {
+                        "op": "literal",
+                        "value": "private",
+                        "schema": {
+                          "type": "text",
+                          "required": true,
+                          "physical_state": false
+                        }
+                      },
+                      "comparison": "eq"
+                    }
+                  ]
+                }
+              ]
+            },
+            "then": {
+              "op": "literal",
+              "value": "private",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "private"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "not",
+              "args": [
+                {
+                  "op": "or",
+                  "args": [
+                    {
+                      "op": "input",
+                      "name": "slot_1_active"
+                    },
+                    {
+                      "op": "input",
+                      "name": "slot_2_active"
+                    },
+                    {
+                      "op": "input",
+                      "name": "slot_3_active"
+                    },
+                    {
+                      "op": "input",
+                      "name": "slot_4_active"
+                    }
+                  ]
+                }
+              ]
+            },
+            "then": {
+              "op": "map",
+              "arg": {
+                "op": "not_applicable",
+                "arg": {
+                  "op": "literal",
+                  "value": true,
+                  "schema": {
+                    "type": "bool",
+                    "required": true,
+                    "physical_state": false
+                  }
+                }
+              },
+              "entries": {
+                "false": "normal"
+              },
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "private"
+                ]
+              }
+            }
+          },
+          {
+            "when": {
+              "op": "and",
+              "args": [
+                {
+                  "op": "or",
+                  "args": [
+                    {
+                      "op": "input",
+                      "name": "slot_1_active"
+                    },
+                    {
+                      "op": "input",
+                      "name": "slot_2_active"
+                    },
+                    {
+                      "op": "input",
+                      "name": "slot_3_active"
+                    },
+                    {
+                      "op": "input",
+                      "name": "slot_4_active"
+                    }
+                  ]
+                },
+                {
+                  "op": "not",
+                  "args": [
+                    {
+                      "op": "or",
+                      "args": [
+                        {
+                          "op": "and",
+                          "args": [
+                            {
+                              "op": "input",
+                              "name": "slot_1_active"
+                            },
+                            {
+                              "op": "compare",
+                              "left": {
+                                "op": "input",
+                                "name": "slot_1_class"
+                              },
+                              "right": {
+                                "op": "literal",
+                                "value": "private",
+                                "schema": {
+                                  "type": "text",
+                                  "required": true,
+                                  "physical_state": false
+                                }
+                              },
+                              "comparison": "eq"
+                            }
+                          ]
+                        },
+                        {
+                          "op": "and",
+                          "args": [
+                            {
+                              "op": "input",
+                              "name": "slot_2_active"
+                            },
+                            {
+                              "op": "compare",
+                              "left": {
+                                "op": "input",
+                                "name": "slot_2_class"
+                              },
+                              "right": {
+                                "op": "literal",
+                                "value": "private",
+                                "schema": {
+                                  "type": "text",
+                                  "required": true,
+                                  "physical_state": false
+                                }
+                              },
+                              "comparison": "eq"
+                            }
+                          ]
+                        },
+                        {
+                          "op": "and",
+                          "args": [
+                            {
+                              "op": "input",
+                              "name": "slot_3_active"
+                            },
+                            {
+                              "op": "compare",
+                              "left": {
+                                "op": "input",
+                                "name": "slot_3_class"
+                              },
+                              "right": {
+                                "op": "literal",
+                                "value": "private",
+                                "schema": {
+                                  "type": "text",
+                                  "required": true,
+                                  "physical_state": false
+                                }
+                              },
+                              "comparison": "eq"
+                            }
+                          ]
+                        },
+                        {
+                          "op": "and",
+                          "args": [
+                            {
+                              "op": "input",
+                              "name": "slot_4_active"
+                            },
+                            {
+                              "op": "compare",
+                              "left": {
+                                "op": "input",
+                                "name": "slot_4_class"
+                              },
+                              "right": {
+                                "op": "literal",
+                                "value": "private",
+                                "schema": {
+                                  "type": "text",
+                                  "required": true,
+                                  "physical_state": false
+                                }
+                              },
+                              "comparison": "eq"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "then": {
+              "op": "literal",
+              "value": "normal",
+              "schema": {
+                "type": "enum",
+                "required": true,
+                "physical_state": false,
+                "value_catalog": [
+                  "normal",
+                  "private"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+]

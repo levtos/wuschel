@@ -26,8 +26,12 @@ it('shares the 24 hour or seven day selection between chart instances', () => {
 it('uses schema order including unseen categories and point titles without fractional enum ticks', () => {
   render(<MiniHistory name="value" schema={schema} points={[{ at: '2026-10-24T00:00:00Z', field }]} />);
   const labels = [...screen.getByRole('img').querySelectorAll('text')].map(text => text.textContent);
-  expect(labels).toEqual(['offen', 'gekippt', 'zu']);
-  expect(screen.getByRole('img').querySelector('circle title')?.textContent).toMatch(/gekippt.*gültig/);
+  // #97 P9 replaces native titles with an immediate, keyboard-accessible tooltip
+  // and requires the unknown/gap row on the value axis.
+  expect(labels).toEqual(['offen', 'gekippt', 'zu', 'unbekannt / Lücke']);
+  fireEvent.keyDown(screen.getByRole('img'), { key: 'Home' });
+  expect(screen.getByRole('tooltip').textContent).toMatch(/gekippt.*gültig/);
+  expect(screen.getByRole('img').querySelector('title')).toBeNull();
   expect(screen.queryByText('Unbekannter Zustand')).not.toBeInTheDocument();
 });
 
@@ -39,7 +43,10 @@ it('draws enum steps, unknown gaps and fixed 24 hour bounds', () => {
     { at: new Date(since + 10800000).toISOString(), field: { ...field, value: 'closed' } },
   ]} />);
   expect(screen.getByRole('img').querySelectorAll('polyline')).toHaveLength(2);
-  expect(screen.getByRole('img').querySelector('rect title')?.textContent).toMatch(/unbekannt/);
+  expect(screen.getByRole('img').querySelector('[data-gap]')?.getAttribute('fill')).toMatch(/^url/);
+  fireEvent.keyDown(screen.getByRole('img'), { key: 'End' });
+  fireEvent.keyDown(screen.getByRole('img'), { key: 'ArrowLeft' });
+  expect(screen.getByRole('tooltip')).toHaveTextContent('unbekannt');
   expect(screen.getByRole('img').querySelector('circle')?.getAttribute('cx')).toBe('146.25');
 });
 

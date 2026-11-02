@@ -143,6 +143,13 @@ class API:
                         "catalog_page_invalid",
                         "active_revision_conflict",
                         "catalog_master_invalid",
+                        "catalog_master_missing",
+                        "catalog_master_not_selected",
+                        "catalog_master_is_variant",
+                        "catalog_master_scope_mismatch",
+                        "catalog_master_has_variants",
+                        "catalog_master_name_invalid",
+                        "catalog_master_name_conflict",
                         "catalog_variant_override",
                         "catalog_class_invalid",
                         "catalog_key_empty",
@@ -151,6 +158,8 @@ class API:
                         "catalog_definition_missing",
                         "catalog_evaluation_failed",
                         "import_format_unknown",
+                        "interface_upgrade_invalid",
+                        "interface_upgrade_conflict",
                         "import_legacy_format_unknown",
                         "import_digest_mismatch",
                         "import_object_digest_mismatch",
@@ -472,11 +481,26 @@ class API:
             )
             filters = {
                 key: request.query.get(key, "")
-                for key in ("scope", "media_type", "signal_type", "context", "structure")
+                for key in (
+                    "scope",
+                    "media_type",
+                    "signal_type",
+                    "context",
+                    "structure",
+                    "app",
+                    "live_tv",
+                    "sender",
+                )
             }
             if path.endswith("detail"):
                 result = detail(
-                    state, catalog, request.query["identity"], request.query.get("after", "")
+                    state,
+                    catalog,
+                    request.query["identity"],
+                    request.query.get("after", ""),
+                    query=request.query.get("q", ""),
+                    view=request.query.get("view", "all"),
+                    filters=filters,
                 )
             elif path.endswith("queue"):
                 result = queue(
@@ -496,6 +520,7 @@ class API:
                     filters=filters,
                     sort=request.query.get("sort", "newest"),
                     variants_first=request.query.get("variants_first") == "true",
+                    grouped=request.query.get("grouped") == "true",
                 )
         elif path in {"catalogs/care/preview", "catalogs/care/write"} and method == "POST":
             result = await runtime.submit(
@@ -687,7 +712,7 @@ class API:
         elif path == "sources/calendar-status" and method == "GET":
             from .service_jobs import calendar_status
 
-            result = calendar_status(state, config)
+            result = calendar_status(state, config, runtime.clock.now_utc())
         elif path == "diagnostics/problems" and method == "GET":
             result = {
                 "configuration_problems": [
@@ -776,6 +801,20 @@ class API:
                 "next_due": due.isoformat() if due else None,
                 "temporal": temporal,
                 "trace": node.get("trace"),
+                **(
+                    {
+                        "inputs": {
+                            name: value.model_dump(mode="json")
+                            for name, value in runtime.inspect_inputs(
+                                contract, config, state
+                            ).items()
+                        },
+                        "assessed_at": runtime.clock.now_utc().isoformat(),
+                        "input_epoch_id": state.epoch_id,
+                    }
+                    if request.query.get("include_inputs") == "1"
+                    else {}
+                ),
                 "machine": {
                     "states": machine.definition.states,
                     "initial": machine.definition.initial,

@@ -31,6 +31,7 @@ export function gui(user: UserEvent) {
   };
   const first = (pointer: string, label: string | RegExp) => within(node(pointer)).getAllByLabelText(label)[0]!;
   const type = async (el: HTMLElement, text: string) => {
+    await waitFor(() => expect(el).toBeEnabled());
     await user.clear(el);
     await user.type(el, text);
   };

@@ -48,7 +48,7 @@ describe('P1: separate module routes and retained links', () => {
     installFakeApi(); app('#/templates/own');
     await screen.findByRole('heading', { name: 'Eigene Vorlagen', level: 1 });
     const navigation = screen.getByRole('navigation', { name: 'Hauptnavigation' });
-    const module = within(navigation).getByRole('button', { name: 'Vorlagen' });
+    const module = within(navigation).getByRole('button', { name: 'Verträge' });
     await waitFor(() => expect(module).toHaveAttribute('aria-expanded', 'true'));
     await userEvent.click(within(navigation).getByRole('link', { name: 'Eingebaute Vorlagen' }));
     await screen.findByRole('heading', { name: 'Eingebaute Vorlagen', level: 1 });

@@ -1,14 +1,14 @@
 import { t as uiText } from '@/i18n';
 import type { FieldSchema } from '@/features/authoring/model';
+import { PLATFORM_VALUES } from './platform-values';
+import { asObject, str } from '@/features/authoring/model';
 
-const PLATFORM_VALUES: Record<string, string> = {
-  closed: 'zu', tilted: 'gekippt', open: 'offen', ready: 'bereit', starting: 'startet', unavailable: uiText('beta3.b129faf4197e'), unknown: uiText('beta3.a418e69e9fbe'),
-};
+export function hasValueLabel(value: string, schema?: FieldSchema): boolean { return !!str(asObject(asObject(schema?.legend)[value]).display_name) || !!PLATFORM_VALUES[value]; }
 
 /** Translate declared enums only; identical words in text fields remain user data. */
 export function valueText(value: unknown, schema?: FieldSchema): string {
   if (typeof value === 'boolean') return value ? uiText('beta3.cde9e58a9a4e') : uiText('beta3.90ebc1bde6f3');
-  if (schema?.type === 'enum') return PLATFORM_VALUES[String(value)] ?? (Array.isArray(schema.value_catalog) && schema.value_catalog.includes(String(value)) ? String(value) : uiText('beta3.022e1c98e18a'));
+  if (schema?.type === 'enum') return str(asObject(asObject(schema.legend)[String(value)]).display_name) || PLATFORM_VALUES[String(value)] || uiText(Array.isArray(schema.value_catalog) && schema.value_catalog.includes(String(value)) ? 'b22.values.missing' : 'beta3.022e1c98e18a');
   return String(value ?? '—');
 }
 

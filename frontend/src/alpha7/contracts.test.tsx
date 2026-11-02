@@ -57,7 +57,8 @@ it('shows category and room alongside the value, a single state chip and the HA 
   fake(); app('#/contracts/list/all');
   const table = await screen.findByRole('table', { name: 'Verträge' });
   await within(table).findByText('21,5 °C');
-  expect(within(table).getAllByRole('columnheader').map(cell => cell.textContent)).toEqual(['Name', 'Kategorie', 'Bereich', 'Wert', 'Zustand', 'Quelle']);
+  // P3 added explicit object actions; retain the complete column assertion.
+  expect(within(table).getAllByRole('columnheader').map(cell => cell.textContent)).toEqual(['Aktionen am Objekt', 'Name', 'Kategorie', 'Bereich', 'Wert', 'Zustand', 'Quelle']);
   expect(await within(table).findByText('Zimmerthermometer')).toBeVisible();
   expect(within(table).getAllByText('Gesund')).toHaveLength(1);
   expect(within(table).getByRole('link', { name: 'Temperatur im Zimmer' })).toHaveAttribute('title', 'zimmer');
@@ -91,9 +92,12 @@ it('shows now, a sentence for why, named origin and history with gaps', async ()
   app('#/contracts/view/zimmer');
   expect(await screen.findByRole('heading', { name: 'Wert jetzt' })).toBeVisible();
   expect(screen.getByTestId('value-value')).toHaveTextContent('21,5 °C');
-  expect(screen.getByRole('heading', { name: 'Warum?' })).toBeVisible();
+  // #97 P10 combines the cause and origin in one panel.
+  expect(screen.getByRole('heading', { name: 'Woher kommt der Wert?' })).toBeVisible();
   expect(screen.getByText("Alle benötigten Angaben sind vorhanden und verwendbar.")).toBeVisible();
   expect(await screen.findByRole('link', { name: 'Zimmerthermometer' })).toBeVisible();
+  // #97 P9 loads this field's history only after explicit expansion.
+  await userEvent.click(screen.getByRole('button', { name: 'Verlauf: Wert' }));
   const chart = await screen.findByRole('img', { name: 'Verlauf: Wert' });
   expect(chart.querySelectorAll('polyline')).toHaveLength(2);
   expect(screen.queryByText('publication_seq')).not.toBeInTheDocument();
@@ -105,6 +109,7 @@ it('starts a draft-only contract with an explicit draft state and no invented li
   await user.click(await screen.findByRole('button', { name: 'Ohne Gerät anlegen' }));
   await user.type(screen.getByLabelText("Vertragskennung"), 'mein.neuer');
   await user.click(screen.getByRole('button', { name: 'Anlegen' }));
+  await user.click(await screen.findByRole('tab', { name: 'Zustand' }));
   expect(await screen.findByText('Dieser Vertrag gehört zum Entwurf. Prüfe ihn und wähle Übernehmen, damit er Werte liefern kann.')).toBeVisible();
   expect(screen.queryByTestId('value-value')).not.toBeInTheDocument();
   expect(api.revisions).toHaveLength(0);

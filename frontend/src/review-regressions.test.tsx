@@ -10,7 +10,7 @@ import { SchemaForm } from '@/editors/SchemaForm';
 import { BindingEditor } from '@/editors/RegistryObjects';
 import type { Draft } from '@/lib/types';
 import type { Json, JsonObject } from '@/lib/json';
-import { installFakeApi, makeDraft, reply, sampleConfig, type FakeApi } from '../test/fakeApi';
+import { delayedBody, installFakeApi, makeDraft, reply, sampleConfig, type FakeApi } from '../test/fakeApi';
 import { caps, idleLive, Stateful, wrap } from '../test/harness';
 
 const user = userEvent.setup();
@@ -100,7 +100,7 @@ describe('activation checks the exact immutable candidate and base', () => {
   it('discards A’s delayed validation after the same dialog switches to B', async () => {
     const api = installFakeApi({ drafts: [makeDraft('a', sampleConfig()), makeDraft('b', sampleConfig())] });
     const pending = deferred<Response>();
-    api.routes.push({ match: /^registry\/drafts\/a\/validate$/, respond: () => pending.promise });
+    api.routes.push({ match: /^registry\/drafts\/a\/validate$/, respond: () => delayedBody(pending.promise) });
     function Switch() {
       const [id, setId] = useState('a');
       return <><button onClick={() => setId('b')}>Switch</button><ActivateDialog draft={api.drafts.get(id) as unknown as Draft} open onOpenChange={() => {}} /></>;

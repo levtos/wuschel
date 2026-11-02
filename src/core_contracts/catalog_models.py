@@ -1,7 +1,7 @@
 """Versioned managed definitions; no mutable contents in configuration."""
 
 from datetime import datetime
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import Field, model_validator
 
@@ -121,6 +121,13 @@ class TitleMetadata(Model):
     contexts: tuple[TitleContext, ...] = Field(default=(), max_length=64)
 
 
+class CatalogMediaMetadata(Model):
+    app_id: str = Field(max_length=1024)
+    app_name: str = Field(default="", max_length=1024)
+    live_tv: bool = False
+    sender: str = Field(default="", max_length=1024)
+
+
 class EntryChange(Model):
     scope: str = Field(min_length=1, max_length=128)
     media_type: str = Field(min_length=1, max_length=128)
@@ -130,6 +137,12 @@ class EntryChange(Model):
     master_key: str | None = Field(default=None, max_length=1024)
     tombstone: bool = False
     display_name: str = Field(default="", max_length=1024)
+    display_metadata: (
+        dict[Literal["title", "artist"], Annotated[str, Field(max_length=1024)]] | None
+    ) = Field(default=None, max_length=2, exclude_if=lambda value: value is None)
+    catalog_metadata: CatalogMediaMetadata | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     note: str = Field(default="", max_length=1024)
     reviewed_at: datetime | None = Field(default=None, exclude_if=lambda value: value is None)
     hidden_at: datetime | None = Field(default=None, exclude_if=lambda value: value is None)

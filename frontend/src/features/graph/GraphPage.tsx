@@ -3,13 +3,13 @@ import dagre from '@dagrejs/dagre';
 import { applyNodeChanges, Background, Handle, MarkerType, Position, ReactFlow, ReactFlowProvider, useReactFlow, type Edge, type Node, type NodeChange, type NodeProps } from '@xyflow/react';
 import { Cable, FileCode2, Sigma } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { FieldStatusBadge, QualityBadge } from '@/components/status-parts';
 import { Badge } from '@/components/ui/badge';
 import { LayoutPanel, PanelLayout } from '@/components/PanelLayout';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/controls';
-import { Input, Select } from '@/components/ui/form';
+import { Field, Input, Select } from '@/components/ui/form';
 import { Empty, KeyValue, PageHeader, Panel, PanelHeader, Spinner } from '@/components/ui/layout';
 import { useAuthoringSource } from '@/features/authoring/useAuthoringSource';
 import { useLive } from '@/lib/live-context';
@@ -17,7 +17,8 @@ import { cn } from '@/lib/utils';
 import type { Envelope } from '@/lib/types';
 import { useActiveRevision } from '@/lib/queries';
 import { contractState } from '@/features/contracts/presentation';
-import { buildGraph, neighborhood, nodeId, reach, type Graph, type GraphNode } from './buildGraph';
+import { buildGraph, dependencyChain, nodeId, reach, type Graph, type GraphNode } from './buildGraph';
+import { useRouteFilters } from '@/lib/route-filters';
 
 interface NodeData extends Record<string, unknown> {
   node: GraphNode;
@@ -174,7 +175,7 @@ function Details({ node, graph, envelope }: { node: GraphNode; graph: Graph; env
           {node.kind === 'contract' && node.contractId && <Button size="sm" variant="primary" onClick={() => navigate(`/contracts/view/${encodeURIComponent(node.contractId!)}`)}>{uiText("features.graph.GraphPage.detailansicht_9d72e5")}</Button>}
           {node.kind === 'contract' && node.contractId && <Link to={`/settings/diagnostics?contract=${encodeURIComponent(node.contractId)}`}><Button size="sm">{uiText("features.graph.GraphPage.diagnose_64dd65")}</Button></Link>}
           {node.kind === 'result' && node.contractId && <Button size="sm" variant="primary" onClick={() => navigate(`/contracts/view/${encodeURIComponent(node.contractId!)}`)}>{uiText("features.graph.GraphPage.contract_offnen_019eff")}</Button>}
-          {node.kind === 'source' && <Button size="sm" variant="primary" onClick={() => navigate(`/sources/devices?item=${node.index ?? 0}`)}>{uiText("features.graph.GraphPage.quelle_offnen_16c604")}</Button>}
+          {node.kind === 'source' && <Button size="sm" variant="primary" onClick={() => navigate(`/sources/devices?source_id=${encodeURIComponent(node.id.slice('source:'.length))}`)}>{uiText("features.graph.GraphPage.quelle_offnen_16c604")}</Button>}
         </div>
       </div>
     </Panel>
@@ -186,34 +187,37 @@ export default function GraphPage() {
   const live = useLive();
   const active = useActiveRevision();
   const envelopes = src.source === 'active' && active.data?.revision === live.registryRevision ? live.contracts : null;
-  const [params, setParams] = useSearchParams();
-  const [structural, setStructural] = useState(false);
-  const [depth, setDepth] = useState<'all' | '1' | '2' | '3'>('all');
-  const [search, setSearch] = useState('');
-  const selected = params.get('node');
+  const route = useRouteFilters();
+  const [requested, setStart] = route.field('node', '');
+  const [search, setSearch] = route.field('q', '');
+  const [structure, setStructure] = route.field('structural', 'false');
+  const structural = structure === 'true';
+  const [inspected, setInspected] = useState<string | null>(null);
 
   const full = useMemo(() => buildGraph(src.config, { structural }), [src.config, structural]);
-  const graph = useMemo(() => (selected && depth !== 'all' && full.nodes.some((n) => n.id === selected) ? neighborhood(full, selected, Number(depth)) : full), [full, selected, depth]);
-  const selectedNode = graph.nodes.find((n) => n.id === selected) ?? null;
-  const match = search.trim() ? graph.nodes.find((n) => n.label.toLowerCase().includes(search.trim().toLowerCase())) ?? null : null;
-  const select = (id: string | null) => setParams(id ? { node: id } : {}, { replace: true });
+  const requestedNode = full.nodes.find(node => node.id === requested);
+  // Old result deep links start at their producing contract; results are not
+  // independent choices in the source/contract picker.
+  const start = requestedNode?.kind === 'result' ? full.nodes.find(node => node.id === nodeId('contract', requestedNode.contractId ?? '')) : requestedNode;
+  const graph = useMemo(() => dependencyChain(full, start?.id ?? null), [full, start?.id]);
+  const selectedNode = graph.nodes.find(node => node.id === inspected) ?? start ?? null;
+  const needle = search.trim().toLocaleLowerCase('de');
+  const choices = full.nodes.filter(node => node.kind !== 'result' && (node.id === start?.id || `${node.label} ${node.id}`.toLocaleLowerCase('de').includes(needle))).sort((a, b) => a.label.localeCompare(b.label, 'de') || a.id.localeCompare(b.id));
+  const choose = (id: string) => { setInspected(null); setStart(id); };
+  useEffect(() => setInspected(null), [start?.id]);
 
   return (
     <>
-      <PageHeader title={uiText("features.graph.GraphPage.graph_32ab01")} description={uiText('alpha9.pages.graph')} actions={<Button variant="primary" onClick={() => { setSearch(''); setDepth('all'); setStructural(false); select(null); }}>{uiText('alpha9.actions.resetView')}</Button>} />
+      <PageHeader title={uiText("features.graph.GraphPage.graph_32ab01")} description={uiText('alpha9.pages.graph')} actions={<Button variant="primary" disabled={!requested && !search && !structural} onClick={() => { setInspected(null); route.update({ node: undefined, q: undefined, structural: undefined }); }}>{uiText('b22.graph.changeStart')}</Button>} />
       <p className="mb-3 flex items-center gap-2 text-sm"><Badge tone={src.source === 'draft' ? 'info' : 'neutral'}>{uiText(src.source === 'draft' ? 'alpha7.graph.draft' : 'alpha7.graph.live')}</Badge>{uiText(src.source === 'draft' ? 'alpha7.graph.draftHelp' : 'alpha7.graph.liveHelp', { n: active.data?.revision ?? '—' })}</p>
       <div className="mb-3 flex flex-wrap items-center gap-3 pr-12">
-        <Input aria-label={uiText("features.graph.GraphPage.knoten_suchen_5bcf84")} className="w-56" placeholder={uiText("features.graph.GraphPage.knoten_suchen_64e35f")} value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && match && select(match.id)} />
-        <Button size="sm" disabled={!match} onClick={() => match && select(match.id)}>{uiText("features.graph.GraphPage.auswahlen_0bf1ed")}</Button>
-        {!match && <span className="text-xs text-muted">{uiText(search.trim() ? 'alpha7.graph.noMatch' : 'alpha7.graph.searchFirst')}</span>}
-        <Select aria-label={uiText("features.graph.GraphPage.nachbarschaft_d49e47")} className="w-52" value={depth} onChange={(e) => setDepth(e.target.value as typeof depth)} disabled={!selected}>
-          <option value="all">{uiText("features.graph.GraphPage.gesamter_graph_ce5753")}</option>
-          <option value="1">{uiText("features.graph.GraphPage.nachbarschaft_1_schritt_6ed35c")}</option>
-          <option value="2">{uiText("features.graph.GraphPage.nachbarschaft_2_schritte_edd4a3")}</option>
-          <option value="3">{uiText("features.graph.GraphPage.nachbarschaft_3_schritte_0df84f")}</option>
-        </Select>
-        {!selected && <span className="text-xs text-muted">{uiText('alpha7.graph.selectFirst')}</span>}
-        <Switch checked={structural} onCheckedChange={setStructural} label={uiText("features.graph.GraphPage.liveness_dependencies_4224a7")} />
+        <Field label={uiText('b22.graph.searchStart')}>{props => <Input {...props} className="w-64" value={search} onChange={event => setSearch(event.target.value)} />}</Field>
+        <Field label={uiText('b22.graph.selectStart')}>{props => <Select {...props} className="max-w-full sm:w-96" value={start?.id ?? ''} onChange={event => choose(event.target.value)}>
+          <option value="">{uiText('b22.graph.chooseStart')}</option>
+          {choices.map(node => <option key={node.id} value={node.id}>{uiText(node.kind === 'source' ? 'features.graph.GraphPage.quelle_037889' : 'b22.graph.contract')}: {node.label} · {node.id.slice(node.kind.length + 1)}</option>)}
+        </Select>}</Field>
+        {!!needle && choices.filter(node => `${node.label} ${node.id}`.toLocaleLowerCase('de').includes(needle)).length === 0 && <span className="text-xs text-muted">{uiText('alpha7.graph.noMatch')}</span>}
+        <Switch checked={structural} onCheckedChange={value => setStructure(String(value))} label={uiText("features.graph.GraphPage.liveness_dependencies_4224a7")} />
         <span className="ml-auto flex items-center gap-2 text-xs text-muted">
           <span className="flex items-center gap-1"><Cable size={13} /> {uiText("features.graph.GraphPage.quelle_037889")}</span>
           <span className="flex items-center gap-1"><span className="inline-block size-2 rounded-full border border-ok/70" /> {uiText("features.graph.GraphPage.contract_gesund_0a175e")}</span>
@@ -221,20 +225,23 @@ export default function GraphPage() {
           <span className="flex items-center gap-1"><Sigma size={13} /> {uiText("features.graph.GraphPage.ergebnis_cd8e22")}</span>
         </span>
       </div>
-      {live.stale && live.contracts && <p className="mb-2 text-xs text-warn">{uiText("features.graph.GraphPage.zustandsfarben_letzter_bekannter_stand_live_verb_243a87")}</p>}
+      {start && <p className="mb-3 text-sm" role="status">{uiText('b22.graph.chain', { name: start.label })}</p>}
+      {start && live.stale && live.contracts && <p className="mb-2 text-xs text-warn">{uiText("features.graph.GraphPage.zustandsfarben_letzter_bekannter_stand_live_verb_243a87")}</p>}
       {src.loading ? (
         <Spinner />
       ) : full.nodes.length === 0 ? (
         <Panel><Empty title={uiText("features.graph.GraphPage.noch_nichts_darzustellen_acbf63")}>{uiText("features.graph.GraphPage.der_graph_entsteht_aus_sources_und_contracts_der_ff3f8d")}</Empty></Panel>
+      ) : !start ? (
+        <Panel><Empty title={uiText(requested ? 'b22.graph.missingStart' : 'b22.graph.chooseStart')}>{uiText('b22.graph.startHelp')}</Empty></Panel>
       ) : (
         <PanelLayout view="graph"><LayoutPanel id="graph" title={uiText("features.graph.GraphPage.graph_32ab01")} span={2}>
           <Panel className="h-[min(70vh,44rem)] min-h-[24rem] overflow-hidden">
             <ReactFlowProvider>
-              <Canvas key={`${structural}-${depth}-${selected ?? ''}`} graph={graph} envelopes={envelopes} selected={selected} onSelect={select} focus={selected ?? match?.id ?? null} />
+              <Canvas key={`${structural}-${start.id}`} graph={graph} envelopes={envelopes} selected={selectedNode?.id ?? start.id} onSelect={setInspected} focus={start.id} />
             </ReactFlowProvider>
           </Panel>
           </LayoutPanel><LayoutPanel id="details" title={uiText("features.graph.GraphPage.knotendetails_1af0bd")} span={1}>
-          {selectedNode ? <Details node={selectedNode} graph={full} envelope={selectedNode.contractId ? (envelopes?.[selectedNode.contractId] ?? null) : null} /> : <Panel><Empty title={uiText("features.graph.GraphPage.knoten_wahlen_b5df2f")}>{uiText("features.graph.GraphPage.klicken_sie_einen_knoten_an_um_zustand_abhangigk_356431")}</Empty></Panel>}
+          {selectedNode && <Details node={selectedNode} graph={graph} envelope={selectedNode.contractId && selectedNode.kind === 'contract' ? (envelopes?.[selectedNode.contractId] ?? null) : null} />}
           </LayoutPanel></PanelLayout>
       )}
     </>
