@@ -18,9 +18,49 @@ import { useRevisions, validateConfig } from '@/lib/queries';
 import { deviceValue } from './DeviceWizard';
 import { useHaCatalog } from './useHaCatalog';
 import { migrationSourceId, objects, planSourceMigration, sourceSchema, SourceMigrationError, type MigrationOptions } from './sourceMigration';
+import { planEntityChange } from './sourceMigration';
+import { EntityPicker } from '@/editors/RegistryObjects';
 
 /** Mounted for one source and one draft; no writes until its exact candidate has passed validation. */
-export function SourceMigrationDialog({ sourceId, onClose }: { sourceId: string; onClose: () => void }) {
+export function SourceMigrationDialog(props: { sourceId: string; bindingId?: string; entityOnly?: boolean; onClose: () => void }) {
+  return props.entityOnly ? <EntityChangeDialog {...props} /> : <MigrationDialog {...props} />;
+}
+
+function EntityChangeDialog({ sourceId, bindingId, onClose }: { sourceId: string; bindingId?: string; onClose: () => void }) {
+  const doc = useWorkingDocument(); const owner = useRef(doc.draft?.draft_id);
+  const latest = useRef(doc); latest.current = doc;
+  const bindings = objects(doc.config?.bindings).filter(row => row.source_id === sourceId && str(asObject(row.adapter).kind).startsWith('ha_'));
+  const [selectedBinding, setSelectedBinding] = useState(bindingId || str(bindings[0]?.binding_id));
+  const [entity, setEntity] = useState(''); const [picker, setPicker] = useState(false);
+  const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [issues, setIssues] = useState<Issue[]>([]);
+  const [review, setReview] = useState<{ base: JsonObject; config: JsonObject; binding: string; entity: string } | null>(null);
+  const chosen = objects(doc.config?.bindings).find(row => row.binding_id === selectedBinding);
+  const fresh = review && owner.current === doc.draft?.draft_id && deepEqual(review.base, doc.config) && review.binding === selectedBinding && review.entity === entity;
+  const check = async () => {
+    if (!doc.config || owner.current !== doc.draft?.draft_id) return;
+    setBusy(true); setError(''); setIssues([]); setReview(null);
+    const base = clone(doc.config); const binding = selectedBinding; const target = entity;
+    try {
+      const config = planEntityChange(base, sourceId, binding, target);
+      const result = await validateConfig(config);
+      if (owner.current !== latest.current.draft?.draft_id || !deepEqual(base, latest.current.config)) { setError(t('b22.object.changed')); return; }
+      if (!result.valid) { setIssues(result.issues); return; }
+      setReview({ base, config, binding, entity: target });
+    } catch (failure) { setError(describeError(failure)); } finally { setBusy(false); }
+  };
+  return <><Dialog open onOpenChange={open => !open && !busy && onClose()} title={t('b22.entity.change')} description={t('b22.entity.help')} footer={<><Button disabled={busy} onClick={onClose}>{t('common.cancel')}</Button><Button disabled={busy || !entity || !chosen} onClick={() => void check()}>{t('alpha7.move.check')}</Button><Button variant="primary" disabled={busy || !fresh} onClick={() => { if (fresh && review) { doc.replaceAll(review.config); onClose(); } }}>{t('b22.entity.apply')}</Button></>}>
+    {bindings.length > 1 && <Field label={t('alpha7.nav.bindings')}>{props => <Select {...props} value={selectedBinding} onChange={event => { setSelectedBinding(event.target.value); setReview(null); }}>{bindings.map(row => <option key={str(row.binding_id)} value={str(row.binding_id)}>{str(row.display_name) || str(row.binding_id)}</option>)}</Select>}</Field>}
+    <p>{entity || t('b22.entity.chooseFirst')}</p><Button disabled={busy} onClick={() => setPicker(true)}>{t('b22.entity.choose')}</Button>
+    {error && <p role="alert">{error}</p>}{issues.length > 0 && <IssueList issues={issues} config={review?.config ?? doc.config} />}
+    {fresh && <p role="status">{t('b22.entity.retained')}</p>}
+  </Dialog><EntityPicker open={picker} onOpenChange={setPicker} onPick={(id, attributes) => {
+    const attribute = str(asObject(chosen?.adapter).ha_attribute);
+    if (attribute && !attributes.includes(attribute)) { setError(t('b22.entity.attributeMissing')); return; }
+    setEntity(id); setReview(null); setError(''); setPicker(false);
+  }} /></>;
+}
+
+function MigrationDialog({ sourceId, onClose }: { sourceId: string; onClose: () => void }) {
   const doc = useWorkingDocument(); const revisions = useRevisions();
   const owner = useRef(doc.draft?.draft_id);
   const ha = useHaCatalog(true, true);

@@ -132,6 +132,16 @@ Beleg-/Provenienzreferenzen dürfen nicht vor den zugehörigen historischen
 Konfigurationen gelöscht werden. Eine spätere Aufräumregel ist ein eigener
 expliziter Vertrag, kein implizites Löschen in diesem Paket.
 
+## Bedienung am Objekt (b22, P3)
+
+Der globale Schalter „Ansehen | Bearbeiten“ entfällt gemäß #97. Ein Objekt öffnet
+oder wählt seinen Entwurf über die vorhandene `ensureDraft`-Semantik. Die neue
+Bedienung umgeht weder Basisprüfung noch Speicherkonkurrenz oder Bestätigungen.
+„Änderungen übernehmen“ bleibt der ausdrücklich bestätigte Übergang zum aktiven
+Stand. Umbenennen und Aktivierungsschalter schreiben zunächst in den Entwurf;
+Weckplanung bearbeitet ausschließlich ihren Parameter. Die Entitätsreparatur
+ändert nur die Adresse der vorhandenen Verknüpfung und erhält logische IDs.
+
 ## Tests und Gates
 
 Prüfumfang: UX-1-01…09, UX-2-01…12, UX-5-09…12; Commit-Fehler,

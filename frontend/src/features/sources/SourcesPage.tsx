@@ -1,7 +1,7 @@
 import { Collapsible } from '@/components/ui/controls';
 import { t as uiText } from '@/i18n';
 import { Copy, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
 import { MasterDetail } from '@/components/MasterDetail';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,7 @@ import { useAuthoringSource } from '@/features/authoring/useAuthoringSource';
 import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
 import { BindingEditor, CatalogEditor, DependencyEditor, EntityPicker, SourceEditor, sourceCast } from '@/editors/RegistryObjects';
 import { clone, isObject, setAt, type JsonObject } from '@/lib/json';
-import { useCapabilities } from '@/lib/queries';
+import { useActiveRevision, useCapabilities } from '@/lib/queries';
 import { describeError } from '@/lib/api';
 import { DeviceWizard } from './DeviceWizard';
 import { CalendarSourceDialog } from './CalendarSourceDialog';
@@ -26,6 +26,8 @@ import { ManualSourcePanel } from './ManualSourcePanel';
 import { codeLabel } from '@/i18n/codes';
 import { useSourceSelection } from './useSourceSelection';
 import { SourceMigrationDialog } from './SourceMigrationDialog';
+import { ObjectActions } from '@/features/authoring/ObjectActions';
+import { useRouteFilters } from '@/lib/route-filters';
 import { useHaCatalog } from './useHaCatalog';
 
 type Name = 'dependencies' | 'sources' | 'bindings' | 'catalogs';
@@ -47,13 +49,15 @@ interface CollectionProps {
   usage: (item: JsonObject, config: JsonObject) => ReactNode;
   copyKeys?: string[];
   onMove?: (id: string) => void;
+  onEntity?: (sourceId: string, bindingId?: string) => void;
 }
 
 import { freshnessLabel } from './freshness';
 
-function Collection({ name, idKey, singular, make, render, subtitle, usage, onMove }: CollectionProps) {
+function Collection({ name, idKey, singular, make, render, subtitle, usage, onMove, onEntity }: CollectionProps) {
   const src = useAuthoringSource();
   const doc = useWorkingDocument();
+  const active = useActiveRevision();
   const issues = useAllIssues();
   const config = src.config ?? {};
   const ha = useHaCatalog(name === 'sources');
@@ -64,10 +68,16 @@ function Collection({ name, idKey, singular, make, render, subtitle, usage, onMo
     if (pendingSelection && src.editable && list.some(item => item[idKey] === pendingSelection)) { selectIdentity(pendingSelection); setPendingSelection(null); }
   }, [pendingSelection, src.editable, list]);
   const [removing, setRemoving] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const previousDraft = useRef(doc.draft?.draft_id);
+  useEffect(() => { if (previousDraft.current && previousDraft.current !== doc.draft?.draft_id) setEditingId(null); previousDraft.current = doc.draft?.draft_id; }, [doc.draft?.draft_id]);
+  useEffect(() => setEditingId(null), [name]);
   const [addError, setAddError] = useState('');
   const [filterParams, setFilterParams] = useSearchParams();
   const templateFilter = filterParams.get('freshness');
-  const [deviationsOnly, setDeviationsOnly] = useState(false);
+  const route = useRouteFilters(); const [deviations, setDeviations] = route.field('deviations', 'false');
+  const deviationsOnly = deviations === 'true'; const setDeviationsOnly = (value: boolean) => setDeviations(value ? 'true' : 'false');
+  const [listSearch, setListSearch] = route.field('list_search', '');
 
   const ids = list.map((item) => str(item[idKey]));
   const items = list.map((item, index) => ({
@@ -82,7 +92,7 @@ function Collection({ name, idKey, singular, make, render, subtitle, usage, onMo
       const current = await doc.ensureDraft();
       const item = make(current, asArray(current[name]).filter(isObject).map(item => str(item[idKey])));
       doc.edit((c) => setAt(c, `/${name}`, [...asArray(c[name]), item]));
-      setPendingSelection(str(item[idKey]));
+      setPendingSelection(str(item[idKey])); setEditingId(str(item[idKey]));
     } catch (error) { setAddError(describeError(error)); }
   };
   const duplicate = (index: number) => {
@@ -90,8 +100,20 @@ function Collection({ name, idKey, singular, make, render, subtitle, usage, onMo
     copy[idKey] = uniqueName(`${str(copy[idKey])}_kopie`, ids);
     doc.edit((c) => setAt(c, `/${name}`, [...asArray(c[name]), copy]));
     selectIdentity(str(copy[idKey]));
+    setEditingId(str(copy[idKey]));
   };
   const current = selected !== null ? list[selected] : undefined;
+  const activeSource = name === 'sources' ? asArray(active.data?.config?.sources).filter(isObject).find(source => source.source_id === current?.source_id) : undefined;
+  const activeBindings = asArray(active.data?.config?.bindings).filter(isObject);
+  useEffect(() => {
+    if (filterParams.get('edit') !== '1' || !current || !src.editable) return;
+    if (filterParams.has('item') && selected !== Number(filterParams.get('item'))) return;
+    if (filterParams.has(idKey) && current[idKey] !== filterParams.get(idKey)) return;
+    setEditingId(str(current[idKey]));
+    const next = new URLSearchParams(filterParams); next.delete('edit'); setFilterParams(next, { replace: true });
+  }, [filterParams, current, src.editable]);
+  const editable = src.editable && !!current && editingId === current[idKey];
+  const beginEdit = async () => { setAddError(''); try { if (editable) { if (await doc.save() === 'saved') setEditingId(null); } else { const id = str(current?.[idKey]); const next = await doc.ensureDraft(); if (!asArray(next[name]).filter(isObject).some(row => row[idKey] === id)) throw new Error(uiText('b22.object.missing')); setPendingSelection(id); setEditingId(id); } } catch (error) { setAddError(describeError(error)); } };
 
   return (
     <>
@@ -101,6 +123,7 @@ function Collection({ name, idKey, singular, make, render, subtitle, usage, onMo
       {name === 'sources' && <div className="mb-3 flex flex-wrap gap-3"><label className="inline-flex min-h-11 items-center gap-2"><input type="checkbox" checked={deviationsOnly} onChange={event => setDeviationsOnly(event.target.checked)} />{uiText('b4.differs')}</label>{templateFilter && <Button onClick={() => { const next = new URLSearchParams(filterParams); next.delete('freshness'); setFilterParams(next); }}>{uiText('b4.clearFilter')}</Button>}</div>}
       <MasterDetail
         title={singular}
+        search={listSearch} onSearchChange={setListSearch}
         items={items}
         selected={current ? String(selected) : null}
         onSelect={(key) => setSelected(Number(key))}
@@ -112,8 +135,10 @@ function Collection({ name, idKey, singular, make, render, subtitle, usage, onMo
           <div className="flex flex-col gap-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-semibold">{str(current.display_name) || str(current[idKey]) || uiText("features.sources.SourcesPage.neu_391955")}</h2>
+              <ObjectActions key={`${name}:${str(current[idKey])}`} collection={name} idKey={idKey} value={current} editing={editable} onEdit={beginEdit} rename={name === 'sources' || name === 'bindings'} />
+              {onEntity && (name === 'bindings' ? str(asObject(current.adapter).kind).startsWith('ha_') : asArray(config.bindings).filter(isObject).some(row => row.source_id === current.source_id && str(asObject(row.adapter).kind).startsWith('ha_'))) && <Button onClick={() => onEntity(name === 'bindings' ? str(current.source_id) : str(current[idKey]), name === 'bindings' ? str(current.binding_id) : undefined)}>{uiText('b22.entity.change')}</Button>}
               {onMove && <Button size="sm" onClick={() => onMove(str(current[idKey]))}>{uiText('alpha7.move.action')}</Button>}
-              {src.editable && (
+              {editable && (
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => duplicate(selected)}><Copy size={13} /> {uiText("features.sources.SourcesPage.duplizieren_9d400c")}</Button>
                   <Button size="sm" variant="danger" onClick={() => setRemoving(selected)}><Trash2 size={13} /> {uiText("features.sources.SourcesPage.entfernen_382837")}</Button>
@@ -121,13 +146,13 @@ function Collection({ name, idKey, singular, make, render, subtitle, usage, onMo
               )}
             </div>
             <div className="text-xs text-muted">{usage(current, config)}</div>
-            {name === 'sources' && !src.editable && asArray(config.bindings).filter(isObject).some(binding => binding.source_id === current.source_id && asObject(binding.adapter).kind === 'ha_calendar') && <CalendarSourceStatus sourceId={str(current.source_id)} />}
-            {name === 'sources' && current.origin === 'manual' && !src.editable ? <>
+            {activeSource && !editable && activeBindings.some(binding => binding.source_id === activeSource.source_id && asObject(binding.adapter).kind === 'ha_calendar') && <CalendarSourceStatus sourceId={str(activeSource.source_id)} />}
+            {activeSource?.origin === 'manual' && !editable ? <>
               <ManualSourcePanel key={str(current.source_id)} sourceId={str(current.source_id)} />
-              <Collapsible title={uiText('alpha9.manual.configuration')}><fieldset disabled={!src.editable} className="min-w-0">
+              <Collapsible title={uiText('alpha9.manual.configuration')}><fieldset disabled={!editable} className="min-w-0">
               {render(current, `/${name}/${selected}`, (next) => doc.edit((c) => ({ ...setAt(c, `/${name}/${selected}`, next), ...(name === 'sources' && (next.sensor_profile || next.value_origin) ? { config_schema_version: Math.max(2, Number(c.config_schema_version ?? 1)) } : {}) })), config)}
             </fieldset></Collapsible>
-            </> : <><fieldset disabled={!src.editable} className="min-w-0">
+            </> : <><fieldset disabled={!editable} className="min-w-0">
               {render(current, `/${name}/${selected}`, (next) => doc.edit((c) => ({ ...setAt(c, `/${name}/${selected}`, next), ...(name === 'catalogs' && next.kind === 'managed' ? { config_schema_version: 3, fingerprint_version: 3 } : name === 'sources' && (next.sensor_profile || next.value_origin) ? { config_schema_version: Math.max(2, Number(c.config_schema_version ?? 1)) } : {}) })), config)}
             </fieldset></>}
           </div>
@@ -175,6 +200,7 @@ export default function SourcesPage() {
   const [addingManual, setAddingManual] = useState(false);
   const [deviceError, setDeviceError] = useState('');
   const [movingSource, setMovingSource] = useState<string | null>(null);
+  const [changingEntity, setChangingEntity] = useState<{ sourceId: string; bindingId?: string } | null>(null);
   const doc = useWorkingDocument();
   const [params, setParams] = useSearchParams();
   const addDevice = async () => { setDeviceError(''); try { await doc.ensureDraft(); setAddingDevice(true); } catch (error) { setDeviceError(describeError(error)); } };
@@ -184,10 +210,11 @@ export default function SourcesPage() {
       const sources = asArray(config.sources);
       doc.edit(current => setAt(current, '/sources', [...sources, newSource(config, sources.filter(isObject).map(source => str(source.source_id)))]));
       setAddingDevice(false);
-      setParams({ item: String(sources.length) }, { replace: true });
+      setParams({ item: String(sources.length), edit: '1' }, { replace: true });
     } catch (error) { setDeviceError(describeError(error)); }
   };
   const beginMove = async (id: string) => { setDeviceError(''); try { await doc.ensureDraft(); setMovingSource(id); } catch (error) { setDeviceError(describeError(error)); } };
+  const beginEntity = async (sourceId: string, bindingId?: string) => { setDeviceError(''); try { await doc.ensureDraft(); setChangingEntity({ sourceId, bindingId }); } catch (error) { setDeviceError(describeError(error)); } };
   const requestedMove = params.get('move');
   useEffect(() => {
     if (!requestedMove) return;
@@ -199,9 +226,10 @@ export default function SourcesPage() {
     <>
       {location.pathname === '/sources/devices' && <PageHeader title={uiText('alpha7.nav.sources')} description={uiText('alpha9.pages.sources')} actions={<Button variant="primary" disabled={doc.starting || doc.saving} onClick={() => void addDevice()}>{uiText('alpha9.actions.addSource')}</Button>} />}
       {deviceError && <p role="alert" className="mb-3 text-sm text-bad">{deviceError}</p>}
-      <DeviceWizard open={addingDevice} onOpenChange={setAddingDevice} manualOption={<><Button onClick={() => { setAddingDevice(false); setAddingManual(true); }}>{uiText('alpha9.manual.title')}</Button><Button onClick={() => { setAddingDevice(false); setAddingCalendar(true); }}>{uiText('alpha9.calendar.add')}</Button><Button onClick={() => void addWithoutDevice()}>{uiText('alpha7.device.withoutDevice')}</Button></>} onAdded={result => setParams({ tab: 'sources', item: String(result.sourceIndex) }, { replace: true })} />
-      <ManualSourceDialog open={addingManual} onOpenChange={setAddingManual} onAdded={index => setParams({ tab: 'sources', item: String(index) }, { replace: true })} />
-      <CalendarSourceDialog open={addingCalendar} onOpenChange={setAddingCalendar} onAdded={index => setParams({ tab: 'sources', item: String(index) }, { replace: true })} />
+      <DeviceWizard open={addingDevice} onOpenChange={setAddingDevice} manualOption={<><Button onClick={() => { setAddingDevice(false); setAddingManual(true); }}>{uiText('alpha9.manual.title')}</Button><Button onClick={() => { setAddingDevice(false); setAddingCalendar(true); }}>{uiText('alpha9.calendar.add')}</Button><Button onClick={() => void addWithoutDevice()}>{uiText('alpha7.device.withoutDevice')}</Button></>} onAdded={result => setParams({ tab: 'sources', item: String(result.sourceIndex), edit: '1' }, { replace: true })} />
+      <ManualSourceDialog open={addingManual} onOpenChange={setAddingManual} onAdded={index => setParams({ tab: 'sources', item: String(index), edit: '1' }, { replace: true })} />
+      <CalendarSourceDialog open={addingCalendar} onOpenChange={setAddingCalendar} onAdded={index => setParams({ tab: 'sources', item: String(index), edit: '1' }, { replace: true })} />
+      {changingEntity && <SourceMigrationDialog {...changingEntity} entityOnly onClose={() => setChangingEntity(null)} />}
       {movingSource && <SourceMigrationDialog key={movingSource} sourceId={movingSource} onClose={() => setMovingSource(null)} />}
       {location.pathname === '/sources/devices' && <ReadOnlyNotice what={uiText("features.sources.SourcesPage.sources_bindings_613cff")} />}
       <SourceSection
@@ -215,6 +243,7 @@ export default function SourcesPage() {
                 idKey="source_id"
                 singular={uiText("features.sources.SourcesPage.source_0e570c")}
                 onMove={id => void beginMove(id)}
+                onEntity={(sourceId, bindingId) => void beginEntity(sourceId, bindingId)}
                 subtitle={(s) => `${codeLabel(s.source_type)} · ${codeLabel((isObject(s.freshness) ? s.freshness : {}).mode)}`}
                 make={newSource}
                 usage={(item, config) => {
@@ -244,6 +273,7 @@ export default function SourcesPage() {
               <Collection
                 name="bindings"
                 idKey="binding_id"
+                onEntity={(sourceId, bindingId) => void beginEntity(sourceId, bindingId)}
                 singular={uiText("features.sources.SourcesPage.binding_164c69")}
                 subtitle={(b) => `${codeLabel((isObject(b.adapter) ? b.adapter : {}).kind)} → ${str(b.source_id)}`}
                 make={(c, ids) => {

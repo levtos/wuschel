@@ -17,6 +17,7 @@ import { CatalogScopeRepair } from './CatalogScopeRepair';
 import { Badge } from '@/components/ui/badge';
 import { catalogLabel, catalogValue, contextLabel } from './catalogLabels';
 import { CatalogMediaFacts, type CatalogMediaMetadata } from './CatalogMediaFacts';
+import { useRouteFilters } from '@/lib/route-filters';
 
 export interface Catalog { catalog_id: string; version: number; device_scope?: string | null; display_name?: string; classification_schema: { values: string[]; legend?: Record<string, { display_name: string; description: string }> } }
 export interface Entry { catalog_metadata?: CatalogMediaMetadata; display_metadata?: { title?: string; artist?: string }; master_identity?: string | null; matches_filter?: boolean; matching_variant_count?: number; master_order?: number; playback_counts?: boolean; tombstone?: boolean; identity: string; key: string; scope: string; media_type: string; signal_type: string; classification: string | null; master_key: string | null; display_name: string; note: string; effective_classification: string; complete: boolean; first_seen?: string; last_seen?: string; seen_count?: number; semantic_digest: string; review_status?: string; candidate?: boolean; variant_count?: number; local_sightings?: { seen_count: number }; tc_metadata?: { artist?: string | null; title?: string | null; source_class: number; contexts: { context: string; source_app: string; enum_override?: number | null; telemetry?: { seen_count: number; first_seen: string; last_seen: string } | null }[] } }
@@ -26,20 +27,21 @@ export default function CatalogPage() {
   const cache = useQueryClient();
   const active = useActiveRevision();
   const catalogs = useQuery({ queryKey: ['managed-catalogs'], queryFn: () => api<Catalog[]>('catalogs') });
-  const [chosen, setChosen] = useState('');
+  const route = useRouteFilters();
+  const [chosen, setChosen] = route.field('catalog', '');
   const [past, setPast] = useState<number | null>(null); const [pastAfter, setPastAfter] = useState('');
   const [restoringId, setRestoringId] = useState('');
   const [impact, setImpact] = useState<{ affected_keys: number; affected_contracts: number; request: string } | null>(null);
   const catalog = catalogs.data?.find(c => `${c.catalog_id}@${c.version}` === chosen) ?? catalogs.data?.[0];
-  const [view, setView] = useState('all'); const [query, setQuery] = useState(''); const [after, setAfter] = useState('');
-  const [sort, setSort] = useState('newest'); const [variantsFirst, setVariantsFirst] = useState(false); const [contextFilter, setContextFilter] = useState(''); const [structure, setStructure] = useState('');
-  const [appFilter, setAppFilter] = useState(''); const [liveFilter, setLiveFilter] = useState(''); const [senderFilter, setSenderFilter] = useState('');
+  const [view, setView] = route.field('view', 'all'); const [query, setQuery] = route.field('q', ''); const [after, setAfter] = route.field('after', '');
+  const [sort, setSort] = route.field('sort', 'newest'); const [variantsFlag, setVariantsFlag] = route.field('variants_first', 'false'); const variantsFirst = variantsFlag === 'true'; const setVariantsFirst = (value: boolean) => setVariantsFlag(value ? 'true' : 'false'); const [contextFilter, setContextFilter] = route.field('context', ''); const [structure, setStructure] = route.field('structure', '');
+  const [appFilter, setAppFilter] = route.field('app', ''); const [liveFilter, setLiveFilter] = route.field('live_tv', ''); const [senderFilter, setSenderFilter] = route.field('sender', '');
   const [selected, setSelected] = useState<Record<string, Entry>>({}); const [details, setDetails] = useState<Entry | null>(null);
   const [editing, setEditing] = useState<Entry | null>(null); const [classification, setClassification] = useState('');
   const [master, setMaster] = useState(''); const [mode, setMode] = useState('independent');
   const [note, setNote] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const [expected, setExpected] = useState(0); const [expectedActive, setExpectedActive] = useState(0); const [comparison, setComparison] = useState('');
-  const [scopeFilter, setScopeFilter] = useState(''); const [mediaFilter, setMediaFilter] = useState(''); const [signalFilter, setSignalFilter] = useState(''); const [masterQuery, setMasterQuery] = useState(''); const [requestId, setRequestId] = useState('');
+  const [scopeFilter, setScopeFilter] = route.field('scope', ''); const [mediaFilter, setMediaFilter] = route.field('media_type', ''); const [signalFilter, setSignalFilter] = route.field('signal_type', ''); const [masterQuery, setMasterQuery] = useState(''); const [requestId, setRequestId] = useState('');
   const parameters = new URLSearchParams({ catalog_id: catalog?.catalog_id ?? '', definition_version: String(catalog?.version ?? 1), view: view === 'history' ? 'all' : view, q: query, after, scope: scopeFilter, media_type: mediaFilter, signal_type: signalFilter, context: contextFilter, structure, sort, variants_first: String(variantsFirst), grouped: 'true', app: appFilter, live_tv: liveFilter, sender: senderFilter });
   const entries = useQuery({ queryKey: ['catalog-entries', catalog?.catalog_id, catalog?.version, view, query, after, scopeFilter, mediaFilter, signalFilter, contextFilter, structure, sort, variantsFirst, appFilter, liveFilter, senderFilter], enabled: !!catalog && view !== 'history', queryFn: () => api<Page>(`catalogs/care?${parameters}`) });
   const masters = useQuery({ queryKey: ['catalog-masters', catalog?.catalog_id, masterQuery], enabled: !!catalog && !!editing, queryFn: () => api<Page>(`catalogs/entries?${new URLSearchParams({ catalog_id: catalog!.catalog_id, definition_version: String(catalog!.version), view: 'masters', q: masterQuery })}`) });

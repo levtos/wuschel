@@ -1,4 +1,5 @@
 import type { Envelope, ServiceState } from './types';
+import { api } from './api';
 
 /**
  * Live contract state over the Alpha-4 WebSocket (protocol 1).
@@ -56,6 +57,7 @@ export interface SocketLike {
 }
 
 export interface LiveOptions {
+  beforeConnect?: () => Promise<void>;
   createSocket: () => SocketLike;
   expectedInstallationId?: () => string | undefined;
   isOnline?: () => boolean;
@@ -86,6 +88,7 @@ export class LiveStore {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private attempt = 0;
   private stopped = true;
+  private generation = 0;
   private subscriptionId = 0;
   private eventSequence = 0;
 
@@ -101,11 +104,13 @@ export class LiveStore {
   start(): void {
     if (!this.stopped) return;
     this.stopped = false;
+    this.generation++;
     this.connect();
   }
 
   stop(): void {
     this.stopped = true;
+    this.generation++;
     clearTimeout(this.timer);
     const socket = this.socket;
     this.socket = null;
@@ -134,6 +139,27 @@ export class LiveStore {
 
   private connect(): void {
     if (this.stopped) return;
+    if (this.options.beforeConnect) {
+      const generation = this.generation;
+      void this.options.beforeConnect().then(() => {
+        if (!this.stopped && generation === this.generation) this.openSocket();
+      }).catch(() => {
+        if (!this.stopped && generation === this.generation) this.reconnect();
+      });
+      return;
+    }
+    this.openSocket();
+  }
+
+  private reconnect(): void {
+    this.patch({ connection: this.online() ? 'reconnecting' : 'offline', stale: true });
+    const delays = this.options.reconnectDelaysMs ?? [1000, 2000, 5000, 10000, 15000];
+    const delay = delays[Math.min(this.attempt, delays.length - 1)]!;
+    this.attempt += 1;
+    this.timer = setTimeout(() => this.connect(), delay);
+  }
+
+  private openSocket(): void {
     const socket = this.options.createSocket();
     this.socket = socket;
     this.patch({ connection: this.attempt === 0 ? 'connecting' : 'reconnecting' });
@@ -162,11 +188,7 @@ export class LiveStore {
       if (socket !== this.socket) return;
       this.socket = null;
       if (this.stopped || this.state.connection === 'mismatch') return;
-      this.patch({ connection: this.online() ? 'reconnecting' : 'offline', stale: true });
-      const delays = this.options.reconnectDelaysMs ?? [1000, 2000, 5000, 10000, 15000];
-      const delay = delays[Math.min(this.attempt, delays.length - 1)]!;
-      this.attempt += 1;
-      this.timer = setTimeout(() => this.connect(), delay);
+      this.reconnect();
     };
     socket.onerror = () => {
       /* onclose follows; no separate state needed */
@@ -256,6 +278,7 @@ export class LiveStore {
 
 export function createBrowserLive(expectedInstallationId?: () => string | undefined): LiveStore {
   return new LiveStore({
+    beforeConnect: async () => { await api('info'); },
     expectedInstallationId,
     isOnline: () => navigator.onLine,
     createSocket: () => {

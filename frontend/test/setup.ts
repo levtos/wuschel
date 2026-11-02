@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
+import { browserSession } from '@/lib/browser-session';
 
 // General component suites focus on their feature. The shared real IndexedDB
 // scheduler is exercised separately with two React clients and controlled time.
@@ -26,6 +27,10 @@ if (!window.matchMedia) {
   })) as typeof window.matchMedia;
 }
 Element.prototype.scrollIntoView ??= () => {};
+
+// Each fixture starts a new browser document; a prior terminal Ingress response
+// must not leak into the next independent scenario.
+beforeEach(() => browserSession.newDocument());
 
 afterEach(() => {
   cleanup();

@@ -31,6 +31,15 @@ function address(adapter: JsonObject | null): string {
   if (!adapter) return '';
   return JSON.stringify(adapter.kind === 'mqtt' ? [adapter.kind, adapter.mqtt_topic ?? null, adapter.mqtt_value_path ?? null] : [adapter.kind, adapter.ha_entity_id ?? null, adapter.ha_attribute ?? null]);
 }
+
+/** Entity repair changes only the transport address; all logical identities stay. */
+export function planEntityChange(config: Registry, sourceId: string, bindingId: string, entityId: string): Registry {
+  if (!Array.isArray(config.bindings) || !config.bindings.every(isObject)) throw new SourceMigrationError(t('alpha7.device.invalidConfig'));
+  const binding = objects(config.bindings).find(row => row.binding_id === bindingId && row.source_id === sourceId);
+  const adapter = asObject(binding?.adapter);
+  if (!binding || !['ha_state', 'ha_attribute', 'ha_calendar'].includes(str(adapter.kind)) || !/^[a-z_]+\.[a-z0-9_]+$/.test(entityId)) throw new SourceMigrationError(t('b22.entity.invalid'));
+  return { ...config, bindings: objects(config.bindings).map(row => row.binding_id === bindingId ? { ...row, adapter: { ...adapter, ha_entity_id: entityId } } : row) };
+}
 /** Authors one atomic draft edit. The ordinary server validator remains authoritative. */
 export function planSourceMigration(config: Registry, rows: RevisionRow[], oldId: string, options: MigrationOptions) {
   for (const key of ['sources', 'bindings', 'contracts', 'definitions', 'dependencies']) if (config[key] !== undefined && (!Array.isArray(config[key]) || !asArray(config[key]).every(isObject))) throw new SourceMigrationError(t('alpha7.device.invalidConfig'));

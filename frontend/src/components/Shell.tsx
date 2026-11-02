@@ -1,6 +1,5 @@
 import { t as uiText } from '@/i18n';
 import {
-  BookOpen,
   Cable,
   ChevronDown,
   ChevronsLeft,
@@ -23,8 +22,18 @@ import { classifySystem } from '@/lib/status';
 import { cn } from '@/lib/utils';
 import { IssueFocus } from './IssueFocus';
 import { HerdIcon } from './Herd';
+import { ConnectionNotice } from './ConnectionNotice';
+import { RouteScrollRestoration } from './RouteScrollRestoration';
+import { useAuthoringSource } from '@/features/authoring/useAuthoringSource';
+import { useEditorial } from '@/features/editorial/Editorial';
+import { CATEGORIES, categoryKeys } from '@/features/editorial/model';
+import { asArray, str } from '@/features/authoring/model';
+import { api } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { isObject } from '@/lib/json';
+import { catalogLabel, type NamedCatalog } from '@/features/catalog/catalogLabels';
 
-const MODULE_ICONS = { contracts: FileCode2, templates: BookOpen, sources: Cable, changes: FlaskConical, settings: Settings2 };
+const MODULE_ICONS = { contracts: FileCode2, 'catalog-care': FileCode2, sources: Cable, changes: FlaskConical, settings: Settings2 };
 
 /** Top-bar chips: readiness and connection are separate facts. */
 export function StatusChips({ extra }: { extra?: ReactNode }) {
@@ -43,8 +52,13 @@ export function StatusChips({ extra }: { extra?: ReactNode }) {
 export function Shell(_props: { onSetup: () => void }) {
   const info = useInfo();
   const [collapsed, setCollapsed] = useCollapsedNavigation(info.data?.installation_id ?? null);
-  const { pathname } = useLocation();
-  const moduleId = pathname === '/catalog-care' ? 'contracts' : pathname === '/import-export' ? 'changes' : pathname.split('/')[1] ?? '';
+  const { pathname, search } = useLocation();
+  const moduleId = pathname.startsWith('/templates') ? 'contracts' : pathname === '/import-export' ? 'changes' : pathname.split('/')[1] ?? '';
+  const source = useAuthoringSource(); const editorial = useEditorial();
+  const catalogs = useQuery({ queryKey: ['managed-catalogs'], queryFn: () => api<NamedCatalog[]>('catalogs') });
+  const contracts = asArray(source.config?.contracts).filter(isObject);
+  const categories = CATEGORIES.map(category => ({ to: `/contracts/list/all?category=${category}`, label: uiText('b22.nav.categoryCount', { name: uiText(`alpha9.category.${categoryKeys[category]}`), count: editorial.isPending || source.loading ? '…' : contracts.filter(row => editorial.item({ kind: 'contract', id: str(row.contract_id) }).category === category).length }) }));
+  const navigation = NAVIGATION.map(module => module.id === 'contracts' ? { ...module, children: [module.children[0]!, ...categories, ...module.children.slice(1)] } : module.id === 'catalog-care' ? { ...module, children: [...module.children, ...(catalogs.data ?? []).map(catalog => ({ to: `/catalog-care?catalog=${encodeURIComponent(`${catalog.catalog_id}@${catalog.version}`)}`, label: catalogLabel(catalog) }))] } : module);
   const [expanded, setExpanded] = useState<string[]>([]);
   useEffect(() => { if (moduleId) setExpanded(previous => previous.includes(moduleId) ? previous : [...previous, moduleId]); }, [moduleId]);
 
@@ -69,7 +83,7 @@ export function Shell(_props: { onSetup: () => void }) {
           <Link to="/" aria-current={pathname === '/' ? 'page' : undefined} title={collapsed ? uiText('alpha7.nav.overview') : undefined} className={cn('flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm', pathname === '/' ? 'bg-accent/10 text-accent' : 'text-muted hover:bg-raised', collapsed && 'justify-center px-0')}>
             <LayoutDashboard size={17} /><span className={collapsed ? 'sr-only' : ''}>{uiText('alpha7.nav.overview')}</span>
           </Link>
-          {NAVIGATION.map(module => {
+          {navigation.map(module => {
             const Icon = MODULE_ICONS[module.id as keyof typeof MODULE_ICONS];
             const open = expanded.includes(module.id);
             return <div key={module.id}>
@@ -80,7 +94,9 @@ export function Shell(_props: { onSetup: () => void }) {
                 <Icon size={17} /><span className={cn('flex-1', collapsed && 'sr-only')}>{module.label}</span>{!collapsed && <ChevronDown size={14} className={open ? 'rotate-180' : ''} />}
               </button>
               {!collapsed && open && <ul id={`nav-${module.id}`} className="mb-2 ml-5 border-l border-line pl-2">{module.children.map(item => {
-                const selected = pathname === item.to || (item.to === '/contracts/list/all' && pathname.startsWith('/contracts/view/')) || (item.to === '/templates/own' && pathname.startsWith('/templates/details/'));
+                const [itemPath, itemSearch = ''] = item.to.split('?');
+                const expected = new URLSearchParams(itemSearch); const current = new URLSearchParams(search);
+                const selected = pathname === itemPath && [...expected].every(([key, value]) => current.get(key) === value) && (expected.size > 0 || !current.get(itemPath === '/catalog-care' ? 'catalog' : 'category')) || (item.to === '/contracts/list/all' && pathname.startsWith('/contracts/view/')) || (item.to === '/templates/own' && pathname.startsWith('/templates/details/'));
                 return <li key={item.to}><Link to={item.to} aria-current={selected ? 'page' : undefined} className={cn('block rounded-md px-3 py-2 text-sm leading-snug', selected ? 'bg-accent/10 font-medium text-accent' : 'text-muted hover:bg-raised hover:text-fg')}>{item.label}</Link></li>;
               })}</ul>}
             </div>;
@@ -98,7 +114,9 @@ export function Shell(_props: { onSetup: () => void }) {
           <DraftBar />
         </header>
         <main id="main" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-8">
-          <LayoutPreferencesProvider value={info.data?.installation_id ?? null}><Outlet /></LayoutPreferencesProvider>
+          <ConnectionNotice />
+          <RouteScrollRestoration />
+          <div id="route-content"><LayoutPreferencesProvider value={info.data?.installation_id ?? null}><Outlet /></LayoutPreferencesProvider></div>
           <IssueFocus />
         </main>
       </div>

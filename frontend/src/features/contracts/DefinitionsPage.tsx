@@ -25,6 +25,7 @@ import { useCapabilities } from '@/lib/queries';
 import { ContractsTabs, NewContractDialog } from './ContractsPage';
 import { describeError } from '@/lib/api';
 import { CategoryBadge, CategorySelect, EditorialPanel, useEditorial } from '@/features/editorial/Editorial';
+import { useRouteFilters } from '@/lib/route-filters';
 import { NO_ROOM, groupItems, type Category } from '@/features/editorial/model';
 
 interface Row {
@@ -51,7 +52,7 @@ export default function DefinitionsPage() {
   const navigate = useNavigate();
   const metadata = useEditorial();
   const [category, setCategory] = useState<Category>('other'); const [busy, setBusy] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState<Category | ''>(''); const [group, setGroup] = useState(false);
+  const route = useRouteFilters(); const [categoryFilter, setCategoryFilter] = route.field<Category | ''>('category', ''); const [groupValue, setGroupValue] = route.field('group', 'none'); const group = groupValue === 'category'; const setGroup = (value: boolean) => setGroupValue(value ? 'category' : 'none');
   const [creating, setCreating] = useState(false);
   const [creatingContract, setCreatingContract] = useState(false);
   const [typeId, setTypeId] = useState('');

@@ -25,6 +25,9 @@ import { CONTRACT_CATEGORIES, contractState, contractSources, contractTitle, con
 import { ContractStateChip } from './ContractStateChip';
 import { DeviceWizard } from '@/features/sources/DeviceWizard';
 import { CategoryBadge, CategorySelect, RoomBadge, useEditorial } from '@/features/editorial/Editorial';
+import { useRouteFilters } from '@/lib/route-filters';
+import { ObjectActions } from '@/features/authoring/ObjectActions';
+import { SourceProblems } from './SourceProblems';
 import { NO_ROOM, groupItems, roomKey, type Category, type Room } from '@/features/editorial/model';
 
 export function ContractsTabs() {
@@ -126,17 +129,14 @@ export default function ContractsPage() {
   const ha = useHaCatalog(asArray(src.config?.bindings).filter(isObject).some(binding => isObject(binding.adapter) && String(binding.adapter.kind).startsWith('ha_')));
   const navigate = useNavigate();
   const metadata = useEditorial();
-  const [categoryFilter, setCategoryFilter] = useState<Category | ''>('');
-  const [roomFilter, setRoomFilter] = useState(''); const [groupBy, setGroupBy] = useState<'none' | 'category' | 'room'>('none');
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  const route = useRouteFilters();
+  const [categoryFilter, setCategoryFilter] = route.field<Category | ''>('category', '');
+  const [roomFilter, setRoomFilter] = route.field('room', ''); const [groupBy, setGroupBy] = route.field<'none' | 'category' | 'room'>('group', 'none');
+  const [search, setSearch] = route.field('q', '');
+  const [typeFilter, setTypeFilter] = route.field('type', '');
   const overviewFilter = params.get('filter');
-  const [enabledFilter, setEnabledFilter] = useState<'all' | 'on' | 'off'>(() => ['active', 'healthy', 'degraded'].includes(overviewFilter ?? '') ? 'on' : overviewFilter === 'off' ? 'off' : 'all');
-  const [healthFilter, setHealthFilter] = useState<'all' | ContractCategory>(() => CONTRACT_CATEGORIES.includes(overviewFilter as ContractCategory) ? overviewFilter as ContractCategory : 'all');
-  useEffect(() => {
-    setEnabledFilter(['active', 'healthy', 'degraded'].includes(overviewFilter ?? '') ? 'on' : overviewFilter === 'off' ? 'off' : 'all');
-    setHealthFilter(CONTRACT_CATEGORIES.includes(overviewFilter as ContractCategory) ? overviewFilter as ContractCategory : 'all');
-  }, [overviewFilter]);
+  const [enabledFilter, setEnabledFilter] = route.field<'all' | 'on' | 'off'>('enabled', ['active', 'healthy', 'degraded'].includes(overviewFilter ?? '') ? 'on' : overviewFilter === 'off' ? 'off' : 'all');
+  const [healthFilter, setHealthFilter] = route.field<'all' | ContractCategory>('health', CONTRACT_CATEGORIES.includes(overviewFilter as ContractCategory) ? overviewFilter as ContractCategory : 'all');
   const [creating, setCreating] = useState(false);
   const [creationError, setCreationError] = useState('');
   const requested = useRef(false);
@@ -192,6 +192,7 @@ export default function ContractsPage() {
   const roomOptions = [...new Map(rows.map(row => [roomKey(row.room), row.room])).entries()];
   const groups = groupItems(filtered, row => groupBy === 'category' ? row.category : groupBy === 'room' ? roomKey(row.room) : 'all');
   const columns = [
+    col.display({ id: 'actions', header: uiText('b22.object.actions'), cell: cell => { const object = configured.find(row => row.contract_id === cell.row.original.id)!; return <div onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}><ObjectActions collection="contracts" idKey="contract_id" value={object} editing={false} toggle onEdit={() => navigate(`/contracts/view/${encodeURIComponent(cell.row.original.id)}?edit=1`)} /></div>; } }),
     col.accessor(row => row.name || row.id, { id: 'name', header: uiText('alpha7.contract.name'), cell: cell => <div className="min-w-0"><Link to={`/contracts/view/${encodeURIComponent(cell.row.original.id)}`} title={cell.row.original.id} className="block truncate font-medium hover:text-fg" onClick={event => event.stopPropagation()}>{cell.getValue()}</Link></div> }),
     col.accessor('category', { header: uiText('alpha9.category.label'), cell: cell => <CategoryBadge category={cell.getValue()} /> }),
     col.accessor('room', { header: uiText('alpha9.room.label'), cell: cell => <RoomBadge room={cell.getValue()} /> }),
@@ -260,6 +261,7 @@ export default function ContractsPage() {
         )}
       </Panel>
       </LayoutPanel></PanelLayout>
+      <SourceProblems rows={filtered} config={src.config} />
       {live.stale && live.contracts && <p className="mt-2 text-xs text-warn">{uiText("features.contracts.ContractsPage.live_zustand_moglicherweise_veraltet_57c06a")}{live.connection}).</p>}
       <NewContractDialog open={creating} onOpenChange={setCreating} onCreated={(id) => navigate(`/contracts/view/${encodeURIComponent(id)}`)} />
     </>

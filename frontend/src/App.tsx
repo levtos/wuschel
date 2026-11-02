@@ -4,6 +4,7 @@ import { PageLoading } from '@/components/PageLoading';
 import { SetupWizard } from '@/setup/SetupWizard';
 import { setupRequest, type SetupStatus } from '@/setup/setup';
 import { Workbench } from '@/Workbench';
+import { ConnectionNotice } from '@/components/ConnectionNotice';
 
 /**
  * The setup status is asked first: before an installation identity exists only
@@ -36,6 +37,7 @@ export function App() {
     return (
       <main className="mx-auto max-w-2xl p-10">
         <PageLoading loading={!error} />
+        <ConnectionNotice />
         <p role="alert" className="mt-3 text-bad">{error}</p>
       </main>
     );
@@ -48,7 +50,7 @@ export function App() {
     );
   }
   if (wizard) {
-    return <SetupWizard initial={status} automatic={!manual} oncomplete={() => setWizard(false)} />;
+    return <><ConnectionNotice /><SetupWizard initial={status} automatic={!manual} oncomplete={() => setWizard(false)} /></>;
   }
   return (
     <Workbench

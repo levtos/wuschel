@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useSyncExternalS
 import { createBrowserLive, LiveStore, type LiveSnapshot } from './live';
 import { useInfo } from './queries';
 import { useQueryClient } from '@tanstack/react-query';
+import { browserSession } from './browser-session';
 
 const LiveContext = createContext<LiveStore | null>(null);
 
@@ -13,6 +14,7 @@ export function LiveProvider({ children, store }: { children: ReactNode; store?:
   const installationId = useRef<string | undefined>(undefined);
   installationId.current = info.data?.installation_id;
   const live = useMemo(() => store ?? createBrowserLive(() => installationId.current), [store]);
+  const session = useSyncExternalStore(browserSession.subscribe, browserSession.getSnapshot);
   useEffect(() => {
     let version = live.getSnapshot().catalogVersion;
     let pending: ReturnType<typeof setTimeout> | undefined;
@@ -29,9 +31,9 @@ export function LiveProvider({ children, store }: { children: ReactNode; store?:
     return () => { unsubscribe(); if (pending) clearTimeout(pending); };
   }, [live, cache]);
   useEffect(() => {
-    live.start();
+    if (session.visible && !session.blocked) live.start(); else live.stop();
     return () => live.stop();
-  }, [live]);
+  }, [live, session.visible, session.blocked]);
   return <LiveContext.Provider value={live}>{children}</LiveContext.Provider>;
 }
 

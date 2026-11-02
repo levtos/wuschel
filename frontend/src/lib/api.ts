@@ -1,6 +1,7 @@
 import { hasTranslation, t as uiText } from '@/i18n';
 import type { Json } from './json';
 import { coolDownRequests, reserveRequest } from './request-budget';
+import { assertIngressResponse, browserSession, SessionExpired } from './browser-session';
 
 /** One structured server finding; paths are JSON Pointers into the submitted document. */
 export interface Issue {
@@ -84,16 +85,23 @@ export interface RequestOptions {
 async function request(path: string, options: RequestOptions, reserved = false): Promise<Response> {
   const method = options.method ?? 'GET';
   let response: Response;
+  const sessionDocument = browserSession.getDocumentVersion();
   try {
-    if (!reserved) await reserveRequest(options.signal);
-    options.signal?.throwIfAborted();
-    response = await fetch(`./api/v1/${path}`, {
+    response = await browserSession.run(async () => {
+      if (!reserved) await reserveRequest(options.signal);
+      await browserSession.waitReady(options.signal);
+      options.signal?.throwIfAborted();
+      const result = await fetch(`./api/v1/${path}`, {
       method,
       headers: options.body === undefined ? { 'X-Authoring-Protocol': '2' } : { 'Content-Type': 'application/json', 'X-Authoring-Protocol': '2' },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
       signal: options.signal,
-    });
+      });
+      assertIngressResponse(result, sessionDocument);
+      return result;
+    }, options.signal);
   } catch (error) {
+    if (error instanceof SessionExpired) throw new ApiError(error.status, 'ingress_session_expired', [], uiText('b22.connection.reload'));
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
     throw new ApiError(0, 'network_error', [], uiText("lib.api.der_dienst_ist_nicht_erreichbar_793240"));
   }
@@ -170,6 +178,7 @@ const MESSAGES: Record<string, string> = {
 
 export function describeError(error: unknown): string {
   if (error instanceof ApiError) {
+    if (error.code === 'ingress_session_expired') return uiText('b22.connection.reload');
     if (error.kind === 'auth') return uiText("lib.api.keine_berechtigung_fur_diese_aktion_a1a527");
     if (error.kind === 'rate_limited') return MESSAGES.rate_limited!;
     return MESSAGES[error.code] ?? (hasTranslation(`codes.${error.code}`) ? uiText(`codes.${error.code}`) : uiText('alpha9.form.unavailable'));

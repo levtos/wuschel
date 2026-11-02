@@ -139,7 +139,7 @@ export function ValidationChip() {
   </>;
 }
 
-export function ReviewDraftButton({ children, size = 'sm', variant = 'primary', checkFirst = false, onReview }: { children?: React.ReactNode; size?: 'sm' | 'md'; variant?: 'primary' | 'secondary' | 'ghost'; checkFirst?: boolean; onReview?: (draft: Draft) => void }) {
+export function ReviewDraftButton({ children, size = 'sm', variant = 'primary', checkFirst = false, onReview, steadyLabel }: { children?: React.ReactNode; size?: 'sm' | 'md'; variant?: 'primary' | 'secondary' | 'ghost'; checkFirst?: boolean; onReview?: (draft: Draft) => void; steadyLabel?: string }) {
   const doc = useWorkingDocument();
   const navigate = useNavigate();
   const [target, setTarget] = useState<Draft | null>(null);
@@ -156,7 +156,7 @@ export function ReviewDraftButton({ children, size = 'sm', variant = 'primary', 
     finally { setBusy(false); }
   };
   return <>
-    <Button size={size} variant={variant} disabled={!doc.draft || busy || doc.saving || checking} disabledReason={uiText('alpha7.copy.validationRunning')} onClick={() => { if (invalid) { const issue = doc.validation.issues[0]!; const where = locateIssue(issue.path, doc.config); navigate(`${where.to}${where.to.includes('?') ? '&' : '?'}focus=${encodeURIComponent(issue.path)}`); } else if (requiresCheck) void (async () => { if (!doc.dirty || await doc.save() === 'saved') await doc.validateNow(); })(); else void review(); }}>{busy ? uiText('alpha7.draft.preparingReview') : label}</Button>
+    <Button size={size} variant={variant} disabled={!doc.draft || busy || doc.saving || checking} disabledReason={uiText('alpha7.copy.validationRunning')} onClick={() => { if (invalid) { const issue = doc.validation.issues[0]!; const where = locateIssue(issue.path, doc.config); navigate(`${where.to}${where.to.includes('?') ? '&' : '?'}focus=${encodeURIComponent(issue.path)}`); } else if (requiresCheck) void (async () => { if (!doc.dirty || await doc.save() === 'saved') await doc.validateNow(); })(); else void review(); }}>{steadyLabel ?? (busy ? uiText('alpha7.draft.preparingReview') : label)}</Button>
     {!doc.draft && <span className="text-xs text-muted">{uiText('alpha7.draft.noDraft')}</span>}
     {error && <span role="alert" className="text-xs text-bad">{error}</span>}
     {target && <ActivateDialog draft={target} open onOpenChange={open => !open && setTarget(null)} />}
@@ -172,11 +172,9 @@ export function DraftBar() {
   const saveStatusId = useId();
   const [picker, setPicker] = useState(false);
   const [closing, setClosing] = useState(false);
-  const [startError, setStartError] = useState('');
   const diff = doc.validation.state === 'done' && !doc.validation.stale ? doc.validation.result?.diff : undefined;
   const changes = diff ? changedObjectCount(diff) : null;
   const invalid = doc.validation.state === 'done' && !doc.validation.stale && doc.validation.issues.length > 0;
-  const begin = async () => { setStartError(''); try { await doc.ensureDraft(); } catch (error) { setStartError(describeError(error)); } };
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -191,18 +189,13 @@ export function DraftBar() {
 
   return (
     <div className="flex flex-wrap items-center gap-2" aria-label={uiText("features.authoring.DraftBar.arbeits_draft_00218f")}>
-      <div role="group" aria-label={uiText('alpha7.mode.label')} className="flex rounded-lg border border-line p-0.5">
-        <Button variant="ghost" size="sm" aria-pressed={!doc.editing} disabled={doc.starting} disabledReason={uiText('alpha7.copy.inProgress')} className={!doc.editing ? 'bg-raised text-fg' : ''} onClick={() => doc.setEditing(false)}>{uiText('alpha7.mode.live')}</Button>
-        <Button variant="ghost" size="sm" aria-pressed={doc.editing} disabled={doc.starting} disabledReason={uiText('alpha7.copy.inProgress')} className={doc.editing ? 'bg-raised text-fg' : ''} onClick={() => void begin()}>{uiText('alpha7.mode.edit')}</Button>
-      </div>
       {doc.starting && <span role="status" className="text-xs text-muted">{uiText('alpha7.draft.preparing')}</span>}
-      {!doc.editing && <span className="text-xs text-muted">{uiText('alpha7.copy.liveReadOnly')}</span>}
-      {startError && <span role="alert" className="text-xs text-bad">{startError}</span>}
       {doc.draft && doc.editing ? (
         <>
           <span className="min-w-0 text-xs text-muted"><span title={draftLabel({ draft_id: doc.draft.draft_id, display_name: doc.displayName })} className="block max-w-40 truncate">{draftLabel({ draft_id: doc.draft.draft_id, display_name: doc.displayName })}</span><span id={saveStatusId} role="status" className="block">{uiText(doc.saving ? 'alpha7.draft.saving' : doc.dirty ? 'alpha7.draft.notSaved' : 'alpha7.draft.saved')}</span></span>
           <span aria-label={uiText('alpha7.draft.changeCount')} className="text-sm font-medium">{invalid ? <>–<span className="block text-xs font-normal text-muted">{uiText('post1.draft.countAfterErrors')}</span></> : changes === null ? '…' : countSentence(changes, 'changes')}</span>
           <ValidationChip />
+          <ReviewDraftButton steadyLabel={uiText('b22.object.applyChanges')} />
           {!detailPage && <Link className="min-h-11 underline" to={`/changes/drafts/${doc.draft.draft_id}`}>{uiText('beta3.8afb05d4c53f')}</Link>}
           <span role="status">{draftState(doc.draft, active.data?.revision)}</span>
           <details className="relative" onClick={event => { if ((event.target as HTMLElement).closest('button')) event.currentTarget.open = false; }}><summary aria-label={uiText('alpha7.draft.more')} className="grid size-8 cursor-pointer list-none place-items-center rounded-lg hover:bg-raised"><MoreHorizontal size={16} /></summary><div className="absolute right-0 top-9 z-30 flex min-w-48 flex-col items-start gap-1 rounded-lg border border-line bg-panel p-2 shadow-xl">
