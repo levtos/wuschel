@@ -53,7 +53,10 @@ it('clearly marks the graph as live, explains unavailable controls, and keeps na
   window.location.hash = '#/contracts/relations/graph?node=contract%3Araum';
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Workbench onSetup={() => {}} live={idleLive()} /></QueryClientProvider>);
   await screen.findByText(/Verknüpfungen der Konfiguration 1/, {}, { timeout: 5000 });
-  expect(screen.getByText("Gib zuerst einen Namen in die Suche ein.")).toBeVisible();
+  // #97 P4 makes this deep link an explicit start, replacing the global search-first view.
+  expect(screen.getByRole('combobox', { name: 'Startpunkt auswählen' })).toHaveValue('contract:raum');
+  expect(screen.getByText(/^Startpunkt: Raumtemperatur\./)).toBeVisible();
+  expect(screen.queryByRole('option', { name: 'Alle Zusammenhänge' })).not.toBeInTheDocument();
   await user.click(await screen.findByRole('button', { name: 'Detailansicht' }));
   await waitFor(() => expect(window.location.hash).toBe('#/contracts/view/raum'));
 });

@@ -113,7 +113,7 @@ export function neighborhood(graph: Graph, center: string, depth: number): Graph
 /** Upstream (what it depends on) and downstream (what depends on it), transitive. */
 export function reach(graph: Graph, id: string): { upstream: string[]; downstream: string[] } {
   const walk = (start: string, direction: 'up' | 'down'): string[] => {
-    const seen = new Set<string>();
+    const seen = new Set<string>([start]);
     const stack = [start];
     while (stack.length) {
       const current = stack.pop()!;
@@ -125,8 +125,17 @@ export function reach(graph: Graph, id: string): { upstream: string[]; downstrea
         }
       }
     }
-    return [...seen];
+    return [...seen].filter(node => node !== start);
   };
   return { upstream: walk(id, 'up'), downstream: walk(id, 'down') };
+}
+
+/** Only directed ancestors and descendants of the chosen start, never sibling
+ * branches reached by turning around at a shared ancestor or consumer. */
+export function dependencyChain(graph: Graph, start: string | null): Graph {
+  if (!start || !graph.nodes.some(node => node.id === start)) return { nodes: [], edges: [] };
+  const { upstream, downstream } = reach(graph, start);
+  const keep = new Set([start, ...upstream, ...downstream]);
+  return { nodes: graph.nodes.filter(node => keep.has(node.id)), edges: graph.edges.filter(edge => keep.has(edge.source) && keep.has(edge.target)) };
 }
 import { effectiveRule } from '@/features/sources/freshness';
