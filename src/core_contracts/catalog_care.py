@@ -264,7 +264,8 @@ def listing(
     ):
         raise ValueError("catalog_page_invalid")
     current = head(state, catalog)
-    selected = filtered(all_rows(state, catalog), query, view, filters)
+    rows = all_rows(state, catalog)
+    selected = filtered(rows, query, view, filters)
 
     def order(row: dict[str, Any]) -> tuple[Any, ...]:
         key = (
@@ -312,7 +313,7 @@ def listing(
         "next_cursor": next_cursor,
         "total": len(selected),
         "filter_values": {
-            field: sorted({r[field] for r in all_rows(state, catalog).values()})
+            field: sorted({r[field] for r in rows.values()})
             for field in ("scope", "media_type", "signal_type")
         },
         "context_targets": {
@@ -322,7 +323,7 @@ def listing(
         "contexts": sorted(
             {
                 canonical([ctx["context"], ctx.get("source_app", "")])
-                for row in all_rows(state, catalog).values()
+                for row in rows.values()
                 for ctx in (row.get("tc_metadata") or {}).get("contexts", [])
             }
         ),

@@ -147,6 +147,14 @@ Ergebnis. DB-Ausfall: keine optimistische grüne Anzeige/Publication.
 Leser sehen konsistent alten oder neuen Stand, niemals neuen Head mit altem
 Ergebnis. Snapshot- und Exportleser verwenden denselben Snapshot-/Commitzaun.
 
+Umsetzung b22, Paket 2 (#97): Pflegevorgänge isolieren die Tabellencontainer
+und kopieren verschachtelte Zeilen erst vor ihrer Änderung. Bestehende
+Katalogeinträge und unbetroffene Folgezustände werden dabei nur gelesen.
+Der Store hält weiterhin einen vom Laufzeitzustand unabhängigen Stand;
+unveränderte Teilbäume werden ausschließlich aus seinem eigenen vorherigen
+Stand wiederverwendet. Writer, OCC, A-06 und die gemeinsame Transaktion für
+Katalogkopf, Ergebnisse, Zustände und Anfragebeleg bleiben unverändert.
+
 ## Gleichzeitiges Bearbeiten und begrenzte Last
 
 Pro Mutation expected_content_revision, expected_active_revision und UUID

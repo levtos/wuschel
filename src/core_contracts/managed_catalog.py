@@ -164,7 +164,8 @@ def prepare(
         raise ValueError("catalog_content_conflict")
     if old["definition_digest"] != definition_digest(catalog):
         raise ValueError("catalog_definition_conflict")
-    entries = copy.deepcopy(old["entries"])
+    # Existing entry revisions are immutable; only direct changes create new rows.
+    entries = dict(old["entries"])
     direct: set[str] = set()
     for change in request.changes:
         row = change.model_dump(mode="json")
@@ -196,7 +197,14 @@ def prepare(
             if row.get("master_identity") == key:
                 raise ValueError("catalog_master_invalid")
             effective(entries, key, catalog)
-    candidates = set(entries) | set(old["entries"])
+    # A direct change can affect only itself and children of an old/new master.
+    # Still validate the whole graph above, including deletions and cycles.
+    candidates = direct | {
+        key
+        for rows in (old["entries"], entries)
+        for key, row in rows.items()
+        if row.get("master_identity") in direct
+    }
     affected = {
         key
         for key in candidates
@@ -247,7 +255,12 @@ def invalidate(
 ) -> dict[str, Any]:
     latches = copy.deepcopy(latches)
     prefixes = {f"catalog:{result['catalog']}:{key}" for key in result["affected_keys"]}
-    for contract_id, root in state.tables["node_state"].items():
+    selected = affected_contracts(state, result)
+    state.detach_rows("node_state", selected)
+    for contract_id in state.tables["node_state"]:
+        if contract_id not in selected:
+            continue
+        root = state.tables["node_state"][contract_id]
 
         def report(storage: str, slot: str) -> None:
             if effects is not None:

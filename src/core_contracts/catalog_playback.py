@@ -158,6 +158,7 @@ def offer(
         if len({item.catalog_frame["event"] for item in framed if item.catalog_frame}) > 1:
             return
     stream = PREFIX + checksum([head_key(catalog), scope, media, signal, source])
+    ctx.state.detach_rows("service_state", [stream])
     old = ctx.state.tables["service_state"].get(stream, {})
     consumers = (
         dict(old.get("consumers", {}))

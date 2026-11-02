@@ -989,7 +989,11 @@ class Runtime:
 
             return await sync_process(self, self.state, operation, payload, self.clock.now_utc())
         care_started = self.clock.monotonic()
-        state = self.state.clone()
+        state = (
+            self.state.catalog_clone()
+            if operation in {"catalog_care_preview", "catalog_care_write"}
+            else self.state.clone()
+        )
         now = self.clock.now_utc()
         config = self._config(state)
         if operation in {"catalog_scope_preview", "catalog_scope_apply"}:
@@ -2025,6 +2029,13 @@ class Runtime:
         evaluation_errors: set[str] = set()
         from .service_jobs import plan_calendars
 
+        # Care forks share evidence and unrelated nodes read-only. These existing
+        # planners and sensor assessments can mutate nested service rows.
+        state.detach_rows(
+            "service_state",
+            (key for key in state.tables["service_state"] if not key.startswith("catalog_")),
+        )
+        state.detach_rows("service_job", state.tables["service_job"])
         plan_calendars(state, config, self.clock.now_utc())
         calendar_changed = self._calendar_observations(state, config, origin)
         now, seq = self.clock.now_utc(), state.publication_seq + 1
@@ -2074,6 +2085,8 @@ class Runtime:
                     or not replacement.enabled
                     or old_node.get("fingerprint") != fps.get(old.contract_id)
                 ):
+                    state.detach_rows("node_state", [old.contract_id])
+                    old_node = state.tables["node_state"].get(old.contract_id, {})
                     self._dispose(old, old_node, state)
                     old_node.pop("trace", None)
         affected = affected_sources(
@@ -2119,6 +2132,7 @@ class Runtime:
                 for at in state.tables["node_state"].get(key, {}).get("clock_due", [])
             ):
                 contract_origin = "input"
+            state.detach_rows("node_state", [key])
             node = state.tables["node_state"].get(key)
             case = start_case(
                 ever_active=bool(lifecycle and lifecycle.get("ever_active")),
@@ -2445,6 +2459,8 @@ class Runtime:
             from .notifications import plan_notices
 
             if self.first_snapshot or not self.requires_ha_snapshot:
+                state.detach_rows("service_state", ["notice:signal", "notice:configuration"])
+                state.detach_rows("service_job", state.tables["service_job"])
                 plan_notices(
                     state, config, self.clock.now_utc(), self.installation_id, self.ingress_slug
                 )
