@@ -415,7 +415,7 @@ class ManagedCatalogRule(DeclarativeModel):
     op: Literal["managed_catalog_lookup"]
     catalog_id: str
     definition_version: int = Field(ge=1)
-    profile: Literal["stash_slot"] | None = Field(
+    profile: Literal["stash_slot", "apple_tv_title"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     scope: Rule
@@ -627,7 +627,7 @@ class MachineDefinition(Model):
 class DeclarativeDefinition(DeclarativeModel):
     type_id: str = Field(pattern=r"^[a-zA-Z][a-zA-Z0-9_-]*\.[a-zA-Z0-9_.-]+$", max_length=128)
     type_version: int = Field(ge=1)
-    language_version: Literal[1, 2, 3, 4, 5, 6, 7] = 1
+    language_version: Literal[1, 2, 3, 4, 5, 6, 7, 8] = 1
     display_name: str = ""
     description: str = ""
     inputs: tuple[TypedInput, ...] = Field(default=(), max_length=MAX_INPUTS)

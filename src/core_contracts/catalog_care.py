@@ -192,6 +192,20 @@ def all_rows(state: Any, catalog: Any) -> dict[str, dict[str, Any]]:
             .get("display_metadata")
         ):
             row["display_metadata"] = sighting_metadata
+        if (
+            media_metadata := state.tables["catalog_sighting"]
+            .get(head_key(catalog) + ":" + key, {})
+            .get("catalog_metadata")
+        ):
+            row["catalog_metadata"] = media_metadata
+        if metadata := row.get("catalog_metadata"):
+            name = (
+                state.tables["service_state"]
+                .get("catalog_app_name:" + checksum(metadata["app_id"]), {})
+                .get("display_name")
+            )
+            if name:
+                row["catalog_metadata"] = {**metadata, "app_name": name}
         seed = candidate_key(row) if not master and row["review_status"] != "hidden" else ""
         row["cluster_key"] = seed
         if seed:
@@ -225,6 +239,19 @@ def filtered(
             value and row.get(key) != value
             for key, value in filters.items()
             if key in {"scope", "media_type", "signal_type"}
+        ):
+            continue
+        metadata = row.get("catalog_metadata") or {}
+        if any(
+            value
+            and value
+            != (
+                str(bool(metadata.get("live_tv"))).lower()
+                if key == "live_tv"
+                else str(metadata.get("app_id" if key == "app" else key, ""))
+            )
+            for key, value in filters.items()
+            if key in {"app", "live_tv", "sender"}
         ):
             continue
         if filters.get("context") and not any(
@@ -266,7 +293,8 @@ def listing(
     if (
         sort not in {"identity", "newest", "oldest", "title"}
         or view not in {"all", "unassigned", "masters", "open", "reviewed", "hidden"}
-        or filters.keys() - {"scope", "media_type", "signal_type", "context", "structure"}
+        or filters.keys()
+        - {"scope", "media_type", "signal_type", "context", "structure", "app", "live_tv", "sender"}
         or any(len(value) > 16384 for value in filters.values())
         or len(query) > 1024
         or not 1 <= limit <= 100
@@ -274,6 +302,9 @@ def listing(
         raise ValueError("catalog_page_invalid")
     current = head(state, catalog)
     rows = all_rows(state, catalog)
+    media_metadata = [
+        row["catalog_metadata"] for row in rows.values() if row.get("catalog_metadata")
+    ]
     selected = filtered(rows, query, view, filters)
 
     def order(row: dict[str, Any]) -> tuple[Any, ...]:
@@ -351,9 +382,35 @@ def listing(
         "total": len(selected),
         **({"matching_entries": matching_entries} if grouped else {}),
         "filter_values": {
-            field: sorted({r[field] for r in rows.values()})
-            for field in ("scope", "media_type", "signal_type")
+            **{
+                field: sorted({r[field] for r in rows.values()})
+                for field in ("scope", "media_type", "signal_type")
+            },
+            **(
+                {
+                    field: sorted(
+                        {
+                            str(metadata.get("app_id" if field == "app" else field, ""))
+                            for metadata in media_metadata
+                        }
+                        - {""}
+                    )
+                    for field in ("app", "sender")
+                }
+                if media_metadata
+                else {}
+            ),
         },
+        **(
+            {
+                "app_labels": {
+                    metadata["app_id"]: metadata.get("app_name") or ""
+                    for metadata in media_metadata
+                }
+            }
+            if media_metadata
+            else {}
+        ),
         "context_targets": {
             key: {"catalog_id": target["catalog_id"], "scope": target["scope"]}
             for key, target in current_mapping(state)["mapping"]["mappings"].items()
@@ -550,7 +607,8 @@ def detail(
     if (
         len(query) > 1024
         or view not in {"all", "unassigned", "masters", "open", "reviewed", "hidden"}
-        or filters.keys() - {"scope", "media_type", "signal_type", "context", "structure"}
+        or filters.keys()
+        - {"scope", "media_type", "signal_type", "context", "structure", "app", "live_tv", "sender"}
         or any(len(value) > 16384 for value in filters.values())
     ):
         raise ValueError("catalog_page_invalid")

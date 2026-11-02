@@ -194,6 +194,11 @@ def offer(
                 **existing,
                 "display_metadata": hierarchy["display_metadata"],
                 "display_name": hierarchy["display_metadata"].get("title", ""),
+                **(
+                    {"catalog_metadata": hierarchy["catalog_metadata"]}
+                    if "catalog_metadata" in hierarchy
+                    else {}
+                ),
             }
     latest_frame = ctx.state.tables["service_state"].get("catalog_frame:" + source, {})
     session = latest_frame.get("session", 0)
@@ -238,14 +243,28 @@ def offer(
         tracker.pop("pending", None)
         return
     pending = old.get("pending", {})
-    if (
-        pending.get("identity") == key
-        and pending.get("session") == session
-        and pending.get("hierarchy") == hierarchy
-    ):
+    same_candidate = pending.get("hierarchy") == hierarchy
+    if hierarchy and hierarchy.get("profile") == "apple_tv_title":
+        same_candidate = (pending.get("hierarchy") or {}).get("fingerprint") == hierarchy[
+            "fingerprint"
+        ]
+    if pending.get("identity") == key and pending.get("session") == session and same_candidate:
         pending["expires"] = expires.isoformat() if expires else None
+        if hierarchy:
+            pending["hierarchy"] = hierarchy
+            pending["display_name"] = hierarchy["display_metadata"].get("title", "")
         return
-    delay = STABLE_SECONDS
+    delay = hierarchy.get("stability_s", STABLE_SECONDS) if hierarchy else STABLE_SECONDS
+    if (
+        hierarchy
+        and (pair := hierarchy.get("transition_pair"))
+        and (before_pair := old.get("last_pair"))
+    ):
+        if (
+            before_pair[0] == pair[0]
+            and sum(a != b for a, b in zip(before_pair[1:], pair[1:], strict=True)) == 1
+        ):
+            delay = max(delay, TRANSITION_SECONDS)
     if media == "music" and old.get("last_raw"):
         try:
             before, after = json.loads(old["last_raw"]), json.loads(raw)
@@ -304,14 +323,22 @@ def flush(state: Any, now: datetime) -> None:
             continue
         current_frame = state.tables["service_state"].get("catalog_frame:" + pending["source"], {})
         if hierarchy := pending.get("hierarchy"):
-            from .stash_catalog import studio_key
+            if hierarchy.get("profile") == "apple_tv_title":
+                candidate = current_frame.get("title_candidate") or {}
+                matches = (
+                    candidate.get("key") == pending["key"]
+                    and candidate.get("fingerprint") == hierarchy["fingerprint"]
+                )
+            else:
+                from .stash_catalog import studio_key
 
-            if (
-                current_frame.get("catalog_profile") != "stash_slot"
-                or current_frame.get("scene_id") != pending["key"]
-                or not current_frame.get("studio")
-                or studio_key(current_frame["studio"]) != hierarchy["master_key"]
-            ):
+                matches = (
+                    current_frame.get("catalog_profile") == "stash_slot"
+                    and current_frame.get("scene_id") == pending["key"]
+                    and bool(current_frame.get("studio"))
+                    and studio_key(current_frame["studio"]) == hierarchy["master_key"]
+                )
+            if not matches:
                 tracker.pop("pending", None)
                 continue
         if current_frame.get("state") in {"paused", "idle", "off", "unavailable", "unknown"}:
@@ -319,7 +346,7 @@ def flush(state: Any, now: datetime) -> None:
             continue
         sighting_key = pending["catalog"] + ":" + pending["identity"]
         hierarchy = pending.get("hierarchy")
-        if hierarchy:
+        if hierarchy and hierarchy.get("master_key"):
             parent = identity(
                 pending["scope"],
                 pending["media_type"],
@@ -340,6 +367,11 @@ def flush(state: Any, now: datetime) -> None:
                     "last_seen": pending["observed_at"],
                     "seen_count": 0,
                     "hierarchy_master": True,
+                    **(
+                        {"catalog_metadata": hierarchy["catalog_metadata"]}
+                        if "catalog_metadata" in hierarchy
+                        else {}
+                    ),
                 }
         previous = state.tables["catalog_sighting"].get(sighting_key, {})
         tombstone = (
@@ -354,7 +386,18 @@ def flush(state: Any, now: datetime) -> None:
                 {
                     "master_key": hierarchy["master_key"],
                     "master_identity": parent,
+                }
+                if hierarchy and hierarchy.get("master_key")
+                else {}
+            ),
+            **(
+                {
                     "display_metadata": hierarchy["display_metadata"],
+                    **(
+                        {"catalog_metadata": hierarchy["catalog_metadata"]}
+                        if "catalog_metadata" in hierarchy
+                        else {}
+                    ),
                 }
                 if hierarchy
                 else {}
@@ -381,6 +424,10 @@ def flush(state: Any, now: datetime) -> None:
         tracker.update(
             last=pending["identity"], last_raw=pending["key"], last_session=pending["session"]
         )
+        if hierarchy and hierarchy.get("transition_pair"):
+            tracker["last_pair"] = hierarchy["transition_pair"]
+        else:
+            tracker.pop("last_pair", None)
         tracker.pop("pending", None)
 
 

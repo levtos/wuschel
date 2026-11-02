@@ -127,6 +127,10 @@ def suspend_machine(node: dict[str, Any]) -> None:
 
 
 def lookup(ctx: Any, rule: Any, args: list[FieldValue]) -> FieldValue:
+    if getattr(rule, "profile", None) == "apple_tv_title":
+        from .apple_tv_catalog import lookup as title_lookup
+
+        return title_lookup(ctx, rule, args)
     if any(not value.usable(ctx.now) for value in args):
         return derive(None, args, ctx.now)
     if getattr(rule, "profile", None) == "stash_slot":
@@ -228,7 +232,13 @@ def prepare(
     for change in changes:
         row = change.model_dump(mode="json")
         key = identity(change.scope, change.media_type, change.signal_type, change.key)
-        for optional in ("reviewed_at", "hidden_at", "tc_metadata", "display_metadata"):
+        for optional in (
+            "reviewed_at",
+            "hidden_at",
+            "tc_metadata",
+            "display_metadata",
+            "catalog_metadata",
+        ):
             if optional not in change.model_fields_set and optional in entries.get(key, {}):
                 row[optional] = entries[key][optional]
         if not normalize_key(change.key):

@@ -332,6 +332,20 @@ erforderlichen, noch ungespeicherten Studio-Master unklassifiziert atomar mit de
 Szene, damit Export und Restore ohne Sichtungshistorie einen vollständigen Graphen
 erhalten. Je Slot gilt die bestehende b20-Wiedergabe- und Baseline-Regel.
 
+## Apple-TV-Titel (b22, P7)
+
+Ein ausdrücklich konfiguriertes Profil zerlegt Titel je App anhand geschlossener
+Regeltypen und derselben HA-Beobachtung. App-bezogene, getrennte Schlüsselräume für
+Master und Variante erhalten die Zwei-Ebenen-Grenze. Live-TV und Sender sind
+Merkmale/Filter, keine zusätzliche Ebene; eine Live-Sendung ohne Folgenangabe ist
+ein einzelner Titeleintrag. Der bestehende App-Katalog bleibt unabhängig.
+Entdeckung, automatische Elternbeziehung, bestätigte Klassenvererbung und Vorrang
+ausdrücklicher Pflege folgen dem P6-Pfad. Keine automatische Inhaltsrevision,
+kein künstlicher A-06-Lauf durch Erfassung. Stabilitätszeiten sind je Quelle/App
+konfigurierbar, standardmäßig zwei Sekunden bzw. 60 Sekunden für Live-TV; der
+b20-Übergangsschutz bleibt als Untergrenze bei einseitigem Paarwechsel erhalten.
+Anzeigenamen ändern keine Titelidentität und starten keine neue Stabilitätsfrist.
+
 ## A2-Pflichttests
 
 Append-only/Tombstone/FKs, Definition immutable/Lebenszyklus, negative Treffer

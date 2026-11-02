@@ -1,0 +1,417 @@
+{
+  "catalog": {
+    "catalog_id": "media.appletv_titles",
+    "kind": "managed",
+    "version": 1,
+    "identity_rule": {
+      "version": 1,
+      "fields": [
+        "scope",
+        "media_type",
+        "signal_type",
+        "normalized_key"
+      ],
+      "normalizer": "normalize_key"
+    },
+    "classification_schema": {
+      "type": "enum",
+      "values": [
+        "normal",
+        "private"
+      ],
+      "legend": {
+        "normal": {
+          "display_name": "Normal",
+          "description": "Dieser Titel ist nicht als privat eingeordnet."
+        },
+        "private": {
+          "display_name": "Privat",
+          "description": "Dieser Titel gehört zum privaten Medienkontext."
+        }
+      }
+    },
+    "unassigned_value": "normal",
+    "master_depth": 1
+  },
+  "definitions": [
+    {
+      "type_id": "media.appletv_title_class",
+      "type_version": 1,
+      "language_version": 8,
+      "display_name": "Apple-TV-Titelklasse",
+      "inputs": [
+        {
+          "name": "title",
+          "schema": {
+            "type": "text",
+            "required": true,
+            "physical_state": false
+          }
+        },
+        {
+          "name": "state",
+          "schema": {
+            "type": "text",
+            "required": true,
+            "physical_state": false
+          }
+        }
+      ],
+      "schema": {
+        "fields": {
+          "value": {
+            "type": "enum",
+            "required": true,
+            "physical_state": false,
+            "value_catalog": [
+              "normal",
+              "private"
+            ]
+          }
+        },
+        "available_projection": [
+          "value"
+        ]
+      },
+      "rules": {},
+      "outputs": {
+        "value": {
+          "op": "first_match",
+          "cases": [
+            {
+              "when": {
+                "op": "not",
+                "args": [
+                  {
+                    "op": "map",
+                    "arg": {
+                      "op": "input",
+                      "name": "state"
+                    },
+                    "entries": {
+                      "\"playing\"": true,
+                      "\"paused\"": true,
+                      "\"buffering\"": true,
+                      "\"idle\"": false,
+                      "\"off\"": false,
+                      "\"standby\"": false
+                    },
+                    "schema": {
+                      "type": "bool",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  }
+                ]
+              },
+              "then": {
+                "op": "map",
+                "arg": {
+                  "op": "not_applicable",
+                  "arg": {
+                    "op": "literal",
+                    "value": true,
+                    "schema": {
+                      "type": "bool",
+                      "required": true,
+                      "physical_state": false
+                    }
+                  }
+                },
+                "entries": {
+                  "false": "normal"
+                },
+                "schema": {
+                  "type": "enum",
+                  "required": true,
+                  "physical_state": false,
+                  "value_catalog": [
+                    "normal",
+                    "private"
+                  ]
+                }
+              }
+            },
+            {
+              "when": {
+                "op": "map",
+                "arg": {
+                  "op": "input",
+                  "name": "state"
+                },
+                "entries": {
+                  "\"playing\"": true,
+                  "\"paused\"": true,
+                  "\"buffering\"": true,
+                  "\"idle\"": false,
+                  "\"off\"": false,
+                  "\"standby\"": false
+                },
+                "schema": {
+                  "type": "bool",
+                  "required": true,
+                  "physical_state": false
+                }
+              },
+              "then": {
+                "op": "managed_catalog_lookup",
+                "profile": "apple_tv_title",
+                "catalog_id": "media.appletv_titles",
+                "definition_version": 1,
+                "scope": {
+                  "op": "literal",
+                  "value": "appletv",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "media_type": {
+                  "op": "literal",
+                  "value": "video",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "signal_type": {
+                  "op": "literal",
+                  "value": "title",
+                  "schema": {
+                    "type": "text",
+                    "required": true,
+                    "physical_state": false
+                  }
+                },
+                "key": {
+                  "op": "input",
+                  "name": "title"
+                },
+                "schema": {
+                  "type": "enum",
+                  "required": true,
+                  "physical_state": false,
+                  "value_catalog": [
+                    "normal",
+                    "private"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "title_catalog": {
+    "stability_s": 2.0,
+    "live_stability_s": 60.0,
+    "default_mode": "standalone",
+    "apps": [
+      {
+        "app_id": null,
+        "app_name": "Disney+",
+        "mode": "episode_in_second",
+        "stability_s": null,
+        "live_stability_s": null
+      },
+      {
+        "app_id": null,
+        "app_name": "Prime Video",
+        "mode": "episode_in_second",
+        "stability_s": null,
+        "live_stability_s": null
+      },
+      {
+        "app_id": null,
+        "app_name": "Amazon Prime Video",
+        "mode": "episode_in_second",
+        "stability_s": null,
+        "live_stability_s": null
+      },
+      {
+        "app_id": null,
+        "app_name": "YouTube",
+        "mode": "parent_in_second",
+        "stability_s": null,
+        "live_stability_s": null
+      },
+      {
+        "app_id": null,
+        "app_name": "Podcasts",
+        "mode": "parent_in_second",
+        "stability_s": null,
+        "live_stability_s": null
+      },
+      {
+        "app_id": null,
+        "app_name": "Apple Podcasts",
+        "mode": "parent_in_second",
+        "stability_s": null,
+        "live_stability_s": null
+      },
+      {
+        "app_id": null,
+        "app_name": "MagentaTV",
+        "mode": "content_prefix",
+        "stability_s": null,
+        "live_stability_s": null
+      },
+      {
+        "app_id": null,
+        "app_name": "Netflix",
+        "mode": "ignore",
+        "stability_s": null,
+        "live_stability_s": null
+      },
+      {
+        "app_id": null,
+        "app_name": "Fitness",
+        "mode": "ignore",
+        "stability_s": null,
+        "live_stability_s": null
+      },
+      {
+        "app_id": null,
+        "app_name": "Fitness+",
+        "mode": "ignore",
+        "stability_s": null,
+        "live_stability_s": null
+      },
+      {
+        "app_id": null,
+        "app_name": "Apple Fitness+",
+        "mode": "ignore",
+        "stability_s": null,
+        "live_stability_s": null
+      },
+      {
+        "app_id": null,
+        "app_name": "stashyTV",
+        "mode": "ignore",
+        "stability_s": null,
+        "live_stability_s": null
+      }
+    ]
+  },
+  "settings_schema": {
+    "$defs": {
+      "AppTitleRule": {
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "App Id"
+          },
+          "app_name": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "App Name"
+          },
+          "mode": {
+            "enum": [
+              "episode_in_second",
+              "parent_in_second",
+              "content_prefix",
+              "standalone",
+              "ignore"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "stability_s": {
+            "anyOf": [
+              {
+                "maximum": 3600,
+                "minimum": 0.1,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Stability S"
+          },
+          "live_stability_s": {
+            "anyOf": [
+              {
+                "maximum": 3600,
+                "minimum": 0.1,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Live Stability S"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "AppTitleRule",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "stability_s": {
+        "default": 2,
+        "maximum": 3600,
+        "minimum": 0.1,
+        "title": "Stability S",
+        "type": "number"
+      },
+      "live_stability_s": {
+        "default": 60,
+        "maximum": 3600,
+        "minimum": 0.1,
+        "title": "Live Stability S",
+        "type": "number"
+      },
+      "default_mode": {
+        "default": "standalone",
+        "enum": [
+          "standalone",
+          "ignore"
+        ],
+        "title": "Default Mode",
+        "type": "string"
+      },
+      "apps": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/AppTitleRule"
+        },
+        "maxItems": 64,
+        "title": "Apps",
+        "type": "array"
+      }
+    },
+    "title": "AppleTitleConfig",
+    "type": "object"
+  }
+}

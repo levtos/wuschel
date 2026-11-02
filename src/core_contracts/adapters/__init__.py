@@ -4,6 +4,7 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
+from ..apple_tv_catalog import AppleTitleConfig
 from ..calendar_cache import CalendarWindow
 from ..calendar_inputs import CalendarInput
 from ..model import Model
@@ -16,7 +17,10 @@ class AdapterConfig(Model):
     ha_entity_id: str | None = None
     ha_attribute: str | None = None
     ha_time_attribute: str | None = None
-    catalog_profile: Literal["stash_slot"] | None = Field(
+    catalog_profile: Literal["stash_slot", "apple_tv_title"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    title_catalog: AppleTitleConfig | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     mqtt_topic: str | None = None
@@ -36,10 +40,18 @@ class AdapterConfig(Model):
 
     @model_validator(mode="after")
     def address(self) -> Self:
-        if self.catalog_profile and (
+        if self.catalog_profile == "stash_slot" and (
             self.kind != "ha_attribute" or self.ha_attribute != "scene_id"
         ):
             raise ValueError("catalog_profile_requires_scene_binding")
+        if self.catalog_profile == "apple_tv_title" and (
+            self.kind != "ha_attribute"
+            or self.ha_attribute != "media_title"
+            or self.title_catalog is None
+        ):
+            raise ValueError("apple_tv_title_binding_required")
+        if self.title_catalog is not None and self.catalog_profile != "apple_tv_title":
+            raise ValueError("apple_tv_title_profile_required")
         if self.kind == "manual" and any(
             value is not None
             for value in (

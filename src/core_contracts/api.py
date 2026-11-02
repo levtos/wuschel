@@ -481,7 +481,16 @@ class API:
             )
             filters = {
                 key: request.query.get(key, "")
-                for key in ("scope", "media_type", "signal_type", "context", "structure")
+                for key in (
+                    "scope",
+                    "media_type",
+                    "signal_type",
+                    "context",
+                    "structure",
+                    "app",
+                    "live_tv",
+                    "sender",
+                )
             }
             if path.endswith("detail"):
                 result = detail(

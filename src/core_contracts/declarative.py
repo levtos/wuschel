@@ -430,6 +430,8 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
                 raise ValueError("unordered_comparison")
             return scalar("bool")
         if isinstance(rule, dm.ManagedCatalogRule):
+            if rule.profile == "apple_tv_title" and definition.language_version < 8:
+                raise ValueError("language_version_8_required")
             if rule.profile and definition.language_version < 7:
                 raise ValueError("language_version_7_required")
             if definition.language_version < 4:
