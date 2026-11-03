@@ -44,6 +44,22 @@ def timed_phase[**P, T](fn: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[
     return measured
 
 
+def timed_sync[**P, T](fn: Callable[P, T]) -> Callable[P, T]:
+    @wraps(fn)
+    def measured(*args: P.args, **kwargs: P.kwargs) -> T:
+        timing = current.get()
+        start = perf_counter()
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            if timing is not None and timing.task is asyncio.current_task():
+                timing.phases_ms[fn.__name__] = (
+                    timing.phases_ms.get(fn.__name__, 0) + (perf_counter() - start) * 1000
+                )
+
+    return measured
+
+
 class TimedStore:
     """Delegate store attributes while measuring calls made by the queue task."""
 

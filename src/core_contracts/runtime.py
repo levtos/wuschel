@@ -24,7 +24,14 @@ from .ha_context import ContextIndex
 from .lifecycle import EDITORIAL, transition_allowed
 from .model import Model, canonical, checksum, semantic_fingerprint, utc
 from .numeric_equivalence import preserve_config, preserve_numbers
-from .operation_timing import ObservationTimings, TimedStore, Timing, current, timed_phase
+from .operation_timing import (
+    ObservationTimings,
+    TimedStore,
+    Timing,
+    current,
+    timed_phase,
+    timed_sync,
+)
 from .persistence import State, Store
 from .producer import Context, Producer
 from .quality import FieldValue, ReasonCode, unknown
@@ -47,6 +54,8 @@ from .statemachine import MachineState
 from .temporal import start_case
 
 LOGGER = logging.getLogger(__name__)
+validate = timed_sync(validate)
+diff = timed_sync(diff)
 
 
 class CommandOrigin(Model):
