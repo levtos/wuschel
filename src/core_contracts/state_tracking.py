@@ -37,7 +37,10 @@ class Owner:
     def touch(self) -> None:
         if self.shared:
             raise RuntimeError("shared_state_row_requires_detach")
-        self.changes.write(self.table, self.key)
+        # A retained alias to a popped row no longer belongs to the state.
+        # Editing it must not cancel the table's pending DELETE.
+        if self.key not in self.changes.deleted.get(self.table, ()):
+            self.changes.write(self.table, self.key)
 
 
 class MutationDict(dict[Any, Any]):

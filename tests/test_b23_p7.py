@@ -100,6 +100,20 @@ async def test_failed_commit_keeps_basis_and_all_dirty_mutations_for_retry():
     assert await store.get("service_state", "new") == {"count": 3}
 
 
+async def test_editing_a_popped_row_cannot_cancel_its_pending_delete():
+    store = MemoryStore()
+    store.verify_changes = True
+    state = State()
+    state.tables["service_state"]["synthetic"] = {"nested": {"count": 1}}
+    await store.commit(state)
+    staged = state.clone()
+    removed = staged.tables["service_state"].pop("synthetic")
+    removed["nested"]["count"] = 2
+    await store.commit(staged)
+    assert await store.get("service_state", "synthetic") is None
+    assert state.tables["service_state"]["synthetic"]["nested"]["count"] == 1
+
+
 async def test_live_size_full_comparison_equivalence_for_observations_and_management(monkeypatch):
     from core_contracts import persistence
 
