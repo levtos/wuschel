@@ -13,7 +13,7 @@ from .test_b23_acceptance import genuine_load, ha_states, live_bridge, scale_run
 from .test_postgres import MIGRATIONS
 from .test_postgres import database as database
 
-pytestmark = pytest.mark.postgres
+pytestmark = [pytest.mark.postgres, pytest.mark.timeout(180)]
 
 
 async def test_postgres_live_size_twenty_per_second_with_genuine_management(

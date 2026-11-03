@@ -5,6 +5,14 @@ interface Budget { sent: number[]; blockedUntil: number }
 const WINDOW = 61_000;
 const LIMIT = 100; // Leave headroom below the server's 120/min for WS handshakes.
 let database: Promise<IDBDatabase> | undefined;
+let waiting = 0;
+const waitListeners = new Set<() => void>();
+export const budgetWaiting = () => waiting > 0;
+export function subscribeBudgetWait(listener: () => void): () => void {
+  waitListeners.add(listener);
+  return () => { waitListeners.delete(listener); };
+}
+function notifyWait() { for (const listener of waitListeners) listener(); }
 
 function db(): Promise<IDBDatabase> {
   return database ??= new Promise((resolve, reject) => {
@@ -40,12 +48,13 @@ async function timing(cooldown = 0, count = 1): Promise<number> {
 }
 
 function pause(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
+  waiting++; notifyWait();
+  return new Promise<void>((resolve, reject) => {
     const abort = () => { clearTimeout(timer); signal?.removeEventListener('abort', abort); reject(new DOMException('Aborted', 'AbortError')); };
     const timer = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve(); }, ms);
     signal?.addEventListener('abort', abort, { once: true });
     if (signal?.aborted) abort();
-  });
+  }).finally(() => { waiting--; notifyWait(); });
 }
 
 /** Waiting schedules a request once; it never repeats an HTTP operation. */

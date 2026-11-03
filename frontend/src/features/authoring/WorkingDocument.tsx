@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { api, ApiError, ActionCancelled, describeError, type Issue } from '@/lib/api';
 import { clone, deepEqual, getAt, setAt, type Json } from '@/lib/json';
 import { useActiveRevision, useDraftMutations, validateConfig } from '@/lib/queries';
+import { budgetWaiting, subscribeBudgetWait } from '@/lib/request-budget';
 import { IssuesProvider } from './issues';
 import type { Draft, Registry, ValidationResult } from '@/lib/types';
 import { emptyRegistry } from './model';
@@ -163,15 +164,29 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
     const controller = new AbortController();
     const bounded = async <T,>(work: () => Promise<T>): Promise<T> => {
       let timer: ReturnType<typeof setTimeout> | undefined;
+      let unsubscribe = () => {};
+      let remaining = preparationTimeoutMs;
+      let runningSince: number | undefined;
       try {
         return await Promise.race([work(), new Promise<never>((_, reject) => {
-          timer = setTimeout(() => {
+          const expire = () => {
             documentId.current += 1;
             controller.abort();
             reject(new ApiError(408, 'draft_preparation_timeout', [], uiText('b23.draft.preparationTimeout')));
-          }, preparationTimeoutMs);
+          };
+          const update = () => {
+            if (runningSince !== undefined) remaining -= performance.now() - runningSince;
+            runningSince = undefined;
+            clearTimeout(timer);
+            // The shared 61s traffic budget can also hold a preceding queued
+            // request. Exclude only that known wait; hung network work still
+            // consumes the unchanged preparation deadline.
+            if (!budgetWaiting()) { runningSince = performance.now(); timer = setTimeout(expire, Math.max(0, remaining)); }
+          };
+          unsubscribe = subscribeBudgetWait(update);
+          update();
         })]);
-      } finally { clearTimeout(timer); }
+      } finally { clearTimeout(timer); unsubscribe(); }
     };
     const request = (async () => {
       const head = await bounded(() => api<import('@/lib/types').RevisionRow | null>('registry/active', { signal: controller.signal }));
