@@ -126,9 +126,7 @@ async def main():
         identity = inside(request)
         assert len(identity) == 36
         registry = json.loads(
-            (
-                Path(__file__).resolve().parents[1] / "docs/platform-alpha1/example-registry.json"
-            ).read_text()
+            (Path(__file__).resolve().parent / "fixtures/container-registry.json").read_text()
         )
         activate_code = (
             "import urllib.request,json; from pathlib import Path\ntoken=Path('/data/secrets/admin_token').read_text()\ndef post(path,data):\n req=urllib.request.Request('http://127.0.0.1:8787/api/v1/'+path,data=json.dumps(data).encode(),headers={'Authorization':'Bearer '+token,'Content-Type':'application/json','X-Authoring-Protocol':'2'})\n return json.load(urllib.request.urlopen(req))\ndraft=post('registry/drafts',{'expected_active_revision':0,'config':"
