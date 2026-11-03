@@ -1,8 +1,10 @@
 import asyncio
+import json
 import logging
 
 import pytest
 
+from core_contracts.app import JsonFormatter
 from core_contracts.clock import SystemClock
 from core_contracts.operation_timing import ObservationTimings
 from core_contracts.persistence import MemoryStore
@@ -33,6 +35,10 @@ async def test_queue_timing_counts_store_calls_without_payload(caplog):
     assert record.queue_wait_ms >= 0
     assert record.run_ms >= record.db_ms >= 0
     assert "synthetic-private" not in str(record.__dict__)
+    payload = json.loads(JsonFormatter().format(record))
+    assert payload["event"] == "operation_timing"
+    assert payload["db_calls"] == 1
+    assert "synthetic-private" not in json.dumps(payload)
 
 
 def test_observations_are_aggregated(caplog):
