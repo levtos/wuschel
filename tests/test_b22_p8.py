@@ -333,7 +333,15 @@ async def sweep(runtime, appointment=None, outcome="completed"):
     for _ in range(30):
         job = await fetch(
             runtime,
-            {"calendar.example": {"events": [appointment] if appointment else []}},
+            {
+                "calendar.example": {
+                    "events": appointment
+                    if isinstance(appointment, list)
+                    else [appointment]
+                    if appointment
+                    else []
+                }
+            },
             outcome=outcome,
         )
         coverage = calendar_status(runtime.state, runtime.config, runtime.clock.now_utc())[0][
@@ -342,6 +350,21 @@ async def sweep(runtime, appointment=None, outcome="completed"):
         if coverage["complete"] or outcome != "completed":
             return job
     raise AssertionError("bounded coverage sweep did not finish")
+
+
+def regular_coverage(runtime, first):
+    end = horizon(runtime.clock.now_utc(), 12)[1]
+    result = []
+    while first < end:
+        result.append(
+            {
+                "summary": "Synthetic holiday",
+                "start": first.isoformat(),
+                "end": (first + timedelta(hours=1)).isoformat(),
+            }
+        )
+        first += timedelta(days=90)
+    return result
 
 
 async def test_holiday_13_month_old_end_is_visible_and_unknown_until_future_coverage_returns(
@@ -361,11 +384,7 @@ async def test_holiday_13_month_old_end_is_visible_and_unknown_until_future_cove
     tomorrow = runtime.clock.now_utc() + timedelta(days=1)
     await sweep(
         runtime,
-        {
-            "summary": "Synthetic holiday",
-            "start": tomorrow.isoformat(),
-            "end": (tomorrow + timedelta(hours=1)).isoformat(),
-        },
+        regular_coverage(runtime, tomorrow),
     )
     assert field(runtime, contract="fixture.echo")["quality"] == "healthy"
     assert (
@@ -383,11 +402,7 @@ async def test_regular_three_month_gap_does_not_warn_and_probe_never_expands_fac
     upcoming = runtime.clock.now_utc() + timedelta(days=90)
     await sweep(
         runtime,
-        {
-            "summary": "Synthetic holiday",
-            "start": upcoming.isoformat(),
-            "end": (upcoming + timedelta(hours=1)).isoformat(),
-        },
+        regular_coverage(runtime, upcoming),
     )
     assert field(runtime, contract="fixture.echo")["value"] is False
     assert field(runtime, contract="fixture.echo")["quality"] == "healthy"
@@ -410,11 +425,7 @@ async def test_coverage_error_expiry_and_rebinding_never_reuse_previous_proof(ru
     tomorrow = now + timedelta(days=1)
     await sweep(
         runtime,
-        {
-            "summary": "Synthetic holiday",
-            "start": tomorrow.isoformat(),
-            "end": (tomorrow + timedelta(hours=1)).isoformat(),
-        },
+        regular_coverage(runtime, tomorrow),
     )
     assert status(runtime.state, runtime.config.bindings[0], 12, now)["covered"]
     runtime.clock.advance(3601)
