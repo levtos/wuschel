@@ -80,6 +80,7 @@ class JsonFormatter(logging.Formatter):
                         "run_ms",
                         "db_ms",
                         "db_calls",
+                        "phases_ms",
                         "count",
                         "queue_wait_p50_ms",
                         "queue_wait_p95_ms",

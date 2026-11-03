@@ -7,8 +7,10 @@ they are not individual SQL statements or server-side execution time.
 import asyncio
 import inspect
 import logging
+from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import wraps
 from time import perf_counter
 from typing import Any
 
@@ -20,9 +22,26 @@ class Timing:
     task: asyncio.Task[Any] | None
     db_calls: int = 0
     db_ms: float = 0.0
+    phases_ms: dict[str, float] = field(default_factory=dict)
 
 
 current: ContextVar[Timing | None] = ContextVar("operation_timing", default=None)
+
+
+def timed_phase[**P, T](fn: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
+    @wraps(fn)
+    async def measured(*args: P.args, **kwargs: P.kwargs) -> T:
+        timing = current.get()
+        start = perf_counter()
+        try:
+            return await fn(*args, **kwargs)
+        finally:
+            if timing is not None and timing.task is asyncio.current_task():
+                timing.phases_ms[fn.__name__] = (
+                    timing.phases_ms.get(fn.__name__, 0) + (perf_counter() - start) * 1000
+                )
+
+    return measured
 
 
 class TimedStore:

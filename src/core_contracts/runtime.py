@@ -24,7 +24,7 @@ from .ha_context import ContextIndex
 from .lifecycle import EDITORIAL, transition_allowed
 from .model import Model, canonical, checksum, semantic_fingerprint, utc
 from .numeric_equivalence import preserve_config, preserve_numbers
-from .operation_timing import ObservationTimings, TimedStore, Timing, current
+from .operation_timing import ObservationTimings, TimedStore, Timing, current, timed_phase
 from .persistence import State, Store
 from .producer import Context, Producer
 from .quality import FieldValue, ReasonCode, unknown
@@ -292,6 +292,7 @@ class Runtime:
             **details,
         }
 
+    @timed_phase
     async def _restore_numbers(
         self, document: dict[str, Any], previous: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -342,6 +343,7 @@ class Runtime:
             # The preview must display semantic issues before offering a correction.
             return copy.deepcopy(package["config"])
 
+    @timed_phase
     async def _definition_versions(self, config: RegistryConfig) -> None:
         from .validation import RegistryValidationError, ValidationIssue
 
@@ -458,6 +460,7 @@ class Runtime:
         if issues:
             raise RegistryValidationError(issues)
 
+    @timed_phase
     async def _source_types(self, config: RegistryConfig) -> None:
         from .registry import Source
         from .validation import RegistryValidationError, ValidationIssue
@@ -816,6 +819,7 @@ class Runtime:
                             "run_ms": run_ms,
                             "db_ms": timing.db_ms,
                             "db_calls": timing.db_calls,
+                            "phases_ms": timing.phases_ms,
                         },
                     )
                 self.queue.task_done()
@@ -2791,6 +2795,7 @@ class Runtime:
                 reading.cancel()
         self.title_sync_plans.clear()
         await self.queue.join()
+        self.observation_timings.flush()
         self._broadcast({"type": "going_away"})
         if self.persistence and self.state.epoch_id in self.state.tables["runtime_epoch"]:
             state = self.state.clone()
