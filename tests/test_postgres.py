@@ -648,7 +648,7 @@ async def test_history_is_durable_bounded_ordered_and_not_loaded(database, confi
         assert await store.writer.fetchval("SHOW tcp_user_timeout") == (
             "0" if windows_server else "30000"
         )
-        assert await store.writer.fetchval("SHOW idle_session_timeout") == "1min"
+        assert await store.writer.fetchval("SHOW idle_session_timeout") == "10min"
     finally:
         await runtime.stop()
         await store.close()

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0b24
+
+- Start bricht nicht mehr ab, wenn die Vorbereitung länger als eine Minute dauert.
+
 ## 1.0.0b23 — Stabilität, Prüftempo und HA-Schnittstelle
 
 - Volle Eingangsqueues und ausbleibende Projektionsbestätigungen trennen die HA-Bridge nicht mehr. Zustandsquellen werden mit sichtbarer Verlaufslücke koalesziert; Ereignisse und Kontakte bleiben vollständig geordnet. Beobachtungen werden einzeln ausgewertet und in Blöcken bis 50 ms oder 100 Beobachtungen atomar geschrieben und publiziert.

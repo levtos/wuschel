@@ -623,7 +623,7 @@ class PostgresStore:
                 "tcp_keepalives_interval": "5",
                 "tcp_keepalives_count": "3",
                 "tcp_user_timeout": "30000",
-                "idle_session_timeout": "60000",
+                "idle_session_timeout": "600000",
                 "idle_in_transaction_session_timeout": "15000",
                 "application_name": "core_contracts_writer",
             },
