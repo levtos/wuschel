@@ -4,11 +4,12 @@ import copy
 import json
 import math
 import re
+from time import perf_counter
 from uuid import UUID
 
 
 class Projection:
-    def __init__(self):
+    def __init__(self, now=perf_counter, schedule=None):
         self.rows = {}
         self.installation_id = None
         self.epoch_id = None
@@ -16,6 +17,18 @@ class Projection:
         self.owner = None
         self.connected = False
         self.listeners = set()
+        self.now = now
+        self.schedule = schedule
+        self.disconnected_at = None
+        self.expiry = None
+        self.grace_seconds = 120
+
+    @property
+    def available(self):
+        return self.connected or (
+            self.disconnected_at is not None
+            and self.now() - self.disconnected_at < self.grace_seconds
+        )
 
     def notify(self):
         for listener in tuple(self.listeners):
@@ -133,6 +146,10 @@ class Projection:
         self.owner = owner
         self.installation_id, self.epoch_id, self.sequence = installation_id, epoch, sequence
         self.rows, self.connected = checked, True
+        self.disconnected_at = None
+        if self.expiry:
+            self.expiry.cancel()
+            self.expiry = None
         self.notify()
         return True
 
@@ -140,4 +157,8 @@ class Projection:
         if self.owner is owner:
             self.connected = False
             self.owner = None
+            if self.disconnected_at is None:
+                self.disconnected_at = self.now()
+                if self.schedule:
+                    self.expiry = self.schedule(self.grace_seconds, self.notify)
             self.notify()

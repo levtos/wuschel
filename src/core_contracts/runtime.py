@@ -76,6 +76,7 @@ class Work:
 class SnapshotBatch:
     observations: list[Observation]
     registry_revision: int
+    complete: bool = True
 
 
 class Runtime:
@@ -145,6 +146,7 @@ class Runtime:
         self.entity_discovery: Callable[..., Awaitable[list[dict[str, Any]]]] | None = None
         self.discovered_areas: list[dict[str, Any]] | None = None
         self.service_jobs_changed = asyncio.Event()
+        self.management_slots = asyncio.Semaphore(2)
 
     @property
     def config(self) -> RegistryConfig | None:
@@ -691,6 +693,10 @@ class Runtime:
     async def submit(self, operation: str, payload: Any = None) -> Any:
         if self.stopping:
             raise RuntimeError("going_away")
+        from .management import OPERATIONS, execute
+
+        if operation in OPERATIONS:
+            return await execute(self, operation, payload)
         if operation == "catalog_cleanup_preview":
             from .catalog_cleanup import preview as cleanup_preview
 
@@ -717,13 +723,16 @@ class Runtime:
         if not self.persistence:
             self.latest[observation.binding_id] = observation
             return
+        if observation.binding_id in self.latest:
+            self.latest[observation.binding_id] = observation
+            self.overflow = True
+            return
         try:
             self.queue.put_nowait(Work("observation", observation))
         except asyncio.QueueFull:
             self.latest[observation.binding_id] = observation
             self.overflow = True
             self.overflow_serial += 1
-            self.resubscribe.set()
 
     def tick(self) -> None:
         self.last_heartbeat = self.clock.monotonic()
@@ -739,21 +748,21 @@ class Runtime:
             return
         if revision is not None and revision != self.state.active_revision:
             return
-        try:
-            self.queue.put_nowait(
-                Work(
-                    "snapshot",
-                    SnapshotBatch(
-                        observations, self.state.active_revision if revision is None else revision
-                    ),
+        revision = self.state.active_revision if revision is None else revision
+        for offset in range(0, max(1, len(observations)), 32):
+            part = observations[offset : offset + 32]
+            try:
+                self.queue.put_nowait(
+                    Work(
+                        "snapshot", SnapshotBatch(part, revision, offset + 32 >= len(observations))
+                    )
                 )
-            )
-        except asyncio.QueueFull:
-            self.latest.update({o.binding_id: o for o in observations})
-            self.overflow = True
-            self.overflow_serial += 1
-            self.snapshot_pending = True
-            self.snapshot_revision = self.state.active_revision if revision is None else revision
+            except asyncio.QueueFull:
+                self.latest.update({o.binding_id: o for o in part})
+                self.overflow = True
+                self.overflow_serial += 1
+                self.snapshot_pending = True
+                self.snapshot_revision = revision
 
     async def run(self) -> None:
         while True:
@@ -794,12 +803,38 @@ class Runtime:
                 if work.future and not work.future.done():
                     work.future.set_exception(error)
             finally:
+                # Older queued events must finish before their coalesced successors.
+                # Ingest keeps buffering a binding until this buffer is committed.
+                if self.overflow and self.queue.empty() and self.persistence:
+                    try:
+                        await self._drain_overflow()
+                    except Exception as error:
+                        LOGGER.warning(
+                            "buffer_drain_failed", extra={"error_type": type(error).__name__}
+                        )
                 self.queue.task_done()
 
     async def process(self, operation: str, payload: Any) -> Any:
+        if (
+            self.overflow
+            and self.persistence
+            and self.queue.empty()
+            and operation not in {"observation", "snapshot", "recover", "management_commit"}
+        ):
+            await self._drain_overflow()
+        if operation == "management_snapshot":
+            from .management import capture
+
+            return capture(self)
+        if operation == "management_commit":
+            from .management import commit
+
+            return await commit(self, payload)
+        snapshot_complete = True
         if operation == "snapshot" and isinstance(payload, SnapshotBatch):
             if payload.registry_revision != self.state.active_revision:
                 return None
+            snapshot_complete = payload.complete
             payload = payload.observations
         if operation == "observation" and payload.registry_revision not in {
             None,
@@ -948,10 +983,6 @@ class Runtime:
                 self.snapshot_revision = self.state.active_revision
                 return None
             raise RuntimeError("persistence_unavailable")
-        # Overflow recovery is its own transaction. A following validation, OCC
-        # conflict, duplicate event or failed command cannot discard the buffer.
-        if self.overflow:
-            await self._drain_overflow()
         if operation in {"retention_preview", "retention_run"}:
             if self.config is None or self.config.history_retention is None:
                 raise ValueError("history_retention_not_configured")
@@ -992,10 +1023,12 @@ class Runtime:
         state = (
             self.state.catalog_clone()
             if operation in {"catalog_care_preview", "catalog_care_write"}
+            else self.state.live_clone()
+            if operation in {"observation", "snapshot", "tick", "catalog_tick"}
             else self.state.clone()
         )
         now = self.clock.now_utc()
-        config = self._config(state)
+        config = self.config
         if operation in {"catalog_scope_preview", "catalog_scope_apply"}:
             from .catalog_scope import process as scope_process
 
@@ -1807,7 +1840,7 @@ class Runtime:
                 self._plan_evaluation()
         elif operation != "tick":
             await self._commit(state)
-        if operation == "snapshot":
+        if operation == "snapshot" and snapshot_complete:
             self.first_snapshot = True
             if self.installation_id and config and config.notifications:
                 await self._commit(self.state.clone())

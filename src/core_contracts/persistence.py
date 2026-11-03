@@ -228,6 +228,25 @@ class State(BaseModel):
             tables={name: copy.deepcopy(rows) for name, rows in self.current_tables().items()},
         )
 
+    def live_clone(self) -> State:
+        """Live evaluation reads configuration/catalog content without editing it.
+
+        Own all mutable evaluation rows. Pin bulky control rows by identity, as
+        catalog care already does, so a measurement never copies the title stock.
+        """
+        result = self.catalog_clone()
+        readonly = {
+            "catalog_head",
+            "registry_revision",
+            "registry_draft",
+            "editorial_current",
+            "editorial_draft",
+        }
+        for name, rows in result.tables.items():
+            if name not in readonly:
+                result.tables[name] = copy.deepcopy(rows)
+        return result
+
     def current_tables(self) -> dict[str, dict[str, dict[str, Any]]]:
         result = {}
         for name, rows in self.tables.items():

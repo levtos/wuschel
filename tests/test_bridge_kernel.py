@@ -251,6 +251,11 @@ async def test_projected_sensor_uses_real_ha_state_engine(tmp_path, monkeypatch,
     assert hass.states.get(sensor.entity_id).state == "unknown"
     assert hass.states.get(sensor.entity_id).attributes["status"] == "unknown"
     connection.subscriptions[1]()
+    assert hass.states.get(sensor.entity_id).state == "unknown"
+    assert hass.states.get(sensor.entity_id).attributes["status"] == "stale"
+    projection = hass.data["traber_projection"]
+    projection.now = lambda: projection.disconnected_at + 121
+    projection.notify()
     assert hass.states.get(sensor.entity_id).state == "unavailable"
     commands["project_contracts"](hass, connection, message)
     assert errors[-1][1] == "unsupported_protocol"
@@ -598,4 +603,8 @@ async def test_multifield_projection_sensor_attributes_in_real_ha_kernel(tmp_pat
     assert state.attributes["fields"]["detail"] == fields["detail"]
     assert state.attributes["fields"]["detail"]["quality"] == "degraded"
     projection.disconnect(owner)
+    assert hass.states.get(sensor.entity_id).state == "active"
+    assert hass.states.get(sensor.entity_id).attributes["status"] == "stale"
+    projection.now = lambda: projection.disconnected_at + 121
+    projection.notify()
     assert hass.states.get(sensor.entity_id).state == "unavailable"
