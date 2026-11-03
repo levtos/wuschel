@@ -6,7 +6,9 @@ import logging
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from datetime import datetime, timedelta
+from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
@@ -22,6 +24,7 @@ from .ha_context import ContextIndex
 from .lifecycle import EDITORIAL, transition_allowed
 from .model import Model, canonical, checksum, semantic_fingerprint, utc
 from .numeric_equivalence import preserve_config, preserve_numbers
+from .operation_timing import ObservationTimings, TimedStore, Timing, current
 from .persistence import State, Store
 from .producer import Context, Producer
 from .quality import FieldValue, ReasonCode, unknown
@@ -70,6 +73,7 @@ class Work:
     operation: str
     payload: Any
     future: asyncio.Future[Any] | None = None
+    queued_at: float = dataclass_field(default_factory=perf_counter)
 
 
 @dataclass
@@ -88,7 +92,8 @@ class Runtime:
         queue_size: int = 256,
         require_history_retention: bool = False,
     ) -> None:
-        self.store, self.clock, self.types = store, clock, types
+        self.store, self.clock, self.types = TimedStore(store), clock, types
+        self.observation_timings = ObservationTimings()
         self.require_history_retention = require_history_retention
         self.installation_id: str | None = None
         self.ingress_slug: str | None = None
@@ -758,6 +763,9 @@ class Runtime:
     async def run(self) -> None:
         while True:
             work = await self.queue.get()
+            started = perf_counter()
+            timing = Timing(asyncio.current_task())
+            token = current.set(timing)
             try:
                 result = await self.process(work.operation, work.payload)
                 if work.future and not work.future.done():
@@ -794,6 +802,22 @@ class Runtime:
                 if work.future and not work.future.done():
                     work.future.set_exception(error)
             finally:
+                current.reset(token)
+                wait_ms = (started - work.queued_at) * 1000
+                run_ms = (perf_counter() - started) * 1000
+                if work.operation == "observation":
+                    self.observation_timings.add(wait_ms, run_ms)
+                else:
+                    LOGGER.info(
+                        "operation_timing",
+                        extra={
+                            "operation": work.operation,
+                            "queue_wait_ms": wait_ms,
+                            "run_ms": run_ms,
+                            "db_ms": timing.db_ms,
+                            "db_calls": timing.db_calls,
+                        },
+                    )
                 self.queue.task_done()
 
     async def process(self, operation: str, payload: Any) -> Any:
