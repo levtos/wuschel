@@ -301,8 +301,10 @@ async def test_machine_has_declared_fresh_evidence_reinitialization(runtime, con
     elif case == "missing":
         runtime.state.tables["node_state"].pop("fixture.echo")
     elif case == "partial":
+        runtime.state = runtime.state.clone()  # Own the synthetic corruption.
         runtime.state.tables["node_state"]["fixture.echo"]["machine"] = {}
     elif case == "corrupt":
+        runtime.state = runtime.state.clone()
         runtime.state.tables["node_state"]["fixture.echo"]["machine"]["state"] = "invalid"
     else:
         config["contracts"][0]["enabled"] = False

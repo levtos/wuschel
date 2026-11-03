@@ -372,6 +372,7 @@ async def test_holiday_13_month_old_end_is_visible_and_unknown_until_future_cove
 ):
     await activate(runtime, holiday_config(config))
     old = runtime.clock.now_utc() - timedelta(days=400)
+    runtime.state = runtime.state.clone()  # Own this synthetic historical evidence.
     runtime.state.tables["service_state"]["calendar:binding.a"]["last_event_end"] = old.isoformat()
     await sweep(runtime)
     checked = calendar_status(runtime.state, runtime.config, runtime.clock.now_utc())[0]["coverage"]

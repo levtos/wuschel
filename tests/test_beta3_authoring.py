@@ -156,6 +156,7 @@ async def test_UX_2_11_session_version_and_original_occ(runtime, config):
 
 async def test_UX_2_12_unknown_basis_requires_explicit_manual_comparison(runtime, config):
     draft = await runtime.submit("draft_create", {"config": config})
+    runtime.state = runtime.state.clone()  # Own the deliberately unproven draft row.
     runtime.state.tables["registry_draft"][draft["draft_id"]]["base_status"] = "needs_review"
     with pytest.raises(AuthoringError, match="draft_base_unknown"):
         await runtime.submit("continuation_start", draft)

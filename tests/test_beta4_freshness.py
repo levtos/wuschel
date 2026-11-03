@@ -482,6 +482,7 @@ async def test_legacy_b3_own_interval_edits_get_f3_without_forcing_a_shared_assi
 async def test_unproven_node_context_does_not_receive_compatibility_from_a_template_change():
     runtime = await running(legacy())
     try:
+        runtime.state = runtime.state.clone()  # Own the deliberately corrupted node.
         runtime.state.tables["node_state"]["test.opening0"]["fingerprint"] = "unproven"
         runtime.clock.advance(30)
         await activate(runtime, shared(legacy()))

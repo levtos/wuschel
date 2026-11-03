@@ -54,9 +54,18 @@ async def test_active_export_restored_connectivity_origin(
     await activate(runtime, upgrade_document(historical))
     # Model a previously committed/restored document, not a newly accepted edit.
     # MemoryStore only. This shape was observed via the read-only active API.
+    runtime.state = runtime.state.clone()  # Own the synthetic corruption before editing.
     runtime.state.tables["registry_revision"][str(runtime.state.active_revision)]["config"][
         "sources"
     ][0]["value_origin"] = {"kind": "measured", "provider": "local"}
+    # Seed both sides as an already persisted historical defect. An ordinary
+    # commit must still reject edits to immutable registry history.
+    key = str(runtime.state.active_revision)
+    runtime.store.state.tables["registry_revision"][key] = copy.deepcopy(
+        runtime.state.tables["registry_revision"][key]
+    )
+    runtime.store.state.clean()
+    runtime.state.clean()
     api = API(runtime, Tokens(tmp_path), str(uuid4()), ingress_address="127.0.0.1")
     client = await aiohttp_client(api.application(ingress=True))
     response = await client.post(

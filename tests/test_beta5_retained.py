@@ -45,6 +45,7 @@ async def test_retained_nonidentical_or_unproven_report_keeps_existing_conservat
         rt.clock.advance(1)
         before = copy.deepcopy(rt.state.tables["source_observation_current"]["source.test.0.open"])
         if kind == "no_proof":
+            rt.state = rt.state.clone()  # Own this deliberately incomplete evidence.
             rt.state.tables["source_observation_current"]["source.test.0.open"].pop(
                 "mqtt_device_proof", None
             )

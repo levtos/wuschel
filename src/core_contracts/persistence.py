@@ -14,7 +14,7 @@ from decimal import Decimal
 from itertools import groupby
 from pathlib import Path
 from time import perf_counter
-from typing import Any, Protocol
+from typing import Any, Protocol, Self
 
 import asyncpg
 from pydantic import BaseModel, Field, PrivateAttr
@@ -195,6 +195,26 @@ class State(BaseModel):
             rows.seal(keys)
         self._changes.clear()
         self._basis = self.generation
+
+    def __deepcopy__(self, memo: dict[int, Any] | None = None) -> Self:
+        # Explicit backups retain archive rows too. Pydantic's generic deep
+        # copy would strip our JSON container subclasses and their journal.
+        memo = {} if memo is None else memo
+        result = type(self).model_construct(
+            generation=self.generation,
+            active_revision=self.active_revision,
+            publication_seq=self.publication_seq,
+            epoch_id=self.epoch_id,
+            tables={},
+        )
+        memo[id(self)] = result
+        result.tables = copy.deepcopy(self.tables, memo)
+        result.publications = copy.deepcopy(self.publications, memo)
+        result.clean()
+        result._changes.changed = copy.deepcopy(self._changes.changed, memo)
+        result._changes.deleted = copy.deepcopy(self._changes.deleted, memo)
+        result._basis = self._basis
+        return result
 
     def catalog_clone(self) -> State:
         """Writer-local care fork: containers are owned, rows stay read-only until detached.
