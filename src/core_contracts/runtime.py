@@ -103,6 +103,7 @@ class Runtime:
     ) -> None:
         self.store, self.clock, self.types = TimedStore(store), clock, types
         self.observation_timings = ObservationTimings()
+        self.observation_timing_alarm: asyncio.TimerHandle | None = None
         self.require_history_retention = require_history_retention
         self.installation_id: str | None = None
         self.ingress_slug: str | None = None
@@ -628,6 +629,16 @@ class Runtime:
         await self._restore("process_restart")
         if self.task is None:
             self.task = asyncio.create_task(self.run(), name="processor")
+            self.observation_timing_alarm = asyncio.get_running_loop().call_later(
+                60, self._flush_observation_timings
+            )
+
+    def _flush_observation_timings(self) -> None:
+        self.observation_timings.flush()
+        if not self.stopping:
+            self.observation_timing_alarm = asyncio.get_running_loop().call_later(
+                60, self._flush_observation_timings
+            )
 
     def _gap(self, state: State, reason: str) -> None:
         for sensor_key in list(state.tables["service_state"]):
@@ -2796,6 +2807,8 @@ class Runtime:
         if self.stopping:
             return
         self.stopping = True
+        if self.observation_timing_alarm:
+            self.observation_timing_alarm.cancel()
         if self.catalog_alarm:
             self.catalog_alarm.cancel()
         for run in self.title_sync_plans.values():
