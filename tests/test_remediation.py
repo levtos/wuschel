@@ -512,7 +512,10 @@ async def test_connection_exceptions_use_capped_backoff(runtime, config, monkeyp
         with pytest.raises(asyncio.CancelledError):
             await run
     assert delays == [
-        value * (0.75 if adapter_kind == "ha" else 1) for value in [1, 2, 4, 8, 16, 30, 30, 30]
+        value * (0.75 if adapter_kind == "ha" else 1)
+        for value in (
+            [1, 2, 4, 5, 5, 5, 5, 5] if adapter_kind == "ha" else [1, 2, 4, 8, 16, 30, 30, 30]
+        )
     ]
     assert len(await runtime.store.rows("history_gap")) <= 1
 

@@ -930,7 +930,7 @@ class BridgeAdapter:
                 await self.runtime.clock.sleep(
                     random.uniform(self.retry_delay / 2, self.retry_delay)
                 )
-                self.retry_delay = min(self.retry_delay * 2, 30)
+                self.retry_delay = min(self.retry_delay * 2, 5)
 
     async def request_refresh(self, source_id: str) -> None:
         config = self.runtime.config

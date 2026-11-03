@@ -241,6 +241,12 @@ class State(BaseModel):
             "registry_draft",
             "editorial_current",
             "editorial_draft",
+            # Evaluation detaches changed nodes and replaces envelopes, lifecycle
+            # rows and machine snapshots; unchanged rows remain immutable.
+            "node_state",
+            "contract_state_current",
+            "contract_lifecycle",
+            "sm_instance",
         }
         for name, rows in result.tables.items():
             if name not in readonly:

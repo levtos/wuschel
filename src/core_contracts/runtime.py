@@ -2016,14 +2016,16 @@ class Runtime:
         state: State,
         *,
         trigger_source: str | None = None,
+        observations: dict[str, Observation] | None = None,
     ) -> dict[str, FieldValue]:
         now = self.clock.now_utc()
         by_source = {b.source_id: b.binding_id for b in config.bindings}
         sources = {s.source_id: s for s in config.sources}
-        observations = {
-            k: Observation.model_validate(v)
-            for k, v in state.tables["source_observation_current"].items()
-        }
+        if observations is None:
+            observations = {
+                k: Observation.model_validate(v)
+                for k, v in state.tables["source_observation_current"].items()
+            }
         dependencies = {d.dependency_id: d for d in config.dependencies}
 
         def source_value(ref: str, visited: set[str]) -> FieldValue:
@@ -2166,6 +2168,10 @@ class Runtime:
         state.detach_rows("service_job", state.tables["service_job"])
         plan_calendars(state, config, self.clock.now_utc())
         calendar_changed = self._calendar_observations(state, config, origin)
+        observations = {
+            key: Observation.model_validate(row)
+            for key, row in state.tables["source_observation_current"].items()
+        }
         now, seq = self.clock.now_utc(), state.publication_seq + 1
         input_event = (
             next(
@@ -2231,12 +2237,6 @@ class Runtime:
                     "enabled": False,
                 }
                 continue
-            inputs = self._inputs(
-                contract,
-                config,
-                state,
-                trigger_source=trigger_source if origin == "input" else None,
-            )
             triggered = (catalog_affected is not None and key in catalog_affected) or any(
                 resolve_ref(item.ref, config)[0] in affected for item in contract.inputs
             )
@@ -2251,6 +2251,13 @@ class Runtime:
                 state.tables["contract_state_current"][key] = previous_contracts[key]
                 self.evaluation_stats["reused"] += 1
                 continue
+            inputs = self._inputs(
+                contract,
+                config,
+                state,
+                trigger_source=trigger_source if origin == "input" else None,
+                observations=observations,
+            )
             self.evaluation_stats["evaluated"] += 1
             contract_origin = "revision" if origin == "input" and not triggered else origin
             if origin == "tick" and triggered:
@@ -2591,7 +2598,11 @@ class Runtime:
         from .authoring import archive_versions
 
         archive_versions(self.state, state)
-        config = self._config(state)
+        config = (
+            self.config
+            if state.active_revision == self.state.active_revision
+            else self._config(state)
+        )
         if config and self.installation_id:
             from .notifications import plan_notices
 

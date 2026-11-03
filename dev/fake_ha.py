@@ -18,6 +18,7 @@ class FakeHA:
         self.v2 = v2
         self.projection = projection
         self.projection_ack = True
+        self.projection_cache = None
 
     def application(self):
         app = web.Application()
@@ -72,6 +73,8 @@ class FakeHA:
                         + (["contract_projection"] if self.projection else []),
                     }
                 if kind == "traber/project_contracts":
+                    if self.projection_cache is not None:
+                        self.projection_cache.accept(socket, data["installation_id"], data)
                     if not self.projection_ack:
                         continue
                     result = {"applied": True}
@@ -136,6 +139,8 @@ class FakeHA:
                         }
                     )
         finally:
+            if self.projection_cache is not None:
+                self.projection_cache.disconnect(socket)
             self.sockets.discard(socket)
             self.subscriptions.pop(socket, None)
             self.lifecycle_subscriptions.pop(socket, None)
