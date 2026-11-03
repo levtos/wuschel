@@ -69,6 +69,7 @@ class Preparation:
     pending_latches: Any = None
     pending_refresh: Any = None
     changes: Any = None
+    live_conflict: bool = False
 
 
 def capture(runtime: Runtime) -> Preparation:
@@ -160,19 +161,28 @@ def prepare(
 
 async def execute(runtime: Runtime, operation: str, payload: Any) -> Any:
     async with runtime.management_slots:
-        plan = await runtime.submit("management_snapshot")
-        plan.operation = operation
-        try:
-            plan = await asyncio.to_thread(
-                prepare, runtime, plan, payload, asyncio.get_running_loop()
-            )
-        except (PersistenceUnavailable, OSError) as error:
-            runtime._unavailable()
-            logging.getLogger(__name__).error(
-                "management_unavailable", extra={"error_type": type(error).__name__}
-            )
-            raise
-        return await runtime.submit("management_commit", plan)
+        for attempt in range(3):
+            plan = await runtime.submit("management_snapshot")
+            plan.operation = operation
+            try:
+                plan = await asyncio.to_thread(
+                    prepare, runtime, plan, payload, asyncio.get_running_loop()
+                )
+            except (PersistenceUnavailable, OSError) as error:
+                runtime._unavailable()
+                logging.getLogger(__name__).error(
+                    "management_unavailable", extra={"error_type": type(error).__name__}
+                )
+                raise
+            try:
+                return await runtime.submit("management_commit", plan)
+            except ValueError:
+                # This OCC rejection happens before writing anything. Recompute
+                # from a fresh snapshot only for changed live state, never for
+                # changed configuration, drafts or catalog content.
+                if not plan.live_conflict or attempt == 2:
+                    raise
+        raise AssertionError("management_attempts_exhausted")
 
 
 async def commit(runtime: Runtime, plan: Preparation) -> Any:
@@ -197,6 +207,7 @@ async def commit(runtime: Runtime, plan: Preparation) -> Any:
             for name in ("bridge", "ha", "mqtt", "dependency_connections")
         )
     ):
+        plan.live_conflict = True
         raise ValueError("active_revision_conflict")
     merged = current.catalog_clone()
     for table, changes in plan.changes.items():

@@ -57,6 +57,50 @@ async def test_prepared_activation_rejects_changed_live_basis(runtime, config):
     assert runtime.state.model_dump_json() == before
 
 
+async def test_activation_recomputes_after_a_prewrite_live_occ_conflict(
+    runtime, config, monkeypatch
+):
+    from core_contracts import management
+
+    await activate(runtime, config)
+    original = management.prepare
+    attempts = []
+
+    def prepare(*args):
+        plan = original(*args)
+        attempts.append(plan)
+        if len(attempts) == 1:
+            asyncio.run_coroutine_threadsafe(
+                runtime.submit("observation", obs(runtime, True)), args[3]
+            ).result(5)
+        return plan
+
+    monkeypatch.setattr(management, "prepare", prepare)
+    result = await runtime.submit("rollback", {"revision": 1, "expected_active_revision": 1})
+    assert result["revision"] == 2
+    assert len(attempts) == 2 and attempts[0].live_conflict
+    assert runtime.state.tables["source_observation_current"]["binding.a"]["value_raw"] is True
+
+
+async def test_changed_control_basis_is_not_a_retryable_live_occ_conflict(runtime, config):
+    from core_contracts.management import capture, commit, prepare
+
+    await activate(runtime, config)
+    plan = capture(runtime)
+    plan.operation = "rollback"
+    plan = await asyncio.to_thread(
+        prepare,
+        runtime,
+        plan,
+        {"revision": 1, "expected_active_revision": 1},
+        asyncio.get_running_loop(),
+    )
+    await runtime.submit("draft_create", {"config": config})
+    with pytest.raises(ValueError, match="active_revision_conflict"):
+        await commit(runtime, plan)
+    assert not plan.live_conflict and runtime.state.active_revision == 1
+
+
 async def test_overflow_coalesces_without_reconnecting_and_keeps_order(runtime, config):
     await activate(runtime, config)
     original_queue = runtime.queue
