@@ -1,12 +1,16 @@
 """The service-container release gate exercises the real transactional writer."""
 
+import json
+from contextvars import ContextVar
+from statistics import fmean
+
 import pytest
 
 from core_contracts.adapters.ha import BridgeAdapter
 from core_contracts.clock import SystemClock
 from core_contracts.contract_types import type_registry
 from core_contracts.history import HistoryQuery
-from core_contracts.persistence import PostgresStore
+from core_contracts.persistence import PostgresStore, State
 from core_contracts.runtime import Runtime
 
 from .test_b23_acceptance import genuine_load, ha_states, live_bridge, scale_runtime
@@ -27,10 +31,77 @@ async def test_postgres_live_size_twenty_per_second_with_genuine_management(
         await store.close()
 
 
+async def test_postgres_live_size_p7_commit_cost_and_no_commit_clone(
+    database, aiohttp_server, monkeypatch
+):
+    store = PostgresStore(database, MIGRATIONS, tls=False)
+    await store.open()
+    runtime, _ = await scale_runtime(store)
+    original_commit, original_clone = store.commit, State.clone
+    in_commit = ContextVar("postgres_commit_clone_guard", default=False)
+
+    def clone(state):
+        assert not in_commit.get(), "State.clone in PostgresStore.commit"
+        return original_clone(state)
+
+    async def commit(state):
+        token = in_commit.set(True)
+        try:
+            return await original_commit(state)
+        finally:
+            in_commit.reset(token)
+
+    monkeypatch.setattr(State, "clone", clone)
+    monkeypatch.setattr(store, "commit", commit)
+    try:
+        async with live_bridge(runtime, aiohttp_server) as probe:
+            for batch in range(100):
+                for index in range(11):
+                    await probe.emit(batch * 11 + index)
+                await probe.wait()
+            measured = [row for row in probe.commit_timings if 40 <= row["written_rows"] <= 100]
+            print(
+                json.dumps(
+                    {
+                        "synthetic": True,
+                        "written_rows_all": sorted(
+                            {row["written_rows"] for row in probe.commit_timings}
+                        ),
+                        "phase_means_all": {
+                            key: fmean(row[key] for row in probe.commit_timings)
+                            for key in ("commit_ms", "snapshot_ms", "changes_ms", "written_rows")
+                        },
+                    }
+                )
+            )
+            assert len(measured) >= 20
+            phases = {
+                key: fmean(row[key] for row in measured)
+                for key in ("commit_ms", "snapshot_ms", "changes_ms", "written_rows")
+            }
+            phases["non_sql_ms"] = phases["snapshot_ms"] + phases["changes_ms"]
+            print(
+                json.dumps(
+                    {
+                        "synthetic": True,
+                        "p7_commit_mean": phases,
+                        "blocks": len(measured),
+                        "clone_calls": 0,
+                    }
+                )
+            )
+            assert phases["non_sql_ms"] < 15, phases
+            probe.assert_transport()
+    finally:
+        await runtime.stop()
+        await store.close()
+
+
 async def test_postgres_writer_crash_mid_block_is_atomic_and_bridge_snapshot_recovers(
     database, aiohttp_server
 ):
     store = PostgresStore(database, MIGRATIONS, tls=False)
+    store.verify_changes = True
     await store.open()
     runtime, _ = await scale_runtime(store)
     installation = runtime.installation_id

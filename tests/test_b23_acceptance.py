@@ -192,11 +192,13 @@ class LoadProbe:
         self.availability = []
         self.operations = {}
         self.commit_sizes = []
+        self.commit_timings = []
         self.write = store.commit
 
     async def commit(self, state):
         rows = list(state.tables["source_observation_history"].values())
         await self.write(state)
+        self.commit_timings.append(dict(self.store.last_commit_timing))
         now = self.runtime.clock.now_utc()
         if rows:
             self.commit_sizes.append(len(rows))
@@ -325,6 +327,7 @@ async def live_bridge(runtime, aiohttp_server, states=None):
             probe.availability.append(True)
             probe.latencies.clear()
             probe.commit_sizes.clear()
+            probe.commit_timings.clear()
             yield probe
         finally:
             for task in tasks:
@@ -388,7 +391,6 @@ async def genuine_load(aiohttp_server, store=None):
                 await admin
                 await probe.wait()
                 assert perf_counter() - started >= 59.9
-                assert percentile(probe.latencies, 0.95) < 1, percentile(probe.latencies, 0.95)
                 assert set(probe.operations) == {
                     "validate",
                     "draft_preview",
@@ -403,6 +405,16 @@ async def genuine_load(aiohttp_server, store=None):
                             "store": type(store).__name__ if store is not None else "MemoryStore",
                             "sent": 1200,
                             "latency_p95_s": percentile(probe.latencies, 0.95),
+                            "commit_phases_mean": {
+                                key: sum(item.get(key, 0) for item in probe.commit_timings)
+                                / len(probe.commit_timings)
+                                for key in (
+                                    "commit_ms",
+                                    "snapshot_ms",
+                                    "changes_ms",
+                                    "written_rows",
+                                )
+                            },
                             "admin_counts": {
                                 key: len(value) for key, value in probe.operations.items()
                             },
@@ -412,6 +424,7 @@ async def genuine_load(aiohttp_server, store=None):
                         }
                     )
                 )
+                assert percentile(probe.latencies, 0.95) < 1, percentile(probe.latencies, 0.95)
             finally:
                 admin.cancel()
                 await asyncio.gather(admin, return_exceptions=True)

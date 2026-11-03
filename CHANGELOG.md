@@ -4,9 +4,10 @@
 
 - Volle Eingangsqueues und ausbleibende Projektionsbestätigungen trennen die HA-Bridge nicht mehr. Zustandsquellen werden mit sichtbarer Verlaufslücke koalesziert; Ereignisse und Kontakte bleiben vollständig geordnet. Beobachtungen werden einzeln ausgewertet und in Blöcken bis 50 ms oder 100 Beobachtungen atomar geschrieben und publiziert.
 - Verwaltung rechnet auf getrennten Schnappschüssen außerhalb des Event-Loops. Revisionsindizes, historische Quellen und Prüfergebnisse werden wiederverwendet; Aktivierung prüft Grundlage und Katalogüberführung weiterhin frisch und bleibt atomar.
+- Commits schreiben ihre Basis inkrementell fort. Geänderte und gelöschte Schlüssel ersetzen Vollvergleiche und vollständige Zustandskopien; unveränderliche Zeilen werden bis zur nächsten Änderung geteilt. Der Gleichheitsnachweis gegen den bisherigen Vollvergleich bleibt als Testmodus verfügbar.
 - Traber hält letzte Werte bei kurzen Unterbrechungen mit 120 s Karenz. Neuverbindungen erhalten vollständige Snapshots; Primärfelder, `not_applicable`, Bool-Anzeige und Zahlengenauigkeit sind vereinheitlicht. Die [HA-Schnittstelle](docs/ha-interface.md) ist dokumentiert.
 - Feiertagsprüfung benennt Lücken über vier Monate. Testvorlagen werden nur ausdrücklich in Tests registriert; Abbruch der Entwurfsauswahl bleibt still, die Vorbereitung erhält ein Zeitlimit.
-- [Auftrag #100](https://github.com/Levtos/wuschel/issues/100), [P6 und synthetische Messung](docs/beta/b23/P6.md). Nur amd64, keine neue Datenbankmigration. Technische Veröffentlichung und Live-Abnahme bleiben getrennt; Live übernehmen Benni und Claude.
+- [Auftrag #100](https://github.com/Levtos/wuschel/issues/100), [P6 und synthetische Messung](docs/beta/b23/P6.md), [P7 und Commit-Kosten](docs/beta/b23/P7.md). Nur amd64, keine neue Datenbankmigration. Technische Veröffentlichung und Live-Abnahme bleiben getrennt; Live übernehmen Benni und Claude.
 
 ## 1.0.0b22 — Bedienung, Vorlagen und Feldzeitpunkte (Kandidat)
 
