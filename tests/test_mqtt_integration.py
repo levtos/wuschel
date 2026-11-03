@@ -39,7 +39,9 @@ async def test_broker_disconnect_reconnect_and_invalid_message(tmp_path, config,
     from core_contracts.contract_types import type_registry as application_types
 
     runtime = Runtime(
-        MemoryStore(), SystemClock(), application_types() if opening else type_registry()
+        MemoryStore(),
+        SystemClock(),
+        application_types(include_test_types=True) if opening else type_registry(),
     )
     await runtime.start()
     task = None

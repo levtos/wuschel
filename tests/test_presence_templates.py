@@ -376,19 +376,19 @@ async def test_real_runtime_restart_preserves_machine_state_and_deadline(
 async def test_synthetic_package_adds_only_presence_preserves_fingerprints_and_preview_is_read_only(
     runtime,
 ):
-    runtime.types = type_registry()
+    runtime.types = type_registry(include_test_types=True)
     baseline = read_package(BASELINE)
     package = read_package(PACKAGE)
     assert package["config"]["definitions"][-9:] == [
         d.model_dump(mode="json") for d in map(DeclarativeDefinition.model_validate, DEFINITIONS)
     ]
-    before = validate(baseline["config"], type_registry())
-    after = validate(package["config"], type_registry())
+    before = validate(baseline["config"], type_registry(include_test_types=True))
+    after = validate(package["config"], type_registry(include_test_types=True))
     old_objects = objects(baseline["config"])
     new_objects = objects(package["config"])
     assert all(new_objects[key] == value for key, value in old_objects.items())
-    old_fingerprints = fingerprints(before, type_registry())
-    new_fingerprints = fingerprints(after, type_registry())
+    old_fingerprints = fingerprints(before, type_registry(include_test_types=True))
+    new_fingerprints = fingerprints(after, type_registry(include_test_types=True))
     assert all(new_fingerprints[key] == value for key, value in old_fingerprints.items())
     assert all(not c.ha_projection for c in after.contracts if c.type_id.startswith("presence."))
     await activate(runtime, baseline["config"])

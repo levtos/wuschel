@@ -162,12 +162,12 @@ export function useDraftMutations() {
   return {
     create: useMutation({
       retry: false,
-      mutationFn: async (input: { config: Registry; display_name?: string; draft_id?: string; expected_active_revision?: number; from_active?: boolean }) => {
-        const { from_active, ...body } = input;
+      mutationFn: async (input: { config: Registry; display_name?: string; draft_id?: string; expected_active_revision?: number; from_active?: boolean; signal?: AbortSignal }) => {
+        const { from_active, signal, ...body } = input;
         for (let attempt = 0; ; attempt++) {
-          const head = from_active || input.expected_active_revision === undefined ? await api<RevisionRow | null>('registry/active') : null;
+          const head = from_active || input.expected_active_revision === undefined ? await api<RevisionRow | null>('registry/active', { signal }) : null;
           try {
-            return await api<Draft>('registry/drafts', { method: 'POST', body: { ...body, config: from_active && head ? head.config : input.config, expected_active_revision: from_active ? head?.revision ?? 0 : input.expected_active_revision ?? head?.revision ?? 0 } });
+            return await api<Draft>('registry/drafts', { method: 'POST', signal, body: { ...body, config: from_active && head ? head.config : input.config, expected_active_revision: from_active ? head?.revision ?? 0 : input.expected_active_revision ?? head?.revision ?? 0 } });
           } catch (error) {
             if (!from_active || attempt >= 1 || !(error instanceof ApiError) || error.code !== 'active_revision_conflict') throw error;
           }

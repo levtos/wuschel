@@ -101,7 +101,9 @@ def configuration():
 
 
 async def make_runtime(store=None, clock=None):
-    runtime = Runtime(store or MemoryStore(), clock or FakeClock(NOW), type_registry())
+    runtime = Runtime(
+        store or MemoryStore(), clock or FakeClock(NOW), type_registry(include_test_types=True)
+    )
     await runtime.start()
     if runtime.config is None:
         await activate(runtime, configuration())
@@ -406,13 +408,13 @@ async def test_B1_18_commit_failure_does_not_publish_context():
 
 
 def test_B1_19_production_types_schema_and_invalid_inputs():
-    registry = type_registry()
+    registry = type_registry(include_test_types=True)
     for name in ("opening.dual_contact", "opening.single_contact", "opening_zone.facts"):
         assert not registry.get(name, 1).schema.fixture
     data = configuration()
     data["contracts"][-1]["inputs"][1]["ref"] = "test.opening0.value"
     with pytest.raises(ValueError, match="distinct opening members"):
-        validate(data, type_registry())
+        validate(data, type_registry(include_test_types=True))
 
 
 def connectivity_definition():
@@ -557,7 +559,7 @@ async def test_B1_17_category_export_import_roundtrip_and_legacy():
     data = configuration()
     data["sources"][0]["value_schema"]["type"] = "number"
     with pytest.raises(ValueError):
-        validate(data, type_registry())
+        validate(data, type_registry(include_test_types=True))
 
 
 @pytest.mark.parametrize(
@@ -619,7 +621,7 @@ def test_B1_11_12_zone_status_cross_product(left, right):
 
     values = [member(left), member(right)]
     contract = Contract.model_validate(configuration()["contracts"][4])
-    rt = Runtime(MemoryStore(), clock, type_registry())
+    rt = Runtime(MemoryStore(), clock, type_registry(include_test_types=True))
     ctx = Context(
         clock,
         {},
@@ -660,7 +662,7 @@ def test_B1_19_opening_requires_explicit_heartbeat_or_liveness(mode):
     data = configuration()
     data["sources"][0]["freshness"]["mode"] = mode
     with pytest.raises(ValueError, match="heartbeat or explicit liveness"):
-        validate(data, type_registry())
+        validate(data, type_registry(include_test_types=True))
 
 
 @pytest.mark.parametrize("interval", [True, "8400", float("inf"), float("nan")])
@@ -668,4 +670,4 @@ def test_B1_14_heartbeat_interval_is_finite_and_strict(interval):
     data = configuration()
     data["sources"][0]["freshness"]["interval_s"] = interval
     with pytest.raises(ValueError):
-        validate(data, type_registry())
+        validate(data, type_registry(include_test_types=True))
