@@ -264,10 +264,10 @@ async def test_new_overflow_during_commit_is_not_cleared(runtime, config, monkey
             newest = obs(runtime, True)
             runtime.ingest(newest)
             release[0].set()
-            await request
             await entered[1].wait()
             assert runtime.overflow and runtime.latest["binding.a"] is newest
             release[1].set()
+            await request
             await runtime.queue.join()
         assert not runtime.overflow and not runtime.latest
         assert field(runtime)["value"] is True
@@ -301,8 +301,10 @@ async def test_machine_has_declared_fresh_evidence_reinitialization(runtime, con
     elif case == "missing":
         runtime.state.tables["node_state"].pop("fixture.echo")
     elif case == "partial":
+        runtime.state = runtime.state.clone()  # Own the synthetic corruption.
         runtime.state.tables["node_state"]["fixture.echo"]["machine"] = {}
     elif case == "corrupt":
+        runtime.state = runtime.state.clone()
         runtime.state.tables["node_state"]["fixture.echo"]["machine"]["state"] = "invalid"
     else:
         config["contracts"][0]["enabled"] = False
@@ -364,7 +366,7 @@ async def test_malformed_external_timestamp_is_local_invalid_evidence(runtime, c
     )
 
 
-async def test_large_snapshot_is_one_work_item(runtime, config):
+async def test_large_snapshot_is_portioned_work(runtime, config):
     for index in range(600):
         source = copy.deepcopy(config["sources"][0])
         source.update(source_id=f"source.x{index}", physical_source_key=f"physical.x{index}")
@@ -381,7 +383,8 @@ async def test_large_snapshot_is_one_work_item(runtime, config):
     async with aiohttp.ClientSession() as session:
         adapter = BridgeAdapter(runtime, session, "ws://unused", "test")
         await adapter.event({"kind": "snapshot", "states": {}}, runtime.config)
-        assert runtime.queue.qsize() == 1
+        assert runtime.queue.qsize() == 19
+        assert all(len(work.payload.observations) <= 32 for work in runtime.queue._queue)
     await runtime.queue.join()
     assert runtime.first_snapshot
     assert len(runtime.state.tables["source_observation_current"]) == 601
@@ -492,6 +495,9 @@ async def test_connection_exceptions_use_capped_backoff(runtime, config, monkeyp
 
     async with aiohttp.ClientSession() as session:
         if adapter_kind == "ha":
+            monkeypatch.setattr(
+                "core_contracts.adapters.ha.random.uniform", lambda low, high: (low + high) / 2
+            )
             adapter = BridgeAdapter(runtime, session, "ws://unused", "test")
             monkeypatch.setattr(adapter, "connect", failed)
             run = adapter.run()
@@ -507,7 +513,12 @@ async def test_connection_exceptions_use_capped_backoff(runtime, config, monkeyp
             run = connect_with_health(SimpleNamespace(open=failed, close=close), runtime.clock)
         with pytest.raises(asyncio.CancelledError):
             await run
-    assert delays == [1, 2, 4, 8, 16, 30, 30, 30]
+    assert delays == [
+        value * (0.75 if adapter_kind == "ha" else 1)
+        for value in (
+            [1, 2, 4, 5, 5, 5, 5, 5] if adapter_kind == "ha" else [1, 2, 4, 8, 16, 30, 30, 30]
+        )
+    ]
     assert len(await runtime.store.rows("history_gap")) <= 1
 
 

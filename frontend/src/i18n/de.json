@@ -1,4 +1,5 @@
 {
+  "b23.draft.preparationTimeout": "Das Vorbereiten dauert zu lange. Bitte lade die Entwurfsliste neu, bevor Du es erneut versuchst. Ein bereits gesendeter Auftrag kann noch abgeschlossen werden.",
   "b22.catalog.variantRole": "Variante",
   "platform.value.active": "aktiv",
   "platform.value.inactive": "inaktiv",

@@ -4,9 +4,12 @@ import asyncio
 import copy
 import logging
 import re
+from collections import deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from datetime import datetime, timedelta
+from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
@@ -22,6 +25,7 @@ from .ha_context import ContextIndex
 from .lifecycle import EDITORIAL, transition_allowed
 from .model import Model, canonical, checksum, semantic_fingerprint, utc
 from .numeric_equivalence import preserve_config, preserve_numbers
+from .operation_timing import ObservationTimings, TimedStore, Timing, current, timed_phase
 from .persistence import State, Store
 from .producer import Context, Producer
 from .quality import FieldValue, ReasonCode, unknown
@@ -32,7 +36,6 @@ from .registry import (
     diff,
     fingerprints,
     registry_types,
-    required_sources,
     resolve_ref,
     storage_document,
     topological,
@@ -42,6 +45,7 @@ from .resolver import Bucket
 from .schema import Envelope, TypeRegistry, validate_fields
 from .statemachine import MachineState
 from .temporal import start_case
+from .validation_cache import CHECK_VERSION, ValidationCache
 
 LOGGER = logging.getLogger(__name__)
 
@@ -70,12 +74,14 @@ class Work:
     operation: str
     payload: Any
     future: asyncio.Future[Any] | None = None
+    queued_at: float = dataclass_field(default_factory=perf_counter)
 
 
 @dataclass
 class SnapshotBatch:
     observations: list[Observation]
     registry_revision: int
+    complete: bool = True
 
 
 class Runtime:
@@ -88,7 +94,9 @@ class Runtime:
         queue_size: int = 256,
         require_history_retention: bool = False,
     ) -> None:
-        self.store, self.clock, self.types = store, clock, types
+        self.store, self.clock, self.types = TimedStore(store), clock, types
+        self.observation_timings = ObservationTimings()
+        self.validation_cache = ValidationCache()
         self.require_history_retention = require_history_retention
         self.installation_id: str | None = None
         self.ingress_slug: str | None = None
@@ -96,9 +104,19 @@ class Runtime:
         self.state = State()
         self._config_cache: tuple[int, str, RegistryConfig | None] | None = None
         self._plans: dict[tuple[Any, ...], tuple[dict[str, str], TypeRegistry, list[Contract]]] = {}
+        self._structures: dict[int, Any] = {}
+        self._observation_models: dict[str, tuple[dict[str, Any], Observation]] = {}
+        self._field_models: dict[str, tuple[dict[str, Any], FieldValue]] = {}
+        self._block_active = False
+        self._block_changed = False
+        self._block_refresh: set[str] = set()
+        self._next_work: Work | None = None
+        self._outage_events: deque[Observation] = deque()
         self.reuse_unaffected = True
         self.evaluation_stats = {"evaluated": 0, "reused": 0}
-        self.queue: asyncio.Queue[Work] = asyncio.Queue(queue_size)
+        from .observation_block import IngestQueue
+
+        self.queue: asyncio.Queue[Work] = IngestQueue(queue_size)
         self.task: asyncio.Task[None] | None = None
         self.confirmed = False
         self.persistence = False
@@ -145,6 +163,7 @@ class Runtime:
         self.entity_discovery: Callable[..., Awaitable[list[dict[str, Any]]]] | None = None
         self.discovered_areas: list[dict[str, Any]] | None = None
         self.service_jobs_changed = asyncio.Event()
+        self.management_slots = asyncio.Semaphore(2)
 
     @property
     def config(self) -> RegistryConfig | None:
@@ -172,6 +191,53 @@ class Runtime:
             if len(self._plans) > 4:
                 self._plans.pop(next(iter(self._plans)))
         return self._plans[key]
+
+    def _structure(self, config: RegistryConfig) -> Any:
+        from .revision_plan import build
+
+        key = id(config)
+        if key not in self._structures:
+            self._structures[key] = build(config)
+            if len(self._structures) > 4:
+                self._structures.pop(next(iter(self._structures)))
+        return self._structures[key]
+
+    def _resolve(self, ref: str, config: RegistryConfig) -> tuple[str, str | None]:
+        references = self._structure(config).references
+        if ref not in references:
+            references[ref] = resolve_ref(ref, config)
+        return references[ref]  # type: ignore[no-any-return]
+
+    def _observation(self, row: dict[str, Any]) -> Observation:
+        cached = self._observation_models.get(row["binding_id"])
+        if cached is not None and (row is cached[0] or row == cached[0]):
+            return cached[1]
+        # New database/restored rows are a system boundary. Adapter observations
+        # seed this cache from their already fully validated models instead.
+        result = Observation.model_validate(row)
+        self._observation_models[row["binding_id"]] = (row.copy(), result)
+        return result
+
+    def _remember_observation(self, state: State, observation: Observation) -> None:
+        row = observation.storage_document()
+        state.tables["source_observation_current"][observation.binding_id] = row
+        self._observation_models[observation.binding_id] = (row.copy(), observation)
+
+    def _field(self, key: str, row: dict[str, Any]) -> FieldValue:
+        cached = self._field_models.get(key)
+        if cached is not None and (row is cached[0] or row == cached[0]):
+            return cached[1]
+        # Restored/database fields are validated on their first use. Live output
+        # fields enter this cache directly after schema/invariant checks.
+        result = FieldValue.model_validate(row)
+        self._field_models[key] = (row.copy(), result)
+        return result
+
+    def _buffer_outage(self, observation: Observation) -> None:
+        if self.config and observation.source_id in self._structure(self.config).protected:
+            self._outage_events.append(observation)
+        else:
+            self.latest[observation.binding_id] = observation
 
     @staticmethod
     def _config(state: State) -> RegistryConfig | None:
@@ -287,6 +353,7 @@ class Runtime:
             **details,
         }
 
+    @timed_phase
     async def _restore_numbers(
         self, document: dict[str, Any], previous: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -337,6 +404,7 @@ class Runtime:
             # The preview must display semantic issues before offering a correction.
             return copy.deepcopy(package["config"])
 
+    @timed_phase
     async def _definition_versions(self, config: RegistryConfig) -> None:
         from .validation import RegistryValidationError, ValidationIssue
 
@@ -453,25 +521,37 @@ class Runtime:
         if issues:
             raise RegistryValidationError(issues)
 
+    @timed_phase
     async def _source_types(self, config: RegistryConfig) -> None:
         from .registry import Source
         from .validation import RegistryValidationError, ValidationIssue
 
         issues = []
+        revisions: dict[int, dict[str, Source]] = {}
+        active_sources = {s.source_id: s for s in self.config.sources} if self.config else {}
         for index, source in enumerate(config.sources):
+            if source == active_sources.get(source.source_id):
+                continue
             for document in await self.store.source_history(
                 source.source_id, include_revision=True
             ):
-                previous_revision = document.pop("_registry_revision")
-                historical = await self.store.get("registry_revision", str(previous_revision))
-                if historical and historical["config"].get("config_schema_version") == 4:
-                    old = next(
-                        s
-                        for s in RegistryConfig.model_validate(historical["config"]).sources
-                        if s.source_id == source.source_id
+                previous_revision = document["_registry_revision"]
+                if previous_revision not in revisions:
+                    historical = await self.store.get("registry_revision", str(previous_revision))
+                    revisions[previous_revision] = (
+                        {
+                            s.source_id: s
+                            for s in RegistryConfig.model_validate(historical["config"]).sources
+                        }
+                        if historical and historical["config"].get("config_schema_version") == 4
+                        else {}
                     )
+                if source.source_id in revisions[previous_revision]:
+                    old = revisions[previous_revision][source.source_id]
                 else:
-                    old = Source.model_validate(document)
+                    old = Source.model_validate(
+                        {k: v for k, v in document.items() if k != "_registry_revision"}
+                    )
                 schema, previous = source.value_schema, old.value_schema
                 inferred = {"boolean": "bool", "numeric": "number", "text": "text"}
                 checks = (
@@ -547,6 +627,39 @@ class Runtime:
         if issues:
             raise RegistryValidationError(list({(i.code, i.path): i for i in issues}.values()))
 
+    async def _checked_config(
+        self, document: dict[str, Any], *, restore: bool = True
+    ) -> RegistryConfig:
+        key = checksum(
+            [
+                document,
+                self.state.active_revision,
+                self.state.tables["registry_revision"]
+                .get(str(self.state.active_revision), {})
+                .get("checksum"),
+                [
+                    (key, declaration.description())
+                    for key, declaration in sorted(self.types.types.items())
+                ],
+                [
+                    (key, row.get("revision"), row.get("definition_digest"))
+                    for key, row in sorted(self.state.tables["catalog_head"].items())
+                ],
+                CHECK_VERSION,
+                restore,
+            ]
+        )
+        cached = self.validation_cache.get(key)
+        if cached is not None:
+            return cached
+        candidate = validate(
+            await self._restore_numbers(document) if restore else document, self.types
+        )
+        await self._definition_versions(candidate)
+        await self._source_types(candidate)
+        self.validation_cache.put(key, candidate)
+        return candidate
+
     @property
     def live(self) -> bool:
         return (
@@ -564,22 +677,7 @@ class Runtime:
         config = self.config
         if config is None:
             return False
-        needed = required_sources(config)
-        command_types = {
-            (definition.type_id, definition.type_version)
-            for definition in config.definitions
-            if definition.language_version == 6
-            and definition.machine
-            and definition.machine.commands
-        }
-        if any(
-            c.enabled and (c.type_id, c.type_version) in command_types for c in config.contracts
-        ):
-            return True
-        if any(
-            contract.enabled and (contract.refresh_plan or contract.ha_projection)
-            for contract in config.contracts
-        ):
+        if self._structure(config).requires_ha:
             return True
         if any(
             key.startswith("notice:") and (row.get("acknowledged") or row.get("desired"))
@@ -589,21 +687,7 @@ class Runtime:
             for job in self.state.tables["service_job"].values()
         ):
             return True
-        if config.notifications and (
-            config.notifications.signal.enabled or config.notifications.configuration.enabled
-        ):
-            return True
-        # Legacy configurations used other dependency names for the HA monitor.
-        ha_dependencies = {d.dependency_id for d in config.dependencies if d.kind != "mqtt"}
-        ha_sources = {s.source_id for s in config.sources if s.dependency_id in ha_dependencies}
-        return any(
-            (b.source_id in needed or b.adapter.kind == "ha_calendar")
-            and (
-                b.adapter.kind.startswith("ha_")
-                or (b.adapter.kind == "connectivity" and b.source_id in ha_sources)
-            )
-            for b in config.bindings
-        )
+        return False
 
     async def start(self) -> None:
         self.state = await self.store.load()
@@ -691,6 +775,10 @@ class Runtime:
     async def submit(self, operation: str, payload: Any = None) -> Any:
         if self.stopping:
             raise RuntimeError("going_away")
+        from .management import OPERATIONS, execute
+
+        if operation in OPERATIONS:
+            return await execute(self, operation, payload)
         if operation == "catalog_cleanup_preview":
             from .catalog_cleanup import preview as cleanup_preview
 
@@ -715,7 +803,17 @@ class Runtime:
         if observation.registry_revision not in {None, self.state.active_revision}:
             return
         if not self.persistence:
+            self._buffer_outage(observation)
+            return
+        if self.config and observation.source_id in self._structure(self.config).protected:
+            from .observation_block import IngestQueue
+
+            assert isinstance(self.queue, IngestQueue)
+            self.queue.put_event(Work("observation", observation))
+            return
+        if observation.binding_id in self.latest:
             self.latest[observation.binding_id] = observation
+            self.overflow = True
             return
         try:
             self.queue.put_nowait(Work("observation", observation))
@@ -723,7 +821,6 @@ class Runtime:
             self.latest[observation.binding_id] = observation
             self.overflow = True
             self.overflow_serial += 1
-            self.resubscribe.set()
 
     def tick(self) -> None:
         self.last_heartbeat = self.clock.monotonic()
@@ -739,25 +836,36 @@ class Runtime:
             return
         if revision is not None and revision != self.state.active_revision:
             return
-        try:
-            self.queue.put_nowait(
-                Work(
-                    "snapshot",
-                    SnapshotBatch(
-                        observations, self.state.active_revision if revision is None else revision
-                    ),
+        revision = self.state.active_revision if revision is None else revision
+        for offset in range(0, max(1, len(observations)), 32):
+            part = observations[offset : offset + 32]
+            try:
+                self.queue.put_nowait(
+                    Work(
+                        "snapshot", SnapshotBatch(part, revision, offset + 32 >= len(observations))
+                    )
                 )
-            )
-        except asyncio.QueueFull:
-            self.latest.update({o.binding_id: o for o in observations})
-            self.overflow = True
-            self.overflow_serial += 1
-            self.snapshot_pending = True
-            self.snapshot_revision = self.state.active_revision if revision is None else revision
+            except asyncio.QueueFull:
+                self.latest.update({o.binding_id: o for o in part})
+                self.overflow = True
+                self.overflow_serial += 1
+                self.snapshot_pending = True
+                self.snapshot_revision = revision
 
     async def run(self) -> None:
         while True:
-            work = await self.queue.get()
+            if self._next_work is not None:
+                work, self._next_work = self._next_work, None
+            else:
+                work = await self.queue.get()
+            if work.operation == "observation" and self.persistence:
+                from .observation_block import process_block
+
+                await process_block(self, work)
+                continue
+            started = perf_counter()
+            timing = Timing(asyncio.current_task())
+            timing_token = current.set(timing)
             try:
                 result = await self.process(work.operation, work.payload)
                 if work.future and not work.future.done():
@@ -794,12 +902,55 @@ class Runtime:
                 if work.future and not work.future.done():
                     work.future.set_exception(error)
             finally:
+                # Older queued events must finish before their coalesced successors.
+                # Ingest keeps buffering a binding until this buffer is committed.
+                if self.overflow and self.queue.empty() and self.persistence:
+                    try:
+                        await self._drain_overflow()
+                    except Exception as error:
+                        LOGGER.warning(
+                            "buffer_drain_failed", extra={"error_type": type(error).__name__}
+                        )
                 self.queue.task_done()
+                elapsed = (perf_counter() - started) * 1000
+                wait = (started - work.queued_at) * 1000
+                if work.operation == "observation":
+                    self.observation_timings.add(wait, elapsed)
+                else:
+                    LOGGER.info(
+                        "operation_timing",
+                        extra={
+                            "operation": work.operation,
+                            "queue_wait_ms": wait,
+                            "run_ms": elapsed,
+                            "db_calls": timing.db_calls,
+                            "db_ms": timing.db_ms,
+                            "phases_ms": timing.phases_ms,
+                        },
+                    )
+                current.reset(timing_token)
 
     async def process(self, operation: str, payload: Any) -> Any:
+        if (
+            self.overflow
+            and self.persistence
+            and self.queue.empty()
+            and operation not in {"observation", "snapshot", "recover", "management_commit"}
+        ):
+            await self._drain_overflow()
+        if operation == "management_snapshot":
+            from .management import capture
+
+            return capture(self)
+        if operation == "management_commit":
+            from .management import commit
+
+            return await commit(self, payload)
+        snapshot_complete = True
         if operation == "snapshot" and isinstance(payload, SnapshotBatch):
             if payload.registry_revision != self.state.active_revision:
                 return None
+            snapshot_complete = payload.complete
             payload = payload.observations
         if operation == "observation" and payload.registry_revision not in {
             None,
@@ -844,6 +995,10 @@ class Runtime:
                 if self.latest.get(key) is value:
                     self.latest.pop(key)
             self.overflow = bool(self.latest)
+            while self._outage_events:
+                observation = self._outage_events[0]
+                await self.process("observation", observation)
+                self._outage_events.popleft()
             self.resubscribe.set()
             self.mqtt_revision_changed.set()
             return None
@@ -940,7 +1095,7 @@ class Runtime:
             if operation in {"tick", "catalog_tick", "gap"}:
                 return None
             if operation == "observation":
-                self.latest[payload.binding_id] = payload
+                self._buffer_outage(payload)
                 return None
             if operation == "snapshot":
                 self.latest.update({o.binding_id: o for o in payload})
@@ -948,10 +1103,6 @@ class Runtime:
                 self.snapshot_revision = self.state.active_revision
                 return None
             raise RuntimeError("persistence_unavailable")
-        # Overflow recovery is its own transaction. A following validation, OCC
-        # conflict, duplicate event or failed command cannot discard the buffer.
-        if self.overflow:
-            await self._drain_overflow()
         if operation in {"retention_preview", "retention_run"}:
             if self.config is None or self.config.history_retention is None:
                 raise ValueError("history_retention_not_configured")
@@ -990,12 +1141,16 @@ class Runtime:
             return await sync_process(self, self.state, operation, payload, self.clock.now_utc())
         care_started = self.clock.monotonic()
         state = (
-            self.state.catalog_clone()
+            self.state
+            if self._block_active and operation == "observation"
+            else self.state.catalog_clone()
             if operation in {"catalog_care_preview", "catalog_care_write"}
+            else self.state.live_clone()
+            if operation in {"observation", "snapshot", "tick", "catalog_tick"}
             else self.state.clone()
         )
         now = self.clock.now_utc()
-        config = self._config(state)
+        config = self.config
         if operation in {"catalog_scope_preview", "catalog_scope_apply"}:
             from .catalog_scope import process as scope_process
 
@@ -1395,9 +1550,7 @@ class Runtime:
             draft = state.tables["registry_draft"][payload["draft_id"]]
             result = authoring.comparison(self, state, draft)
             if operation == "draft_preview":
-                checked_config = validate(await self._restore_numbers(draft["config"]), self.types)
-                await self._definition_versions(checked_config)
-                await self._source_types(checked_config)
+                await self._checked_config(draft["config"])
                 return result
             authoring.prepare_activation(self, state, draft, payload)
             if not result["no_effect"]:
@@ -1522,9 +1675,7 @@ class Runtime:
             await self._commit(state)
             return None
         if operation == "validate":
-            candidate = validate(await self._restore_numbers(payload), self.types)
-            await self._definition_versions(candidate)
-            await self._source_types(candidate)
+            candidate = await self._checked_config(payload)
             from .capabilities import machine_description
 
             types = registry_types(candidate, self.types)
@@ -1581,12 +1732,7 @@ class Runtime:
                 if historical is None:
                     raise ValueError("revision_not_found")
                 document = historical["config"]
-            new_config = validate(
-                await self._restore_numbers(document) if operation == "activate" else document,
-                self.types,
-            )
-            await self._definition_versions(new_config)
-            await self._source_types(new_config)
+            new_config = await self._checked_config(document, restore=operation == "activate")
             if operation == "activate":
                 from .editorial import apply_draft
 
@@ -1730,7 +1876,7 @@ class Runtime:
             if config is None or obs.binding_id not in {b.binding_id for b in config.bindings}:
                 return None
             stored = state.tables["source_observation_current"].get(obs.binding_id)
-            previous = Observation.model_validate(stored) if stored else None
+            previous = self._observation(stored) if stored else None
             from .mqtt_restore import retained_replay
 
             if retained_replay(obs, previous, config, self.types, now):
@@ -1779,7 +1925,7 @@ class Runtime:
             from .catalog_playback import frame
 
             frame(state, obs)
-            state.tables["source_observation_current"][obs.binding_id] = obs.storage_document()
+            self._remember_observation(state, obs)
             await self._record_observation(state, obs)
         elif operation != "tick":
             raise ValueError("unknown runtime operation")
@@ -1798,26 +1944,27 @@ class Runtime:
             # Timer evaluation is bounded by current state; persist only actual
             # context/evidence/quality changes, including due temporal operations.
             if (
-                state.tables != self.state.tables
+                self._block_active
+                and operation == "observation"
+                or state.tables != self.state.tables
                 or state.publication_seq != self.state.publication_seq
             ):
                 await self._commit(state, publication=True)
             else:
                 self.pending_latches = None
-                self._plan_evaluation()
+                self._plan_evaluation(schedule=not self._block_active)
         elif operation != "tick":
             await self._commit(state)
-        if operation == "snapshot":
+        if operation == "snapshot" and snapshot_complete:
             self.first_snapshot = True
             if self.installation_id and config and config.notifications:
                 await self._commit(self.state.clone())
             self._broadcast(self.service_state())
         return None
 
-    @staticmethod
-    def _older_than_stored(state: State, observation: Observation) -> bool:
+    def _older_than_stored(self, state: State, observation: Observation) -> bool:
         stored = state.tables["source_observation_current"].get(observation.binding_id)
-        return is_older(observation, Observation.model_validate(stored) if stored else None)
+        return is_older(observation, self._observation(stored) if stored else None)
 
     async def _record_observation(self, state: State, observation: Observation) -> None:
         if observation.reference not in state.tables["source_observation_history"] and (
@@ -1918,15 +2065,18 @@ class Runtime:
         state: State,
         *,
         trigger_source: str | None = None,
+        observations: dict[str, Observation] | None = None,
     ) -> dict[str, FieldValue]:
         now = self.clock.now_utc()
-        by_source = {b.source_id: b.binding_id for b in config.bindings}
-        sources = {s.source_id: s for s in config.sources}
-        observations = {
-            k: Observation.model_validate(v)
-            for k, v in state.tables["source_observation_current"].items()
-        }
-        dependencies = {d.dependency_id: d for d in config.dependencies}
+        structure = self._structure(config)
+        by_source = structure.by_source
+        sources = structure.sources
+        if observations is None:
+            observations = {
+                k: self._observation(v)
+                for k, v in state.tables["source_observation_current"].items()
+            }
+        dependencies = structure.dependencies
 
         def source_value(ref: str, visited: set[str]) -> FieldValue:
             if ref in visited:
@@ -2031,11 +2181,11 @@ class Runtime:
 
         result: dict[str, FieldValue] = {}
         for item in contract.inputs:
-            ref, field = resolve_ref(item.ref, config)
+            ref, field = self._resolve(item.ref, config)
             if field is not None:
                 envelope = state.tables["contract_state_current"].get(ref)
                 result[item.name] = (
-                    FieldValue.model_validate(envelope["fields"][field])
+                    self._field(ref + "." + field, envelope["fields"][field])
                     if envelope
                     else unknown(ReasonCode.DEPENDENCY_UNAVAILABLE, ref, now)
                 )
@@ -2068,13 +2218,17 @@ class Runtime:
         state.detach_rows("service_job", state.tables["service_job"])
         plan_calendars(state, config, self.clock.now_utc())
         calendar_changed = self._calendar_observations(state, config, origin)
+        observations = {
+            key: self._observation(row)
+            for key, row in state.tables["source_observation_current"].items()
+        }
         now, seq = self.clock.now_utc(), state.publication_seq + 1
         input_event = (
             next(
                 (
-                    Observation.model_validate(row)
-                    for row in state.tables["source_observation_current"].values()
-                    if row["source_id"] == trigger_source
+                    observation
+                    for observation in observations.values()
+                    if observation.source_id == trigger_source
                 ),
                 None,
             )
@@ -2133,14 +2287,8 @@ class Runtime:
                     "enabled": False,
                 }
                 continue
-            inputs = self._inputs(
-                contract,
-                config,
-                state,
-                trigger_source=trigger_source if origin == "input" else None,
-            )
             triggered = (catalog_affected is not None and key in catalog_affected) or any(
-                resolve_ref(item.ref, config)[0] in affected for item in contract.inputs
+                self._resolve(item.ref, config)[0] in affected for item in contract.inputs
             )
             if triggered:
                 affected.add(key)
@@ -2153,6 +2301,13 @@ class Runtime:
                 state.tables["contract_state_current"][key] = previous_contracts[key]
                 self.evaluation_stats["reused"] += 1
                 continue
+            inputs = self._inputs(
+                contract,
+                config,
+                state,
+                trigger_source=trigger_source if origin == "input" else None,
+                observations=observations,
+            )
             self.evaluation_stats["evaluated"] += 1
             contract_origin = "revision" if origin == "input" and not triggered else origin
             if origin == "tick" and triggered:
@@ -2198,7 +2353,7 @@ class Runtime:
                     if input_name not in declaration.refresh_inputs:
                         raise ValueError("undeclared refresh capability")
                     ref = next(i.ref for i in contract.inputs if i.name == input_name)
-                    source_id, field = resolve_ref(ref, config)
+                    source_id, field = self._resolve(ref, config)
                     if field is not None:
                         raise ValueError("refresh requires source binding")
                     refresh.add(source_id)
@@ -2238,7 +2393,7 @@ class Runtime:
             available = all(
                 fields[k].quality == "healthy" for k in declaration.schema.available_projection
             )
-            envelope = Envelope(
+            envelope = Envelope.model_construct(
                 contract_id=key,
                 type={"id": contract.type_id, "version": contract.type_version},
                 contract_health="healthy" if healthy else "degraded",
@@ -2285,6 +2440,17 @@ class Runtime:
             state.tables["contract_state_current"][key] = (
                 previous_envelope if same and previous_envelope is not None else data_envelope
             )
+            if not same:
+                for name, value in fields.items():
+                    row = data_envelope["fields"][name]
+                    reasons = tuple(
+                        reason.model_copy(update={"since": datetime.fromisoformat(stored["since"])})
+                        for reason, stored in zip(value.reasons, row["reasons"], strict=True)
+                    )
+                    self._field_models[key + "." + name] = (
+                        row.copy(),
+                        value.model_copy(update={"reasons": reasons}),
+                    )
             if not same:
                 state.tables["contract_state_history"][f"{seq}:{key}"] = data_envelope
             if machine_state:
@@ -2493,7 +2659,11 @@ class Runtime:
         from .authoring import archive_versions
 
         archive_versions(self.state, state)
-        config = self._config(state)
+        config = (
+            self.config
+            if state.active_revision == self.state.active_revision
+            else self._config(state)
+        )
         if config and self.installation_id:
             from .notifications import plan_notices
 
@@ -2630,16 +2800,14 @@ class Runtime:
                 registry_revision=state.active_revision,
                 availability="available" if value is not None else "unknown",
             )
-            state.tables["source_observation_current"][binding.binding_id] = (
-                observation.storage_document()
-            )
+            self._remember_observation(state, observation)
             state.tables["source_observation_history"][observation.reference] = (
                 observation.storage_document()
             )
             changed.add(binding.source_id)
         return changed
 
-    def _plan_evaluation(self) -> None:
+    def _plan_evaluation(self, *, schedule: bool = True) -> None:
         now = self.clock.now_utc()
         due: list[datetime] = []
         from .service_jobs import due_dates
@@ -2664,7 +2832,7 @@ class Runtime:
                 }:
                     raw = observations.get(bindings.get(measured_source, ""))
                     if raw:
-                        item = Observation.model_validate(raw)
+                        item = self._observation(raw)
                         for metadata in ((item.value_origin,) if item.value_origin else ()) + tuple(
                             point.value_origin for point in item.forecast
                         ):
@@ -2681,7 +2849,7 @@ class Runtime:
                             due.append(
                                 stamp - timedelta(seconds=source.freshness.future_tolerance_s)
                             )
-                            if manual := Observation.model_validate(raw).manual:
+                            if manual := item.manual:
                                 due.append(manual.valid_from)
                                 if manual.valid_until:
                                     due.append(manual.valid_until)
@@ -2709,6 +2877,8 @@ class Runtime:
                     if at:
                         due.append(at)
         self.next_evaluation = min((at for at in due if at > now), default=None)
+        if not schedule:
+            return
         if self.evaluation_alarm:
             self.evaluation_alarm.cancel()
         if (
@@ -2767,6 +2937,7 @@ class Runtime:
                 reading.cancel()
         self.title_sync_plans.clear()
         await self.queue.join()
+        self.observation_timings.flush()
         self._broadcast({"type": "going_away"})
         if self.persistence and self.state.epoch_id in self.state.tables["runtime_epoch"]:
             state = self.state.clone()

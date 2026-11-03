@@ -6,7 +6,7 @@ from datetime import datetime
 from math import isfinite
 from typing import Any, Literal, Self
 
-from pydantic import BaseModel, Field, ValidationError, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from .model import Model, checksum, utc
 from .quality import FieldValue, ReasonCode, unknown
@@ -178,8 +178,10 @@ def validate_fields(
     for name, declaration in schema.fields.items():
         value = values.get(name, unknown(ReasonCode.CONFIG_INCOMPLETE, name, now))
         try:
-            value = FieldValue.model_validate(value.model_dump())
-        except ValidationError, AttributeError:
+            # FieldValue is an internal frozen model. Preserve its invariants
+            # after internal model_copy updates without serializing/reparsing it.
+            value.check_invariants()
+        except ValueError, AttributeError:
             value = unknown(ReasonCode.INVALID_VALUE, name, now)
         if value.status == "held":
             inherited = [v for v in (inputs or {}).values() if v.status == "held" and v.usable(now)]
@@ -195,5 +197,6 @@ def validate_fields(
                 datetime.fromisoformat(value.value) if isinstance(value.value, str) else value.value
             )
             value = value.model_copy(update={"value": utc(stamp)})
-        result[name] = FieldValue.model_validate(value.model_dump())
+        value.check_invariants()
+        result[name] = value
     return result

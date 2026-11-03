@@ -13,7 +13,7 @@ export function ContextProducersPanel() {
   const source = useAuthoringSource(); const doc = useWorkingDocument(); const caps = useCapabilities();
   const root = caps.data?.schemas.registry;
   return <Panel><PanelHeader title={t('alpha9.context.automatic')} /><div className="space-y-4 p-4">
-    {!source.editable && <Button disabled={doc.starting} onClick={() => void doc.ensureDraft()}>{t('alpha7.mode.edit')}</Button>}
+    {!source.editable && <Button disabled={doc.starting} onClick={() => void doc.ensureDraft().catch(() => { /* Shared DraftBar displays preparation errors. */ })}>{t('alpha7.mode.edit')}</Button>}
     <p className="text-sm text-muted">{t('alpha8.parameters.draftHint')}</p>
     <Collapsible title={t('alpha7.device.advanced')}><fieldset disabled={!source.editable}>
       {root && <SchemaForm root={root} node={asObject(root.properties).context_producers} value={source.config?.context_producers ?? []} pointer="/context_producers" label={t('alpha9.context.automatic')} onChange={value => {

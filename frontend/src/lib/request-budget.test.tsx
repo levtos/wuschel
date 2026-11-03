@@ -13,6 +13,9 @@ afterEach(() => vi.useRealTimers());
 it('shares the 100/61s budget across two React clients, invalidations and a reload', async () => {
   vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
   const { api } = await import('./api');
+  const budget = await import('./request-budget');
+  const waits: boolean[] = [];
+  const unsubscribe = budget.subscribeBudgetWait(() => waits.push(budget.budgetWaiting()));
   const fetch = vi.fn(async () => new Response('{}'));
   vi.stubGlobal('fetch', fetch);
   function Client({ name }: { name: string }) {
@@ -25,6 +28,7 @@ it('shares the 100/61s budget across two React clients, invalidations and a relo
   // fake-indexeddb dispatches transactions on the real event loop.
   await act(async () => { for (let i = 0; i < 800; i++) await new Promise((r) => setImmediate(r)); });
   expect(fetch).toHaveBeenCalledTimes(100);
+  expect(budget.budgetWaiting()).toBe(true);
   view.unmount();
   vi.resetModules();
   const reloaded = await import('./api');
@@ -36,6 +40,10 @@ it('shares the 100/61s budget across two React clients, invalidations and a relo
   await act(async () => { await vi.advanceTimersByTimeAsync(61_000); for (let i = 0; i < 100; i++) await new Promise((r) => setImmediate(r)); });
   expect(fetch).toHaveBeenCalledTimes(111);
   expect(reloadDone).toBe(true);
+  expect(budget.budgetWaiting()).toBe(false);
+  expect(waits).toContain(true);
+  expect(waits.at(-1)).toBe(false);
+  unsubscribe();
 });
 
 it.each(['registry/drafts/a/activate', 'registry/rollback', 'commands', 'tokens/rotate'])('never replays %s after HTTP 429', async (path) => {

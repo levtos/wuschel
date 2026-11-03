@@ -26,7 +26,7 @@ pytestmark = pytest.mark.postgres
 async def running(database):
     store = PostgresStore(database, MIGRATIONS, tls=False)
     await store.open()
-    runtime = Runtime(store, FakeClock(NOW), type_registry())
+    runtime = Runtime(store, FakeClock(NOW), type_registry(include_test_types=True))
     try:
         await runtime.start()
         yield runtime

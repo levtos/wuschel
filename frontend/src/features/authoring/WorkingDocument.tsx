@@ -1,9 +1,10 @@
 import { currentDraft } from '@/features/registry/authoring';
 import { t as uiText } from '@/i18n';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { api, ApiError, describeError, type Issue } from '@/lib/api';
+import { api, ApiError, ActionCancelled, describeError, type Issue } from '@/lib/api';
 import { clone, deepEqual, getAt, setAt, type Json } from '@/lib/json';
 import { useActiveRevision, useDraftMutations, validateConfig } from '@/lib/queries';
+import { budgetWaiting, subscribeBudgetWait } from '@/lib/request-budget';
 import { IssuesProvider } from './issues';
 import type { Draft, Registry, ValidationResult } from '@/lib/types';
 import { emptyRegistry } from './model';
@@ -108,7 +109,7 @@ interface Snapshot {
 
 const IDLE: ValidationView = { state: 'idle', result: null, issues: [], stale: false, error: null };
 
-export function WorkingDocumentProvider({ children, validateDebounceMs = 2000 }: { children: ReactNode; validateDebounceMs?: number }) {
+export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, preparationTimeoutMs = 15_000 }: { children: ReactNode; validateDebounceMs?: number; preparationTimeoutMs?: number }) {
   const [candidates, setCandidates] = useState<Draft[] | null>(null);
   const [selectedDraft, setSelectedDraft] = useState<string | null>(null);
   const choose = useRef<((draft: Draft | null | undefined) => void) | null>(null);
@@ -159,11 +160,40 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000 }:
     if (startingRef.current) return startingRef.current;
     const owner = ++documentId.current;
     setStarting(true);
+    setSaveError(null);
+    const controller = new AbortController();
+    const bounded = async <T,>(work: () => Promise<T>): Promise<T> => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let unsubscribe = () => {};
+      let remaining = preparationTimeoutMs;
+      let runningSince: number | undefined;
+      try {
+        return await Promise.race([work(), new Promise<never>((_, reject) => {
+          const expire = () => {
+            documentId.current += 1;
+            controller.abort();
+            reject(new ApiError(408, 'draft_preparation_timeout', [], uiText('b23.draft.preparationTimeout')));
+          };
+          const update = () => {
+            if (runningSince !== undefined) remaining -= performance.now() - runningSince;
+            runningSince = undefined;
+            clearTimeout(timer);
+            // The shared 61s traffic budget can also hold a preceding queued
+            // request. Exclude only that known wait; hung network work still
+            // consumes the unchanged preparation deadline.
+            if (!budgetWaiting()) { runningSince = performance.now(); timer = setTimeout(expire, Math.max(0, remaining)); }
+          };
+          unsubscribe = subscribeBudgetWait(update);
+          update();
+        })]);
+      } finally { clearTimeout(timer); unsubscribe(); }
+    };
     const request = (async () => {
-      const head = await api<import('@/lib/types').RevisionRow | null>('registry/active');
+      const head = await bounded(() => api<import('@/lib/types').RevisionRow | null>('registry/active', { signal: controller.signal }));
       const current = latest.current;
       if (current.draft && current.config) {
-        const saved = await api<Draft>(`registry/drafts/${current.draft.draft_id}`);
+        const draftId = current.draft.draft_id;
+        const saved = await bounded(() => api<Draft>(`registry/drafts/${draftId}`, { signal: controller.signal }));
         if (currentDraft(saved, head?.revision ?? 0)) {
           if (owner !== documentId.current || latest.current.draft?.draft_id !== current.draft.draft_id || !latest.current.config) throw new Error(uiText('alpha7.draft.changedDuringAction'));
           setEditing(true); return clone(latest.current.config);
@@ -172,25 +202,25 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000 }:
       if (current.draft && current.config && (!deepEqual(current.config, current.draft.config) || current.name !== (current.draft.display_name ?? ''))) {
         throw new Error(uiText('alpha7.draft.saveBeforeReview'));
       }
-      const all = await api<Draft[]>('registry/drafts');
+      const all = await bounded(() => api<Draft[]>('registry/drafts', { signal: controller.signal }));
       const available = (Array.isArray(all) ? all : []).filter(d => currentDraft(d, head?.revision ?? 0));
       if (available.length || current.draft) {
         const selected = await new Promise<Draft | null | undefined>(resolve => { choose.current = resolve; setSelectedDraft(null); setCandidates(available); });
-        if (selected === undefined) throw new Error(uiText('alpha7.draft.changedDuringAction'));
+        if (selected === undefined) throw new ActionCancelled();
         if (owner !== documentId.current) throw new Error(uiText('alpha7.draft.changedDuringAction'));
         if (selected) { open(selected); return clone(selected.config); }
       }
       const config = head?.config ?? emptyRegistry();
       if (owner !== documentId.current) throw new Error(uiText('alpha7.draft.changedDuringAction'));
-      const created = await create.mutateAsync({ config, from_active: true, display_name: defaultDraftName() });
+      const created = await bounded(() => create.mutateAsync({ config, from_active: true, display_name: defaultDraftName(), signal: controller.signal }));
       if (owner !== documentId.current) throw new Error(uiText('alpha7.draft.changedDuringAction'));
       open(created);
       return clone(created.config);
     })();
-    const pending = request.finally(() => { if (startingRef.current === pending) { startingRef.current = null; setStarting(false); } });
+    const pending = request.catch(error => { setSaveError(describeError(error) || null); throw error; }).finally(() => { if (startingRef.current === pending) { startingRef.current = null; setStarting(false); } });
     startingRef.current = pending;
     return pending;
-  }, [create, open]);
+  }, [create, open, preparationTimeoutMs]);
 
   const [switchRequest, setSwitchRequest] = useState<Draft | null>(null);
   const requestOpen = useCallback(

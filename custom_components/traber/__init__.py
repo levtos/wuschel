@@ -30,7 +30,7 @@ async def async_setup_entry(hass, entry):
     active = set()
     channels = {}
     hass.data[DOMAIN] = active
-    projection = Projection()
+    projection = Projection(hass.loop.time, hass.loop.call_later)
     hass.data["traber_projection"] = projection
     ingress = CommandIngress(HA_EPOCH_ID, dt_util.utcnow)
 

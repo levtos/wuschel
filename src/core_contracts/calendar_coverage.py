@@ -17,9 +17,21 @@ from .quality import FieldValue, Reason, ReasonCode, unknown
 PREFIX = "calendar_coverage:"
 
 
+def add_months(value: datetime, months: int) -> datetime:
+    local = value.astimezone(ZoneInfo("Europe/Berlin"))
+    year, month = divmod(local.year * 12 + local.month - 1 + months, 12)
+    return local.replace(
+        year=year, month=month + 1, day=min(local.day, monthrange(year, month + 1)[1])
+    )
+
+
 def identity(binding: Any, months: int) -> str:
     return checksum(
-        {"binding": binding.model_dump(mode="json", exclude={"display_name"}), "months": months}
+        {
+            "binding": binding.model_dump(mode="json", exclude={"display_name"}),
+            "months": months,
+            "check_version": 2,
+        }
     )
 
 
@@ -62,6 +74,8 @@ def plan(state: Any, config: Any, now: datetime) -> None:
                 cursor=start.isoformat(),
                 horizon=end.isoformat(),
                 complete=False,
+                scan_last_end=None,
+                gap=None,
                 next_at=now.isoformat(),
             )
         job = jobs.get(row.get("job_id", ""), {})
@@ -129,11 +143,24 @@ def complete(
             response.get("data"), binding.adapter.ha_entity_id, start, end, "Europe/Berlin"
         )
         future = [event for event in events if datetime.fromisoformat(event["end"]) > now]
-        if future or end >= datetime.fromisoformat(row["horizon"]):
+        previous = (
+            datetime.fromisoformat(row["scan_last_end"]) if row.get("scan_last_end") else None
+        )
+        for event in future:
+            event_start, event_end = (
+                datetime.fromisoformat(event[key]) for key in ("start", "end")
+            )
+            if previous and event_start > add_months(previous, 4) and row.get("gap") is None:
+                row["gap"] = {"start": previous.isoformat(), "end": event_start.isoformat()}
+            previous = max(previous, event_end) if previous else event_end
+        row["scan_last_end"] = previous.isoformat() if previous else None
+        if end >= datetime.fromisoformat(row["horizon"]):
+            if previous and end > add_months(previous, 4) and row.get("gap") is None:
+                row["gap"] = {"start": previous.isoformat(), "end": end.isoformat()}
             row.update(
                 complete=True,
-                covered=bool(future),
-                evidence_end=max((event["end"] for event in future), default=None),
+                covered=previous is not None and row.get("gap") is None,
+                evidence_end=previous.isoformat() if previous else None,
                 checked_at=now.isoformat(),
                 expires_at=(now + timedelta(seconds=binding.adapter.max_age_s)).isoformat(),
                 next_at=(now + timedelta(seconds=binding.adapter.refresh_s)).isoformat(),
@@ -156,6 +183,7 @@ def status(state: Any, binding: Any, months: int, now: datetime) -> dict[str, An
     row = state.tables["service_state"].get(PREFIX + binding.binding_id, {})
     valid = (
         row.get("signature") == identity(binding, months)
+        and row.get("complete")
         and row.get("expires_at")
         and datetime.fromisoformat(row["expires_at"]) > now
     )
@@ -181,11 +209,20 @@ def status(state: Any, binding: Any, months: int, now: datetime) -> dict[str, An
         if expired
         else "Feiertagskalender: Abdeckung wird geprüft oder ist nicht mehr belegt."
     )
+    if valid and row.get("gap"):
+        dates = [
+            datetime.fromisoformat(row["gap"][key])
+            .astimezone(ZoneInfo("Europe/Berlin"))
+            .strftime("%d.%m.%Y")
+            for key in ("start", "end")
+        ]
+        message = f"Feiertagskalender: Lücke vom {dates[0]} bis {dates[1]} (mehr als 4 Monate)."
     return {
         "months": months,
         "covered": covered,
         "complete": expired or covered,
         "last_event_end": last,
+        "gap": row.get("gap") if valid else None,
         "message": None if covered else message,
     }
 

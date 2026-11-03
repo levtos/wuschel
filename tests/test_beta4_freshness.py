@@ -51,7 +51,7 @@ def shared(document, interval=10800):
 
 
 async def running(document=None):
-    runtime = Runtime(MemoryStore(), FakeClock(NOW), type_registry())
+    runtime = Runtime(MemoryStore(), FakeClock(NOW), type_registry(include_test_types=True))
     await runtime.start()
     await activate(runtime, document or legacy())
     for index in range(4):
@@ -60,7 +60,7 @@ async def running(document=None):
 
 
 def test_schema_4_own_shared_resolution_and_legacy_readability():
-    types = type_registry()
+    types = type_registry(include_test_types=True)
     for version in (1, 2, 3):
         document = dict(
             config_schema_version=version,
@@ -132,7 +132,7 @@ def test_ambiguous_missing_and_cyclic_selections_are_rejected(change):
     else:
         document["fingerprint_version"] = 3
     with pytest.raises(ValueError):
-        validate(document, type_registry())
+        validate(document, type_registry(include_test_types=True))
 
 
 def test_own_equal_is_still_independent_and_differences_are_explicit():
@@ -143,10 +143,10 @@ def test_own_equal_is_still_independent_and_differences_are_explicit():
         comparison_template_id="freshness.test.contacts",
         rule=dict(mode="report_heartbeat", interval_s=10800, future_tolerance_s=0),
     )
-    config = validate(document, type_registry())
+    config = validate(document, type_registry(include_test_types=True))
     assert effective_freshness(config)["sources"][first["source_id"]]["differs"] is False
     document["freshness_templates"][0]["rule"]["interval_s"] = 14400
-    config = validate(document, type_registry())
+    config = validate(document, type_registry(include_test_types=True))
     resolved = effective_freshness(config)
     assert resolved["sources"][first["source_id"]]["differs"] is True
     assert config.sources[0].freshness.interval_s == 10800
@@ -451,7 +451,7 @@ async def test_interpretation_changes_keep_strict_observation_boundary(change):
 
 
 def test_three_comparisons_do_not_conflate_interval_and_identity():
-    types = type_registry()
+    types = type_registry(include_test_types=True)
     a, b = validate(shared(legacy(), 8400), types), validate(shared(legacy(), 10800), types)
     assert observation_fingerprints(a) == observation_fingerprints(b)
     assert assessment_fingerprints(a) != assessment_fingerprints(b)
@@ -482,6 +482,7 @@ async def test_legacy_b3_own_interval_edits_get_f3_without_forcing_a_shared_assi
 async def test_unproven_node_context_does_not_receive_compatibility_from_a_template_change():
     runtime = await running(legacy())
     try:
+        runtime.state = runtime.state.clone()  # Own the deliberately corrupted node.
         runtime.state.tables["node_state"]["test.opening0"]["fingerprint"] = "unproven"
         runtime.clock.advance(30)
         await activate(runtime, shared(legacy()))

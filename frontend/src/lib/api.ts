@@ -42,6 +42,9 @@ export class ApiError extends Error {
   }
 }
 
+/** Closing a choice dialog ends the action without a failure notice. */
+export class ActionCancelled extends Error {}
+
 function classify(status: number, code: string, issues: Issue[]): ErrorKind {
   if (status === 0) return 'network';
   if (issues.length > 0) return 'validation';
@@ -137,6 +140,7 @@ export async function apiText(path: string, options: RequestOptions = {}): Promi
 }
 
 const MESSAGES: Record<string, string> = {
+  draft_preparation_timeout: uiText('b23.draft.preparationTimeout'),
   catalog_cleanup_conflict: uiText('b20.cleanup.conflict'),
   catalog_cleanup_invalid: uiText('b20.cleanup.invalid'),
   catalog_cleanup_limit: uiText('b20.cleanup.limit'),
@@ -177,6 +181,7 @@ const MESSAGES: Record<string, string> = {
 };
 
 export function describeError(error: unknown): string {
+  if (error instanceof ActionCancelled) return '';
   if (error instanceof ApiError) {
     if (error.code === 'ingress_session_expired') return uiText('b22.connection.reload');
     if (error.kind === 'auth') return uiText("lib.api.keine_berechtigung_fur_diese_aktion_a1a527");

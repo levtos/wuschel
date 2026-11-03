@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import random
 from datetime import UTC, datetime, timedelta
 from math import isfinite
 from typing import Any
@@ -709,33 +710,37 @@ class BridgeAdapter:
                     else "starting",
                 ),
             )
-            self.retry_delay = 1.0
+            connected_at = self.runtime.clock.monotonic()
             LOGGER.info("bridge_connected")
             self.socket = socket
             self.connection = connection
             self.projection_disconnected.clear()
             self.projection_connected.set()
-            while True:
-                receive = asyncio.create_task(socket.receive_json())
-                change = asyncio.create_task(self.runtime.revision_changed.wait())
-                overflow = asyncio.create_task(self.runtime.resubscribe.wait())
-                pending = {receive, change, overflow}
-                try:
-                    done, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
-                    if overflow in done:
-                        return
-                    if change in done:
-                        from ..reconfiguration import same_ha_subscription
 
-                        current = self.runtime.config
-                        if not same_ha_subscription(config, current):
-                            return
-                        assert current is not None
-                        config, revision = current, self.runtime.state.active_revision
-                        self.runtime.revision_changed.clear()
-                        if receive not in done:
-                            continue
-                    message = receive.result()
+            def refresh_revision() -> bool:
+                nonlocal config, revision
+                from ..reconfiguration import same_ha_subscription
+
+                current = self.runtime.config
+                if not same_ha_subscription(config, current):
+                    return False
+                assert current is not None
+                config, revision = current, self.runtime.state.active_revision
+                return True
+
+            async def read_messages() -> None:
+                # Keep one receiver for the connection. Creating and cancelling
+                # control waiters for every value/ack amplifies GIL contention
+                # with the management worker and delays socket consumption.
+                while True:
+                    message = await socket.receive_json()
+                    # Buffered frames can complete without yielding to the
+                    # control watcher. Apply the new revision before normalizing
+                    # their values, or require its fresh subscription snapshot.
+                    if revision != self.runtime.state.active_revision and not refresh_revision():
+                        return
+                    if self.runtime.clock.monotonic() - connected_at >= 10:
+                        self.retry_delay = 1.0
                     if message.get("type") == "result" and message.get("id") in connection.pending:
                         if not message.get("success"):
                             request_error("traber/service_call", message)
@@ -770,11 +775,30 @@ class BridgeAdapter:
                                     else "stopping",
                                 ),
                             )
-                finally:
-                    for task in pending:
-                        if not task.done():
-                            task.cancel()
-                    await asyncio.gather(*pending, return_exceptions=True)
+
+            receive = asyncio.create_task(read_messages())
+            change = asyncio.create_task(self.runtime.revision_changed.wait())
+            overflow = asyncio.create_task(self.runtime.resubscribe.wait())
+            try:
+                while True:
+                    done, _ = await asyncio.wait(
+                        {receive, change, overflow}, return_when=asyncio.FIRST_COMPLETED
+                    )
+                    if overflow in done:
+                        return
+                    if receive in done:
+                        await receive
+                        return
+                    if not refresh_revision():
+                        return
+                    self.runtime.revision_changed.clear()
+                    change = asyncio.create_task(self.runtime.revision_changed.wait())
+            finally:
+                pending = {receive, change, overflow}
+                for task in pending:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
 
     async def incoming_command(self, event: dict[str, Any]) -> dict[str, Any]:
         try:
@@ -834,6 +858,7 @@ class BridgeAdapter:
                 await self.projection_connected.wait()
                 connection = self.connection
                 previous: dict[str, Any] | None = None
+                retry_delay = 0.25
                 while connection is not None and connection is self.connection:
                     payload = snapshot(
                         self.runtime, include_fields=self.projection_fields_supported
@@ -858,10 +883,15 @@ class BridgeAdapter:
                             if not isinstance(result, dict) or "applied" not in result:
                                 raise ConnectionError("projection_not_acknowledged")
                             previous = payload
+                            retry_delay = 0.25
                         except TimeoutError, ConnectionError, aiohttp.ClientError:
                             if connection is self.connection:
-                                self.runtime.resubscribe.set()
-                                await self.projection_disconnected.wait()
+                                LOGGER.warning("projection_retry")
+                                await self.runtime.clock.sleep(
+                                    random.uniform(retry_delay / 2, retry_delay)
+                                )
+                                retry_delay = min(retry_delay * 2, 5)
+                                continue
                             break
                         finally:
                             if identifier is not None:
@@ -875,17 +905,22 @@ class BridgeAdapter:
                         previous = payload
                     changed = asyncio.create_task(queue.get())
                     disconnected = asyncio.create_task(self.projection_disconnected.wait())
+                    heartbeat = asyncio.create_task(self.runtime.clock.sleep(5))
                     try:
                         done, _ = await asyncio.wait(
-                            {changed, disconnected}, return_when=asyncio.FIRST_COMPLETED
+                            {changed, disconnected, heartbeat}, return_when=asyncio.FIRST_COMPLETED
                         )
                         if disconnected in done:
                             break
+                        if heartbeat in done:
+                            previous = None
                     finally:
-                        for task in (changed, disconnected):
+                        for task in (changed, disconnected, heartbeat):
                             if not task.done():
                                 task.cancel()
-                        await asyncio.gather(changed, disconnected, return_exceptions=True)
+                        await asyncio.gather(
+                            changed, disconnected, heartbeat, return_exceptions=True
+                        )
         finally:
             self.runtime.subscribers.discard(queue)
 
@@ -913,8 +948,10 @@ class BridgeAdapter:
                     },
                 )
                 await self.runtime.submit("bridge_state", ("unavailable", "disconnected"))
-                await self.runtime.clock.sleep(self.retry_delay)
-                self.retry_delay = min(self.retry_delay * 2, 30)
+                await self.runtime.clock.sleep(
+                    random.uniform(self.retry_delay / 2, self.retry_delay)
+                )
+                self.retry_delay = min(self.retry_delay * 2, 5)
 
     async def request_refresh(self, source_id: str) -> None:
         config = self.runtime.config

@@ -5,7 +5,7 @@ import { browserSession } from '@/lib/browser-session';
 
 // General component suites focus on their feature. The shared real IndexedDB
 // scheduler is exercised separately with two React clients and controlled time.
-vi.mock('@/lib/request-budget', () => ({ reserveRequest: async () => {}, coolDownRequests: async () => {} }));
+vi.mock('@/lib/request-budget', async importOriginal => ({ ...await importOriginal<typeof import('@/lib/request-budget')>(), reserveRequest: async () => {}, coolDownRequests: async () => {} }));
 
 // jsdom lacks these browser APIs used by Base UI and React Flow.
 class ResizeObserverStub {

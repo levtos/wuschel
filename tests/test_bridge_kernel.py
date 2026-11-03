@@ -251,9 +251,141 @@ async def test_projected_sensor_uses_real_ha_state_engine(tmp_path, monkeypatch,
     assert hass.states.get(sensor.entity_id).state == "unknown"
     assert hass.states.get(sensor.entity_id).attributes["status"] == "unknown"
     connection.subscriptions[1]()
+    assert hass.states.get(sensor.entity_id).state == "unknown"
+    assert hass.states.get(sensor.entity_id).attributes["status"] == "stale"
+    projection = hass.data["traber_projection"]
+    projection.now = lambda: projection.disconnected_at + 121
+    projection.notify()
     assert hass.states.get(sensor.entity_id).state == "unavailable"
     commands["project_contracts"](hass, connection, message)
     assert errors[-1][1] == "unsupported_protocol"
+
+
+@pytest.mark.ha
+async def test_b23_live_size_reload_restart_reprojects_all_entities_under_ten_seconds(tmp_path):
+    from time import perf_counter
+
+    import aiohttp
+    from aiohttp import web
+    from homeassistant import bootstrap
+
+    from core_contracts.adapters.ha import BridgeAdapter
+    from custom_components.traber.projection import Projection
+    from custom_components.traber.sensor import ContractSensor
+    from dev.fake_ha import FakeHA
+    from tests.test_b23_acceptance import ha_states, scale_runtime, wait_for
+
+    runtime, _ = await scale_runtime()
+    hass = kernel(tmp_path)
+    loader.async_setup(hass)
+    assert await bootstrap.async_load_base_functionality(hass)
+    assert await async_setup_component(hass, "sensor", {})
+    fake = FakeHA(ha_states(runtime), v2=True, projection=True)
+    fake.projection_cache = Projection(hass.loop.time, hass.loop.call_later)
+    server = web.AppRunner(fake.application())
+    await server.setup()
+    site = web.TCPSite(server, "127.0.0.1", 0)
+    await site.start()
+    port = site._server.sockets[0].getsockname()[1]
+    tasks, sensors = [], []
+    try:
+        async with aiohttp.ClientSession() as session:
+            adapter = BridgeAdapter(
+                runtime, session, f"http://127.0.0.1:{port}/websocket", "synthetic"
+            )
+            tasks = [
+                asyncio.create_task(adapter.run()),
+                asyncio.create_task(adapter.projection_worker()),
+            ]
+            expected_ids = None
+            for mode in ("initial", "reload", "restart"):
+                started = perf_counter()
+                if mode != "initial":
+                    for sensor in sensors:
+                        await hass.data[DATA_COMPONENT].async_remove_entity(sensor.entity_id)
+                    fake.projection_cache = Projection(hass.loop.time, hass.loop.call_later)
+                    if mode == "reload":
+                        await fake.emit({"kind": "bridge_reloaded"})
+                    else:
+                        await fake.disconnect()
+                await wait_for(
+                    lambda: (
+                        len(fake.projection_cache.rows) == 100
+                        and all(
+                            row["status"] == "valid" for row in fake.projection_cache.rows.values()
+                        )
+                    )
+                )
+                sensors = [
+                    ContractSensor(fake.projection_cache, runtime.installation_id, key)
+                    for key in fake.projection_cache.rows
+                ]
+                await hass.data[DATA_COMPONENT].async_add_entities(sensors)
+                await hass.async_block_till_done()
+                ids = sorted(sensor.entity_id for sensor in sensors)
+                if expected_ids is None:
+                    expected_ids = ids
+                assert ids == expected_ids
+                assert all(hass.states.get(identity).state in {"on", "off"} for identity in ids)
+                assert perf_counter() - started < 10
+                assert not runtime.overflow and not runtime.resubscribe.is_set()
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        await server.cleanup()
+        await runtime.stop()
+
+
+@pytest.mark.parametrize(
+    "value,status,unit,expected,precision",
+    [
+        (True, "valid", None, "on", None),
+        (False, "valid", None, "off", None),
+        (None, "not_applicable", "W", "not_applicable", None),
+        (3.05555555555556, "valid", "W", "3.05555555555556", 1),
+    ],
+)
+async def test_b23_state_format_and_raw_values_in_real_ha(
+    tmp_path, value, status, unit, expected, precision
+):
+    from homeassistant import bootstrap
+
+    from custom_components.traber.projection import Projection
+    from custom_components.traber.sensor import ContractSensor
+
+    hass = kernel(tmp_path)
+    loader.async_setup(hass)
+    assert await bootstrap.async_load_base_functionality(hass)
+    assert await async_setup_component(hass, "sensor", {})
+    projection = Projection()
+    installation, owner = str(uuid4()), object()
+    row = {
+        "contract_id": "fixture.format",
+        "name": "Synthetic format",
+        "value": value,
+        "status": status,
+        "quality": "healthy",
+        "since_at": None,
+        "unit": unit,
+    }
+    projection.accept(
+        owner,
+        installation,
+        {
+            "installation_id": installation,
+            "epoch_id": str(uuid4()),
+            "publication_seq": 1,
+            "contracts": [row],
+        },
+    )
+    sensor = ContractSensor(projection, installation, row["contract_id"])
+    await hass.data[DATA_COMPONENT].async_add_entities([sensor])
+    await hass.async_block_till_done()
+    state = hass.states.get(sensor.entity_id)
+    assert state.state == expected
+    assert state.attributes["raw_value"] == value
+    assert sensor.suggested_display_precision == precision
 
 
 @pytest.mark.ha
@@ -598,4 +730,8 @@ async def test_multifield_projection_sensor_attributes_in_real_ha_kernel(tmp_pat
     assert state.attributes["fields"]["detail"] == fields["detail"]
     assert state.attributes["fields"]["detail"]["quality"] == "degraded"
     projection.disconnect(owner)
+    assert hass.states.get(sensor.entity_id).state == "active"
+    assert hass.states.get(sensor.entity_id).attributes["status"] == "stale"
+    projection.now = lambda: projection.disconnected_at + 121
+    projection.notify()
     assert hass.states.get(sensor.entity_id).state == "unavailable"

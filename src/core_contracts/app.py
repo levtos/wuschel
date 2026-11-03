@@ -76,6 +76,18 @@ class JsonFormatter(logging.Formatter):
                         "writer_pid",
                         "binding_id",
                         "error_code",
+                        "queue_wait_ms",
+                        "run_ms",
+                        "db_calls",
+                        "db_ms",
+                        "phases_ms",
+                        "count",
+                        "queue_wait_p50_ms",
+                        "queue_wait_p95_ms",
+                        "queue_wait_max_ms",
+                        "run_p50_ms",
+                        "run_p95_ms",
+                        "run_max_ms",
                     )
                     if k in record.__dict__
                 },

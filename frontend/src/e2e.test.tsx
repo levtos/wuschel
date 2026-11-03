@@ -100,7 +100,14 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
   beforeEach(() => {
     sessionStorage.clear(); localStorage.clear();
     vi.stubGlobal('indexedDB', new IDBFactory());
-    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => realFetch(typeof input === 'string' && input.startsWith('./') ? `${base}${input.slice(1)}` : input, init));
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      const response = await realFetch(typeof input === 'string' && input.startsWith('./') ? `${base}${input.slice(1)}` : input, init);
+      if (String(input).endsWith('/activate')) {
+        const body = await response.clone().json();
+        console.info('synthetic_activation_response', { status: response.status, error: body.error, revision: body.revision });
+      }
+      return response;
+    });
     HTMLAnchorElement.prototype.click = () => {};
     store = new LiveStore({ createSocket: () => new WebSocket(`${base!.replace(/^http/, 'ws')}/api/v1/ws`) as unknown as SocketLike });
     window.location.hash = '#/registry';
@@ -180,7 +187,8 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     expect(changed.status).toBe(200);
     expect(changed.body.config.definitions).toHaveLength(6);
     const second = await f.activateOpenDraft(reimported.draft_id);
-    await within(second).findByText("Konfiguration 2 ist übernommen.", {}, { timeout: 65_000 });
+    try { await within(second).findByText("Konfiguration 2 ist übernommen.", {}, { timeout: 65_000 }); }
+    catch (error) { console.info('synthetic_activation_dialog', second.textContent?.slice(-1200)); throw error; }
     await user.click(within(second).getAllByRole('button', { name: /Konfiguration ansehen|Schließen/ }).at(-1)!);
     await waitFor(() => expect(store.getSnapshot().registryRevision).toBe(2), { timeout: 20_000 });
 

@@ -16,6 +16,7 @@ from .test_ha_request_ids import until
 
 
 async def exercise_reconnect(runtime, config, aiohttp_server, *, revision_change, monkeypatch):
+    runtime.clock = SystemClock()
     config = registry(config, definition())
     config["contracts"][0]["ha_projection"] = True
     await activate(runtime, config)
@@ -76,8 +77,8 @@ async def exercise_reconnect(runtime, config, aiohttp_server, *, revision_change
                 await timeout_triggered.wait()
             await until(
                 lambda: (
-                    len(fake.connections) >= 2
-                    and (2, runtime.state.active_revision) in snapshots
+                    len(fake.connections) >= (2 if revision_change else 1)
+                    and ((2 if revision_change else 1), runtime.state.active_revision) in snapshots
                     and runtime.ready
                     and adapter.connection is not None
                     and not adapter.connection.pending
@@ -106,7 +107,7 @@ async def exercise_reconnect(runtime, config, aiohttp_server, *, revision_change
                 )
             )
             await SystemClock().sleep(0)
-            assert len(fake.connections) == 2
+            assert len(fake.connections) == (2 if revision_change else 1)
             assert runtime.first_snapshot and runtime.service_state()["ready"]
             assert "first_bridge_snapshot_pending" not in runtime.readiness_reasons
             assert not runtime.resubscribe.is_set()
@@ -132,7 +133,7 @@ async def test_revision_with_pending_projection_reconnects_once_and_processes_sn
     )
 
 
-async def test_current_projection_timeout_still_reconnects_once(
+async def test_current_projection_timeout_retries_without_disconnect(
     runtime, config, aiohttp_server, monkeypatch
 ):
     await exercise_reconnect(

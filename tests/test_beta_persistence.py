@@ -20,7 +20,7 @@ pytestmark = pytest.mark.postgres
 async def test_B1_18_opening_proof_grace_and_zone_survive_postgres_reopen(database):
     store = PostgresStore(database, MIGRATIONS, tls=False)
     await store.open()
-    rt = Runtime(store, FakeClock(NOW), type_registry())
+    rt = Runtime(store, FakeClock(NOW), type_registry(include_test_types=True))
     await rt.start()
     try:
         await activate(rt, configuration())
@@ -31,7 +31,9 @@ async def test_B1_18_opening_proof_grace_and_zone_survive_postgres_reopen(databa
         await store.close()
     store = PostgresStore(database, MIGRATIONS, tls=False)
     await store.open()
-    rt = Runtime(store, FakeClock(NOW + timedelta(seconds=60)), type_registry())
+    rt = Runtime(
+        store, FakeClock(NOW + timedelta(seconds=60)), type_registry(include_test_types=True)
+    )
     await rt.start()
     try:
         assert field(rt)["value"] == "closed"
@@ -45,7 +47,9 @@ async def test_B1_18_opening_proof_grace_and_zone_survive_postgres_reopen(databa
         await rt.stop()
         await store.close()
     await store.open()
-    rt = Runtime(store, FakeClock(NOW + timedelta(seconds=8500)), type_registry())
+    rt = Runtime(
+        store, FakeClock(NOW + timedelta(seconds=8500)), type_registry(include_test_types=True)
+    )
     await rt.start()
     try:
         assert field(rt)["status"] == "held"

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0b23 — Stabilität, Prüftempo und HA-Schnittstelle
+
+- Wuschel verarbeitet Beobachtungen während Prüfungen und Vorschauen weiter. Volle Puffer oder eine ausbleibende Projektionsbestätigung lösen keine HA-Neuverbindung aus. Ereignisse und Kontakte bleiben vollständig geordnet; Zustandsquellen können mit sichtbarer Verlaufslücke zusammengefasst werden.
+- Gruppen-Commits und einmal berechnete Revisionsindizes senken die Grundkosten. Aktivierungen bleiben vollständig und atomar; die Prüfung externer Daten bleibt erhalten.
+- Traber bewahrt letzte Werte bei kurzen Unterbrechungen mit 120 s Karenz und erhält nach dem Wiederverbinden einen vollständigen Snapshot. Primärfelder, `not_applicable`, Booleans als on/off und Zahlengenauigkeit sind vereinheitlicht.
+- Feiertagslücken werden benannt. Das Schließen der Entwurfsauswahl ist ein stiller Abbruch; eine zu lange Vorbereitung endet mit verständlicher Meldung. Testvorlagen erscheinen ausschließlich in der Testumgebung.
+- Nur amd64. Keine neue Datenbankmigration. Installation und Live-Abnahme erfolgen separat durch Benni und Claude. [Auftrag und Nachweise #100](https://github.com/Levtos/wuschel/issues/100).
+
 ## 1.0.0b21 — Gerätebereiche, lesbare Katalogpflege und HTTP
 
 - Einmalige Korrektur der importierten Katalogbereiche mit Vorschau je Katalog und einer Bestätigung: Master und Varianten ziehen gemeinsam um, Kollisionen behalten die gesetzte Live-Klasse und führen Sichtungen zusammen. Die voreingestellte PC-Leerung ist abwählbar. Historie bleibt als Revisionen erhalten; nur betroffene Schlüssel wirken neu.

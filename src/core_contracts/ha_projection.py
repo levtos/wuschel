@@ -2,9 +2,34 @@
 
 from typing import Any
 
+# Projection metadata only: never depends on JSON object order or changes truth.
+PRIMARY_FIELDS = {
+    "climate.thermostat": "temperature",
+    "device.console_state": "value",
+    "device.pc_power": "value",
+    "media.activity_flow": "value",
+    "media.device_power_facts": "value",
+    "media.device_state": "value",
+    "media.playback_facts": "playing",
+    "media.privacy_facts": "active",
+    "media.quiet_facts": "entry_door_open",
+    "media.stash_slot": "value",
+    "opening_zone.facts": "unclear",
+    "sleep.flow": "value",
+    "sleep.state_view": "value",
+    "wake.plan_view": "status",
+}
 
-def primary_field(schema: Any) -> str | None:
+
+def primary_field(schema: Any, type_id: str | None = None) -> str | None:
     scalar = {"bool", "number", "text", "enum", "timestamp"}
+    selected = PRIMARY_FIELDS.get(type_id or "")
+    if selected is not None:
+        return (
+            selected
+            if selected in schema.fields and schema.fields[selected].type in scalar
+            else None
+        )
     return next(
         (
             name
@@ -27,7 +52,7 @@ def snapshot(runtime: Any, *, include_fields: bool = True) -> dict[str, Any]:
                 continue
             envelope = runtime.state.tables["contract_state_current"].get(contract.contract_id, {})
             schema = types.get(contract.type_id, contract.type_version).schema
-            primary = primary_field(schema)
+            primary = primary_field(schema, contract.type_id)
             if primary is None:
                 continue
             projected = {

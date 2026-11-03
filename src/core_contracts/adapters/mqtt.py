@@ -45,7 +45,26 @@ class MQTTAdapter:
         adapter = self
 
         class ObservableQueue(asyncio.Queue[aiomqtt.Message]):
+            ordered_put = False
+
+            def full(self) -> bool:
+                return False if self.ordered_put else super().full()
+
             def put_nowait(self, item: aiomqtt.Message) -> None:
+                config = adapter.runtime.config
+                protected = adapter.runtime._structure(config).protected if config else set()
+                if config and any(
+                    binding.source_id in protected
+                    and binding.adapter.kind == "mqtt"
+                    and binding.adapter.mqtt_topic == str(getattr(item, "topic", ""))
+                    for binding in config.bindings
+                ):
+                    self.ordered_put = True
+                    try:
+                        super().put_nowait(item)
+                    finally:
+                        self.ordered_put = False
+                    return
                 if self.full():
                     adapter.queue_overflow = True
                     adapter.runtime.overflow = True

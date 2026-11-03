@@ -11,8 +11,10 @@ import ssl
 from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta
 from decimal import Decimal
+from itertools import groupby
 from pathlib import Path
-from typing import Any, Protocol
+from time import perf_counter
+from typing import Any, Protocol, Self
 
 import asyncpg
 from pydantic import BaseModel, Field, PrivateAttr
@@ -27,6 +29,7 @@ from .retention import (
     reference_scope,
     summaries,
 )
+from .state_tracking import PUBLICATIONS, Changes, Owner, RowDict, Rows, Tables, detached
 
 TABLES = (
     "runtime_epoch",
@@ -156,6 +159,62 @@ class State(BaseModel):
     tables: dict[str, dict[str, dict[str, Any]]] = Field(default_factory=empty_tables)
     publications: dict[int, dict[str, Any]] = Field(default_factory=dict)
     _catalog_base: State | None = PrivateAttr(default=None)
+    _changes: Changes = PrivateAttr(default_factory=Changes)
+    _basis: int | None = PrivateAttr(default=None)
+
+    def model_post_init(self, context: Any) -> None:
+        object.__setattr__(self, "tables", Tables(self._changes, self.tables))
+        object.__setattr__(
+            self, "publications", Rows(self._changes, PUBLICATIONS, self.publications)
+        )
+        for table, rows in self.tables.items():
+            for key in rows:
+                self._changes.write(table, key)
+        for sequence in self.publications:
+            self._changes.write(PUBLICATIONS, sequence)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "tables" and hasattr(self, "_changes"):
+            old = self.tables
+            value = Tables(self._changes, value)
+            for table in old.keys() | value.keys():
+                for key in old.get(table, {}).keys() - value.get(table, {}).keys():
+                    self._changes.delete(table, key)
+                for key in value.get(table, {}):
+                    self._changes.write(table, key)
+        elif name == "publications" and hasattr(self, "_changes"):
+            value = Rows(self._changes, PUBLICATIONS, value)
+            for key in value:
+                self._changes.write(PUBLICATIONS, key)
+        super().__setattr__(name, value)
+
+    def clean(self) -> None:
+        for table, keys in self._changes.changed.items():
+            rows = self.publications if table == PUBLICATIONS else self.tables[table]
+            assert isinstance(rows, Rows)
+            rows.seal(keys)
+        self._changes.clear()
+        self._basis = self.generation
+
+    def __deepcopy__(self, memo: dict[int, Any] | None = None) -> Self:
+        # Explicit backups retain archive rows too. Pydantic's generic deep
+        # copy would strip our JSON container subclasses and their journal.
+        memo = {} if memo is None else memo
+        result = type(self).model_construct(
+            generation=self.generation,
+            active_revision=self.active_revision,
+            publication_seq=self.publication_seq,
+            epoch_id=self.epoch_id,
+            tables={},
+        )
+        memo[id(self)] = result
+        result.tables = copy.deepcopy(self.tables, memo)
+        result.publications = copy.deepcopy(self.publications, memo)
+        result.clean()
+        result._changes.changed = copy.deepcopy(self._changes.changed, memo)
+        result._changes.deleted = copy.deepcopy(self._changes.deleted, memo)
+        result._basis = self._basis
+        return result
 
     def catalog_clone(self) -> State:
         """Writer-local care fork: containers are owned, rows stay read-only until detached.
@@ -163,14 +222,10 @@ class State(BaseModel):
         Only catalog care uses this path. Other operations retain their full clone.
         Never retain this fork across writer operations or expose it to a caller.
         """
-        result = State.model_construct(
-            generation=self.generation,
-            active_revision=self.active_revision,
-            publication_seq=self.publication_seq,
-            epoch_id=self.epoch_id,
-            tables={name: dict(rows) for name, rows in self.current_tables().items()},
-            publications={},
-        )
+        result = self._fork(set(TABLES))
+        for rows in self.tables.values():
+            assert isinstance(rows, Rows)
+            rows.readonly = True
         result._catalog_base = self
         return result
 
@@ -180,8 +235,14 @@ class State(BaseModel):
             return
         rows, base = self.tables[table], self._catalog_base.tables[table]
         for key in keys:
-            if key in rows and rows[key] is base.get(key):
-                rows[key] = copy.deepcopy(rows[key])
+            if key in rows:
+                row = dict.__getitem__(rows, key)
+                if isinstance(row, RowDict) and (
+                    row.owner.shared or row.owner.changes is not self._changes
+                ):
+                    dict.__setitem__(rows, key, RowDict(row, Owner(self._changes, table, key)))
+                elif row is base.get(key):
+                    rows[key] = copy.deepcopy(row)
 
     def committed_copy(self, previous: State, *, retain_history: bool = False) -> State:
         """Independent store snapshot, reusing only the store's own unchanged values.
@@ -193,7 +254,7 @@ class State(BaseModel):
         missing = object()
 
         def owned(value: Any, base: Any, stored: Any) -> Any:
-            if value is base and stored is not missing:
+            if stored is not missing and (value is base or value == base):
                 return stored
             if isinstance(value, dict) and isinstance(base, dict) and isinstance(stored, dict):
                 return {
@@ -202,7 +263,7 @@ class State(BaseModel):
                 }
             return copy.deepcopy(value)
 
-        tables = {}
+        tables: dict[str, dict[str, dict[str, Any]]] = {}
         for name, rows in self.tables.items():
             copied = owned(rows, self._catalog_base.tables[name], previous.tables[name])
             tables[name] = (
@@ -220,13 +281,62 @@ class State(BaseModel):
         )
 
     def clone(self) -> State:
-        return State(
+        return self._fork(set())
+
+    def _fork(self, readonly: set[str]) -> State:
+        result = State.model_construct(
             generation=self.generation,
             active_revision=self.active_revision,
             publication_seq=self.publication_seq,
             epoch_id=self.epoch_id,
-            tables={name: copy.deepcopy(rows) for name, rows in self.current_tables().items()},
+            tables={},
         )
+        tables: dict[str, dict[str, dict[str, Any]]] = {}
+        for name, rows in self.current_tables().items():
+            changed = self._changes.changed.get(name, set())
+            tables[name] = {}
+            for key, row in dict.items(rows):
+                if key in changed:
+                    tables[name][key] = copy.deepcopy(row)
+                elif name not in readonly and isinstance(rows, Rows) and key in rows.accessed:
+                    # A caller may retain this row across a private fork. Copy
+                    # that leased tree so its existing local reference stays
+                    # writable; untouched rows remain structurally shared.
+                    tables[name][key] = detached(row, Owner(result._changes, name, key))
+                else:
+                    if isinstance(row, RowDict):
+                        row.owner.shared = True
+                    tables[name][key] = row
+        object.__setattr__(result, "tables", Tables(result._changes, tables, readonly=readonly))
+        result._basis = self._basis
+        for name, keys in self._changes.changed.items():
+            if name != PUBLICATIONS:
+                result._changes.changed[name] = keys & tables[name].keys()
+        result._changes.deleted = {name: set(keys) for name, keys in self._changes.deleted.items()}
+        return result
+
+    def live_clone(self) -> State:
+        """Live evaluation reads configuration/catalog content without editing it.
+
+        Own all mutable evaluation rows. Pin bulky control rows by identity, as
+        catalog care already does, so a measurement never copies the title stock.
+        """
+        result = self._fork(
+            {
+                "catalog_head",
+                "registry_revision",
+                "registry_draft",
+                "editorial_current",
+                "editorial_draft",
+                "node_state",
+                "contract_state_current",
+                "contract_lifecycle",
+                "sm_instance",
+                "source_observation_current",
+            }
+        )
+        result._catalog_base = self
+        return result
 
     def current_tables(self) -> dict[str, dict[str, dict[str, Any]]]:
         result = {}
@@ -239,8 +349,28 @@ class State(BaseModel):
         return result
 
     def compact(self) -> None:
-        self.tables = self.current_tables()
-        self.publications = {}
+        for name, keys in self._changes.changed.items():
+            if name != PUBLICATIONS:
+                rows = self.tables[name]
+                assert isinstance(rows, Rows)
+                rows.seal(keys)
+        # Keep owned current-table containers: copying all their keys would make
+        # even an incremental commit grow with the total catalog/sighting stock.
+        for name in ARCHIVE:
+            rows = self.tables[name]
+            assert isinstance(rows, Rows)
+            key = str(self.active_revision) if name == "registry_revision" else self.epoch_id
+            current = (
+                {key: dict.__getitem__(rows, key)}
+                if name in {"registry_revision", "runtime_epoch"} and key in rows
+                else {}
+            )
+            dict.__setitem__(
+                self.tables, name, Rows(self._changes, name, current, readonly=rows.readonly)
+            )
+        object.__setattr__(self, "publications", Rows(self._changes, PUBLICATIONS, {}))
+        self._changes.clear()
+        self._basis = self.generation
 
 
 class Store(Protocol):
@@ -270,7 +400,7 @@ class Store(Protocol):
     async def evidence(self, reference: str) -> dict[str, Any] | None: ...
 
 
-def encoded_changes(previous: State, state: State) -> list[tuple[str, tuple[Any, ...]]]:
+def full_encoded_changes(previous: State, state: State) -> list[tuple[str, tuple[Any, ...]]]:
     """Prepare immutable SQL arguments off-loop, before the single writer transaction."""
     changes: list[tuple[str, tuple[Any, ...]]] = []
     for table in TABLES:
@@ -300,6 +430,113 @@ def encoded_changes(previous: State, state: State) -> list[tuple[str, tuple[Any,
             )
         )
     return changes
+
+
+class WriteBatch(list[tuple[str, tuple[Any, ...]]]):
+    def __init__(self) -> None:
+        super().__init__()
+        self.upserts: dict[str, dict[str, dict[str, Any]]] = {}
+        self.deletes: dict[str, set[str]] = {}
+        self.publications: dict[int, dict[str, Any]] = {}
+
+
+def encoded_changes(previous: State, state: State, *, verify: bool = False) -> WriteBatch:
+    """Encode only dirty keys; the original full comparison remains a test oracle."""
+    changes = WriteBatch()
+    for table in TABLES:
+        old, new = previous.tables[table], state.tables[table]
+        deleted = state._changes.deleted.get(table, set())
+        if state._basis is None:
+            # A completely replaced state has no inherited baseline. All its
+            # rows are already dirty; account for omitted boundary rows once.
+            deleted = deleted | (old.keys() - new.keys())
+        if table not in ARCHIVE:
+            for key in deleted:
+                if key in old and key not in new:
+                    changes.append((f"DELETE FROM {table} WHERE key=$1", (key,)))
+                    changes.deletes.setdefault(table, set()).add(key)
+        for key in state._changes.changed.get(table, set()):
+            if key not in new:
+                continue
+            value = new[key]
+            if old.get(key) == value:
+                continue
+            if key in old and table in IMMUTABLE:
+                raise ValueError("immutable history")
+            suffix = (
+                ""
+                if table in IMMUTABLE
+                else " ON CONFLICT(key) DO UPDATE SET payload=EXCLUDED.payload"
+            )
+            changes.append(
+                (f"INSERT INTO {table} VALUES ($1,$2::jsonb)" + suffix, (key, canonical(value)))
+            )
+            changes.upserts.setdefault(table, {})[key] = value
+    for seq in state._changes.changed.get(PUBLICATIONS, set()):
+        if seq in state.publications and seq not in previous.publications:
+            payload = state.publications[seq]
+            changes.append(
+                (
+                    "INSERT INTO publication VALUES ($1,$2,$3::jsonb)",
+                    (seq, datetime.fromisoformat(payload["created_at"]), canonical(payload)),
+                )
+            )
+            changes.publications[seq] = payload
+    if verify:
+        expected = full_encoded_changes(previous, state)
+        assert sorted(changes, key=repr) == sorted(expected, key=repr), (
+            "dirty changes differ from full comparison"
+        )
+    return changes
+
+
+def advance_committed(
+    previous: State, state: State, changes: WriteBatch, *, retain_history: bool = False
+) -> None:
+    """Advance the store-owned snapshot in O(written rows), after SQL succeeds.
+
+    Rows are copied into the store's ownership; unchanged store rows are reused.
+    Runtime rows, including their mutation callbacks, are never shared with it.
+    """
+    if not retain_history:
+        for table, selected, before in (
+            ("registry_revision", str(state.active_revision), str(previous.active_revision)),
+            ("runtime_epoch", state.epoch_id, previous.epoch_id),
+        ):
+            if selected != before:
+                previous.tables[table].clear()
+    for table, keys in changes.deletes.items():
+        rows = previous.tables[table]
+        for key in keys:
+            if key in rows:
+                dict.__delitem__(rows, key)
+                if isinstance(rows, Rows):
+                    rows.accessed.discard(key)
+    for table, values in changes.upserts.items():
+        rows = previous.tables[table]
+        assert isinstance(rows, Rows)
+        for key, value in values.items():
+            if (
+                not retain_history
+                and table in ARCHIVE
+                and not (
+                    table == "registry_revision"
+                    and key == str(state.active_revision)
+                    or table == "runtime_epoch"
+                    and key == state.epoch_id
+                )
+            ):
+                continue
+            rows.install(key, value)
+    if retain_history:
+        publications = previous.publications
+        assert isinstance(publications, Rows)
+        for seq, payload in changes.publications.items():
+            publications.install(seq, payload)
+    for name in ("generation", "active_revision", "publication_seq", "epoch_id"):
+        setattr(previous, name, getattr(state, name))
+    previous._changes.clear()
+    previous._basis = previous.generation
 
 
 class PostgresStore:
@@ -370,6 +607,8 @@ class PostgresStore:
         self.pool: asyncpg.Pool[Any] | None = None
         self._committed = State()
         self.before_commit: Callable[[], None] | None = None
+        self.verify_changes = False
+        self.last_commit_timing: dict[str, float | int] = {}
 
         self._mutex = asyncio.Lock()
 
@@ -484,39 +723,51 @@ class PostgresStore:
                 else:
                     rows = await connection.fetch(f"SELECT key,payload FROM {table}")
                 state.tables[table] = {row["key"]: json.loads(row["payload"]) for row in rows}
+        state.clean()
         self._committed = state.clone()
+        self._committed.clean()
         return state
 
     async def commit(self, state: State) -> None:
+        started = perf_counter()
         async with self._mutex:
             await self.probe()
             connection = self._writer()
             previous = self._committed
             if state.generation != previous.generation:
                 raise ValueError("stale changeset")
-            changes = await asyncio.to_thread(encoded_changes, previous, state)
-            care_snapshot = (
-                await asyncio.to_thread(state.committed_copy, previous)
-                if state._catalog_base is not None
-                else None
+            changes_started = perf_counter()
+            changes = await asyncio.to_thread(
+                encoded_changes, previous, state, verify=self.verify_changes
             )
+            changes_ms = (perf_counter() - changes_started) * 1000
+            sql_started = perf_counter()
             async with connection.transaction():
-                for statement, arguments in changes:
-                    await connection.execute(statement, *arguments)
+                for statement, rows in groupby(changes, key=lambda item: item[0]):
+                    arguments = [item[1] for item in rows]
+                    if len(arguments) == 1:
+                        await connection.execute(statement, *arguments[0])
+                    else:
+                        await connection.executemany(statement, arguments)
                 metadata = state.model_dump(exclude={"tables", "publications"})
                 metadata["generation"] += 1
                 await self.put_metadata("runtime", metadata)
                 if self.before_commit:
                     self.before_commit()
             state.generation += 1
+            snapshot_started = perf_counter()
+            advance_committed(previous, state, changes)
             state.compact()
-            if care_snapshot is None:
-                self._committed = await asyncio.to_thread(state.clone)
-            else:
-                care_snapshot.generation = state.generation
-                care_snapshot.compact()
-                self._committed = care_snapshot
             state._catalog_base = None
+            self.last_commit_timing = {
+                "commit_ms": (perf_counter() - started) * 1000,
+                "changes_ms": changes_ms,
+                "snapshot_ms": (perf_counter() - snapshot_started) * 1000,
+                "sql_ms": (snapshot_started - sql_started) * 1000,
+                "written_rows": len(changes),
+                "clone_calls": 0,
+            }
+            LOGGER.info("commit_timing", extra=self.last_commit_timing)
 
     async def get(self, table: str, key: str) -> dict[str, Any] | None:
         if table not in TABLES or self.pool is None:
@@ -711,6 +962,8 @@ class MemoryStore:
         self.before_commit: Callable[[], None] | None = None
         self.observation_rollups: dict[tuple[Any, ...], dict[str, Any]] = {}
         self.evidence_watermarks: dict[str, tuple[int, str]] = {}
+        self.verify_changes = False
+        self.last_commit_timing: dict[str, float | int] = {}
 
     async def maintain_history(
         self, state: State, now: datetime, policy: RetentionPolicy, *, dry_run: bool = False
@@ -813,33 +1066,31 @@ class MemoryStore:
 
     async def load(self) -> State:
         await self.probe()
-        return self.state.clone()
+        result = self.state.clone()
+        result.clean()
+        return result
 
     async def commit(self, state: State) -> None:
+        started = perf_counter()
         await self.probe()
         if state.generation != self.state.generation:
             raise ValueError("stale changeset")
+        changes = encoded_changes(self.state, state, verify=self.verify_changes)
+        changes_ms = (perf_counter() - started) * 1000
         if self.before_commit:
             self.before_commit()
-        if state._catalog_base is not None:
-            stored = state.committed_copy(self.state, retain_history=True)
-            stored.publications = {**self.state.publications, **stored.publications}
-            state.generation += 1
-            stored.generation = state.generation
-            self.state = stored
-            state.compact()
-            state._catalog_base = None
-            return
-        for table, rows in state.tables.items():
-            if table not in ARCHIVE:
-                self.state.tables[table] = copy.deepcopy(rows)
-            else:
-                self.state.tables[table].update(copy.deepcopy(rows))
-        self.state.publications.update(copy.deepcopy(state.publications))
         state.generation += 1
-        for name in ("generation", "active_revision", "publication_seq", "epoch_id"):
-            setattr(self.state, name, getattr(state, name))
+        snapshot_started = perf_counter()
+        advance_committed(self.state, state, changes, retain_history=True)
         state.compact()
+        state._catalog_base = None
+        self.last_commit_timing = {
+            "commit_ms": (perf_counter() - started) * 1000,
+            "changes_ms": changes_ms,
+            "snapshot_ms": (perf_counter() - snapshot_started) * 1000,
+            "written_rows": len(changes),
+            "clone_calls": 0,
+        }
 
     async def get(self, table: str, key: str) -> dict[str, Any] | None:
         await self.probe()

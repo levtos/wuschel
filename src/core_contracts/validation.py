@@ -635,7 +635,7 @@ def validate_document(
         if contract.ha_projection:
             from .ha_projection import primary_field
 
-            if primary_field(declaration.schema) is None:
+            if primary_field(declaration.schema, contract.type_id) is None:
                 add(
                     "ha_projection_scalar_required",
                     path + "/ha_projection",
