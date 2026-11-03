@@ -716,27 +716,29 @@ class BridgeAdapter:
             self.connection = connection
             self.projection_disconnected.clear()
             self.projection_connected.set()
-            while True:
-                receive = asyncio.create_task(socket.receive_json())
-                change = asyncio.create_task(self.runtime.revision_changed.wait())
-                overflow = asyncio.create_task(self.runtime.resubscribe.wait())
-                pending = {receive, change, overflow}
-                try:
-                    done, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
-                    if overflow in done:
-                        return
-                    if change in done:
-                        from ..reconfiguration import same_ha_subscription
 
-                        current = self.runtime.config
-                        if not same_ha_subscription(config, current):
-                            return
-                        assert current is not None
-                        config, revision = current, self.runtime.state.active_revision
-                        self.runtime.revision_changed.clear()
-                        if receive not in done:
-                            continue
-                    message = receive.result()
+            def refresh_revision() -> bool:
+                nonlocal config, revision
+                from ..reconfiguration import same_ha_subscription
+
+                current = self.runtime.config
+                if not same_ha_subscription(config, current):
+                    return False
+                assert current is not None
+                config, revision = current, self.runtime.state.active_revision
+                return True
+
+            async def read_messages() -> None:
+                # Keep one receiver for the connection. Creating and cancelling
+                # control waiters for every value/ack amplifies GIL contention
+                # with the management worker and delays socket consumption.
+                while True:
+                    message = await socket.receive_json()
+                    # Buffered frames can complete without yielding to the
+                    # control watcher. Apply the new revision before normalizing
+                    # their values, or require its fresh subscription snapshot.
+                    if revision != self.runtime.state.active_revision and not refresh_revision():
+                        return
                     if self.runtime.clock.monotonic() - connected_at >= 10:
                         self.retry_delay = 1.0
                     if message.get("type") == "result" and message.get("id") in connection.pending:
@@ -773,11 +775,30 @@ class BridgeAdapter:
                                     else "stopping",
                                 ),
                             )
-                finally:
-                    for task in pending:
-                        if not task.done():
-                            task.cancel()
-                    await asyncio.gather(*pending, return_exceptions=True)
+
+            receive = asyncio.create_task(read_messages())
+            change = asyncio.create_task(self.runtime.revision_changed.wait())
+            overflow = asyncio.create_task(self.runtime.resubscribe.wait())
+            try:
+                while True:
+                    done, _ = await asyncio.wait(
+                        {receive, change, overflow}, return_when=asyncio.FIRST_COMPLETED
+                    )
+                    if overflow in done:
+                        return
+                    if receive in done:
+                        await receive
+                        return
+                    if not refresh_revision():
+                        return
+                    self.runtime.revision_changed.clear()
+                    change = asyncio.create_task(self.runtime.revision_changed.wait())
+            finally:
+                pending = {receive, change, overflow}
+                for task in pending:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
 
     async def incoming_command(self, event: dict[str, Any]) -> dict[str, Any]:
         try:
