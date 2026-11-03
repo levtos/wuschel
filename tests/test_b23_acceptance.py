@@ -17,7 +17,7 @@ from core_contracts.contract_types import type_registry
 from core_contracts.managed_catalog import prepare as prepare_catalog
 from core_contracts.management import Planner, prepare
 from core_contracts.operation_timing import percentile
-from core_contracts.persistence import MemoryStore
+from core_contracts.persistence import MemoryStore, PostgresStore
 from core_contracts.runtime import Runtime
 from dev.fake_ha import FakeHA
 
@@ -424,7 +424,11 @@ async def genuine_load(aiohttp_server, store=None):
                         }
                     )
                 )
-                assert percentile(probe.latencies, 0.95) < 1, percentile(probe.latencies, 0.95)
+                # PostgreSQL release target: Benni 03.11.2026, #100 (18 Uhr).
+                latency_limit = 10 if isinstance(store, PostgresStore) else 1
+                assert percentile(probe.latencies, 0.95) < latency_limit, percentile(
+                    probe.latencies, 0.95
+                )
             finally:
                 admin.cancel()
                 await asyncio.gather(admin, return_exceptions=True)
