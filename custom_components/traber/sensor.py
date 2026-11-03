@@ -7,6 +7,30 @@ from homeassistant.util import slugify
 from .projection import Projection
 
 KEY = "traber_projection"
+DISPLAY_PRECISION = {
+    "%": 0,
+    "°C": 1,
+    "°F": 1,
+    "K": 1,
+    "W": 1,
+    "kW": 2,
+    "Wh": 1,
+    "kWh": 3,
+    "lx": 0,
+    "lm": 0,
+    "m": 0,
+    "km": 2,
+    "s": 0,
+    "min": 0,
+    "h": 1,
+    "m/s": 1,
+    "km/h": 1,
+    "mm": 1,
+    "hPa": 1,
+    "Pa": 0,
+    "°": 0,
+    "dB": 1,
+}
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -58,7 +82,11 @@ class ContractSensor(SensorEntity):
 
     @property
     def native_value(self):
+        if self.row.get("status") == "not_applicable":
+            return "not_applicable"
         value = self.row.get("value")
+        if type(value) is bool:
+            value = "on" if value else "off"
         return (
             value
             if self.row.get("status") in {"valid", "held"}
@@ -68,7 +96,11 @@ class ContractSensor(SensorEntity):
 
     @property
     def native_unit_of_measurement(self):
-        return self.row.get("unit")
+        return self.row.get("unit") if self.row.get("status") != "not_applicable" else None
+
+    @property
+    def suggested_display_precision(self):
+        return DISPLAY_PRECISION.get(self.native_unit_of_measurement)
 
     @property
     def extra_state_attributes(self):
@@ -79,6 +111,7 @@ class ContractSensor(SensorEntity):
             if self.projection.connected
             else "degraded",
             "since_at": self.row.get("since_at"),
+            "raw_value": self.row.get("value"),
             **(
                 {"primary_field": self.row["primary_field"], "fields": self.row["fields"]}
                 if "fields" in self.row

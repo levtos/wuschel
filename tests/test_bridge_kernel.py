@@ -261,6 +261,57 @@ async def test_projected_sensor_uses_real_ha_state_engine(tmp_path, monkeypatch,
     assert errors[-1][1] == "unsupported_protocol"
 
 
+@pytest.mark.parametrize(
+    "value,status,unit,expected,precision",
+    [
+        (True, "valid", None, "on", None),
+        (False, "valid", None, "off", None),
+        (None, "not_applicable", "W", "not_applicable", None),
+        (3.05555555555556, "valid", "W", "3.05555555555556", 1),
+    ],
+)
+async def test_b23_state_format_and_raw_values_in_real_ha(
+    tmp_path, value, status, unit, expected, precision
+):
+    from homeassistant import bootstrap
+
+    from custom_components.traber.projection import Projection
+    from custom_components.traber.sensor import ContractSensor
+
+    hass = kernel(tmp_path)
+    loader.async_setup(hass)
+    assert await bootstrap.async_load_base_functionality(hass)
+    assert await async_setup_component(hass, "sensor", {})
+    projection = Projection()
+    installation, owner = str(uuid4()), object()
+    row = {
+        "contract_id": "fixture.format",
+        "name": "Synthetic format",
+        "value": value,
+        "status": status,
+        "quality": "healthy",
+        "since_at": None,
+        "unit": unit,
+    }
+    projection.accept(
+        owner,
+        installation,
+        {
+            "installation_id": installation,
+            "epoch_id": str(uuid4()),
+            "publication_seq": 1,
+            "contracts": [row],
+        },
+    )
+    sensor = ContractSensor(projection, installation, row["contract_id"])
+    await hass.data[DATA_COMPONENT].async_add_entities([sensor])
+    await hass.async_block_till_done()
+    state = hass.states.get(sensor.entity_id)
+    assert state.state == expected
+    assert state.attributes["raw_value"] == value
+    assert sensor.suggested_display_precision == precision
+
+
 @pytest.mark.ha
 async def test_real_state_reported_callback_and_unsubscribe(tmp_path, monkeypatch):
     hass = kernel(tmp_path)
