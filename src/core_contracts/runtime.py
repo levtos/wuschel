@@ -215,13 +215,13 @@ class Runtime:
         # New database/restored rows are a system boundary. Adapter observations
         # seed this cache from their already fully validated models instead.
         result = Observation.model_validate(row)
-        self._observation_models[row["binding_id"]] = (row, result)
+        self._observation_models[row["binding_id"]] = (row.copy(), result)
         return result
 
     def _remember_observation(self, state: State, observation: Observation) -> None:
         row = observation.storage_document()
         state.tables["source_observation_current"][observation.binding_id] = row
-        self._observation_models[observation.binding_id] = (row, observation)
+        self._observation_models[observation.binding_id] = (row.copy(), observation)
 
     def _field(self, key: str, row: dict[str, Any]) -> FieldValue:
         cached = self._field_models.get(key)
@@ -230,7 +230,7 @@ class Runtime:
         # Restored/database fields are validated on their first use. Live output
         # fields enter this cache directly after schema/invariant checks.
         result = FieldValue.model_validate(row)
-        self._field_models[key] = (row, result)
+        self._field_models[key] = (row.copy(), result)
         return result
 
     def _buffer_outage(self, observation: Observation) -> None:
@@ -2448,7 +2448,7 @@ class Runtime:
                         for reason, stored in zip(value.reasons, row["reasons"], strict=True)
                     )
                     self._field_models[key + "." + name] = (
-                        row,
+                        row.copy(),
                         value.model_copy(update={"reasons": reasons}),
                     )
             if not same:

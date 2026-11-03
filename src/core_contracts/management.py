@@ -13,7 +13,7 @@ from time import perf_counter
 from typing import Any, cast
 
 from .operation_timing import Timing, current
-from .persistence import ARCHIVE, State, Store
+from .persistence import ARCHIVE, PersistenceUnavailable, State, Store
 from .runtime import Runtime
 
 OPERATIONS = frozenset(
@@ -162,7 +162,16 @@ async def execute(runtime: Runtime, operation: str, payload: Any) -> Any:
     async with runtime.management_slots:
         plan = await runtime.submit("management_snapshot")
         plan.operation = operation
-        plan = await asyncio.to_thread(prepare, runtime, plan, payload, asyncio.get_running_loop())
+        try:
+            plan = await asyncio.to_thread(
+                prepare, runtime, plan, payload, asyncio.get_running_loop()
+            )
+        except (PersistenceUnavailable, OSError) as error:
+            runtime._unavailable()
+            logging.getLogger(__name__).error(
+                "management_unavailable", extra={"error_type": type(error).__name__}
+            )
+            raise
         return await runtime.submit("management_commit", plan)
 
 

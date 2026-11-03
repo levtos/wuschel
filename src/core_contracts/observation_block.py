@@ -95,7 +95,8 @@ async def process_block(runtime: Runtime, first: Work) -> None:
         runtime.pending_refresh.clear()
         if not runtime.persistence:
             for item in works:
-                runtime._buffer_outage(item.payload)
+                if item.future is None:
+                    runtime._buffer_outage(item.payload)
         LOGGER.warning("observation_block_failed", extra={"error_type": type(caught).__name__})
     finally:
         if (

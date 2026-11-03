@@ -11,6 +11,7 @@ import ssl
 from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta
 from decimal import Decimal
+from itertools import groupby
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -527,8 +528,12 @@ class PostgresStore:
                 else None
             )
             async with connection.transaction():
-                for statement, arguments in changes:
-                    await connection.execute(statement, *arguments)
+                for statement, rows in groupby(changes, key=lambda item: item[0]):
+                    arguments = [item[1] for item in rows]
+                    if len(arguments) == 1:
+                        await connection.execute(statement, *arguments[0])
+                    else:
+                        await connection.executemany(statement, arguments)
                 metadata = state.model_dump(exclude={"tables", "publications"})
                 metadata["generation"] += 1
                 await self.put_metadata("runtime", metadata)
