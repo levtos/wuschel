@@ -6,7 +6,9 @@ import logging
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from datetime import datetime, timedelta
+from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
@@ -22,6 +24,7 @@ from .ha_context import ContextIndex
 from .lifecycle import EDITORIAL, transition_allowed
 from .model import Model, canonical, checksum, semantic_fingerprint, utc
 from .numeric_equivalence import preserve_config, preserve_numbers
+from .operation_timing import ObservationTimings, TimedStore, Timing, current, timed_phase
 from .persistence import State, Store
 from .producer import Context, Producer
 from .quality import FieldValue, ReasonCode, unknown
@@ -42,6 +45,7 @@ from .resolver import Bucket
 from .schema import Envelope, TypeRegistry, validate_fields
 from .statemachine import MachineState
 from .temporal import start_case
+from .validation_cache import CHECK_VERSION, ValidationCache
 
 LOGGER = logging.getLogger(__name__)
 
@@ -70,6 +74,7 @@ class Work:
     operation: str
     payload: Any
     future: asyncio.Future[Any] | None = None
+    queued_at: float = dataclass_field(default_factory=perf_counter)
 
 
 @dataclass
@@ -89,7 +94,9 @@ class Runtime:
         queue_size: int = 256,
         require_history_retention: bool = False,
     ) -> None:
-        self.store, self.clock, self.types = store, clock, types
+        self.store, self.clock, self.types = TimedStore(store), clock, types
+        self.observation_timings = ObservationTimings()
+        self.validation_cache = ValidationCache()
         self.require_history_retention = require_history_retention
         self.installation_id: str | None = None
         self.ingress_slug: str | None = None
@@ -289,6 +296,7 @@ class Runtime:
             **details,
         }
 
+    @timed_phase
     async def _restore_numbers(
         self, document: dict[str, Any], previous: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -339,6 +347,7 @@ class Runtime:
             # The preview must display semantic issues before offering a correction.
             return copy.deepcopy(package["config"])
 
+    @timed_phase
     async def _definition_versions(self, config: RegistryConfig) -> None:
         from .validation import RegistryValidationError, ValidationIssue
 
@@ -455,25 +464,37 @@ class Runtime:
         if issues:
             raise RegistryValidationError(issues)
 
+    @timed_phase
     async def _source_types(self, config: RegistryConfig) -> None:
         from .registry import Source
         from .validation import RegistryValidationError, ValidationIssue
 
         issues = []
+        revisions: dict[int, dict[str, Source]] = {}
+        active_sources = {s.source_id: s for s in self.config.sources} if self.config else {}
         for index, source in enumerate(config.sources):
+            if source == active_sources.get(source.source_id):
+                continue
             for document in await self.store.source_history(
                 source.source_id, include_revision=True
             ):
-                previous_revision = document.pop("_registry_revision")
-                historical = await self.store.get("registry_revision", str(previous_revision))
-                if historical and historical["config"].get("config_schema_version") == 4:
-                    old = next(
-                        s
-                        for s in RegistryConfig.model_validate(historical["config"]).sources
-                        if s.source_id == source.source_id
+                previous_revision = document["_registry_revision"]
+                if previous_revision not in revisions:
+                    historical = await self.store.get("registry_revision", str(previous_revision))
+                    revisions[previous_revision] = (
+                        {
+                            s.source_id: s
+                            for s in RegistryConfig.model_validate(historical["config"]).sources
+                        }
+                        if historical and historical["config"].get("config_schema_version") == 4
+                        else {}
                     )
+                if source.source_id in revisions[previous_revision]:
+                    old = revisions[previous_revision][source.source_id]
                 else:
-                    old = Source.model_validate(document)
+                    old = Source.model_validate(
+                        {k: v for k, v in document.items() if k != "_registry_revision"}
+                    )
                 schema, previous = source.value_schema, old.value_schema
                 inferred = {"boolean": "bool", "numeric": "number", "text": "text"}
                 checks = (
@@ -548,6 +569,39 @@ class Runtime:
                         )
         if issues:
             raise RegistryValidationError(list({(i.code, i.path): i for i in issues}.values()))
+
+    async def _checked_config(
+        self, document: dict[str, Any], *, restore: bool = True
+    ) -> RegistryConfig:
+        key = checksum(
+            [
+                document,
+                self.state.active_revision,
+                self.state.tables["registry_revision"]
+                .get(str(self.state.active_revision), {})
+                .get("checksum"),
+                [
+                    (key, declaration.description())
+                    for key, declaration in sorted(self.types.types.items())
+                ],
+                [
+                    (key, row.get("revision"), row.get("definition_digest"))
+                    for key, row in sorted(self.state.tables["catalog_head"].items())
+                ],
+                CHECK_VERSION,
+                restore,
+            ]
+        )
+        cached = self.validation_cache.get(key)
+        if cached is not None:
+            return cached
+        candidate = validate(
+            await self._restore_numbers(document) if restore else document, self.types
+        )
+        await self._definition_versions(candidate)
+        await self._source_types(candidate)
+        self.validation_cache.put(key, candidate)
+        return candidate
 
     @property
     def live(self) -> bool:
@@ -767,6 +821,9 @@ class Runtime:
     async def run(self) -> None:
         while True:
             work = await self.queue.get()
+            started = perf_counter()
+            timing = Timing(asyncio.current_task())
+            timing_token = current.set(timing)
             try:
                 result = await self.process(work.operation, work.payload)
                 if work.future and not work.future.done():
@@ -813,6 +870,23 @@ class Runtime:
                             "buffer_drain_failed", extra={"error_type": type(error).__name__}
                         )
                 self.queue.task_done()
+                elapsed = (perf_counter() - started) * 1000
+                wait = (started - work.queued_at) * 1000
+                if work.operation == "observation":
+                    self.observation_timings.add(wait, elapsed)
+                else:
+                    LOGGER.info(
+                        "operation_timing",
+                        extra={
+                            "operation": work.operation,
+                            "queue_wait_ms": wait,
+                            "run_ms": elapsed,
+                            "db_calls": timing.db_calls,
+                            "db_ms": timing.db_ms,
+                            "phases_ms": timing.phases_ms,
+                        },
+                    )
+                current.reset(timing_token)
 
     async def process(self, operation: str, payload: Any) -> Any:
         if (
@@ -1428,9 +1502,7 @@ class Runtime:
             draft = state.tables["registry_draft"][payload["draft_id"]]
             result = authoring.comparison(self, state, draft)
             if operation == "draft_preview":
-                checked_config = validate(await self._restore_numbers(draft["config"]), self.types)
-                await self._definition_versions(checked_config)
-                await self._source_types(checked_config)
+                await self._checked_config(draft["config"])
                 return result
             authoring.prepare_activation(self, state, draft, payload)
             if not result["no_effect"]:
@@ -1555,9 +1627,7 @@ class Runtime:
             await self._commit(state)
             return None
         if operation == "validate":
-            candidate = validate(await self._restore_numbers(payload), self.types)
-            await self._definition_versions(candidate)
-            await self._source_types(candidate)
+            candidate = await self._checked_config(payload)
             from .capabilities import machine_description
 
             types = registry_types(candidate, self.types)
@@ -1614,12 +1684,7 @@ class Runtime:
                 if historical is None:
                     raise ValueError("revision_not_found")
                 document = historical["config"]
-            new_config = validate(
-                await self._restore_numbers(document) if operation == "activate" else document,
-                self.types,
-            )
-            await self._definition_versions(new_config)
-            await self._source_types(new_config)
+            new_config = await self._checked_config(document, restore=operation == "activate")
             if operation == "activate":
                 from .editorial import apply_draft
 
@@ -2800,6 +2865,7 @@ class Runtime:
                 reading.cancel()
         self.title_sync_plans.clear()
         await self.queue.join()
+        self.observation_timings.flush()
         self._broadcast({"type": "going_away"})
         if self.persistence and self.state.epoch_id in self.state.tables["runtime_epoch"]:
             state = self.state.clone()

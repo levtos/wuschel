@@ -7,9 +7,12 @@ loop; only immutable historical reads cross that boundary.
 
 import asyncio
 import copy
+import logging
 from dataclasses import dataclass
+from time import perf_counter
 from typing import Any, cast
 
+from .operation_timing import Timing, current
 from .persistence import ARCHIVE, State, Store
 from .runtime import Runtime
 
@@ -116,10 +119,32 @@ def prepare(
         cast(Store, SnapshotStore(runtime.store, plan.base, loop)), runtime.clock, runtime.types
     )
     worker.preparation = plan
+    worker.validation_cache = runtime.validation_cache
     worker.state = plan.base.clone()
     for name, value in plan.environment.items():
         setattr(worker, name, copy.deepcopy(value))
-    plan.result = asyncio.run(worker.process(plan.operation, copy.deepcopy(payload)))
+
+    async def run() -> Any:
+        started = perf_counter()
+        timing = Timing(asyncio.current_task())
+        token = current.set(timing)
+        try:
+            return await worker.process(plan.operation, copy.deepcopy(payload))
+        finally:
+            logging.getLogger(__name__).info(
+                "operation_timing",
+                extra={
+                    "operation": plan.operation,
+                    "queue_wait_ms": 0,
+                    "run_ms": (perf_counter() - started) * 1000,
+                    "db_calls": timing.db_calls,
+                    "db_ms": timing.db_ms,
+                    "phases_ms": timing.phases_ms,
+                },
+            )
+            current.reset(token)
+
+    plan.result = asyncio.run(run())
     if plan.staged is not None:
         missing = object()
         plan.changes = {
