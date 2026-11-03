@@ -1,5 +1,9 @@
 # b23 – offener Abnahmestand vom 03.11.2026
 
+> Historischer Stand vor P6; durch Bennis Fortsetzungs-Go und neue Abnahmekriterien
+> in #100 ersetzt. Aktuelle Umsetzung: [P6](P6.md). Die alten Zahlen bleiben als
+> Nachweis erhalten und sind keine aktuellen Freigabekriterien.
+
 Auftrag: [#100](https://github.com/Levtos/wuschel/issues/100), `agent:codex`.
 Die Beta ist **nicht freigegeben und nicht veröffentlicht**. Kein Live-Zugriff.
 Die Umsetzung wurde nach drei erfolglosen Korrekturversuchen am Lastkriterium

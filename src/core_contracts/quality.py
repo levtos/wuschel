@@ -100,6 +100,9 @@ class FieldValue(Model):
 
     @model_validator(mode="after")
     def invariant(self) -> Self:
+        return self.check_invariants()
+
+    def check_invariants(self) -> Self:
         if self.status in {"valid", "held"} and self.value is None:
             raise ValueError("value_required")
         if self.status in {"unknown", "unresolved", "not_applicable"} and self.value is not None:

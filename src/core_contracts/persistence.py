@@ -247,6 +247,7 @@ class State(BaseModel):
             "contract_state_current",
             "contract_lifecycle",
             "sm_instance",
+            "source_observation_current",
         }
         for name, rows in result.tables.items():
             if name not in readonly:

@@ -23,8 +23,8 @@ from dev.fake_ha import FakeHA
 from .conftest import activate
 
 
-async def scale_runtime():
-    runtime = Runtime(MemoryStore(), SystemClock(), type_registry())
+async def scale_runtime(store=None, event_sources=5):
+    runtime = Runtime(store or MemoryStore(), SystemClock(), type_registry())
     runtime.installation_id = str(uuid4())
     await runtime.start()
     config = {
@@ -36,7 +36,8 @@ async def scale_runtime():
         "sources": [
             {
                 "source_id": f"source.synthetic{index}",
-                "source_type": "boolean",
+                "source_type": "event" if index < event_sources else "boolean",
+                "value_schema": {"type": "bool", "required": True, "physical_state": False},
                 "source_origin": "local",
                 "dependency_id": "dependency.synthetic",
                 "physical_source_key": f"physical.synthetic{index}",
