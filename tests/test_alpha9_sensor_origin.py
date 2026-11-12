@@ -283,7 +283,7 @@ async def test_sensor_assessment_is_not_published_on_commit_failure(runtime, con
 @pytest.mark.parametrize("kind", ["measured", "replacement", "model", "forecast"])
 def test_transport_origin_is_explicit_and_old_sources_are_not_relabelled(config, kind):
     from core_contracts.testing.contract_types import type_registry
-    from core_contracts.value_origin import normalize
+    from core_contracts.source_values import normalize
 
     document = copy.deepcopy(config)
     document["config_schema_version"] = 2

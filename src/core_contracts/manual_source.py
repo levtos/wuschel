@@ -7,8 +7,8 @@ from uuid import UUID
 from pydantic import Field, field_validator
 
 from .model import Model, checksum, utc
+from .source_values import normalize as normalize_origin
 from .value_origin import ValueOrigin
-from .value_origin import normalize as normalize_origin
 
 if TYPE_CHECKING:
     from .persistence import State
