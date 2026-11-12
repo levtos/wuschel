@@ -1,12 +1,22 @@
 """Transaction-local append-only catalog maintenance and evidence-preserving lookup."""
 
 import copy
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from .catalog_models import CatalogWrite, EntryChange, ManagedCatalog
+from . import slots
 from .model import checksum
 from .persistence import State
-from .quality import ConfigurationHint, ConfigurationStatus, FieldValue, derive
+from .quality import FieldValue
+from .registry import (
+    RegistryConfig,
+)
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+
+from .catalog_models import CatalogWrite, EntryChange, ManagedCatalog
+from .quality import ConfigurationHint, ConfigurationStatus, derive
 from .text_rules import normalize_key
 
 
@@ -138,7 +148,6 @@ def lookup(ctx: Any, rule: Any, args: list[FieldValue]) -> FieldValue:
 
         return slot_lookup(ctx, rule, args)
     document = ctx.state.tables["registry_revision"][str(ctx.state.active_revision)]["config"]
-    from .registry import RegistryConfig
 
     catalog = definition(
         RegistryConfig.model_validate(document), rule.catalog_id, rule.definition_version
@@ -513,3 +522,11 @@ def page(
         "content_revision": current["revision"],
         "next_cursor": selected[limit - 1]["identity"] if len(selected) > limit else None,
     }
+
+
+async def restore_heads(runtime: Runtime, state: State, context: Any) -> None:
+    validate_heads(runtime.state, runtime.config)
+    await verify_stored_heads(runtime.store, runtime.state, runtime.config)
+
+
+slots.RESTORE[10] = slots.Hook(restore_heads, "heads")

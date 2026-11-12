@@ -1,17 +1,25 @@
 """Human organization is versioned separately from the contract configuration."""
 
-import re
+import copy
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from pydantic import Field
 
 from . import slots
-from .model import Model, canonical
+from .model import Model
 from .persistence import State
 from .registry import (
     RegistryConfig,
 )
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+import re
+from typing import TYPE_CHECKING
+
+from .model import canonical
 
 if TYPE_CHECKING:
     from .runtime import Runtime
@@ -281,3 +289,15 @@ async def operation_editorial_area_refresh(
 slots.OPERATIONS["editorial_area_refresh"] = slots.Operation(
     operation_editorial_area_refresh, state="full", early=False
 )
+
+
+async def recover_capture(runtime: Runtime, state: State, context: Any) -> None:
+    context["editorial"] = copy.deepcopy(runtime.state.tables["editorial_current"])
+
+
+async def recover_merge(runtime: Runtime, state: State, context: Any) -> None:
+    keep_newer(context["editorial"], state.tables["editorial_current"])
+
+
+slots.RESTORE[70] = slots.Hook(recover_capture, "recover_capture")
+slots.RESTORE[90] = slots.Hook(recover_merge, "recover_merge")

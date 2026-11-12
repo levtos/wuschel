@@ -7,6 +7,7 @@ from . import (  # noqa: F401
     catalog_playback,
     catalog_scope,
     editorial,
+    managed_catalog,
     management,
     manual_restart,
     mqtt_restore,

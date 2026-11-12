@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from datetime import datetime, timedelta
 from time import perf_counter
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from pydantic import Field, ValidationError, field_validator
@@ -17,15 +17,12 @@ from pydantic import Field, ValidationError, field_validator
 from . import slots
 from .calendar_inputs import project
 from .clock import Alarm, Clock
-from .declarative import GuardEvaluationError, all_rules
-from .declarative_models import FormulaRule
-from .engines import FORMULA_SCHEMAS
+from .declarative import GuardEvaluationError
+from .errors import AuthoringError, RegistryValidationError
 from .evidence import Observation, assess, is_new, is_older
 from .ha_context import ContextIndex
-from .lifecycle import EDITORIAL, transition_allowed
-from .model import Model, checksum, semantic_fingerprint, utc
-from .numeric_equivalence import preserve_config, preserve_numbers
-from .operation_timing import ObservationTimings, TimedStore, Timing, current, timed_phase
+from .model import Model, checksum, utc
+from .operation_timing import ObservationTimings, TimedStore, Timing, current
 from .persistence import State, Store
 from .producer import Context, Producer
 from .quality import FieldValue, ReasonCode, unknown
@@ -36,15 +33,13 @@ from .registry import (
     fingerprints,
     registry_types,
     resolve_ref,
-    storage_document,
     topological,
 )
 from .resolver import Bucket
 from .schema import Envelope, TypeRegistry, validate_fields
 from .statemachine import MachineState
 from .temporal import start_case
-from .validation import validate_document as validate
-from .validation_cache import CHECK_VERSION, ValidationCache
+from .validation_cache import ValidationCache
 
 LOGGER = logging.getLogger(__name__)
 
@@ -192,14 +187,7 @@ class Runtime:
         return self._plans[key]
 
     def _structure(self, config: RegistryConfig) -> Any:
-        from .revision_plan import build
-
-        key = id(config)
-        if key not in self._structures:
-            self._structures[key] = build(config)
-            if len(self._structures) > 4:
-                self._structures.pop(next(iter(self._structures)))
-        return self._structures[key]
+        return slots.CONFIGURATION["_structure"](self, config)
 
     def _resolve(self, ref: str, config: RegistryConfig) -> tuple[str, str | None]:
         references = self._structure(config).references
@@ -352,312 +340,29 @@ class Runtime:
             **details,
         }
 
-    @timed_phase
     async def _restore_numbers(
         self, document: dict[str, Any], previous: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        # Validate the submitted types first; preservation must not repair invalid input.
-        checked = validate(document, self.types)
-        result = preserve_config(document, previous or {})
-        active = self._config(self.state)
-        if active:
-            result = preserve_config(result, storage_document(active))
-        for group, identity, version, getter in (
-            ("definitions", "type_id", "type_version", self.store.definition),
-            ("catalogs", "catalog_id", "version", self.store.catalog),
-        ):
-            for index, row in enumerate(result.get(group, [])):
-                declaration = getattr(checked, group)[index]
-                stored = await getter(getattr(declaration, identity), getattr(declaration, version))
-                if stored:
-                    restored = preserve_numbers(row, stored)
-                    row.clear()
-                    row.update(restored)
-        for index, row in enumerate(result.get("sources", [])):
-            profile = row.get("sensor_profile")
-            if profile:
-                declaration = checked.sources[index].sensor_profile
-                assert declaration is not None
-                stored = await self.store.sensor_profile(declaration.id, declaration.version)
-                if stored:
-                    row["sensor_profile"] = preserve_numbers(profile, stored)
-        return result
+        return cast(
+            dict[str, Any], await slots.CONFIGURATION["_restore_numbers"](self, document, previous)
+        )
 
     async def _portable_numbers(self, request: dict[str, Any]) -> dict[str, Any]:
-        from .portable import read_package, strict_json
+        return cast(dict[str, Any], await slots.CONFIGURATION["_portable_numbers"](self, request))
 
-        package = read_package(
-            strict_json(request["package_text"])
-            if "package_text" in request
-            else request["package"]
-        )
-        target = self.state.tables["registry_draft"].get(request.get("target_draft_id", ""))
-        from .validation import RegistryValidationError
-
-        try:
-            return await self._restore_numbers(
-                package["config"], target["config"] if target else None
-            )
-        except RegistryValidationError:
-            # Package integrity and structural parsing have already succeeded.
-            # The preview must display semantic issues before offering a correction.
-            return copy.deepcopy(package["config"])
-
-    @timed_phase
     async def _definition_versions(self, config: RegistryConfig) -> None:
-        from .validation import RegistryValidationError, ValidationIssue
+        await slots.CONFIGURATION["_definition_versions"](self, config)
 
-        issues = []
-        for index, source in enumerate(config.sources):
-            profile = source.sensor_profile
-            if profile:
-                previous = await self.store.sensor_profile(profile.id, profile.version)
-                if previous and semantic_fingerprint(previous) != semantic_fingerprint(
-                    preserve_numbers(profile.model_dump(mode="json"), previous)
-                ):
-                    issues.append(
-                        ValidationIssue(
-                            code="immutable_definition_version",
-                            path=f"/sources/{index}/sensor_profile/version",
-                            object_id=profile.id,
-                            message="immutable sensor profile version",
-                        )
-                    )
-        for kind, objects, identity_key, version_key, getter in (
-            ("definitions", config.definitions, "type_id", "type_version", self.store.definition),
-            ("catalogs", config.catalogs, "catalog_id", "version", self.store.catalog),
-        ):
-            for index, item in enumerate(objects):
-                document = item.model_dump(mode="json")
-                identity = document[identity_key]
-                previous = await getter(identity, document[version_key])
-                if previous:
-                    document = preserve_numbers(document, previous)
-                if previous and checksum(
-                    {k: v for k, v in previous.items() if k not in EDITORIAL}
-                ) != checksum({k: v for k, v in document.items() if k not in EDITORIAL}):
-                    issues.append(
-                        ValidationIssue(
-                            code="immutable_definition_version",
-                            path=f"/{kind}/{index}/{version_key}",
-                            object_id=identity,
-                            message="immutable definition version"
-                            if kind == "definitions"
-                            else "immutable catalog version",
-                        )
-                    )
-                if previous and not transition_allowed(
-                    previous.get("lifecycle", "active"),
-                    document.get("lifecycle", "active"),
-                    document.get("reactivation_note"),
-                    previous.get("reactivation_note"),
-                ):
-                    issues.append(
-                        ValidationIssue(
-                            code="lifecycle_transition",
-                            path=f"/{kind}/{index}/lifecycle",
-                            object_id=identity,
-                            message="explicit lifecycle transition or new reactivation note required",
-                        )
-                    )
-        old = {c.contract_id: c for c in self.config.contracts} if self.config else {}
-        retired = {
-            (d.type_id, d.type_version) for d in config.definitions if d.lifecycle == "retired"
-        }
-        for index, contract in enumerate(config.contracts):
-            prior = old.get(contract.contract_id)
-            definition = next(
-                (
-                    d
-                    for d in config.definitions
-                    if (d.type_id, d.type_version) == (contract.type_id, contract.type_version)
-                ),
-                None,
-            )
-            formula_retired = definition is not None and any(
-                isinstance(rule, FormulaRule)
-                and FORMULA_SCHEMAS[rule.name, rule.version].lifecycle == "retired"
-                for rule in all_rules(definition)
-            )
-            if (
-                contract.enabled
-                and ((contract.type_id, contract.type_version) in retired or formula_retired)
-                and (
-                    prior is None
-                    or not prior.enabled
-                    or (prior.type_id, prior.type_version)
-                    != (contract.type_id, contract.type_version)
-                )
-            ):
-                issues.append(
-                    ValidationIssue(
-                        code="version_retired",
-                        path=f"/contracts/{index}/type_version",
-                        object_id=contract.contract_id,
-                        message="retired version cannot be newly bound",
-                    )
-                )
-        old_bindings = {b.binding_id: b for b in self.config.bindings} if self.config else {}
-        retired_catalogs = {c.catalog_id for c in config.catalogs if c.lifecycle == "retired"}
-        for index, binding in enumerate(config.bindings):
-            if (
-                binding.transform
-                and binding.transform.catalog_id in retired_catalogs
-                and (
-                    binding.binding_id not in old_bindings
-                    or old_bindings[binding.binding_id].source_id != binding.source_id
-                    or old_bindings[binding.binding_id].transform != binding.transform
-                )
-            ):
-                issues.append(
-                    ValidationIssue(
-                        code="version_retired",
-                        path=f"/bindings/{index}/transform",
-                        object_id=binding.binding_id,
-                        message="retired catalog cannot be newly bound",
-                    )
-                )
-        if issues:
-            raise RegistryValidationError(issues)
-
-    @timed_phase
     async def _source_types(self, config: RegistryConfig) -> None:
-        from .registry import Source
-        from .validation import RegistryValidationError, ValidationIssue
-
-        issues = []
-        revisions: dict[int, dict[str, Source]] = {}
-        active_sources = {s.source_id: s for s in self.config.sources} if self.config else {}
-        for index, source in enumerate(config.sources):
-            if source == active_sources.get(source.source_id):
-                continue
-            for document in await self.store.source_history(
-                source.source_id, include_revision=True
-            ):
-                previous_revision = document["_registry_revision"]
-                if previous_revision not in revisions:
-                    historical = await self.store.get("registry_revision", str(previous_revision))
-                    revisions[previous_revision] = (
-                        {
-                            s.source_id: s
-                            for s in RegistryConfig.model_validate(historical["config"]).sources
-                        }
-                        if historical and historical["config"].get("config_schema_version") == 4
-                        else {}
-                    )
-                if source.source_id in revisions[previous_revision]:
-                    old = revisions[previous_revision][source.source_id]
-                else:
-                    old = Source.model_validate(
-                        {k: v for k, v in document.items() if k != "_registry_revision"}
-                    )
-                schema, previous = source.value_schema, old.value_schema
-                inferred = {"boolean": "bool", "numeric": "number", "text": "text"}
-                checks = (
-                    ("source_type", source.source_type != old.source_type),
-                    (
-                        "value_schema/type",
-                        (schema.type if schema else inferred.get(source.source_type))
-                        != (previous.type if previous else inferred.get(old.source_type)),
-                    ),
-                    (
-                        "value_schema/unit",
-                        (schema.unit if schema else None) != (previous.unit if previous else None),
-                    ),
-                    (
-                        "value_schema/value_catalog",
-                        bool(
-                            previous
-                            and not set(previous.value_catalog).issubset(
-                                schema.value_catalog if schema else ()
-                            )
-                        ),
-                    ),
-                )
-                for field, changed in checks:
-                    if changed:
-                        old_value = (
-                            old.source_type
-                            if field == "source_type"
-                            else {
-                                "value_schema/type": previous.type
-                                if previous
-                                else inferred.get(old.source_type),
-                                "value_schema/unit": previous.unit if previous else None,
-                                "value_schema/value_catalog": list(previous.value_catalog)
-                                if previous
-                                else [],
-                            }[field]
-                        )
-                        new_value = (
-                            source.source_type
-                            if field == "source_type"
-                            else {
-                                "value_schema/type": schema.type
-                                if schema
-                                else inferred.get(source.source_type),
-                                "value_schema/unit": schema.unit if schema else None,
-                                "value_schema/value_catalog": list(schema.value_catalog)
-                                if schema
-                                else [],
-                            }[field]
-                        )
-                        old_text = str(old_value) if old_value is not None else None
-                        new_text = str(new_value) if new_value is not None else None
-                        issues.append(
-                            ValidationIssue(
-                                code="immutable_source_catalog"
-                                if field.endswith("value_catalog")
-                                else "immutable_source_type",
-                                path=f"/sources/{index}/{field}",
-                                object_id=source.source_id,
-                                message=f"{field}: {old_text!r} aus Version {previous_revision} → {new_text!r}. Übernommene Quellen behalten Typ und Einheit; ihre Werteliste darf nur ergänzt werden.",
-                                parameters={
-                                    "source_name": source.display_name
-                                    or old.display_name
-                                    or source.source_id,
-                                    "field": field,
-                                    "oldValue": old_text,
-                                    "newValue": new_text,
-                                    "revision": previous_revision,
-                                },
-                            )
-                        )
-        if issues:
-            raise RegistryValidationError(list({(i.code, i.path): i for i in issues}.values()))
+        await slots.CONFIGURATION["_source_types"](self, config)
 
     async def _checked_config(
         self, document: dict[str, Any], *, restore: bool = True
     ) -> RegistryConfig:
-        key = checksum(
-            [
-                document,
-                self.state.active_revision,
-                self.state.tables["registry_revision"]
-                .get(str(self.state.active_revision), {})
-                .get("checksum"),
-                [
-                    (key, declaration.description())
-                    for key, declaration in sorted(self.types.types.items())
-                ],
-                [
-                    (key, row.get("revision"), row.get("definition_digest"))
-                    for key, row in sorted(self.state.tables["catalog_head"].items())
-                ],
-                CHECK_VERSION,
-                restore,
-            ]
+        return cast(
+            RegistryConfig,
+            await slots.CONFIGURATION["_checked_config"](self, document, restore=restore),
         )
-        cached = self.validation_cache.get(key)
-        if cached is not None:
-            return cached
-        candidate = validate(
-            await self._restore_numbers(document) if restore else document, self.types
-        )
-        await self._definition_versions(candidate)
-        await self._source_types(candidate)
-        self.validation_cache.put(key, candidate)
-        return candidate
 
     @property
     def live(self) -> bool:
@@ -717,29 +422,29 @@ class Runtime:
         }
         LOGGER.warning("history_gap", extra={"reason": reason})
 
+    def _hooks(self, register: dict[int, slots.Hook], phase: str, *args: Any) -> None:
+        for order in sorted(register):
+            hook = register[order]
+            if hook.phase == phase:
+                hook.handler(*args)
+
+    async def _restore_hooks(self, phase: str, state: State, context: Any = None) -> None:
+        for order in sorted(slots.RESTORE):
+            hook = slots.RESTORE[order]
+            if hook.phase == phase:
+                await hook.handler(self, state, context)
+
     async def _restore(self, reason: str, *, phases: dict[str, float] | None = None) -> None:
         timings = phases if phases is not None else {}
         started = perf_counter()
-        from .managed_catalog import validate_heads, verify_stored_heads
-
-        validate_heads(self.state, self.config)
-        await verify_stored_heads(self.store, self.state, self.config)
+        await self._restore_hooks("heads", self.state)
         timings["restore_catalog_heads"] = (perf_counter() - started) * 1000
         started = perf_counter()
         self.first_snapshot = False
         if self.context_index:
             self.context_index.clear_registered()
         state = self.state.clone()
-        from .authoring import migrate
-        from .catalog_playback import baseline_pending
-
-        baseline_pending(state)
-        await migrate(self, state, self.clock.now_utc())
-        restored_config = self._config(state)
-        if restored_config is not None:
-            from .reconfiguration import migrate_legacy_contexts
-
-            migrate_legacy_contexts(state, restored_config, self.types)
+        await self._restore_hooks("migration", state)
         timings["restore_migration"] = (perf_counter() - started) * 1000
         started = perf_counter()
         old_epoch = state.epoch_id
@@ -752,25 +457,8 @@ class Runtime:
         }
         for observation_data in state.tables["source_observation_current"].values():
             await self._record_observation(state, Observation.model_validate(observation_data))
-        from .service_jobs import restore_jobs
-
-        restore_jobs(state, self.clock.now_utc())
-        if reason == "process_restart":
-            from .mqtt_restore import restore as restore_mqtt
-
-            for binding_id, observation in list(state.tables["source_observation_current"].items()):
-                if observation["adapter"] == "mqtt" and self.config:
-                    restored = restore_mqtt(
-                        Observation.model_validate(observation),
-                        self.config,
-                        self.types,
-                        self.clock.now_utc(),
-                    )
-                    state.tables["source_observation_current"][binding_id] = (
-                        restored.storage_document()
-                    )
-                elif observation["adapter"] not in {"ha_calendar", "manual"}:
-                    observation["observation_kind"] = "restore"
+        await self._restore_hooks("jobs", state)
+        await self._restore_hooks("observations", state, reason)
         for node in state.tables["node_state"].values():
             for context in self._temporal_contexts(node):
                 if "temporal" in context:
@@ -795,24 +483,21 @@ class Runtime:
     async def submit(self, operation: str, payload: Any = None) -> Any:
         if self.stopping:
             raise RuntimeError("going_away")
-        from .management import OPERATIONS, execute
+        handler = slots.SUBMIT.get(operation)
+        if handler is None:
+            handler = next(
+                (
+                    item
+                    for prefix, item in slots.SUBMIT_PREFIXES.items()
+                    if operation.startswith(prefix)
+                ),
+                None,
+            )
+        if handler is not None:
+            return await handler(self, operation, payload)
+        return await self._enqueue(operation, payload)
 
-        if operation in OPERATIONS:
-            return await execute(self, operation, payload)
-        if operation == "catalog_cleanup_preview":
-            from .catalog_cleanup import preview as cleanup_preview
-
-            if not self.persistence:
-                raise RuntimeError("persistence_unavailable")
-            return await cleanup_preview(self, payload)
-        if operation == "title_sync_preview":
-            from .title_sync_runs import preview
-
-            if not self.persistence:
-                raise RuntimeError("persistence_unavailable")
-            return await preview(self, payload)
-        if operation.startswith("catalog_care_"):
-            payload = {**payload, "_queued_at": self.clock.monotonic()}
+    async def _enqueue(self, operation: str, payload: Any) -> Any:
         future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
         await self.queue.put(Work(operation, payload, future))
         return await asyncio.shield(future)
@@ -847,9 +532,9 @@ class Runtime:
         if not self.queue.full() and not self.stopping:
             self.queue.put_nowait(Work("tick", None))
 
-    def _catalog_tick(self) -> None:
+    def _queue_operation(self, operation: str) -> None:
         if not self.queue.full() and not self.stopping:
-            self.queue.put_nowait(Work("catalog_tick", None))
+            self.queue.put_nowait(Work(operation, None))
 
     def ingest_snapshot(self, observations: list[Observation], revision: int | None = None) -> None:
         if self.stopping:
@@ -891,9 +576,6 @@ class Runtime:
                 if work.future and not work.future.done():
                     work.future.set_result(result)
             except Exception as error:
-                from .authoring import AuthoringError
-                from .validation import RegistryValidationError
-
                 expected_error = isinstance(error, (RegistryValidationError, AuthoringError)) or (
                     type(error) is ValueError
                     and str(error)
@@ -951,13 +633,6 @@ class Runtime:
                 current.reset(timing_token)
 
     async def process(self, operation: str, payload: Any) -> Any:
-        if (
-            self.overflow
-            and self.persistence
-            and self.queue.empty()
-            and operation not in {"observation", "snapshot", "recover", "management_commit"}
-        ):
-            await self._drain_overflow()
         entry = slots.OPERATIONS.get(operation)
         if entry is None:
             entry = next(
@@ -968,6 +643,14 @@ class Runtime:
                 ),
                 None,
             )
+        if (
+            self.overflow
+            and self.persistence
+            and self.queue.empty()
+            and operation not in {"observation", "snapshot", "recover"}
+            and (entry is None or entry.drain)
+        ):
+            await self._drain_overflow()
         if entry is not None and entry.early:
             return await entry.handler(
                 self, self.state, operation, payload, self.clock.now_utc(), self.config
@@ -984,18 +667,11 @@ class Runtime:
         }:
             return None
         if operation == "recover":
-            from .editorial import keep_newer
-
-            current_editorial = copy.deepcopy(self.state.tables["editorial_current"])
-            current_mapping_rows = copy.deepcopy(self.state.tables.get("title_sync_mapping", {}))
+            recovery: dict[str, Any] = {}
+            await self._restore_hooks("recover_capture", self.state, recovery)
             last_sequence = self.state.publication_seq
             recovered = await self.store.load()
-            keep_newer(current_editorial, recovered.tables["editorial_current"])
-            from .title_sync import restore_mapping
-
-            restore_mapping(
-                current_mapping_rows, recovered.tables.setdefault("title_sync_mapping", {})
-            )
+            await self._restore_hooks("recover_merge", recovered, recovery)
             rollback = recovered.publication_seq < last_sequence
             recovered.publication_seq = max(last_sequence, recovered.publication_seq)
             self.persistence = True
@@ -1118,7 +794,7 @@ class Runtime:
             self._broadcast(self.service_state())
             return None
         if not self.persistence:
-            if operation in {"tick", "catalog_tick", "gap"}:
+            if operation in {"tick", "gap"} or (entry is not None and entry.offline):
                 return None
             if operation == "observation":
                 self._buffer_outage(payload)
@@ -1205,9 +881,7 @@ class Runtime:
                 "expires_at": index.proofs[registration.context.id][1].isoformat(),
             }
         if operation == "gap":
-            from .catalog_playback import baseline_pending
-
-            baseline_pending(state)
+            await self._restore_hooks("gap", state)
             self._gap(state, str(payload))
             if config:
                 bindings = {
@@ -1234,9 +908,7 @@ class Runtime:
                     and obs.binding_id in {b.binding_id for b in config.bindings}
                     and not self._older_than_stored(state, obs)
                 ):
-                    from .catalog_playback import frame
-
-                    frame(state, obs)
+                    self._hooks(slots.OBSERVATION, "frame", state, obs)
                     state.tables["source_observation_current"][obs.binding_id] = (
                         obs.storage_document()
                     )
@@ -1247,9 +919,11 @@ class Runtime:
                 return None
             stored = state.tables["source_observation_current"].get(obs.binding_id)
             previous = self._observation(stored) if stored else None
-            from .mqtt_restore import retained_replay
-
-            if retained_replay(obs, previous, config, self.types, now):
+            if any(
+                slots.OBSERVATION[order].handler(obs, previous, config, self.types, now)
+                for order in sorted(slots.OBSERVATION)
+                if slots.OBSERVATION[order].phase == "filter"
+            ):
                 return None
             # Overflow drains the newest coalesced observation before older queue
             # entries. Quality changes must obey measurement order too. Without
@@ -1289,12 +963,11 @@ class Runtime:
                 )
             ):
                 return None
-            from .mqtt_restore import remember as remember_mqtt
-
-            obs = remember_mqtt(obs, config, self.types, self.clock.now_utc())
-            from .catalog_playback import frame
-
-            frame(state, obs)
+            for order in sorted(slots.OBSERVATION):
+                hook = slots.OBSERVATION[order]
+                if hook.phase == "remember":
+                    obs = hook.handler(obs, config, self.types, self.clock.now_utc())
+            self._hooks(slots.OBSERVATION, "frame", state, obs)
             self._remember_observation(state, obs)
             await self._record_observation(state, obs)
         elif operation != "tick":
@@ -1577,8 +1250,6 @@ class Runtime:
     ) -> set[str]:
         """Return transaction-local failures after discarding their staged producer effects."""
         evaluation_errors: set[str] = set()
-        from .service_jobs import plan_calendars
-
         # Care forks share evidence and unrelated nodes read-only. These existing
         # planners and sensor assessments can mutate nested service rows.
         state.detach_rows(
@@ -1586,7 +1257,7 @@ class Runtime:
             (key for key in state.tables["service_state"] if not key.startswith("catalog_")),
         )
         state.detach_rows("service_job", state.tables["service_job"])
-        plan_calendars(state, config, self.clock.now_utc())
+        self._hooks(slots.AFTER_EVALUATE, "prepare", state, config, self.clock.now_utc())
         calendar_changed = self._calendar_observations(state, config, origin)
         observations = {
             key: self._observation(row)
@@ -1756,9 +1427,9 @@ class Runtime:
                 restoring=origin == "restore",
             )
             required = [fields[k] for k, v in declaration.schema.fields.items() if v.required]
-            from .catalog_playback import finish as finish_catalog_playback
-
-            finish_catalog_playback(state, key, fields, contract_origin, input_event)
+            self._hooks(
+                slots.AFTER_EVALUATE, "contract", state, key, fields, contract_origin, input_event
+            )
             healthy = all(v.quality == "healthy" for v in required)
             available = all(
                 fields[k].quality == "healthy" for k in declaration.schema.available_projection
@@ -2026,9 +1697,7 @@ class Runtime:
             or state.tables["service_state"].get("catalog_counter_epoch")
             != self.state.tables["service_state"].get("catalog_counter_epoch")
         )
-        from .authoring import archive_versions
-
-        archive_versions(self.state, state)
+        self._hooks(slots.BEFORE_COMMIT, "archive", self.state, state)
         config = (
             self.config
             if state.active_revision == self.state.active_revision
@@ -2059,13 +1728,7 @@ class Runtime:
         previous_contracts = self.state.tables["contract_state_current"]
         previously_needed_ha = self.requires_ha_snapshot
         self.state = state
-        from .catalog_playback import next_due
-
-        if self.catalog_alarm:
-            self.catalog_alarm.cancel()
-        catalog_due = next_due(state, self.clock.now_utc())
-        if catalog_due and not self.stopping:
-            self.catalog_alarm = self.clock.call_at_utc(catalog_due, self._catalog_tick)
+        self._hooks(slots.NEXT_DUE, "commit", self, state)
         if not self.requires_ha_snapshot:
             self.ha = self.bridge = "not_needed"
             self.bridge_subscriptions = 0
@@ -2180,9 +1843,10 @@ class Runtime:
     def _plan_evaluation(self, *, schedule: bool = True) -> None:
         now = self.clock.now_utc()
         due: list[datetime] = []
-        from .service_jobs import due_dates
-
-        due.extend(due_dates(self.state))
+        for order in sorted(slots.NEXT_DUE):
+            hook = slots.NEXT_DUE[order]
+            if hook.phase == "evaluation":
+                due.extend(hook.handler(self.state))
         config = self.config
         if config:
             if config.history_retention:

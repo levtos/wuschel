@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import copy
 import logging
-import re
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from . import slots
-from .model import canonical, checksum
+from .errors import AuthoringError as AuthoringError
+from .model import checksum
 from .numeric_equivalence import preserve_config, preserve_numbers
 from .persistence import State
 from .registry import (
@@ -18,6 +18,14 @@ from .registry import (
     storage_document,
 )
 from .validation import validate_document as validate
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+import re
+from typing import TYPE_CHECKING
+
+from .model import canonical
 
 if TYPE_CHECKING:
     from .runtime import Runtime
@@ -30,15 +38,6 @@ from .numeric_equivalence import equivalent
 from .persistence import PersistenceUnavailable
 
 LOGGER = logging.getLogger(__name__)
-
-
-class AuthoringError(ValueError):
-    """A safe, structured conflict (never include document contents in logs)."""
-
-    def __init__(self, code: str, **details: Any) -> None:
-        super().__init__(code)
-        self.code = code
-        self.details = details
 
 
 def base_fields(state: Any) -> dict[str, Any]:
@@ -1345,3 +1344,11 @@ async def operation_activate(
 
 slots.OPERATIONS["activate"] = slots.Operation(operation_activate, state="full", early=False)
 slots.OPERATIONS["rollback"] = slots.Operation(operation_activate, state="full", early=False)
+
+
+async def restore_authoring(runtime: Runtime, state: State, context: Any) -> None:
+    await migrate(runtime, state, runtime.clock.now_utc())
+
+
+slots.RESTORE[30] = slots.Hook(restore_authoring, "migration")
+slots.BEFORE_COMMIT[10] = slots.Hook(archive_versions, "archive")

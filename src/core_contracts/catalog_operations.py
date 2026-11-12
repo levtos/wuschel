@@ -15,6 +15,11 @@ from .registry import (
 if TYPE_CHECKING:
     from .runtime import Runtime
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
 
 def care_timing(runtime: Runtime, payload: Any, care_started: float) -> None:
     runtime.catalog_care_timings = {
@@ -105,7 +110,7 @@ async def operation_catalog_tick(
 
 
 slots.OPERATIONS["catalog_tick"] = slots.Operation(
-    operation_catalog_tick, state="live", early=False
+    operation_catalog_tick, state="live", early=False, offline=True
 )
 
 
@@ -288,3 +293,11 @@ slots.OPERATIONS["catalog_care_write"] = slots.Operation(
 slots.OPERATIONS["catalog_care_preview"] = slots.Operation(
     operation_catalog_write, state="catalog", early=False, after_prepare=care_timing
 )
+
+
+async def submit_care(runtime: Runtime, operation: str, payload: Any) -> Any:
+    payload = {**payload, "_queued_at": runtime.clock.monotonic()}
+    return await runtime._enqueue(operation, payload)
+
+
+slots.SUBMIT_PREFIXES["catalog_care_"] = submit_care

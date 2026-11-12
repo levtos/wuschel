@@ -20,6 +20,8 @@ class Operation:
     handler: Callable[[Runtime, State, str, Any, datetime, RegistryConfig | None], Awaitable[Any]]
     state: Literal["none", "live", "catalog", "full"] = "full"
     early: bool = False
+    drain: bool = True
+    offline: bool = False
     after_prepare: Callable[[Runtime, Any, float], None] | None = None
 
 
@@ -42,3 +44,5 @@ OBSERVATION: dict[int, Hook] = {}
 # methods (including existing subclass overrides and test patch points).
 SUBMIT: dict[str, Callable[..., Awaitable[Any]]] = {}
 CONFIGURATION: dict[str, Callable[..., Any]] = {}
+
+SUBMIT_PREFIXES: dict[str, Callable[..., Awaitable[Any]]] = {}

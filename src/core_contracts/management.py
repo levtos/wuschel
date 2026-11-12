@@ -23,6 +23,11 @@ from .registry import (
 if TYPE_CHECKING:
     from .runtime import Runtime
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
 from typing import cast
 
 from .persistence import ARCHIVE, PersistenceUnavailable
@@ -279,7 +284,7 @@ async def operation_management_commit(
 
 
 slots.OPERATIONS["management_commit"] = slots.Operation(
-    operation_management_commit, state="none", early=True
+    operation_management_commit, state="none", early=True, drain=False
 )
 
 
@@ -320,3 +325,7 @@ async def operation_audit(
 
 
 slots.OPERATIONS["audit"] = slots.Operation(operation_audit, state="full", early=False)
+
+
+for operation in OPERATIONS:
+    slots.SUBMIT[operation] = execute

@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from . import slots
 from .declarative import all_rules
+from .errors import RegistryValidationError as RegistryValidationError
 from .model import Model, canonical, semantic_fingerprint
 from .numeric_equivalence import preserve_numbers
 from .persistence import State
@@ -45,12 +46,6 @@ class ValidationIssue(Model):
     object_id: str | None = None
     message: str
     parameters: dict[str, str | None] | None = None
-
-
-class RegistryValidationError(ValueError):
-    def __init__(self, issues: list[ValidationIssue]) -> None:
-        self.issues = issues
-        super().__init__(issues[0].message)
 
 
 def pointer(parts: tuple[str | int, ...]) -> str:

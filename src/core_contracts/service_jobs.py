@@ -17,6 +17,11 @@ from .registry import (
 if TYPE_CHECKING:
     from .runtime import Runtime
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
 from datetime import time
 from zoneinfo import ZoneInfo
 
@@ -397,3 +402,12 @@ async def operation_service_complete(
 slots.OPERATIONS["service_complete"] = slots.Operation(
     operation_service_complete, state="full", early=False
 )
+
+
+async def restore_service_jobs(runtime: Runtime, state: State, context: Any) -> None:
+    restore_jobs(state, runtime.clock.now_utc())
+
+
+slots.RESTORE[50] = slots.Hook(restore_service_jobs, "jobs")
+slots.AFTER_EVALUATE[10] = slots.Hook(plan_calendars, "prepare")
+slots.NEXT_DUE[10] = slots.Hook(due_dates, "evaluation")

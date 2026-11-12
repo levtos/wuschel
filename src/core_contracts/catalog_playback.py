@@ -1,13 +1,20 @@
 """Nonsemantic catalog observation; never schedules or batches contract evaluation."""
 
-import json
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from . import slots
 from .evidence import Observation
-from .managed_catalog import head_key, identity
 from .model import checksum
+from .persistence import State
 from .quality import FieldValue
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+import json
+
+from .managed_catalog import head_key, identity
 
 PREFIX = "catalog_playback:"
 STABLE_SECONDS = 2
@@ -454,3 +461,28 @@ def next_due(state: Any, now: datetime) -> datetime | None:
         ),
         default=None,
     )
+
+
+async def restore_baseline(runtime: Runtime, state: State, context: Any) -> None:
+    baseline_pending(state)
+
+
+slots.RESTORE[20] = slots.Hook(restore_baseline, "migration")
+slots.RESTORE[25] = slots.Hook(restore_baseline, "gap")
+
+
+slots.OBSERVATION[30] = slots.Hook(frame, "frame")
+slots.AFTER_EVALUATE[20] = slots.Hook(finish, "contract")
+
+
+def plan_deadline(runtime: Runtime, state: State) -> None:
+    if runtime.catalog_alarm:
+        runtime.catalog_alarm.cancel()
+    catalog_due = next_due(state, runtime.clock.now_utc())
+    if catalog_due and not runtime.stopping:
+        runtime.catalog_alarm = runtime.clock.call_at_utc(
+            catalog_due, lambda: runtime._queue_operation("catalog_tick")
+        )
+
+
+slots.NEXT_DUE[20] = slots.Hook(plan_deadline, "commit")

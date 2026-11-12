@@ -7,11 +7,18 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from . import slots
-from .model import canonical, checksum
+from .model import checksum
 from .persistence import State
 from .registry import (
     RegistryConfig,
 )
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+from typing import TYPE_CHECKING
+
+from .model import canonical
 
 if TYPE_CHECKING:
     from .runtime import Runtime
@@ -410,3 +417,12 @@ slots.OPERATIONS["title_sync_preview"] = slots.Operation(
 slots.OPERATIONS["title_sync_apply"] = slots.Operation(
     operation_title_sync_preview, state="none", early=False
 )
+
+
+async def submit_preview(runtime: Runtime, operation: str, payload: Any) -> Any:
+    if not runtime.persistence:
+        raise RuntimeError("persistence_unavailable")
+    return await preview(runtime, payload)
+
+
+slots.SUBMIT["title_sync_preview"] = submit_preview

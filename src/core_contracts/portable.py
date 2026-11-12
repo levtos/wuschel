@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from . import slots
-from .model import canonical, checksum
+from .model import checksum
 from .numeric_equivalence import preserve_config, preserve_numbers
 from .persistence import State
 from .registry import (
@@ -15,6 +15,13 @@ from .registry import (
     storage_document,
 )
 from .validation import validate_document as validate
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+from typing import TYPE_CHECKING
+
+from .model import canonical
 
 if TYPE_CHECKING:
     from .runtime import Runtime
@@ -1041,3 +1048,25 @@ async def operation_portable_stage(
 slots.OPERATIONS["portable_stage"] = slots.Operation(
     operation_portable_stage, state="full", early=False
 )
+
+
+async def _portable_numbers(runtime: Runtime, request: dict[str, Any]) -> dict[str, Any]:
+    from .portable import read_package, strict_json
+
+    package = read_package(
+        strict_json(request["package_text"]) if "package_text" in request else request["package"]
+    )
+    target = runtime.state.tables["registry_draft"].get(request.get("target_draft_id", ""))
+    from .validation import RegistryValidationError
+
+    try:
+        return await runtime._restore_numbers(
+            package["config"], target["config"] if target else None
+        )
+    except RegistryValidationError:
+        # Package integrity and structural parsing have already succeeded.
+        # The preview must display semantic issues before offering a correction.
+        return copy.deepcopy(package["config"])
+
+
+slots.CONFIGURATION["_portable_numbers"] = _portable_numbers
