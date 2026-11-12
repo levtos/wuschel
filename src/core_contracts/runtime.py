@@ -1875,7 +1875,7 @@ class Runtime:
 
             return await execute(self, state, payload)
         if operation == "manual_source_enter":
-            from .manual_source import enter
+            from .manual_entry import enter
 
             return await enter(self, state, payload)
         if operation == "snapshot":
