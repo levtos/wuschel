@@ -21,3 +21,13 @@ Repository-specific:
 - Never call tools that return the Wuschel app options (they contain secrets).
 - The legacy integration `benni_core_contracts` is not touched.
 - Before pushing any change to `custom_components/traber/` or `tests/test_bridge_kernel.py`, run the HA-kernel test locally with the exact Python/package versions from the `ha-bridge` CI job. It must pass before push; on Windows use the venv's `Scripts/python.exe` equivalent.
+
+## Grenzen
+
+Die Paketzuordnung und geprüften Ausnahmen stehen in
+`docs/architecture/b25/grenzen.md`: Ein Paket darf nur weiter unten stehende
+Pakete importieren. Kein Kernpaket importiert eine Kartusche; nur `app` und
+`tooling` dürfen das. Kartuschen dürfen `kernel`, `store`, `rules` und
+`management` importieren, nicht `lane`, `adapters` oder `api`. Kartuschen kennen
+einander nicht; nur `tc_migration` darf `catalog` benutzen. Die Ausnahmeliste
+darf nur kürzer werden. Prüfen mit `uv run lint-imports`.

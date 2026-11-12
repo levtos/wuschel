@@ -1,0 +1,3565 @@
+{
+  "messages": [
+    {
+      "reason": "epoch",
+      "type": "resync_required"
+    },
+    {
+      "bridge": "not_needed",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": false
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": null
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": null
+        },
+        {
+          "code": "publication",
+          "satisfied": null
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "not_needed",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": false,
+      "reasons": [
+        "no_active_registry"
+      ],
+      "type": "service_state"
+    },
+    {
+      "contracts": {
+        "fixture.sleep": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:00Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.sleep",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "deadline_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "entry_origin": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "initial"
+            },
+            "episode_active": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": false
+            },
+            "episode_id": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "uuid-2"
+            },
+            "episode_started_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "2026-01-01T12:00:00Z"
+            },
+            "last_action_origin": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "since_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "2026-01-01T12:00:00Z"
+            },
+            "sleep_context_active": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": false
+            },
+            "sleep_started_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "value": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "awake"
+            },
+            "wake_decision": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.appointments",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.local_date",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_minimum_sleep_applied": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.appointments",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.local_date",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_next_wake_start": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.appointments",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.local_date",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_plan_date": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.appointments",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.local_date",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_status": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.appointments",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.local_date",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_window_end": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.appointments",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.local_date",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_window_start": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.appointments",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.local_date",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            }
+          },
+          "fixture": false,
+          "publication_seq": 1,
+          "published_at": "2026-01-01T12:00:00Z",
+          "registry_revision": 1,
+          "state_machine": {
+            "deadline": null,
+            "entry_label": "initial",
+            "episode_ended_at": null,
+            "episode_id": "uuid-2",
+            "episode_started_at": "2026-01-01T12:00:00Z",
+            "evidence": [],
+            "fingerprint": "5a8e4314d74d4cb9ee7eeaebd140d01c9ae0e35cb5b1690346d9ff788b1b327d",
+            "origin": "automatic",
+            "previous_state": null,
+            "registry_revision": 1,
+            "session_id": null,
+            "since_at": "2026-01-01T12:00:00Z",
+            "source": "runtime",
+            "state": "awake",
+            "state_format": 1,
+            "transition_reason": "initial",
+            "trigger": "first_start"
+          },
+          "type": {
+            "id": "sleep.flow",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 0,
+      "publication_seq": 1,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "bridge": "disconnected",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": true
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": false
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": false
+        },
+        {
+          "code": "publication",
+          "satisfied": true
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "disconnected",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": false,
+      "reasons": [
+        "first_bridge_snapshot_pending"
+      ],
+      "type": "service_state"
+    },
+    {
+      "contracts": {
+        "fixture.sleep": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:00Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.sleep",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "deadline_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "entry_origin": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "initial"
+            },
+            "episode_active": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": false
+            },
+            "episode_id": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "uuid-2"
+            },
+            "episode_started_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "2026-01-01T12:00:00Z"
+            },
+            "last_action_origin": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "since_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "2026-01-01T12:00:00Z"
+            },
+            "sleep_context_active": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": false
+            },
+            "sleep_started_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "value": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "awake"
+            },
+            "wake_decision": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.appointments",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_minimum_sleep_applied": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.appointments",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_next_wake_start": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.appointments",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_plan_date": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.appointments",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_status": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.appointments",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_window_end": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.appointments",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_window_start": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.appointments",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                },
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            }
+          },
+          "fixture": false,
+          "publication_seq": 2,
+          "published_at": "2026-01-01T12:00:00Z",
+          "registry_revision": 1,
+          "state_machine": {
+            "deadline": null,
+            "entry_label": "initial",
+            "episode_ended_at": null,
+            "episode_id": "uuid-2",
+            "episode_started_at": "2026-01-01T12:00:00Z",
+            "evidence": [],
+            "fingerprint": "5a8e4314d74d4cb9ee7eeaebd140d01c9ae0e35cb5b1690346d9ff788b1b327d",
+            "origin": "automatic",
+            "previous_state": null,
+            "registry_revision": 1,
+            "session_id": null,
+            "since_at": "2026-01-01T12:00:00Z",
+            "source": "runtime",
+            "state": "awake",
+            "state_format": 1,
+            "transition_reason": "initial",
+            "trigger": "first_start"
+          },
+          "type": {
+            "id": "sleep.flow",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 1,
+      "publication_seq": 2,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.sleep": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:00Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.sleep",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "deadline_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "entry_origin": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "initial"
+            },
+            "episode_active": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": false
+            },
+            "episode_id": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "uuid-2"
+            },
+            "episode_started_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "2026-01-01T12:00:00Z"
+            },
+            "last_action_origin": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "since_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "2026-01-01T12:00:00Z"
+            },
+            "sleep_context_active": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": false
+            },
+            "sleep_started_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "value": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "awake"
+            },
+            "wake_decision": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_minimum_sleep_applied": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_next_wake_start": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_plan_date": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_status": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_window_end": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            },
+            "wake_window_start": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.holiday_days",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            }
+          },
+          "fixture": false,
+          "publication_seq": 3,
+          "published_at": "2026-01-01T12:00:00Z",
+          "registry_revision": 1,
+          "state_machine": {
+            "deadline": null,
+            "entry_label": "initial",
+            "episode_ended_at": null,
+            "episode_id": "uuid-2",
+            "episode_started_at": "2026-01-01T12:00:00Z",
+            "evidence": [],
+            "fingerprint": "5a8e4314d74d4cb9ee7eeaebd140d01c9ae0e35cb5b1690346d9ff788b1b327d",
+            "origin": "automatic",
+            "previous_state": null,
+            "registry_revision": 1,
+            "session_id": null,
+            "since_at": "2026-01-01T12:00:00Z",
+            "source": "runtime",
+            "state": "awake",
+            "state_format": 1,
+            "transition_reason": "initial",
+            "trigger": "first_start"
+          },
+          "type": {
+            "id": "sleep.flow",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 2,
+      "publication_seq": 3,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.sleep": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:00Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.sleep",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "deadline_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "entry_origin": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "initial"
+            },
+            "episode_active": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": false
+            },
+            "episode_id": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "uuid-2"
+            },
+            "episode_started_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "2026-01-01T12:00:00Z"
+            },
+            "last_action_origin": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "since_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "2026-01-01T12:00:00Z"
+            },
+            "sleep_context_active": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": false
+            },
+            "sleep_started_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "value": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "awake"
+            },
+            "wake_decision": {
+              "evidence": [
+                "v2:uuid-1:1:manual:14:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "rule_wake"
+            },
+            "wake_minimum_sleep_applied": {
+              "evidence": [
+                "v2:uuid-1:1:manual:14:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": false
+            },
+            "wake_next_wake_start": {
+              "evidence": [
+                "v2:uuid-1:1:manual:14:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01T14:00:00Z"
+            },
+            "wake_plan_date": {
+              "evidence": [
+                "v2:uuid-1:1:manual:14:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01"
+            },
+            "wake_status": {
+              "evidence": [
+                "v2:uuid-1:1:manual:14:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "scheduled"
+            },
+            "wake_window_end": {
+              "evidence": [
+                "v2:uuid-1:1:manual:14:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01T14:05:00Z"
+            },
+            "wake_window_start": {
+              "evidence": [
+                "v2:uuid-1:1:manual:14:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01T13:55:00Z"
+            }
+          },
+          "fixture": false,
+          "publication_seq": 4,
+          "published_at": "2026-01-01T12:00:00Z",
+          "registry_revision": 1,
+          "state_machine": {
+            "deadline": null,
+            "entry_label": "initial",
+            "episode_ended_at": null,
+            "episode_id": "uuid-2",
+            "episode_started_at": "2026-01-01T12:00:00Z",
+            "evidence": [],
+            "fingerprint": "5a8e4314d74d4cb9ee7eeaebd140d01c9ae0e35cb5b1690346d9ff788b1b327d",
+            "origin": "automatic",
+            "previous_state": null,
+            "registry_revision": 1,
+            "session_id": null,
+            "since_at": "2026-01-01T12:00:00Z",
+            "source": "runtime",
+            "state": "awake",
+            "state_format": 1,
+            "transition_reason": "initial",
+            "trigger": "first_start"
+          },
+          "type": {
+            "id": "sleep.flow",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 3,
+      "publication_seq": 4,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.sleep": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:00Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.sleep",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "deadline_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "entry_origin": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "initial"
+            },
+            "episode_active": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": false
+            },
+            "episode_id": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "uuid-2"
+            },
+            "episode_started_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "2026-01-01T12:00:00Z"
+            },
+            "last_action_origin": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "since_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "2026-01-01T12:00:00Z"
+            },
+            "sleep_context_active": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": false
+            },
+            "sleep_started_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "value": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "awake"
+            },
+            "wake_decision": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "rule_wake"
+            },
+            "wake_minimum_sleep_applied": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": false
+            },
+            "wake_next_wake_start": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01T14:00:00Z"
+            },
+            "wake_plan_date": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01"
+            },
+            "wake_status": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "scheduled"
+            },
+            "wake_window_end": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01T14:05:00Z"
+            },
+            "wake_window_start": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01T13:55:00Z"
+            }
+          },
+          "fixture": false,
+          "publication_seq": 5,
+          "published_at": "2026-01-01T12:00:00Z",
+          "registry_revision": 1,
+          "state_machine": {
+            "deadline": null,
+            "entry_label": "initial",
+            "episode_ended_at": null,
+            "episode_id": "uuid-2",
+            "episode_started_at": "2026-01-01T12:00:00Z",
+            "evidence": [],
+            "fingerprint": "5a8e4314d74d4cb9ee7eeaebd140d01c9ae0e35cb5b1690346d9ff788b1b327d",
+            "origin": "automatic",
+            "previous_state": null,
+            "registry_revision": 1,
+            "session_id": null,
+            "since_at": "2026-01-01T12:00:00Z",
+            "source": "runtime",
+            "state": "awake",
+            "state_format": 1,
+            "transition_reason": "initial",
+            "trigger": "first_start"
+          },
+          "type": {
+            "id": "sleep.flow",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 4,
+      "publication_seq": 5,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.sleep": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:00Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.sleep",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "deadline_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "entry_origin": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "initial"
+            },
+            "episode_active": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": false
+            },
+            "episode_id": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "uuid-2"
+            },
+            "episode_started_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "2026-01-01T12:00:00Z"
+            },
+            "last_action_origin": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "since_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "2026-01-01T12:00:00Z"
+            },
+            "sleep_context_active": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": false
+            },
+            "sleep_started_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "value": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "awake"
+            },
+            "wake_decision": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:17:binding.manual_exception"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "manual_time"
+            },
+            "wake_minimum_sleep_applied": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:17:binding.manual_exception"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": false
+            },
+            "wake_next_wake_start": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:17:binding.manual_exception"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01T15:00:00Z"
+            },
+            "wake_plan_date": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:17:binding.manual_exception"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01"
+            },
+            "wake_status": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:17:binding.manual_exception"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "scheduled"
+            },
+            "wake_window_end": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:17:binding.manual_exception"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01T15:05:00Z"
+            },
+            "wake_window_start": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:17:binding.manual_exception"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01T14:55:00Z"
+            }
+          },
+          "fixture": false,
+          "publication_seq": 6,
+          "published_at": "2026-01-01T12:00:00Z",
+          "registry_revision": 1,
+          "state_machine": {
+            "deadline": null,
+            "entry_label": "initial",
+            "episode_ended_at": null,
+            "episode_id": "uuid-2",
+            "episode_started_at": "2026-01-01T12:00:00Z",
+            "evidence": [],
+            "fingerprint": "5a8e4314d74d4cb9ee7eeaebd140d01c9ae0e35cb5b1690346d9ff788b1b327d",
+            "origin": "automatic",
+            "previous_state": null,
+            "registry_revision": 1,
+            "session_id": null,
+            "since_at": "2026-01-01T12:00:00Z",
+            "source": "runtime",
+            "state": "awake",
+            "state_format": 1,
+            "transition_reason": "initial",
+            "trigger": "first_start"
+          },
+          "type": {
+            "id": "sleep.flow",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 5,
+      "publication_seq": 6,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.sleep": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:00Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.sleep",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "deadline_at": {
+              "evidence": [
+                "v2:uuid-1:1:manual:4:binding.tv",
+                "v2:uuid-1:1:manual:5:binding.pc",
+                "v2:uuid-1:1:manual:6:binding.location",
+                "v2:uuid-1:1:manual:7:binding.permission",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:17:binding.manual_exception",
+                "v2:uuid-1:1:manual:9:binding.hallway",
+                "v2:uuid-1:1:manual:8:binding.coffee",
+                "v2:uuid-1:1:manual:12:binding.volume",
+                "v2:uuid-1:1:manual:10:binding.terrace",
+                "v2:uuid-1:1:manual:11:binding.window_1"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "2026-01-01T12:45:00Z"
+            },
+            "entry_origin": {
+              "evidence": [
+                "v2:uuid-1:1:manual:4:binding.tv",
+                "v2:uuid-1:1:manual:5:binding.pc",
+                "v2:uuid-1:1:manual:6:binding.location",
+                "v2:uuid-1:1:manual:7:binding.permission",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:17:binding.manual_exception",
+                "v2:uuid-1:1:manual:9:binding.hallway",
+                "v2:uuid-1:1:manual:8:binding.coffee",
+                "v2:uuid-1:1:manual:12:binding.volume",
+                "v2:uuid-1:1:manual:10:binding.terrace",
+                "v2:uuid-1:1:manual:11:binding.window_1"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "intentional"
+            },
+            "episode_active": {
+              "evidence": [
+                "v2:uuid-1:1:manual:4:binding.tv",
+                "v2:uuid-1:1:manual:5:binding.pc",
+                "v2:uuid-1:1:manual:6:binding.location",
+                "v2:uuid-1:1:manual:7:binding.permission",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:17:binding.manual_exception",
+                "v2:uuid-1:1:manual:9:binding.hallway",
+                "v2:uuid-1:1:manual:8:binding.coffee",
+                "v2:uuid-1:1:manual:12:binding.volume",
+                "v2:uuid-1:1:manual:10:binding.terrace",
+                "v2:uuid-1:1:manual:11:binding.window_1"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": true
+            },
+            "episode_id": {
+              "evidence": [
+                "v2:uuid-1:1:manual:4:binding.tv",
+                "v2:uuid-1:1:manual:5:binding.pc",
+                "v2:uuid-1:1:manual:6:binding.location",
+                "v2:uuid-1:1:manual:7:binding.permission",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:17:binding.manual_exception",
+                "v2:uuid-1:1:manual:9:binding.hallway",
+                "v2:uuid-1:1:manual:8:binding.coffee",
+                "v2:uuid-1:1:manual:12:binding.volume",
+                "v2:uuid-1:1:manual:10:binding.terrace",
+                "v2:uuid-1:1:manual:11:binding.window_1"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "uuid-3"
+            },
+            "episode_started_at": {
+              "evidence": [
+                "v2:uuid-1:1:manual:4:binding.tv",
+                "v2:uuid-1:1:manual:5:binding.pc",
+                "v2:uuid-1:1:manual:6:binding.location",
+                "v2:uuid-1:1:manual:7:binding.permission",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:17:binding.manual_exception",
+                "v2:uuid-1:1:manual:9:binding.hallway",
+                "v2:uuid-1:1:manual:8:binding.coffee",
+                "v2:uuid-1:1:manual:12:binding.volume",
+                "v2:uuid-1:1:manual:10:binding.terrace",
+                "v2:uuid-1:1:manual:11:binding.window_1"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "2026-01-01T12:00:00Z"
+            },
+            "last_action_origin": {
+              "evidence": [
+                "v2:uuid-1:1:manual:4:binding.tv",
+                "v2:uuid-1:1:manual:5:binding.pc",
+                "v2:uuid-1:1:manual:6:binding.location",
+                "v2:uuid-1:1:manual:7:binding.permission",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:17:binding.manual_exception",
+                "v2:uuid-1:1:manual:9:binding.hallway",
+                "v2:uuid-1:1:manual:8:binding.coffee",
+                "v2:uuid-1:1:manual:12:binding.volume",
+                "v2:uuid-1:1:manual:10:binding.terrace",
+                "v2:uuid-1:1:manual:11:binding.window_1"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "intentional"
+            },
+            "since_at": {
+              "evidence": [
+                "v2:uuid-1:1:manual:4:binding.tv",
+                "v2:uuid-1:1:manual:5:binding.pc",
+                "v2:uuid-1:1:manual:6:binding.location",
+                "v2:uuid-1:1:manual:7:binding.permission",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:17:binding.manual_exception",
+                "v2:uuid-1:1:manual:9:binding.hallway",
+                "v2:uuid-1:1:manual:8:binding.coffee",
+                "v2:uuid-1:1:manual:12:binding.volume",
+                "v2:uuid-1:1:manual:10:binding.terrace",
+                "v2:uuid-1:1:manual:11:binding.window_1"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "2026-01-01T12:00:00Z"
+            },
+            "sleep_context_active": {
+              "evidence": [
+                "v2:uuid-1:1:manual:4:binding.tv",
+                "v2:uuid-1:1:manual:5:binding.pc",
+                "v2:uuid-1:1:manual:6:binding.location",
+                "v2:uuid-1:1:manual:7:binding.permission",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:17:binding.manual_exception",
+                "v2:uuid-1:1:manual:9:binding.hallway",
+                "v2:uuid-1:1:manual:8:binding.coffee",
+                "v2:uuid-1:1:manual:12:binding.volume",
+                "v2:uuid-1:1:manual:10:binding.terrace",
+                "v2:uuid-1:1:manual:11:binding.window_1"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": true
+            },
+            "sleep_started_at": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": true,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "not_applicable",
+              "value": null
+            },
+            "value": {
+              "evidence": [
+                "v2:uuid-1:1:manual:4:binding.tv",
+                "v2:uuid-1:1:manual:5:binding.pc",
+                "v2:uuid-1:1:manual:6:binding.location",
+                "v2:uuid-1:1:manual:7:binding.permission",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:17:binding.manual_exception",
+                "v2:uuid-1:1:manual:9:binding.hallway",
+                "v2:uuid-1:1:manual:8:binding.coffee",
+                "v2:uuid-1:1:manual:12:binding.volume",
+                "v2:uuid-1:1:manual:10:binding.terrace",
+                "v2:uuid-1:1:manual:11:binding.window_1"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "pre_sleep"
+            },
+            "wake_decision": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:17:binding.manual_exception"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "manual_time"
+            },
+            "wake_minimum_sleep_applied": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:17:binding.manual_exception"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": false
+            },
+            "wake_next_wake_start": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:17:binding.manual_exception"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01T15:00:00Z"
+            },
+            "wake_plan_date": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:17:binding.manual_exception"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01"
+            },
+            "wake_status": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:17:binding.manual_exception"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "scheduled"
+            },
+            "wake_window_end": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:17:binding.manual_exception"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01T15:05:00Z"
+            },
+            "wake_window_start": {
+              "evidence": [
+                "v2:uuid-1:1:manual:16:binding.appointments",
+                "v2:uuid-1:1:manual:15:binding.holiday_days",
+                "v2:uuid-1:1:manual:13:binding.local_date",
+                "v2:uuid-1:1:manual:17:binding.manual_exception"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "valid_from": "2026-01-01T12:00:00Z",
+              "value": "2026-01-01T14:55:00Z"
+            }
+          },
+          "fixture": false,
+          "publication_seq": 7,
+          "published_at": "2026-01-01T12:00:00Z",
+          "registry_revision": 1,
+          "state_machine": {
+            "absolute_at": "2026-01-01T15:00:00Z",
+            "absolute_key": "64ef41bc3964ee219938e4ac08a0e9ff5af3c7bd1b38f17b1269b8146c98a8af",
+            "deadline": {
+              "at": "2026-01-01T12:45:00Z",
+              "deadline_id": "uuid-4",
+              "episode_id": "uuid-3",
+              "fired": false
+            },
+            "deadline_generation": 2,
+            "entry_label": "intentional",
+            "episode_active": true,
+            "episode_ended_at": null,
+            "episode_id": "uuid-3",
+            "episode_started_at": "2026-01-01T12:00:00Z",
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "fingerprint": "5a8e4314d74d4cb9ee7eeaebd140d01c9ae0e35cb5b1690346d9ff788b1b327d",
+            "last_action_origin": "intentional",
+            "origin": "manual",
+            "previous_state": "awake",
+            "registry_revision": 1,
+            "session_id": null,
+            "since_at": "2026-01-01T12:00:00Z",
+            "source": "command",
+            "state": "pre_sleep",
+            "state_format": 1,
+            "transition_reason": "intentional",
+            "trigger": "start_pre_sleep"
+          },
+          "type": {
+            "id": "sleep.flow",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 6,
+      "publication_seq": 7,
+      "registry_revision": 1,
+      "type": "delta"
+    }
+  ],
+  "results": [],
+  "snapshot": {
+    "contracts": {
+      "fixture.sleep": {
+        "available": true,
+        "computed_at": "2026-01-01T12:00:00Z",
+        "contract_health": "healthy",
+        "contract_id": "fixture.sleep",
+        "enabled": true,
+        "epoch_id": "uuid-1",
+        "fields": {
+          "deadline_at": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": "2026-01-01T12:45:00Z"
+          },
+          "entry_origin": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": "intentional"
+          },
+          "episode_active": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": true
+          },
+          "episode_id": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": "uuid-3"
+          },
+          "episode_started_at": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": "2026-01-01T12:00:00Z"
+          },
+          "last_action_origin": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": "intentional"
+          },
+          "since_at": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": "2026-01-01T12:00:00Z"
+          },
+          "sleep_context_active": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": true
+          },
+          "sleep_started_at": {
+            "evidence": [],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": true,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "not_applicable",
+            "value": null
+          },
+          "value": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": "pre_sleep"
+          },
+          "wake_decision": {
+            "evidence": [
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:17:binding.manual_exception"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "valid_from": "2026-01-01T12:00:00Z",
+            "value": "manual_time"
+          },
+          "wake_minimum_sleep_applied": {
+            "evidence": [
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:17:binding.manual_exception"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "valid_from": "2026-01-01T12:00:00Z",
+            "value": false
+          },
+          "wake_next_wake_start": {
+            "evidence": [
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:17:binding.manual_exception"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "valid_from": "2026-01-01T12:00:00Z",
+            "value": "2026-01-01T15:00:00Z"
+          },
+          "wake_plan_date": {
+            "evidence": [
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:17:binding.manual_exception"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "valid_from": "2026-01-01T12:00:00Z",
+            "value": "2026-01-01"
+          },
+          "wake_status": {
+            "evidence": [
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:17:binding.manual_exception"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "valid_from": "2026-01-01T12:00:00Z",
+            "value": "scheduled"
+          },
+          "wake_window_end": {
+            "evidence": [
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:17:binding.manual_exception"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "valid_from": "2026-01-01T12:00:00Z",
+            "value": "2026-01-01T15:05:00Z"
+          },
+          "wake_window_start": {
+            "evidence": [
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:17:binding.manual_exception"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "valid_from": "2026-01-01T12:00:00Z",
+            "value": "2026-01-01T14:55:00Z"
+          }
+        },
+        "fixture": false,
+        "publication_seq": 7,
+        "published_at": "2026-01-01T12:00:00Z",
+        "registry_revision": 1,
+        "state_machine": {
+          "absolute_at": "2026-01-01T15:00:00Z",
+          "absolute_key": "64ef41bc3964ee219938e4ac08a0e9ff5af3c7bd1b38f17b1269b8146c98a8af",
+          "deadline": {
+            "at": "2026-01-01T12:45:00Z",
+            "deadline_id": "uuid-4",
+            "episode_id": "uuid-3",
+            "fired": false
+          },
+          "deadline_generation": 2,
+          "entry_label": "intentional",
+          "episode_active": true,
+          "episode_ended_at": null,
+          "episode_id": "uuid-3",
+          "episode_started_at": "2026-01-01T12:00:00Z",
+          "evidence": [
+            "v2:uuid-1:1:manual:4:binding.tv",
+            "v2:uuid-1:1:manual:5:binding.pc",
+            "v2:uuid-1:1:manual:6:binding.location",
+            "v2:uuid-1:1:manual:7:binding.permission",
+            "v2:uuid-1:1:manual:13:binding.local_date",
+            "v2:uuid-1:1:manual:16:binding.appointments",
+            "v2:uuid-1:1:manual:15:binding.holiday_days",
+            "v2:uuid-1:1:manual:17:binding.manual_exception",
+            "v2:uuid-1:1:manual:9:binding.hallway",
+            "v2:uuid-1:1:manual:8:binding.coffee",
+            "v2:uuid-1:1:manual:12:binding.volume",
+            "v2:uuid-1:1:manual:10:binding.terrace",
+            "v2:uuid-1:1:manual:11:binding.window_1"
+          ],
+          "fingerprint": "5a8e4314d74d4cb9ee7eeaebd140d01c9ae0e35cb5b1690346d9ff788b1b327d",
+          "last_action_origin": "intentional",
+          "origin": "manual",
+          "previous_state": "awake",
+          "registry_revision": 1,
+          "session_id": null,
+          "since_at": "2026-01-01T12:00:00Z",
+          "source": "command",
+          "state": "pre_sleep",
+          "state_format": 1,
+          "transition_reason": "intentional",
+          "trigger": "start_pre_sleep"
+        },
+        "type": {
+          "id": "sleep.flow",
+          "version": 1
+        }
+      }
+    },
+    "epoch_id": "uuid-1",
+    "publication_confirmed": true,
+    "publication_seq": 7,
+    "registry_revision": 1,
+    "type": "snapshot"
+  },
+  "tables": {
+    "contract_state_current": {
+      "fixture.sleep": {
+        "available": true,
+        "computed_at": "2026-01-01T12:00:00Z",
+        "contract_health": "healthy",
+        "contract_id": "fixture.sleep",
+        "enabled": true,
+        "epoch_id": "uuid-1",
+        "fields": {
+          "deadline_at": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": "2026-01-01T12:45:00Z"
+          },
+          "entry_origin": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": "intentional"
+          },
+          "episode_active": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": true
+          },
+          "episode_id": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": "uuid-3"
+          },
+          "episode_started_at": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": "2026-01-01T12:00:00Z"
+          },
+          "last_action_origin": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": "intentional"
+          },
+          "since_at": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": "2026-01-01T12:00:00Z"
+          },
+          "sleep_context_active": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": true
+          },
+          "sleep_started_at": {
+            "evidence": [],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": true,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "not_applicable",
+            "value": null
+          },
+          "value": {
+            "evidence": [
+              "v2:uuid-1:1:manual:4:binding.tv",
+              "v2:uuid-1:1:manual:5:binding.pc",
+              "v2:uuid-1:1:manual:6:binding.location",
+              "v2:uuid-1:1:manual:7:binding.permission",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:17:binding.manual_exception",
+              "v2:uuid-1:1:manual:9:binding.hallway",
+              "v2:uuid-1:1:manual:8:binding.coffee",
+              "v2:uuid-1:1:manual:12:binding.volume",
+              "v2:uuid-1:1:manual:10:binding.terrace",
+              "v2:uuid-1:1:manual:11:binding.window_1"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "value": "pre_sleep"
+          },
+          "wake_decision": {
+            "evidence": [
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:17:binding.manual_exception"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "valid_from": "2026-01-01T12:00:00Z",
+            "value": "manual_time"
+          },
+          "wake_minimum_sleep_applied": {
+            "evidence": [
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:17:binding.manual_exception"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "valid_from": "2026-01-01T12:00:00Z",
+            "value": false
+          },
+          "wake_next_wake_start": {
+            "evidence": [
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:17:binding.manual_exception"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "valid_from": "2026-01-01T12:00:00Z",
+            "value": "2026-01-01T15:00:00Z"
+          },
+          "wake_plan_date": {
+            "evidence": [
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:17:binding.manual_exception"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "valid_from": "2026-01-01T12:00:00Z",
+            "value": "2026-01-01"
+          },
+          "wake_status": {
+            "evidence": [
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:17:binding.manual_exception"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "valid_from": "2026-01-01T12:00:00Z",
+            "value": "scheduled"
+          },
+          "wake_window_end": {
+            "evidence": [
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:17:binding.manual_exception"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "valid_from": "2026-01-01T12:00:00Z",
+            "value": "2026-01-01T15:05:00Z"
+          },
+          "wake_window_start": {
+            "evidence": [
+              "v2:uuid-1:1:manual:16:binding.appointments",
+              "v2:uuid-1:1:manual:15:binding.holiday_days",
+              "v2:uuid-1:1:manual:13:binding.local_date",
+              "v2:uuid-1:1:manual:17:binding.manual_exception"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:00Z",
+            "status": "valid",
+            "valid_from": "2026-01-01T12:00:00Z",
+            "value": "2026-01-01T14:55:00Z"
+          }
+        },
+        "fixture": false,
+        "publication_seq": 7,
+        "published_at": "2026-01-01T12:00:00Z",
+        "registry_revision": 1,
+        "state_machine": {
+          "absolute_at": "2026-01-01T15:00:00Z",
+          "absolute_key": "64ef41bc3964ee219938e4ac08a0e9ff5af3c7bd1b38f17b1269b8146c98a8af",
+          "deadline": {
+            "at": "2026-01-01T12:45:00Z",
+            "deadline_id": "uuid-4",
+            "episode_id": "uuid-3",
+            "fired": false
+          },
+          "deadline_generation": 2,
+          "entry_label": "intentional",
+          "episode_active": true,
+          "episode_ended_at": null,
+          "episode_id": "uuid-3",
+          "episode_started_at": "2026-01-01T12:00:00Z",
+          "evidence": [
+            "v2:uuid-1:1:manual:4:binding.tv",
+            "v2:uuid-1:1:manual:5:binding.pc",
+            "v2:uuid-1:1:manual:6:binding.location",
+            "v2:uuid-1:1:manual:7:binding.permission",
+            "v2:uuid-1:1:manual:13:binding.local_date",
+            "v2:uuid-1:1:manual:16:binding.appointments",
+            "v2:uuid-1:1:manual:15:binding.holiday_days",
+            "v2:uuid-1:1:manual:17:binding.manual_exception",
+            "v2:uuid-1:1:manual:9:binding.hallway",
+            "v2:uuid-1:1:manual:8:binding.coffee",
+            "v2:uuid-1:1:manual:12:binding.volume",
+            "v2:uuid-1:1:manual:10:binding.terrace",
+            "v2:uuid-1:1:manual:11:binding.window_1"
+          ],
+          "fingerprint": "5a8e4314d74d4cb9ee7eeaebd140d01c9ae0e35cb5b1690346d9ff788b1b327d",
+          "last_action_origin": "intentional",
+          "origin": "manual",
+          "previous_state": "awake",
+          "registry_revision": 1,
+          "session_id": null,
+          "since_at": "2026-01-01T12:00:00Z",
+          "source": "command",
+          "state": "pre_sleep",
+          "state_format": 1,
+          "transition_reason": "intentional",
+          "trigger": "start_pre_sleep"
+        },
+        "type": {
+          "id": "sleep.flow",
+          "version": 1
+        }
+      }
+    },
+    "deadline": {
+      "uuid-4": {
+        "at": "2026-01-01T12:45:00Z",
+        "contract_id": "fixture.sleep",
+        "deadline_id": "uuid-4",
+        "episode_id": "uuid-3",
+        "fired": false
+      }
+    },
+    "history_gap": {},
+    "sm_instance": {
+      "fixture.sleep": {
+        "absolute_at": "2026-01-01T15:00:00Z",
+        "absolute_key": "64ef41bc3964ee219938e4ac08a0e9ff5af3c7bd1b38f17b1269b8146c98a8af",
+        "deadline": {
+          "at": "2026-01-01T12:45:00Z",
+          "deadline_id": "uuid-4",
+          "episode_id": "uuid-3",
+          "fired": false
+        },
+        "deadline_generation": 2,
+        "entry_label": "intentional",
+        "episode_active": true,
+        "episode_ended_at": null,
+        "episode_id": "uuid-3",
+        "episode_started_at": "2026-01-01T12:00:00Z",
+        "evidence": [
+          "v2:uuid-1:1:manual:4:binding.tv",
+          "v2:uuid-1:1:manual:5:binding.pc",
+          "v2:uuid-1:1:manual:6:binding.location",
+          "v2:uuid-1:1:manual:7:binding.permission",
+          "v2:uuid-1:1:manual:13:binding.local_date",
+          "v2:uuid-1:1:manual:16:binding.appointments",
+          "v2:uuid-1:1:manual:15:binding.holiday_days",
+          "v2:uuid-1:1:manual:17:binding.manual_exception",
+          "v2:uuid-1:1:manual:9:binding.hallway",
+          "v2:uuid-1:1:manual:8:binding.coffee",
+          "v2:uuid-1:1:manual:12:binding.volume",
+          "v2:uuid-1:1:manual:10:binding.terrace",
+          "v2:uuid-1:1:manual:11:binding.window_1"
+        ],
+        "fingerprint": "5a8e4314d74d4cb9ee7eeaebd140d01c9ae0e35cb5b1690346d9ff788b1b327d",
+        "last_action_origin": "intentional",
+        "origin": "manual",
+        "previous_state": "awake",
+        "registry_revision": 1,
+        "session_id": null,
+        "since_at": "2026-01-01T12:00:00Z",
+        "source": "command",
+        "state": "pre_sleep",
+        "state_format": 1,
+        "transition_reason": "intentional",
+        "trigger": "start_pre_sleep"
+      }
+    }
+  }
+}

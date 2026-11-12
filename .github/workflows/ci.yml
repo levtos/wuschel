@@ -101,6 +101,7 @@ jobs:
       - name: Require public images for the offered store version
         run: uv run python dev/store_offer.py
       - run: uv run ruff check .
+      - run: uv run lint-imports
       - run: uv run ruff format --check .
       - run: uv run mypy --strict src client/core_contracts_client
       - run: uv export --frozen --no-dev --no-emit-project --format requirements-txt > /tmp/platform-requirements.txt
