@@ -17,6 +17,7 @@ class Projection:
         self.owner = None
         self.connected = False
         self.listeners = set()
+        self.sensor_listeners = {}
         self.now = now
         self.schedule = schedule
         self.disconnected_at = None
@@ -30,9 +31,13 @@ class Projection:
             and self.now() - self.disconnected_at < self.grace_seconds
         )
 
-    def notify(self):
+    def notify(self, changed=None):
         for listener in tuple(self.listeners):
             listener()
+        for contract_id, listeners in tuple(self.sensor_listeners.items()):
+            if changed is None or contract_id in changed:
+                for listener in tuple(listeners):
+                    listener()
 
     def accept(self, owner, installation_id, payload):
         if not installation_id or payload.get("installation_id") != installation_id:
@@ -143,6 +148,15 @@ class Projection:
             and sequence < self.sequence
         ):
             return False
+        changed = None
+        if self.connected and self.installation_id == installation_id and self.epoch_id == epoch:
+            # JSON comparison preserves scalar types (True and 1 differ in HA).
+            changed = {
+                key
+                for key in self.rows.keys() | checked.keys()
+                if json.dumps(self.rows.get(key), sort_keys=True)
+                != json.dumps(checked.get(key), sort_keys=True)
+            }
         self.owner = owner
         self.installation_id, self.epoch_id, self.sequence = installation_id, epoch, sequence
         self.rows, self.connected = checked, True
@@ -150,7 +164,7 @@ class Projection:
         if self.expiry:
             self.expiry.cancel()
             self.expiry = None
-        self.notify()
+        self.notify(changed)
         return True
 
     def disconnect(self, owner):
