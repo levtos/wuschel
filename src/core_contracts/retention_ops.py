@@ -23,7 +23,7 @@ async def operation_retention_preview(
 ) -> Any:
     if runtime.config is None or runtime.config.history_retention is None:
         raise ValueError("history_retention_not_configured")
-    return await runtime.store.maintain_history(
+    return await runtime._maintain_history(
         runtime.state,
         runtime.clock.now_utc(),
         runtime.config.history_retention,

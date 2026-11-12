@@ -36,6 +36,7 @@ from .registry import (
     topological,
 )
 from .resolver import Bucket
+from .retention import RetentionPolicy
 from .schema import Envelope, TypeRegistry, validate_fields
 from .statemachine import MachineState
 from .temporal import start_case
@@ -1681,6 +1682,13 @@ class Runtime:
                 },
             )
         return result
+
+    async def _maintain_history(
+        self, state: State, now: datetime, policy: RetentionPolicy, *, dry_run: bool = False
+    ) -> dict[str, Any]:
+        return cast(
+            dict[str, Any], await self.store.maintain_history(state, now, policy, dry_run=dry_run)
+        )
 
     def _unavailable(self) -> None:
         self.persistence = False
