@@ -5,6 +5,7 @@ from copy import deepcopy
 from workbench_post1 import registry as previous_registry
 from workbench_post1 import seed as previous_seed
 
+from core_contracts import wiring  # noqa: F401
 from core_contracts.evidence import Observation
 from core_contracts.runtime import Runtime
 from core_contracts.testing.authoring import activate_draft

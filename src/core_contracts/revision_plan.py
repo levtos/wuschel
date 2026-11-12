@@ -1,9 +1,20 @@
 """Immutable configuration-derived indexes, shared only for one configuration."""
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from .registry import RegistryConfig, required_sources, resolve_ref, topological
+from . import slots
+from .registry import (
+    RegistryConfig,
+    resolve_ref,
+    topological,
+)
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+
+from .registry import required_sources
 
 
 @dataclass
@@ -115,3 +126,17 @@ def build(config: RegistryConfig) -> RevisionPlan:
         protected,
         requires_ha,
     )
+
+
+def _structure(runtime: Runtime, config: RegistryConfig) -> Any:
+    from .revision_plan import build
+
+    key = id(config)
+    if key not in runtime._structures:
+        runtime._structures[key] = build(config)
+        if len(runtime._structures) > 4:
+            runtime._structures.pop(next(iter(runtime._structures)))
+    return runtime._structures[key]
+
+
+slots.CONFIGURATION["_structure"] = _structure

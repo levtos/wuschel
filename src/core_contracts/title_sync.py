@@ -1,11 +1,19 @@
 """Pure reconciliation planning and one serialized, atomic catalog operation."""
 
 import copy
-from collections import Counter
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from pydantic import Field
+
+from . import slots
+from .model import Model, checksum
+from .persistence import State
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+from collections import Counter
 
 from .catalog_mapping import ImportWrite as ImportWrite
 from .catalog_mapping import current_mapping as current_mapping
@@ -20,7 +28,7 @@ from .managed_catalog import (
     invalidate,
     prepare,
 )
-from .model import Model, canonical, checksum
+from .model import canonical
 from .title_import import MAX_BYTES, MAX_ENTRIES, plan_title_import, source_identity
 from .title_transfer import TargetMapping, classification, context_key
 
@@ -410,3 +418,15 @@ async def process(
     from .title_sync_runs import process as process_run
 
     return await process_run(runtime, state, operation, body, now)
+
+
+async def recover_capture(runtime: Runtime, state: State, context: Any) -> None:
+    context["mapping"] = copy.deepcopy(runtime.state.tables.get("title_sync_mapping", {}))
+
+
+async def recover_merge(runtime: Runtime, state: State, context: Any) -> None:
+    restore_mapping(context["mapping"], state.tables.setdefault("title_sync_mapping", {}))
+
+
+slots.RESTORE[80] = slots.Hook(recover_capture, "recover_capture")
+slots.RESTORE[100] = slots.Hook(recover_merge, "recover_merge")

@@ -30,6 +30,7 @@ from aiohttp import ClientSession, web
 from workbench_devices import attach as attach_devices
 from workbench_devices import feed as feed_devices
 
+from core_contracts import wiring  # noqa: F401
 from core_contracts.adapters.ha import BridgeAdapter
 from core_contracts.api import API
 from core_contracts.clock import FakeClock, SystemClock

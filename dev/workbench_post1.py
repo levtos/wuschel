@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 
+from core_contracts import wiring  # noqa: F401
 from core_contracts.evidence import Observation
 from core_contracts.runtime import Runtime
 from core_contracts.testing.authoring import activate_draft

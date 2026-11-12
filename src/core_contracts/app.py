@@ -15,6 +15,7 @@ import asyncpg
 from aiohttp import web
 from pydantic import Field, SecretStr, ValidationError
 
+from . import wiring  # noqa: F401
 from .adapters.ha import BridgeAdapter
 from .adapters.mqtt import MQTTAdapter
 from .api import API

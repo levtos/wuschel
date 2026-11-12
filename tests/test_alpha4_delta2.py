@@ -7,7 +7,7 @@ from time import perf_counter
 
 import pytest
 
-import core_contracts.runtime as runtime_module
+import core_contracts.reconfiguration as runtime_module
 from core_contracts.declarative import Evaluation, all_rules, check_definition
 from core_contracts.declarative_models import DeclarativeDefinition
 from core_contracts.engines import FORMULAS

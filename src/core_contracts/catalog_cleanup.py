@@ -2,17 +2,25 @@
 
 import asyncio
 import copy
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any
+from uuid import uuid4
+
+from . import slots
+from .model import checksum
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
 import json
 from collections import Counter, defaultdict
-from datetime import datetime, timedelta
-from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from .authoring import AuthoringError
 from .catalog_care import all_rows
 from .history import HistoryQuery
 from .managed_catalog import definition, head, head_key
-from .model import canonical, checksum
+from .model import canonical
 
 LIMIT = 100_000
 PLAN_SECONDS = 30 * 60
@@ -402,3 +410,12 @@ def apply(runtime: Any, state: Any, body: dict[str, Any]) -> dict[str, Any]:
         "at": runtime.clock.now_utc().isoformat(),
     }
     return result
+
+
+async def submit_preview(runtime: Runtime, operation: str, payload: Any) -> Any:
+    if not runtime.persistence:
+        raise RuntimeError("persistence_unavailable")
+    return await preview(runtime, payload)
+
+
+slots.SUBMIT["catalog_cleanup_preview"] = submit_preview

@@ -3,6 +3,7 @@
 from workbench_alpha8 import registry as alpha8_registry
 from workbench_alpha8 import seed as alpha8_seed
 
+from core_contracts import wiring  # noqa: F401
 from core_contracts.runtime import Runtime
 from core_contracts.testing.authoring import activate_draft
 
