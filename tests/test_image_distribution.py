@@ -2,6 +2,7 @@
 
 import json
 import os
+import tomllib
 import urllib.error
 from pathlib import Path
 
@@ -42,8 +43,23 @@ def image_info(meta):
 @pytest.mark.parametrize("arch,docker_arch", [("amd64", "amd64")])
 def test_supervisor_reference_and_platform(arch, docker_arch):
     meta = package.metadata(arch, REVISION)
-    assert meta["image"] == f"ghcr.io/levtos/{arch}-wuschel:1.0.0b24"
+    version = tomllib.loads((package.ROOT / "pyproject.toml").read_text())["project"]["version"]
+    assert meta["image"] == f"ghcr.io/levtos/{arch}-wuschel:{version}"
     assert meta["docker_arch"] == docker_arch
+
+
+def test_supervisor_reference_follows_canonical_version_bump(tmp_path, monkeypatch):
+    (tmp_path / "wuschel").mkdir()
+    config = yaml.safe_load((package.ROOT / "wuschel/config.yaml").read_text())
+    config["version"] = "1.0.0b999"
+    (tmp_path / "wuschel/config.yaml").write_text(yaml.safe_dump(config))
+    (tmp_path / "pyproject.toml").write_text('[project]\nversion = "1.0.0b999"\n')
+    original_metadata = package.metadata
+    monkeypatch.setattr(package, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        package, "metadata", lambda arch, revision: original_metadata(arch, revision, tmp_path)
+    )
+    test_supervisor_reference_and_platform("amd64", "amd64")
 
 
 @pytest.mark.parametrize(

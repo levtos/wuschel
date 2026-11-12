@@ -1,0 +1,21 @@
+{
+  "katalog": [
+    "tests/test_managed_catalog.py",
+    "tests/test_catalog_playback.py",
+    "tests/test_catalog_scope.py",
+    "tests/test_catalog_scope_conflicts.py",
+    "tests/test_catalog_cleanup.py",
+    "tests/test_catalog_care.py",
+    "tests/test_catalog_title_keys.py",
+    "tests/test_title_sync.py",
+    "tests/test_title_sync_pages.py",
+    "tests/test_title_import.py",
+    "tests/test_title_reader.py"
+  ],
+  "traber": [
+    "tests/test_bridge_kernel.py",
+    "tests/test_beta5_projection.py",
+    "tests/test_ha_projection_reconnect.py",
+    "tests/test_b23_projection.py"
+  ]
+}

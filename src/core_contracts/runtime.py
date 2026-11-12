@@ -689,12 +689,22 @@ class Runtime:
             return True
         return False
 
-    async def start(self) -> None:
+    async def start(
+        self, *, startup_started: float | None = None, store_open_ms: float = 0.0
+    ) -> None:
+        started = perf_counter() if startup_started is None else startup_started
+        phases = {"store_open": store_open_ms}
+        loaded_at = perf_counter()
         self.state = await self.store.load()
+        phases["load"] = (perf_counter() - loaded_at) * 1000
         self.persistence = True
-        await self._restore("process_restart")
+        restored_at = perf_counter()
+        await self._restore("process_restart", phases=phases)
+        phases["restore"] = (perf_counter() - restored_at) * 1000
         if self.task is None:
             self.task = asyncio.create_task(self.run(), name="processor")
+        phases["total"] = (perf_counter() - started) * 1000
+        LOGGER.info("startup_timing", extra={"phases_ms": phases})
 
     def _gap(self, state: State, reason: str) -> None:
         for sensor_key in list(state.tables["service_state"]):
@@ -708,11 +718,15 @@ class Runtime:
         }
         LOGGER.warning("history_gap", extra={"reason": reason})
 
-    async def _restore(self, reason: str) -> None:
+    async def _restore(self, reason: str, *, phases: dict[str, float] | None = None) -> None:
+        timings = phases if phases is not None else {}
+        started = perf_counter()
         from .managed_catalog import validate_heads, verify_stored_heads
 
         validate_heads(self.state, self.config)
         await verify_stored_heads(self.store, self.state, self.config)
+        timings["restore_catalog_heads"] = (perf_counter() - started) * 1000
+        started = perf_counter()
         self.first_snapshot = False
         if self.context_index:
             self.context_index.clear_registered()
@@ -727,6 +741,8 @@ class Runtime:
             from .reconfiguration import migrate_legacy_contexts
 
             migrate_legacy_contexts(state, restored_config, self.types)
+        timings["restore_migration"] = (perf_counter() - started) * 1000
+        started = perf_counter()
         old_epoch = state.epoch_id
         state.epoch_id = str(uuid4())
         if old_epoch:
@@ -760,6 +776,8 @@ class Runtime:
             for context in self._temporal_contexts(node):
                 if "temporal" in context:
                     context["restore_pending"] = copy.deepcopy(context["temporal"])
+        timings["restore_observations"] = (perf_counter() - started) * 1000
+        started = perf_counter()
         config = (
             self.config
             if state.active_revision == self.state.active_revision
@@ -769,7 +787,10 @@ class Runtime:
             self._evaluate(state, config, origin="restore", initial_latches={})
         else:
             self.pending_latches = {}
+        timings["restore_evaluation"] = (perf_counter() - started) * 1000
+        started = perf_counter()
         await self._commit(state, publication=bool(config), resync=True)
+        timings["first_commit"] = (perf_counter() - started) * 1000
         self._broadcast(self.service_state())
 
     async def submit(self, operation: str, payload: Any = None) -> Any:
