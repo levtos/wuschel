@@ -5,7 +5,7 @@ from datetime import datetime
 
 import pytest
 
-from core_contracts import registry as registry_module
+from core_contracts import runtime as registry_module
 from core_contracts.freshness_templates import upgrade_document
 from core_contracts.reconfiguration import context_effects
 from core_contracts.registry import legacy_context_compatibility, storage_document
