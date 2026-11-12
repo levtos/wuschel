@@ -9,6 +9,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
 
+from pydantic import BaseModel
+
+from .quality import FieldValue
+from .schema import FieldSchema
+
 if TYPE_CHECKING:
     from .persistence import State
     from .registry import RegistryConfig
@@ -46,3 +51,28 @@ SUBMIT: dict[str, Callable[..., Awaitable[Any]]] = {}
 CONFIGURATION: dict[str, Callable[..., Any]] = {}
 
 SUBMIT_PREFIXES: dict[str, Callable[..., Awaitable[Any]]] = {}
+
+
+@dataclass(frozen=True)
+class Rule:
+    check: Callable[..., FieldSchema]
+    evaluate: Callable[..., FieldValue]
+    children: Callable[..., list[tuple[str, Any]]]
+    due: Callable[..., None] | None = None
+    dependencies: Callable[..., Any] | None = None
+    manual: Callable[..., tuple[Any, datetime]] | None = None
+
+
+@dataclass(frozen=True)
+class SourceProfile:
+    read: Callable[..., Any]
+    metadata: Callable[..., dict[str, Any]]
+
+
+RULES: dict[type[BaseModel], Rule] = {}
+PARAMETER_MODELS: dict[str, type[BaseModel]] = {}
+SOURCE_PROFILES: dict[str, SourceProfile] = {}
+ROUTES: list[Callable[..., None]] = []
+PORTABLE: dict[str, Callable[..., Any]] = {}
+VALIDATION: dict[str, Callable[..., Any]] = {}
+AUTHORING: dict[str, Callable[..., Any]] = {}
