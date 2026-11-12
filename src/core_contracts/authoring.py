@@ -2,17 +2,32 @@
 
 from __future__ import annotations
 
+import copy
 import logging
+import re
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
+from uuid import uuid4
+
+from . import slots
+from .model import canonical, checksum
+from .numeric_equivalence import preserve_config, preserve_numbers
+from .persistence import State
+from .registry import (
+    RegistryConfig,
+    storage_document,
+)
+from .validation import validate_document as validate
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
 from copy import deepcopy
 from enum import Enum
-from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from .model import checksum
-from .numeric_equivalence import equivalent, preserve_config, preserve_numbers
+from .numeric_equivalence import equivalent
 from .persistence import PersistenceUnavailable
-from .registry import RegistryConfig, storage_document
-from .validation import validate_document as validate
 
 LOGGER = logging.getLogger(__name__)
 
@@ -1017,3 +1032,316 @@ async def _migrate_rows(runtime: Any, state: Any, now: Any, draft_id: str) -> No
             )
         else:
             draft["continuation_session_id"] = session["session_id"]
+
+
+RUNTIME_LOGGER = logging.getLogger("core_contracts.runtime")
+
+
+async def operation_draft_preview(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from . import authoring
+
+    if operation == "draft_reconcile":
+        return await authoring.reconcile(runtime, state, payload)
+    if operation.startswith("continuation_"):
+        result = await authoring.continuation(runtime, state, operation, payload, now)
+        await runtime._commit(state)
+        return result
+    if operation == "draft_complete":
+        prior_activation = await authoring.prior_receipt(runtime, state, payload)
+        if prior_activation is not None:
+            return prior_activation
+    draft = state.tables["registry_draft"][payload["draft_id"]]
+    result = authoring.comparison(runtime, state, draft)
+    if operation == "draft_preview":
+        await runtime._checked_config(draft["config"])
+        return result
+    authoring.prepare_activation(runtime, state, draft, payload)
+    if not result["no_effect"]:
+        raise authoring.AuthoringError("draft_has_effects")
+    revision_row = state.tables["registry_revision"][str(state.active_revision)]
+    result = authoring.complete(state, draft, payload, revision_row, now, kind="already_active")
+    runtime._audit(state, "draft_completed", payload, draft_id=draft["draft_id"])
+    await runtime._commit(state)
+    return result
+
+
+slots.OPERATIONS["draft_preview"] = slots.Operation(
+    operation_draft_preview, state="full", early=False
+)
+slots.OPERATIONS["draft_complete"] = slots.Operation(
+    operation_draft_preview, state="full", early=False
+)
+slots.OPERATIONS["draft_reconcile"] = slots.Operation(
+    operation_draft_preview, state="full", early=False
+)
+slots.OPERATION_PREFIXES["continuation_"] = slots.Operation(operation_draft_preview)
+
+
+async def operation_draft_create(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    document = payload["config"]
+    # Drafts can be incomplete, but cannot carry credentials or invalid JSON.
+    from .registry import safe_document
+
+    if not isinstance(document, dict):
+        raise ValueError("configuration object required")
+    safe_document(document)
+    if len(canonical(document).encode()) > 2_000_000:
+        raise ValueError("document too large")
+    key = payload.get("draft_id", str(uuid4()))
+    if not isinstance(key, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}", key):
+        raise ValueError("invalid_draft_id")
+    if operation == "draft_update" and (
+        type(payload.get("draft_version")) is not int or payload["draft_version"] < 1
+    ):
+        raise ValueError("invalid_draft_version")
+    old = state.tables["registry_draft"].get(key)
+    if operation == "draft_create" and old is not None:
+        raise ValueError("draft_identity_conflict")
+    if operation == "draft_create" and await runtime.store.get(
+        "registry_draft_version", f"{key}:1"
+    ):
+        raise ValueError("draft_identity_conflict")
+    from .authoring import base_fields, guard, open_count
+
+    if old:
+        guard(state, old, current=not payload.get("preservation_save", False))
+    if (
+        operation == "draft_create"
+        and payload.get("expected_active_revision", state.active_revision) != state.active_revision
+    ):
+        raise ValueError("active_revision_conflict")
+    if operation == "draft_create" and open_count(state) >= 100:
+        raise ValueError("draft_limit")
+    if operation == "draft_update" and (
+        old is None or payload["draft_version"] != old["draft_version"]
+    ):
+        raise ValueError("draft_version_conflict")
+    from .validation import RegistryValidationError
+
+    try:
+        document = await runtime._restore_numbers(document, old["config"] if old else None)
+    except RegistryValidationError:
+        # Incomplete/invalid drafts remain editable, with their errors intact.
+        pass
+    result = {
+        **(old or base_fields(state)),
+        "draft_id": key,
+        "draft_version": old["draft_version"] + 1 if old else 1,
+        "config": document,
+        "updated_at": now.isoformat(),
+        "created_at": old.get("created_at", old["updated_at"]) if old else now.isoformat(),
+        "base_revision": old.get("base_revision", state.active_revision)
+        if old
+        else state.active_revision,
+        "display_name": payload.get("display_name", old.get("display_name", "") if old else ""),
+        **({"portable": old["portable"]} if old and "portable" in old else {}),
+    }
+    if not isinstance(result["display_name"], str) or len(result["display_name"]) > 256:
+        raise ValueError("invalid_draft_display_name")
+    state.tables["registry_draft"][key] = result
+    if result.get("portable"):
+        from .authoring import bind_plan
+
+        bind_plan(result)
+    from .editorial import EditorialWrite, carry_draft, put
+
+    carry_draft(state, result, runtime)
+    editorial_entries = payload.get("editorial", [])
+    if not isinstance(editorial_entries, list) or len(editorial_entries) > 128:
+        raise ValueError("invalid_editorial_batch")
+    for item in editorial_entries:
+        put(
+            runtime,
+            state,
+            EditorialWrite.model_validate(
+                {**item, "draft_id": key, "draft_version": result["draft_version"]}
+            ),
+            payload.get("_actor", {"kind": "internal", "role": "system"}),
+        )
+    runtime._audit(state, operation, payload, draft_id=key, draft_version=result["draft_version"])
+    await runtime._commit(state)
+    return result
+
+
+slots.OPERATIONS["draft_create"] = slots.Operation(
+    operation_draft_create, state="full", early=False
+)
+slots.OPERATIONS["draft_update"] = slots.Operation(
+    operation_draft_create, state="full", early=False
+)
+
+
+async def operation_draft_delete(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    key = payload["draft_id"]
+    if type(payload.get("draft_version")) is not int:
+        raise ValueError("invalid_draft_version")
+    old = state.tables["registry_draft"].get(key)
+    if old is None or payload["draft_version"] != old["draft_version"]:
+        raise ValueError("draft_version_conflict")
+    from .authoring import guard
+
+    guard(state, old, current=False)
+    del state.tables["registry_draft"][key]
+    for editorial_key, row in list(state.tables["editorial_draft"].items()):
+        if row["draft_id"] == key:
+            del state.tables["editorial_draft"][editorial_key]
+    runtime._audit(state, operation, payload, draft_id=key, draft_version=old["draft_version"])
+    await runtime._commit(state)
+    return {"deleted": True, "draft_id": key}
+
+
+slots.OPERATIONS["draft_delete"] = slots.Operation(
+    operation_draft_delete, state="full", early=False
+)
+
+
+async def operation_activate(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from . import authoring
+
+    if operation == "activate":
+        # Every caller supplies a durable identity. Test/bootstrap helpers use
+        # the same preview contract as HTTP clients.
+        prior_activation = await authoring.prior_receipt(runtime, state, payload)
+        if prior_activation is not None:
+            return prior_activation
+    note = payload.get("note", "")
+    if not isinstance(note, str) or len(note) > 256:
+        raise ValueError("invalid_revision_note")
+    note = note.strip()
+    if type(payload.get("expected_active_revision")) is not int:
+        raise ValueError("invalid_expected_revision")
+    if payload["expected_active_revision"] != state.active_revision:
+        raise ValueError("active_revision_conflict")
+    if operation == "activate":
+        draft = state.tables["registry_draft"][payload["draft_id"]]
+        if payload["draft_version"] != draft["draft_version"]:
+            raise ValueError("draft_version_conflict")
+        authoring.prepare_activation(runtime, state, draft, payload)
+        document = draft["config"]
+    else:
+        historical = await runtime.store.get("registry_revision", str(payload["revision"]))
+        if historical is None:
+            raise ValueError("revision_not_found")
+        document = historical["config"]
+    new_config = await runtime._checked_config(document, restore=operation == "activate")
+    if operation == "activate":
+        from .editorial import apply_draft
+
+        apply_draft(state, draft, runtime)
+        from .portable import apply
+
+        title_import = draft.get("portable", {}).get("title_import")
+        if title_import and await runtime.store.get(
+            "catalog_import", "title:" + title_import["import_id"]
+        ):
+            raise ValueError("import_plan_conflict")
+        imported_latches = apply(runtime, state, draft, new_config, now)
+        draft["config"] = storage_document(new_config)
+    revision = max((int(r) for r in state.tables["registry_revision"]), default=0) + 1
+    state.active_revision = revision
+    state.tables["registry_revision"][str(revision)] = {
+        "revision": revision,
+        "config": storage_document(new_config),
+        "checksum": checksum(storage_document(new_config)),
+        "created_at": now.isoformat(),
+        "actor": payload.get("_actor", {"kind": "internal", "role": "system"}),
+        **({"note": note} if note else {}),
+        **(
+            {
+                "draft_id": draft["draft_id"],
+                "draft_version": draft["draft_version"],
+                "activation_request_id": payload["request_id"],
+            }
+            if operation == "activate"
+            else {}
+        ),
+    }
+    state.tables["registry_activation"][str(revision)] = {
+        "revision": revision,
+        "at": now.isoformat(),
+        "operation": operation,
+        **(
+            {
+                "draft_id": draft["draft_id"],
+                "draft_version": draft["draft_version"],
+                "activation_request_id": payload["request_id"],
+            }
+            if operation == "activate"
+            else {}
+        ),
+    }
+    runtime._audit(state, operation, payload, revision=revision, **({"note": note} if note else {}))
+    next_latches = imported_latches if operation == "activate" else runtime.latches
+    if config:
+        from .reconfiguration import preserve
+
+        next_latches = copy.deepcopy(next_latches)
+        compatible = preserve(state, config, new_config, runtime.types, next_latches)
+        next_latches = {k: v for k, v in next_latches.items() if k.partition(":")[0] in compatible}
+        if "ha" in runtime.dependency_connections and (
+            runtime.bridge != "connected" or runtime.ha != "connected"
+        ):
+            # A revision must not carry live HA evidence across a known gap.
+            # Ordinary disconnect ageing and stored calendar caches stay unchanged.
+            for observation in state.tables["source_observation_current"].values():
+                if observation["adapter"] in {"ha_state", "ha_attribute"}:
+                    observation["observation_kind"] = "restore"
+    activation_result = (
+        authoring.complete(
+            state, draft, payload, state.tables["registry_revision"][str(revision)], now
+        )
+        if operation == "activate"
+        else state.tables["registry_revision"][str(revision)]
+    )
+    runtime._evaluate(
+        state,
+        new_config,
+        origin="revision",
+        reassessment=config is not None,
+        initial_latches=next_latches,
+    )
+    await runtime._commit(state, publication=True)
+    from .reconfiguration import same_ha_subscription
+
+    if not same_ha_subscription(config, new_config):
+        runtime.first_snapshot = False
+    runtime._broadcast(runtime.service_state())
+    RUNTIME_LOGGER.info(
+        "registry_rollback" if operation == "rollback" else "registry_activated",
+        extra={"revision": revision},
+    )
+    runtime.revision_changed.set()
+    runtime.mqtt_revision_changed.set()
+    return activation_result
+
+
+slots.OPERATIONS["activate"] = slots.Operation(operation_activate, state="full", early=False)
+slots.OPERATIONS["rollback"] = slots.Operation(operation_activate, state="full", early=False)

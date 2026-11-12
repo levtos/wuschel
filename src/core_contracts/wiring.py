@@ -3,6 +3,7 @@
 from . import (  # noqa: F401
     authoring,
     catalog_cleanup,
+    catalog_operations,
     catalog_playback,
     catalog_scope,
     editorial,
@@ -11,6 +12,7 @@ from . import (  # noqa: F401
     mqtt_restore,
     portable,
     reconfiguration,
+    retention_ops,
     revision_plan,
     service_jobs,
     title_sync,

@@ -5,9 +5,20 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import Field, field_validator
 
+from . import slots
 from .model import Model, checksum, utc
 from .persistence import State
-from .registry import fingerprints, registry_types, resolve_ref
+from .registry import (
+    RegistryConfig,
+    fingerprints,
+    registry_types,
+    resolve_ref,
+)
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .runtime import Runtime
@@ -196,3 +207,39 @@ async def execute(runtime: Runtime, state: State, payload: dict[str, Any]) -> di
     )
     await runtime._commit(state, publication=result["status"] == "accepted")
     return result
+
+
+async def operation_manual_restart_preview(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from .manual_restart import preview
+
+    return preview(runtime, state, payload)
+
+
+slots.OPERATIONS["manual_restart_preview"] = slots.Operation(
+    operation_manual_restart_preview, state="full", early=False
+)
+
+
+async def operation_manual_restart(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from .manual_restart import execute
+
+    return await execute(runtime, state, payload)
+
+
+slots.OPERATIONS["manual_restart"] = slots.Operation(
+    operation_manual_restart, state="full", early=False
+)

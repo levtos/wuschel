@@ -1,18 +1,32 @@
 """Portable configuration snapshots and explicitly staged, atomic import plans."""
 
 import copy
-import json
-from typing import Any
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
+
+from . import slots
+from .model import canonical, checksum
+from .numeric_equivalence import preserve_config, preserve_numbers
+from .persistence import State
+from .registry import (
+    RegistryConfig,
+    resolve_ref,
+    storage_document,
+)
+from .validation import validate_document as validate
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+import json
 
 from . import __version__
 from .catalog_models import CatalogWrite, EntryChange, ManagedCatalog
 from .editorial import EditorialWrite, ObjectRef, Room
 from .managed_catalog import definition_digest, head, head_key, identity, invalidate, prepare
-from .model import canonical, checksum
-from .numeric_equivalence import equivalent, preserve_config, preserve_numbers
-from .registry import RegistryConfig, resolve_ref, safe_document, storage_document
-from .validation import validate_document as validate
+from .numeric_equivalence import equivalent
+from .registry import safe_document
 
 GROUPS = {
     "dependencies": "dependency_id",
@@ -949,3 +963,81 @@ def apply(
             "updated_at": now.isoformat(),
         }
     return dict(latches)
+
+
+async def operation_portable_export(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from .portable import export
+
+    return export(runtime, state, payload)
+
+
+slots.OPERATIONS["portable_export"] = slots.Operation(
+    operation_portable_export, state="full", early=False
+)
+
+
+async def operation_portable_preview(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from .portable import preview as portable_preview
+
+    return portable_preview(
+        runtime, state, payload, restored=await runtime._portable_numbers(payload)
+    )
+
+
+slots.OPERATIONS["portable_preview"] = slots.Operation(
+    operation_portable_preview, state="full", early=False
+)
+
+
+async def operation_portable_stage(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from uuid import UUID
+
+    from .portable import stage
+
+    import_record = "stage:" + str(UUID(payload["request_id"]))
+    import_digest = checksum(payload)
+    import_previous = await runtime.store.get("catalog_import", import_record)
+    if import_previous:
+        if import_previous["digest"] != import_digest:
+            raise ValueError("import_plan_conflict")
+        return import_previous["result"]
+    result = stage(
+        runtime,
+        state,
+        payload,
+        payload.get("_actor"),
+        now,
+        restored=await runtime._portable_numbers(payload),
+    )
+    state.tables["catalog_import"][import_record] = {
+        "digest": import_digest,
+        "result": result,
+    }
+    await runtime._commit(state)
+    return result
+
+
+slots.OPERATIONS["portable_stage"] = slots.Operation(
+    operation_portable_stage, state="full", early=False
+)

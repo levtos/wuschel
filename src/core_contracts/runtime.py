@@ -3,7 +3,6 @@
 import asyncio
 import copy
 import logging
-import re
 from collections import deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -15,6 +14,7 @@ from uuid import uuid4
 
 from pydantic import Field, ValidationError, field_validator
 
+from . import slots
 from .calendar_inputs import project
 from .clock import Alarm, Clock
 from .declarative import GuardEvaluationError, all_rules
@@ -23,7 +23,7 @@ from .engines import FORMULA_SCHEMAS
 from .evidence import Observation, assess, is_new, is_older
 from .ha_context import ContextIndex
 from .lifecycle import EDITORIAL, transition_allowed
-from .model import Model, canonical, checksum, semantic_fingerprint, utc
+from .model import Model, checksum, semantic_fingerprint, utc
 from .numeric_equivalence import preserve_config, preserve_numbers
 from .operation_timing import ObservationTimings, TimedStore, Timing, current, timed_phase
 from .persistence import State, Store
@@ -33,7 +33,6 @@ from .registry import (
     Contract,
     RegistryConfig,
     affected_sources,
-    diff,
     fingerprints,
     registry_types,
     resolve_ref,
@@ -959,14 +958,20 @@ class Runtime:
             and operation not in {"observation", "snapshot", "recover", "management_commit"}
         ):
             await self._drain_overflow()
-        if operation == "management_snapshot":
-            from .management import capture
-
-            return capture(self)
-        if operation == "management_commit":
-            from .management import commit
-
-            return await commit(self, payload)
+        entry = slots.OPERATIONS.get(operation)
+        if entry is None:
+            entry = next(
+                (
+                    item
+                    for prefix, item in slots.OPERATION_PREFIXES.items()
+                    if operation.startswith(prefix)
+                ),
+                None,
+            )
+        if entry is not None and entry.early:
+            return await entry.handler(
+                self, self.state, operation, payload, self.clock.now_utc(), self.config
+            )
         snapshot_complete = True
         if operation == "snapshot" and isinstance(payload, SnapshotBatch):
             if payload.registry_revision != self.state.active_revision:
@@ -1124,14 +1129,9 @@ class Runtime:
                 self.snapshot_revision = self.state.active_revision
                 return None
             raise RuntimeError("persistence_unavailable")
-        if operation in {"retention_preview", "retention_run"}:
-            if self.config is None or self.config.history_retention is None:
-                raise ValueError("history_retention_not_configured")
-            return await self.store.maintain_history(
-                self.state,
-                self.clock.now_utc(),
-                self.config.history_retention,
-                dry_run=operation == "retention_preview",
+        if entry is not None and entry.state == "none":
+            return await entry.handler(
+                self, self.state, operation, payload, self.clock.now_utc(), self.config
             )
         if operation == "tick":
             try:
@@ -1156,275 +1156,23 @@ class Runtime:
             self.last_clock = now
             if not clock_went_back and (self.next_evaluation is None or now < self.next_evaluation):
                 return None
-        if operation in {"title_sync_preview", "title_sync_apply"}:
-            from .title_sync_runs import process as sync_process
-
-            return await sync_process(self, self.state, operation, payload, self.clock.now_utc())
         care_started = self.clock.monotonic()
         state = (
             self.state
             if self._block_active and operation == "observation"
             else self.state.catalog_clone()
-            if operation in {"catalog_care_preview", "catalog_care_write"}
+            if entry is not None and entry.state == "catalog"
             else self.state.live_clone()
-            if operation in {"observation", "snapshot", "tick", "catalog_tick"}
+            if (entry is not None and entry.state == "live")
+            or operation in {"observation", "snapshot", "tick"}
             else self.state.clone()
         )
         now = self.clock.now_utc()
         config = self.config
-        if operation in {"catalog_scope_preview", "catalog_scope_apply"}:
-            from .catalog_scope import process as scope_process
-
-            return await scope_process(self, state, operation, payload, now)
-        if operation.startswith("catalog_care_"):
-            self.catalog_care_timings = {
-                "writer_wait_ms": (care_started - payload.get("_queued_at", care_started)) * 1000,
-                "state_copy_ms": (self.clock.monotonic() - care_started) * 1000,
-            }
-        if operation == "catalog_cleanup_snapshot":
-            return state
-        if operation == "catalog_cleanup_apply":
-            from uuid import UUID
-
-            from .catalog_cleanup import apply as cleanup_apply
-
-            cleanup_previous = await self.store.get(
-                "catalog_request", str(UUID(payload["request_id"]))
-            )
-            if cleanup_previous:
-                state.tables["catalog_request"][str(UUID(payload["request_id"]))] = cleanup_previous
-            result = cleanup_apply(self, state, payload)
-            if cleanup_previous:
-                return result
-            await self._commit(state)
-            self.catalog_cleanup_plans.pop(payload.get("plan_id"), None)
-            return result
-        if operation == "catalog_tick":
-            from .catalog_playback import flush
-
-            flush(state, now)
-            if state.tables != self.state.tables:
-                await self._commit(state)
-            return None
-        if operation in {"title_preview", "title_stage"}:
-            from .title_transfer import process as title_process
-
-            return await title_process(self, state, operation, payload, now)
-        if operation == "portable_export":
-            from .portable import export
-
-            return export(self, state, payload)
-        if operation == "portable_preview":
-            from .portable import preview as portable_preview
-
-            return portable_preview(
-                self, state, payload, restored=await self._portable_numbers(payload)
-            )
-        if operation == "portable_stage":
-            from uuid import UUID
-
-            from .portable import stage
-
-            import_record = "stage:" + str(UUID(payload["request_id"]))
-            import_digest = checksum(payload)
-            import_previous = await self.store.get("catalog_import", import_record)
-            if import_previous:
-                if import_previous["digest"] != import_digest:
-                    raise ValueError("import_plan_conflict")
-                return import_previous["result"]
-            result = stage(
-                self,
-                state,
-                payload,
-                payload.get("_actor"),
-                now,
-                restored=await self._portable_numbers(payload),
-            )
-            state.tables["catalog_import"][import_record] = {
-                "digest": import_digest,
-                "result": result,
-            }
-            await self._commit(state)
-            return result
-        if operation == "catalog_revision":
-            from .managed_catalog import definition, historical_entries
-
-            catalog = definition(config, payload["catalog_id"], payload["definition_version"])
-            entries = await historical_entries(self.store, catalog, payload["revision"])
-            selected = [
-                (key, row) for key, row in sorted(entries.items()) if key > payload.get("after", "")
-            ]
-            return {
-                "items": [{"identity": key, **row} for key, row in selected[:100]],
-                "total": len(entries),
-                "next_cursor": selected[99][0] if len(selected) > 100 else None,
-            }
-        if operation in {
-            "catalog_write",
-            "catalog_preview",
-            "catalog_care_write",
-            "catalog_care_preview",
-        }:
-            from .catalog_models import CatalogRestore, CatalogWrite, EntryChange
-            from .managed_catalog import (
-                affected_contracts,
-                definition,
-                head,
-                historical_entries,
-                invalidate,
-                prepare,
-            )
-            from .registry import safe_document
-
-            care = operation.startswith("catalog_care_")
-            care_phase = self.clock.monotonic()
-            care_digest = None
-            if care:
-                from .catalog_care import CareRequest, change_request
-
-                care_request = CareRequest.model_validate(payload["request"])
-                care_digest = checksum(care_request)
-                if operation == "catalog_care_write":
-                    previous_care = await self.store.get("catalog_request", care_request.request_id)
-                    if previous_care:
-                        if previous_care["digest"] != care_digest:
-                            raise ValueError("catalog_request_conflict")
-                        return previous_care["result"]
-                care_catalog = definition(
-                    config, care_request.catalog_id, care_request.definition_version
-                )
-                payload = {
-                    **payload,
-                    "request": change_request(state, care_catalog, care_request, now),
-                }
-                operation = "catalog_preview" if operation.endswith("preview") else "catalog_write"
-            restoring = not care and "restore_revision" in payload["request"]
-            request = (
-                payload["request"]
-                if care
-                else (CatalogRestore if restoring else CatalogWrite).model_validate(
-                    payload["request"]
-                )
-            )
-            safe_document(request.model_dump(mode="json"))
-            digest = care_digest or checksum(request)
-            catalog_previous = (
-                await self.store.get("catalog_request", request.request_id)
-                if operation == "catalog_write"
-                else None
-            )
-            if catalog_previous:
-                if catalog_previous["digest"] != digest:
-                    raise ValueError("catalog_request_conflict")
-                return catalog_previous["result"]
-            if isinstance(request, CatalogRestore):
-                catalog = definition(config, request.catalog_id, request.definition_version)
-                past = await historical_entries(self.store, catalog, request.restore_revision)
-                current_entries = head(state, catalog)["entries"]
-                changes = []
-                for key in past.keys() | current_entries.keys():
-                    row = past.get(key) or {**current_entries[key], "tombstone": True}
-                    changes.append(
-                        EntryChange.model_validate(
-                            {
-                                k: v
-                                for k, v in row.items()
-                                if k not in {"normalized_key", "master_identity"}
-                            }
-                        )
-                    )
-                request = request.model_copy(update={"changes": tuple(changes)})
-            if care:
-                self.catalog_care_timings["catalog_plan_ms"] = (
-                    self.clock.monotonic() - care_phase
-                ) * 1000
-            care_phase = self.clock.monotonic()
-            result = prepare(
-                state,
-                config,
-                request,
-                payload.get("_actor"),
-                now,
-                expanded_limit=100_000 if restoring else 1000,
-            )
-            if care:
-                self.catalog_care_timings["prepare_ms"] = (
-                    self.clock.monotonic() - care_phase
-                ) * 1000
-            care_phase = self.clock.monotonic()
-            if operation == "catalog_preview":
-                care_effects: list[dict[str, str]] = []
-                if care:
-                    invalidate(state, result, self.latches, care_effects)
-                affected = affected_contracts(self.state, result)
-                if config:
-                    for contract in topological(config):
-                        if any(
-                            resolve_ref(item.ref, config)[0] in affected for item in contract.inputs
-                        ):
-                            affected.add(contract.contract_id)
-                if care:
-                    self.catalog_care_timings["impact_ms"] = (
-                        self.clock.monotonic() - care_phase
-                    ) * 1000
-                return {
-                    "affected_keys": len(result["affected_keys"]),
-                    "affected_contracts": len(affected),
-                    **(
-                        {
-                            "context_effects": care_effects,
-                            "changes": [row.model_dump(mode="json") for row in request.changes],
-                            "timings_ms": dict(self.catalog_care_timings),
-                        }
-                        if care
-                        else {}
-                    ),
-                }
-            if result["affected_keys"]:
-                assert config is not None
-                direct_catalog_contracts = affected_contracts(state, result)
-                latches = invalidate(state, result, self.latches)
-                failures = self._evaluate(
-                    state,
-                    config,
-                    origin="revision",
-                    initial_latches=latches,
-                    catalog_affected=direct_catalog_contracts,
-                )
-                if failures:
-                    self.pending_latches = None
-                    self.pending_refresh.clear()
-                    raise ValueError("catalog_evaluation_failed")
-            result["publication_seq"] = state.publication_seq
-            if care:
-                self.catalog_care_timings["impact_ms"] = (
-                    self.clock.monotonic() - care_phase
-                ) * 1000
-            state.tables["catalog_request"][request.request_id] = {
-                "digest": digest,
-                "result": result,
-            }
-            care_phase = self.clock.monotonic()
-            await self._commit(state, publication=bool(result["affected_keys"]))
-            if care:
-                self.catalog_care_timings["commit_ms"] = (
-                    self.clock.monotonic() - care_phase
-                ) * 1000
-            return result
-        if operation == "editorial_put":
-            from .editorial import EditorialWrite, put
-
-            result = put(
-                self, state, EditorialWrite.model_validate(payload["request"]), payload["_actor"]
-            )
-            await self._commit(state)
-            return result
-        if operation == "editorial_area_refresh":
-            from .editorial import refresh_areas
-
-            if refresh_areas(self, state, payload):
-                await self._commit(state)
-            return None
+        if entry is not None:
+            if entry.after_prepare is not None:
+                entry.after_prepare(self, payload, care_started)
+            return await entry.handler(self, state, operation, payload, now, config)
         if operation == "context_register":
             from .ha_context import ContextRegistration
 
@@ -1456,397 +1204,6 @@ class Runtime:
                 "registered": True,
                 "expires_at": index.proofs[registration.context.id][1].isoformat(),
             }
-        if operation == "legacy_refresh_prepare":
-            from .refresh_plan import prepare_legacy_refresh
-
-            if config is None or payload["revision"] != state.active_revision:
-                return None
-            job = prepare_legacy_refresh(state, config, payload["source_id"], now)
-            if job:
-                await self._commit(state)
-            return copy.deepcopy(job)
-        if operation == "service_claim":
-            if self.bridge != "connected" or self.bridge_protocol_selected != 2:
-                return None
-            job = next(
-                (
-                    job
-                    for job in state.tables["service_job"].values()
-                    if job["status"] == "planned"
-                    and (
-                        job["kind"] != "notice"
-                        or state.tables["service_state"]
-                        .get(job["state_key"], {})
-                        .get("eligible_epoch")
-                        == state.epoch_id
-                    )
-                ),
-                None,
-            )
-            if job is None:
-                return None
-            job["status"] = "sent"
-            job["sent_at"] = now.isoformat()
-            await self._commit(state)
-            return copy.deepcopy(job)
-        if operation == "service_complete":
-            from .service_jobs import complete_calendar
-
-            job = state.tables["service_job"].get(payload["job_id"])
-            if job is None or job["status"] != "sent":
-                return None
-            job["status"] = "finished"
-            job["completed_at"] = now.isoformat()
-            if job["kind"] == "notice":
-                from .notifications import complete_notice
-
-                complete_notice(state, job, payload["response"], now)
-            if job["kind"] == "refresh":
-                from .refresh_plan import complete_refresh
-
-                complete_refresh(state, job, payload["response"])
-            service_observation = (
-                complete_calendar(state, config, job, payload["response"], now)
-                if config and job["kind"] == "calendar"
-                else None
-            )
-            if service_observation is not None:
-                state.tables["source_observation_current"][service_observation.binding_id] = (
-                    service_observation.storage_document()
-                )
-                await self._record_observation(state, service_observation)
-            if config:
-                coverage_source = next(
-                    (
-                        b.source_id
-                        for b in config.bindings
-                        if job.get("coverage") and b.binding_id == job["binding_id"]
-                    ),
-                    None,
-                )
-                self._evaluate(
-                    state,
-                    config,
-                    origin="input" if service_observation or coverage_source else "timer",
-                    trigger_source=service_observation.source_id
-                    if service_observation
-                    else coverage_source,
-                )
-            calendar_row = state.tables["service_state"].get(job.get("state_key", ""), {})
-            warn_calendar_failure = (
-                job["kind"] == "calendar"
-                and bool(calendar_row.get("failures"))
-                and not calendar_row.get("failure_warning_emitted", False)
-                and calendar_row.get("job_id") == job["job_id"]
-            )
-            if warn_calendar_failure:
-                calendar_row["failure_warning_emitted"] = True
-            await self._commit(state, publication=True)
-            if warn_calendar_failure:
-                LOGGER.warning(
-                    "calendar_fetch_failed",
-                    extra={
-                        "binding_id": job["binding_id"],
-                        "error_code": calendar_row["error_code"],
-                    },
-                )
-            return None
-        if operation in {
-            "draft_preview",
-            "draft_complete",
-            "draft_reconcile",
-        } or operation.startswith("continuation_"):
-            from . import authoring
-
-            if operation == "draft_reconcile":
-                return await authoring.reconcile(self, state, payload)
-            if operation.startswith("continuation_"):
-                result = await authoring.continuation(self, state, operation, payload, now)
-                await self._commit(state)
-                return result
-            if operation == "draft_complete":
-                prior_activation = await authoring.prior_receipt(self, state, payload)
-                if prior_activation is not None:
-                    return prior_activation
-            draft = state.tables["registry_draft"][payload["draft_id"]]
-            result = authoring.comparison(self, state, draft)
-            if operation == "draft_preview":
-                await self._checked_config(draft["config"])
-                return result
-            authoring.prepare_activation(self, state, draft, payload)
-            if not result["no_effect"]:
-                raise authoring.AuthoringError("draft_has_effects")
-            revision_row = state.tables["registry_revision"][str(state.active_revision)]
-            result = authoring.complete(
-                state, draft, payload, revision_row, now, kind="already_active"
-            )
-            self._audit(state, "draft_completed", payload, draft_id=draft["draft_id"])
-            await self._commit(state)
-            return result
-        if operation in {"draft_create", "draft_update"}:
-            document = payload["config"]
-            # Drafts can be incomplete, but cannot carry credentials or invalid JSON.
-            from .registry import safe_document
-
-            if not isinstance(document, dict):
-                raise ValueError("configuration object required")
-            safe_document(document)
-            if len(canonical(document).encode()) > 2_000_000:
-                raise ValueError("document too large")
-            key = payload.get("draft_id", str(uuid4()))
-            if not isinstance(key, str) or not re.fullmatch(
-                r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}", key
-            ):
-                raise ValueError("invalid_draft_id")
-            if operation == "draft_update" and (
-                type(payload.get("draft_version")) is not int or payload["draft_version"] < 1
-            ):
-                raise ValueError("invalid_draft_version")
-            old = state.tables["registry_draft"].get(key)
-            if operation == "draft_create" and old is not None:
-                raise ValueError("draft_identity_conflict")
-            if operation == "draft_create" and await self.store.get(
-                "registry_draft_version", f"{key}:1"
-            ):
-                raise ValueError("draft_identity_conflict")
-            from .authoring import base_fields, guard, open_count
-
-            if old:
-                guard(state, old, current=not payload.get("preservation_save", False))
-            if (
-                operation == "draft_create"
-                and payload.get("expected_active_revision", state.active_revision)
-                != state.active_revision
-            ):
-                raise ValueError("active_revision_conflict")
-            if operation == "draft_create" and open_count(state) >= 100:
-                raise ValueError("draft_limit")
-            if operation == "draft_update" and (
-                old is None or payload["draft_version"] != old["draft_version"]
-            ):
-                raise ValueError("draft_version_conflict")
-            from .validation import RegistryValidationError
-
-            try:
-                document = await self._restore_numbers(document, old["config"] if old else None)
-            except RegistryValidationError:
-                # Incomplete/invalid drafts remain editable, with their errors intact.
-                pass
-            result = {
-                **(old or base_fields(state)),
-                "draft_id": key,
-                "draft_version": old["draft_version"] + 1 if old else 1,
-                "config": document,
-                "updated_at": now.isoformat(),
-                "created_at": old.get("created_at", old["updated_at"]) if old else now.isoformat(),
-                "base_revision": old.get("base_revision", state.active_revision)
-                if old
-                else state.active_revision,
-                "display_name": payload.get(
-                    "display_name", old.get("display_name", "") if old else ""
-                ),
-                **({"portable": old["portable"]} if old and "portable" in old else {}),
-            }
-            if not isinstance(result["display_name"], str) or len(result["display_name"]) > 256:
-                raise ValueError("invalid_draft_display_name")
-            state.tables["registry_draft"][key] = result
-            if result.get("portable"):
-                from .authoring import bind_plan
-
-                bind_plan(result)
-            from .editorial import EditorialWrite, carry_draft, put
-
-            carry_draft(state, result, self)
-            editorial_entries = payload.get("editorial", [])
-            if not isinstance(editorial_entries, list) or len(editorial_entries) > 128:
-                raise ValueError("invalid_editorial_batch")
-            for item in editorial_entries:
-                put(
-                    self,
-                    state,
-                    EditorialWrite.model_validate(
-                        {**item, "draft_id": key, "draft_version": result["draft_version"]}
-                    ),
-                    payload.get("_actor", {"kind": "internal", "role": "system"}),
-                )
-            self._audit(
-                state, operation, payload, draft_id=key, draft_version=result["draft_version"]
-            )
-            await self._commit(state)
-            return result
-        if operation == "draft_delete":
-            key = payload["draft_id"]
-            if type(payload.get("draft_version")) is not int:
-                raise ValueError("invalid_draft_version")
-            old = state.tables["registry_draft"].get(key)
-            if old is None or payload["draft_version"] != old["draft_version"]:
-                raise ValueError("draft_version_conflict")
-            from .authoring import guard
-
-            guard(state, old, current=False)
-            del state.tables["registry_draft"][key]
-            for editorial_key, row in list(state.tables["editorial_draft"].items()):
-                if row["draft_id"] == key:
-                    del state.tables["editorial_draft"][editorial_key]
-            self._audit(state, operation, payload, draft_id=key, draft_version=old["draft_version"])
-            await self._commit(state)
-            return {"deleted": True, "draft_id": key}
-        if operation == "audit":
-            self._audit(state, payload["operation"], payload, **payload.get("details", {}))
-            await self._commit(state)
-            return None
-        if operation == "validate":
-            candidate = await self._checked_config(payload)
-            from .capabilities import machine_description
-
-            types = registry_types(candidate, self.types)
-            machines = {}
-            for contract in candidate.contracts:
-                declaration = types.get(contract.type_id, contract.type_version)
-                if declaration.machine_factory:
-                    machines[contract.contract_id] = machine_description(
-                        declaration.machine_factory(contract.parameters)
-                    )
-            return {
-                "valid": True,
-                "issues": [],
-                "warnings": [
-                    {
-                        "code": "machine_never_recovers",
-                        "path": f"/definitions/{index}/machine/reinitialize_when",
-                        "object_id": definition.type_id,
-                        "message": "Dieser Ablauf kann sich nach einer Änderung nie selbst erholen.",
-                    }
-                    for index, definition in enumerate(candidate.definitions)
-                    if definition.machine
-                    and definition.machine.reinitialize_when.op == "literal"
-                    and getattr(definition.machine.reinitialize_when, "value", None) is False
-                ],
-                "diff": diff(config, candidate, self.types),
-                "machine_definitions": machines,
-            }
-        if operation in {"activate", "rollback"}:
-            from . import authoring
-
-            if operation == "activate":
-                # Every caller supplies a durable identity. Test/bootstrap helpers use
-                # the same preview contract as HTTP clients.
-                prior_activation = await authoring.prior_receipt(self, state, payload)
-                if prior_activation is not None:
-                    return prior_activation
-            note = payload.get("note", "")
-            if not isinstance(note, str) or len(note) > 256:
-                raise ValueError("invalid_revision_note")
-            note = note.strip()
-            if type(payload.get("expected_active_revision")) is not int:
-                raise ValueError("invalid_expected_revision")
-            if payload["expected_active_revision"] != state.active_revision:
-                raise ValueError("active_revision_conflict")
-            if operation == "activate":
-                draft = state.tables["registry_draft"][payload["draft_id"]]
-                if payload["draft_version"] != draft["draft_version"]:
-                    raise ValueError("draft_version_conflict")
-                authoring.prepare_activation(self, state, draft, payload)
-                document = draft["config"]
-            else:
-                historical = await self.store.get("registry_revision", str(payload["revision"]))
-                if historical is None:
-                    raise ValueError("revision_not_found")
-                document = historical["config"]
-            new_config = await self._checked_config(document, restore=operation == "activate")
-            if operation == "activate":
-                from .editorial import apply_draft
-
-                apply_draft(state, draft, self)
-                from .portable import apply
-
-                title_import = draft.get("portable", {}).get("title_import")
-                if title_import and await self.store.get(
-                    "catalog_import", "title:" + title_import["import_id"]
-                ):
-                    raise ValueError("import_plan_conflict")
-                imported_latches = apply(self, state, draft, new_config, now)
-                draft["config"] = storage_document(new_config)
-            revision = max((int(r) for r in state.tables["registry_revision"]), default=0) + 1
-            state.active_revision = revision
-            state.tables["registry_revision"][str(revision)] = {
-                "revision": revision,
-                "config": storage_document(new_config),
-                "checksum": checksum(storage_document(new_config)),
-                "created_at": now.isoformat(),
-                "actor": payload.get("_actor", {"kind": "internal", "role": "system"}),
-                **({"note": note} if note else {}),
-                **(
-                    {
-                        "draft_id": draft["draft_id"],
-                        "draft_version": draft["draft_version"],
-                        "activation_request_id": payload["request_id"],
-                    }
-                    if operation == "activate"
-                    else {}
-                ),
-            }
-            state.tables["registry_activation"][str(revision)] = {
-                "revision": revision,
-                "at": now.isoformat(),
-                "operation": operation,
-                **(
-                    {
-                        "draft_id": draft["draft_id"],
-                        "draft_version": draft["draft_version"],
-                        "activation_request_id": payload["request_id"],
-                    }
-                    if operation == "activate"
-                    else {}
-                ),
-            }
-            self._audit(
-                state, operation, payload, revision=revision, **({"note": note} if note else {})
-            )
-            next_latches = imported_latches if operation == "activate" else self.latches
-            if config:
-                from .reconfiguration import preserve
-
-                next_latches = copy.deepcopy(next_latches)
-                compatible = preserve(state, config, new_config, self.types, next_latches)
-                next_latches = {
-                    k: v for k, v in next_latches.items() if k.partition(":")[0] in compatible
-                }
-                if "ha" in self.dependency_connections and (
-                    self.bridge != "connected" or self.ha != "connected"
-                ):
-                    # A revision must not carry live HA evidence across a known gap.
-                    # Ordinary disconnect ageing and stored calendar caches stay unchanged.
-                    for observation in state.tables["source_observation_current"].values():
-                        if observation["adapter"] in {"ha_state", "ha_attribute"}:
-                            observation["observation_kind"] = "restore"
-            activation_result = (
-                authoring.complete(
-                    state, draft, payload, state.tables["registry_revision"][str(revision)], now
-                )
-                if operation == "activate"
-                else state.tables["registry_revision"][str(revision)]
-            )
-            self._evaluate(
-                state,
-                new_config,
-                origin="revision",
-                reassessment=config is not None,
-                initial_latches=next_latches,
-            )
-            await self._commit(state, publication=True)
-            from .reconfiguration import same_ha_subscription
-
-            if not same_ha_subscription(config, new_config):
-                self.first_snapshot = False
-            self._broadcast(self.service_state())
-            LOGGER.info(
-                "registry_rollback" if operation == "rollback" else "registry_activated",
-                extra={"revision": revision},
-            )
-            self.revision_changed.set()
-            self.mqtt_revision_changed.set()
-            return activation_result
         if operation == "gap":
             from .catalog_playback import baseline_pending
 
@@ -1866,14 +1223,6 @@ class Runtime:
             return None
         if operation == "command":
             return await self._command(state, Command.model_validate(payload))
-        if operation == "manual_restart_preview":
-            from .manual_restart import preview
-
-            return preview(self, state, payload)
-        if operation == "manual_restart":
-            from .manual_restart import execute
-
-            return await execute(self, state, payload)
         if operation == "manual_source_enter":
             from .manual_entry import enter
 

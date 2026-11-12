@@ -1,16 +1,28 @@
 """Explicit v3 device mapping into the existing portable transaction boundary."""
 
 import copy
-from collections import Counter
-from typing import Any, Literal
-from uuid import UUID
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 from pydantic import Field
+
+from . import slots
+from .model import Model, canonical, checksum
+from .persistence import State
+from .registry import (
+    RegistryConfig,
+)
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+from collections import Counter
+from typing import Literal
+from uuid import UUID
 
 from .catalog_mapping import music_forms as music_forms
 from .catalog_models import EntryChange
 from .managed_catalog import definition, definition_digest, head, identity
-from .model import Model, canonical, checksum
 from .portable import export, payload_digest, stage, strict_json
 from .portable import preview as portable_preview
 from .title_import import MAX_BYTES, MAX_ENTRIES, plan_title_import, source_identity
@@ -460,3 +472,24 @@ async def process(
     state.tables["catalog_import"][key] = {"digest": digest, "result": result}
     await runtime._commit(state)
     return result
+
+
+async def operation_title_preview(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from .title_transfer import process as title_process
+
+    return await title_process(runtime, state, operation, payload, now)
+
+
+slots.OPERATIONS["title_preview"] = slots.Operation(
+    operation_title_preview, state="full", early=False
+)
+slots.OPERATIONS["title_stage"] = slots.Operation(
+    operation_title_preview, state="full", early=False
+)

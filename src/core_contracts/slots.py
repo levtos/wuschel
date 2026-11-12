@@ -20,6 +20,7 @@ class Operation:
     handler: Callable[[Runtime, State, str, Any, datetime, RegistryConfig | None], Awaitable[Any]]
     state: Literal["none", "live", "catalog", "full"] = "full"
     early: bool = False
+    after_prepare: Callable[[Runtime, Any, float], None] | None = None
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,7 @@ class Hook:
 
 
 OPERATIONS: dict[str, Operation] = {}
+OPERATION_PREFIXES: dict[str, Operation] = {}
 RESTORE: dict[int, Hook] = {}
 BEFORE_COMMIT: dict[int, Hook] = {}
 AFTER_EVALUATE: dict[int, Hook] = {}

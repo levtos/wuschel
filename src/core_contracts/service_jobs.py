@@ -1,16 +1,28 @@
 """Persisted intent before network I/O; results belong to their original generation."""
 
-from datetime import datetime, time, timedelta
-from typing import Any
+import copy
+import logging
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
+
+from . import slots
+from .evidence import Observation
+from .model import checksum
+from .persistence import State
+from .registry import (
+    RegistryConfig,
+)
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+from datetime import time
 from zoneinfo import ZoneInfo
 
 from .calendar_cache import normalize_events
 from .calendar_coverage import status as coverage_status
-from .evidence import Observation
-from .model import checksum
-from .persistence import State
-from .registry import Binding, RegistryConfig
+from .registry import Binding
 
 
 def calendar_error_code(value: Any) -> str:
@@ -270,3 +282,118 @@ def due_dates(state: State) -> list[datetime]:
             if row.get(name):
                 dates.append(datetime.fromisoformat(row[name]))
     return dates
+
+
+RUNTIME_LOGGER = logging.getLogger("core_contracts.runtime")
+
+
+async def operation_service_claim(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    if runtime.bridge != "connected" or runtime.bridge_protocol_selected != 2:
+        return None
+    job = next(
+        (
+            job
+            for job in state.tables["service_job"].values()
+            if job["status"] == "planned"
+            and (
+                job["kind"] != "notice"
+                or state.tables["service_state"].get(job["state_key"], {}).get("eligible_epoch")
+                == state.epoch_id
+            )
+        ),
+        None,
+    )
+    if job is None:
+        return None
+    job["status"] = "sent"
+    job["sent_at"] = now.isoformat()
+    await runtime._commit(state)
+    return copy.deepcopy(job)
+
+
+slots.OPERATIONS["service_claim"] = slots.Operation(
+    operation_service_claim, state="full", early=False
+)
+
+
+async def operation_service_complete(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from .service_jobs import complete_calendar
+
+    job = state.tables["service_job"].get(payload["job_id"])
+    if job is None or job["status"] != "sent":
+        return None
+    job["status"] = "finished"
+    job["completed_at"] = now.isoformat()
+    if job["kind"] == "notice":
+        from .notifications import complete_notice
+
+        complete_notice(state, job, payload["response"], now)
+    if job["kind"] == "refresh":
+        from .refresh_plan import complete_refresh
+
+        complete_refresh(state, job, payload["response"])
+    service_observation = (
+        complete_calendar(state, config, job, payload["response"], now)
+        if config and job["kind"] == "calendar"
+        else None
+    )
+    if service_observation is not None:
+        state.tables["source_observation_current"][service_observation.binding_id] = (
+            service_observation.storage_document()
+        )
+        await runtime._record_observation(state, service_observation)
+    if config:
+        coverage_source = next(
+            (
+                b.source_id
+                for b in config.bindings
+                if job.get("coverage") and b.binding_id == job["binding_id"]
+            ),
+            None,
+        )
+        runtime._evaluate(
+            state,
+            config,
+            origin="input" if service_observation or coverage_source else "timer",
+            trigger_source=service_observation.source_id
+            if service_observation
+            else coverage_source,
+        )
+    calendar_row = state.tables["service_state"].get(job.get("state_key", ""), {})
+    warn_calendar_failure = (
+        job["kind"] == "calendar"
+        and bool(calendar_row.get("failures"))
+        and not calendar_row.get("failure_warning_emitted", False)
+        and calendar_row.get("job_id") == job["job_id"]
+    )
+    if warn_calendar_failure:
+        calendar_row["failure_warning_emitted"] = True
+    await runtime._commit(state, publication=True)
+    if warn_calendar_failure:
+        RUNTIME_LOGGER.warning(
+            "calendar_fetch_failed",
+            extra={
+                "binding_id": job["binding_id"],
+                "error_code": calendar_row["error_code"],
+            },
+        )
+    return None
+
+
+slots.OPERATIONS["service_complete"] = slots.Operation(
+    operation_service_complete, state="full", early=False
+)

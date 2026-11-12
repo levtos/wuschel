@@ -1,12 +1,24 @@
 """Human organization is versioned separately from the contract configuration."""
 
 import re
-from typing import TYPE_CHECKING, Any, Literal, Self
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
+from . import slots
 from .model import Model, canonical
 from .persistence import State
+from .registry import (
+    RegistryConfig,
+)
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+from typing import TYPE_CHECKING, Literal, Self
+
+from pydantic import model_validator
 
 if TYPE_CHECKING:
     from .runtime import Runtime
@@ -227,3 +239,45 @@ def refresh_areas(runtime: Runtime, state: State, entities: list[dict[str, Any]]
             runtime._audit(state, "editorial_area_refreshed", {}, before=before, after=dict(row))
             changed = True
     return changed
+
+
+async def operation_editorial_put(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from .editorial import EditorialWrite, put
+
+    result = put(
+        runtime, state, EditorialWrite.model_validate(payload["request"]), payload["_actor"]
+    )
+    await runtime._commit(state)
+    return result
+
+
+slots.OPERATIONS["editorial_put"] = slots.Operation(
+    operation_editorial_put, state="full", early=False
+)
+
+
+async def operation_editorial_area_refresh(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from .editorial import refresh_areas
+
+    if refresh_areas(runtime, state, payload):
+        await runtime._commit(state)
+    return None
+
+
+slots.OPERATIONS["editorial_area_refresh"] = slots.Operation(
+    operation_editorial_area_refresh, state="full", early=False
+)

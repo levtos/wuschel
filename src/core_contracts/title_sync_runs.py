@@ -2,13 +2,25 @@
 
 import asyncio
 import copy
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
+from uuid import uuid4
+
+from . import slots
+from .model import canonical, checksum
+from .persistence import State
+from .registry import (
+    RegistryConfig,
+)
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
 from collections import Counter, defaultdict
-from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from .managed_catalog import affected_contracts, head, invalidate, prepare
 from .managed_catalog import identity as entry_identity
-from .model import canonical, checksum
 from .title_import import MAX_ENTRIES, source_identity
 from .title_sync import current_mapping, plan, public_plan, write_request
 
@@ -377,3 +389,24 @@ async def process(
         if not committed:
             runtime.pending_latches = None
             runtime.pending_refresh.clear()
+
+
+async def operation_title_sync_preview(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from .title_sync_runs import process as sync_process
+
+    return await sync_process(runtime, runtime.state, operation, payload, runtime.clock.now_utc())
+
+
+slots.OPERATIONS["title_sync_preview"] = slots.Operation(
+    operation_title_sync_preview, state="none", early=False
+)
+slots.OPERATIONS["title_sync_apply"] = slots.Operation(
+    operation_title_sync_preview, state="none", early=False
+)

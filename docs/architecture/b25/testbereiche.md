@@ -153,7 +153,8 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
    "src/core_contracts/catalog_scope.py",
    "src/core_contracts/interface_upgrade.py",
    "src/core_contracts/managed_catalog.py",
-   "src/core_contracts/stash_catalog.py"
+   "src/core_contracts/stash_catalog.py",
+   "src/core_contracts/catalog_operations.py"
   ],
   "tests": [
    "tests/test_alpha4_acceptance.py",
