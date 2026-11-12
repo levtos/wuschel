@@ -2,12 +2,12 @@
 
 import copy
 from collections import Counter
-from collections.abc import Iterator
 from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import Field
 
+from .catalog_mapping import music_forms as music_forms
 from .catalog_models import EntryChange
 from .managed_catalog import definition, definition_digest, head, identity
 from .model import Model, canonical, checksum
@@ -41,15 +41,6 @@ def classification(profile: str, value: int, catalog: Any = None) -> str:
 
         result = CLASS_CODES.get(result, result)
     return result
-
-
-def music_forms(key: str) -> Iterator[str]:
-    """Enumerate every runtime tuple; the first split is the primary form."""
-    start = 0
-    while (at := key.find(" - ", start)) >= 0:
-        yield canonical([key[:at], key[at + 3 :]])
-        start = at + 3
-    yield canonical([key])
 
 
 def target_key(item: dict[str, Any], profile: str) -> str:

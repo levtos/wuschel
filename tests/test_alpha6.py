@@ -4,8 +4,8 @@ import copy
 
 import pytest
 
-from core_contracts.registry import validate
 from core_contracts.validation import RegistryValidationError
+from core_contracts.validation import validate_document as validate
 
 from .conftest import activate
 

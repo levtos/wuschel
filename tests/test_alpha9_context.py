@@ -11,8 +11,8 @@ from core_contracts.declarative_models import DeclarativeDefinition
 from core_contracts.evidence import Observation
 from core_contracts.ha_context import Attribution, ContextIndex, HAContext
 from core_contracts.quality import FieldValue
-from core_contracts.registry import validate
 from core_contracts.security import Tokens
+from core_contracts.validation import validate_document as validate
 
 from .conftest import activate
 from .test_declarative import definition

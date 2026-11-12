@@ -9,8 +9,9 @@ import pytest
 from core_contracts.authoring import bind_plan, merge
 from core_contracts.model import canonical, checksum
 from core_contracts.numeric_equivalence import equivalent, preserve_config, preserve_numbers
-from core_contracts.registry import diff, fingerprints, storage_document, validate
+from core_contracts.registry import diff, fingerprints, storage_document
 from core_contracts.validation import RegistryValidationError
+from core_contracts.validation import validate_document as validate
 from tests.conftest import activate, activate_draft
 from tests.test_alpha9_sensor_origin import sensor_config
 from tests.test_portable import export, plan, stage

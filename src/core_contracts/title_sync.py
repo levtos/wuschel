@@ -7,7 +7,10 @@ from uuid import uuid4
 
 from pydantic import Field
 
-from .catalog_models import CatalogWrite, EntryChange, TitleMetadata
+from .catalog_mapping import ImportWrite as ImportWrite
+from .catalog_mapping import current_mapping as current_mapping
+from .catalog_mapping import keys as keys
+from .catalog_models import EntryChange, TitleMetadata
 from .managed_catalog import (
     affected_contracts,
     definition,
@@ -19,7 +22,7 @@ from .managed_catalog import (
 )
 from .model import Model, canonical, checksum
 from .title_import import MAX_BYTES, MAX_ENTRIES, plan_title_import, source_identity
-from .title_transfer import TargetMapping, classification, context_key, music_forms
+from .title_transfer import TargetMapping, classification, context_key
 
 MAPPING_LIMIT = 6400
 
@@ -64,34 +67,8 @@ class Mapping(Model):
     standalone: tuple[str, ...] = Field(default=(), max_length=MAX_ENTRIES)
 
 
-class ImportWrite(CatalogWrite):
-    changes: tuple[EntryChange, ...] = Field(min_length=1, max_length=MAX_ENTRIES)
-
-
-def current_mapping(state: Any) -> dict[str, Any]:
-    records = state.tables.get("title_sync_mapping", {})
-    return (
-        max(records.values(), key=lambda row: row["version"])
-        if records
-        else {
-            "version": 0,
-            "mapping": {"mappings": {}, "standalone": []},
-        }
-    )
-
-
 def standalone_key(row: dict[str, Any], target: TargetMapping) -> str:
     return checksum([source_identity(row), target.catalog_id, target.definition_version])
-
-
-def keys(row: dict[str, Any], profile: str) -> list[str]:
-    if profile != "music":
-        return [row["key"]]
-    if row.get("title") is not None and row.get("artist") is not None:
-        return list(
-            dict.fromkeys([canonical([row["artist"], row["title"]]), canonical([row["title"]])])
-        )
-    return list(music_forms(row["key"]))
 
 
 def metadata(row: dict[str, Any], previous: dict[str, Any] | None = None) -> TitleMetadata:

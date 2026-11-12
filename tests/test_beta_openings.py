@@ -17,8 +17,9 @@ from core_contracts.evidence import Observation
 from core_contracts.openings import OpeningParameters, dual_contact
 from core_contracts.persistence import MemoryStore
 from core_contracts.quality import FieldValue, ReasonCode, unknown
-from core_contracts.registry import fingerprints, validate
+from core_contracts.registry import fingerprints
 from core_contracts.runtime import Runtime
+from core_contracts.validation import validate_document as validate
 from dev.fake_ha import FakeHA
 from tests.conftest import activate_draft
 

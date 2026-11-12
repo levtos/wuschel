@@ -16,10 +16,11 @@ from core_contracts.evidence import Observation
 from core_contracts.freshness_templates import upgrade_document
 from core_contracts.manual_source import ManualEvidence
 from core_contracts.quality import FieldValue
-from core_contracts.registry import fingerprints, validate
+from core_contracts.registry import fingerprints
 from core_contracts.resolver import first_match
 from core_contracts.runtime import Runtime
 from core_contracts.testing.contract_types import type_registry
+from core_contracts.validation import validate_document as validate
 
 from .conftest import activate
 from .test_beta_sleep import FLOW

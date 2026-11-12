@@ -13,7 +13,7 @@ from ..evidence import Observation
 from ..model import checksum
 from ..registry import Binding, RegistryConfig
 from ..runtime import Runtime
-from ..value_origin import normalize as normalize_origin
+from ..source_values import normalize as normalize_origin
 from .ha import timestamp
 
 LOGGER = logging.getLogger(__name__)

@@ -16,11 +16,12 @@ from core_contracts.engines import FORMULAS
 from core_contracts.evidence import Observation
 from core_contracts.history import HistoryQuery
 from core_contracts.persistence import MemoryStore
-from core_contracts.registry import RegistryConfig, storage_document, validate
+from core_contracts.registry import RegistryConfig, storage_document
 from core_contracts.resolver import Bucket, map_value
 from core_contracts.runtime import Runtime
 from core_contracts.testing.contract_types import type_registry
 from core_contracts.validation import RegistryValidationError
+from core_contracts.validation import validate_document as validate
 from dev.fake_ha import FakeHA
 
 from .conftest import activate

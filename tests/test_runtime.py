@@ -6,9 +6,9 @@ import pytest
 
 from core_contracts.evidence import Observation
 from core_contracts.identity import reconcile
-from core_contracts.registry import validate
 from core_contracts.runtime import Runtime
 from core_contracts.testing.contract_types import type_registry
+from core_contracts.validation import validate_document as validate
 from tests.conftest import activate_draft
 
 from .conftest import activate

@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from core_contracts.registry import validate
+from core_contracts.validation import validate_document as validate
 
 from .conftest import activate
 from .test_declarative import definition, registry

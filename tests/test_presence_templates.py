@@ -15,7 +15,8 @@ from core_contracts.evidence import Observation
 from core_contracts.persistence import State
 from core_contracts.portable import objects, read_package
 from core_contracts.quality import FieldValue, ReasonCode, unknown
-from core_contracts.registry import Contract, fingerprints, validate
+from core_contracts.registry import Contract, fingerprints
+from core_contracts.validation import validate_document as validate
 
 from .conftest import activate
 from .test_core import NOW
