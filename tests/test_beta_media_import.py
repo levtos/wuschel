@@ -462,8 +462,8 @@ async def test_import_size_and_expanded_target_guards(runtime, config, monkeypat
     assert strict_json(" " * 20 + "{}", max_bytes=22) == {}
     with pytest.raises(ValueError, match="import_size_limit"):
         strict_json(" " * 20 + "{}", max_bytes=21)
-    from core_contracts import title_transfer
-    from core_contracts.title_import import MAX_ENTRIES, plan_title_import
+    from core_contracts.extensions.tc_migration import title_transfer
+    from core_contracts.extensions.tc_migration.title_import import MAX_ENTRIES, plan_title_import
 
     with pytest.raises(ValueError, match="title_export_limit"):
         plan_title_import({"version": 3, "entries": [{}] * (MAX_ENTRIES + 1)}, "synthetic")

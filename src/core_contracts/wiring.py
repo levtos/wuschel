@@ -1,4 +1,4 @@
-"""Load extension owners in one explicit application composition root."""
+"""Load owners in an explicit application composition root."""
 
 from . import (  # noqa: F401
     authoring,
@@ -11,12 +11,9 @@ from . import (  # noqa: F401
     retention_ops,
     revision_plan,
     service_jobs,
-    title_sync,
-    title_sync_runs,
-    title_transfer,
     validation,
 )
-from .extensions.catalog import (  # noqa: F401  # noqa: F401
+from .extensions.catalog import (  # noqa: F401
     catalog_cleanup,
     catalog_contributions,
     catalog_operations,
@@ -26,3 +23,10 @@ from .extensions.catalog import (  # noqa: F401  # noqa: F401
     catalog_scope,
     managed_catalog,
 )
+from .extensions.tc_migration import (  # noqa: F401
+    title_routes,
+    title_sync,
+    title_sync_runs,
+    title_transfer,
+)
+from .extensions.tc_migration.title_reader import Credentials as Credentials

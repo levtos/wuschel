@@ -27,7 +27,7 @@ from .persistence import PersistenceUnavailable, PostgresStore
 from .runtime import Runtime
 from .security import Tokens
 from .setup import Connection, Setup, probe
-from .title_reader import Credentials
+from .wiring import Credentials
 
 LOGGER = logging.getLogger(__name__)
 
@@ -210,7 +210,7 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
         frontend=frontend,
         setup=setup,
     )
-    from .title_reader import read as read_titles
+    from .wiring import read_titles
 
     async def title_reader() -> dict[str, object]:
         return await read_titles(setup.connection, options.title_classifier)

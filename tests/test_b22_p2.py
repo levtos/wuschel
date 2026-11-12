@@ -444,7 +444,7 @@ async def test_readers_see_old_head_and_result_until_commit_then_both_new(
 
 
 async def test_listing_builds_rows_once_and_keeps_paging_filters(runtime, config, monkeypatch):
-    import core_contracts.catalog_care as module
+    import core_contracts.extensions.catalog.catalog_care as module
 
     catalog = await populated(runtime, config, large=False)
     original, calls = module.all_rows, []

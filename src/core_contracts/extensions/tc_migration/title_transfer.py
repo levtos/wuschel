@@ -6,15 +6,13 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import Field
 
-from . import slots
-from .model import Model, canonical, checksum
-from .persistence import State
-from .registry import (
-    RegistryConfig,
-)
+from core_contracts import slots
+from core_contracts.model import Model, canonical, checksum
+from core_contracts.persistence import State
+from core_contracts.registry import RegistryConfig
 
 if TYPE_CHECKING:
-    from .runtime import Runtime
+    from core_contracts.runtime import Runtime
 
 from collections import Counter
 from typing import Literal
@@ -27,11 +25,15 @@ from core_contracts.extensions.catalog.managed_catalog import (
     head,
     identity,
 )
+from core_contracts.extensions.tc_migration.title_import import (
+    MAX_BYTES,
+    MAX_ENTRIES,
+    plan_title_import,
+    source_identity,
+)
+from core_contracts.portable import export, payload_digest, stage, strict_json
+from core_contracts.portable import preview as portable_preview
 from core_contracts.rules.catalog_models import EntryChange
-
-from .portable import export, payload_digest, stage, strict_json
-from .portable import preview as portable_preview
-from .title_import import MAX_BYTES, MAX_ENTRIES, plan_title_import, source_identity
 
 
 def context_key(context: dict[str, Any]) -> str:
@@ -221,7 +223,7 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                 continue
 
             def entry(item: dict[str, Any], master: dict[str, Any] | None) -> dict[str, Any]:
-                from .title_sync import keys, metadata
+                from core_contracts.extensions.tc_migration.title_sync import keys, metadata
 
                 source_row = rows[item["row"] - 1]
                 matching_contexts = [
@@ -327,7 +329,7 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
     for (catalog_id, version, _), (owner, key, primary) in additional.items():
         group = (catalog_id, version)
         existing = current_entries[group]
-        from .title_sync import keys
+        from core_contracts.extensions.tc_migration.title_sync import keys
 
         for form in keys(rows[owner - 1], "music"):
             if form == primary["key"]:
@@ -488,7 +490,7 @@ async def operation_title_preview(
     now: datetime,
     config: RegistryConfig | None,
 ) -> Any:
-    from .title_transfer import process as title_process
+    from core_contracts.extensions.tc_migration.title_transfer import process as title_process
 
     return await title_process(runtime, state, operation, payload, now)
 

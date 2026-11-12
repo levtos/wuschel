@@ -5,7 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from core_contracts.title_import import MAX_BYTES, plan_title_import
+from core_contracts.extensions.tc_migration.title_import import MAX_BYTES, plan_title_import
 
 
 def strict_object(pairs):

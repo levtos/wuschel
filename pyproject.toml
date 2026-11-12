@@ -80,7 +80,7 @@ type = "layers"
 layers = [
     "core_contracts.wiring : core_contracts.app : core_contracts.apple_tv_package : core_contracts.contract_types : core_contracts.fact_package : core_contracts.stash_package",
     "core_contracts.api : core_contracts.security",
-    "core_contracts.extensions.catalog.apple_tv_catalog : core_contracts.extensions.catalog.catalog_care : core_contracts.extensions.catalog.catalog_cleanup : core_contracts.extensions.catalog.catalog_hierarchy : core_contracts.extensions.catalog.catalog_mapping : core_contracts.extensions.catalog.catalog_operations : core_contracts.extensions.catalog.catalog_playback : core_contracts.extensions.catalog.catalog_scope : core_contracts.extensions.catalog.interface_upgrade : core_contracts.extensions.catalog.managed_catalog : core_contracts.openings : core_contracts.extensions.catalog.stash_catalog : core_contracts.testing : core_contracts.title_import : core_contracts.title_reader : core_contracts.title_sync : core_contracts.title_sync_runs : core_contracts.title_transfer : core_contracts.wake",
+    "core_contracts.extensions.catalog.apple_tv_catalog : core_contracts.extensions.catalog.catalog_care : core_contracts.extensions.catalog.catalog_cleanup : core_contracts.extensions.catalog.catalog_hierarchy : core_contracts.extensions.catalog.catalog_mapping : core_contracts.extensions.catalog.catalog_operations : core_contracts.extensions.catalog.catalog_playback : core_contracts.extensions.catalog.catalog_scope : core_contracts.extensions.catalog.interface_upgrade : core_contracts.extensions.catalog.managed_catalog : core_contracts.openings : core_contracts.extensions.catalog.stash_catalog : core_contracts.testing : core_contracts.extensions.tc_migration.title_import : core_contracts.extensions.tc_migration.title_reader : core_contracts.extensions.tc_migration.title_sync : core_contracts.extensions.tc_migration.title_sync_runs : core_contracts.extensions.tc_migration.title_transfer : core_contracts.wake",
     "core_contracts.adapters.ha : core_contracts.adapters.mqtt : core_contracts.authoring : core_contracts.capabilities : core_contracts.editorial : core_contracts.ha_projection : core_contracts.management : core_contracts.manual_restart : core_contracts.mqtt_restore : core_contracts.portable : core_contracts.provision : core_contracts.reconfiguration : core_contracts.revision_plan : core_contracts.service_jobs : core_contracts.setup : core_contracts.validation",
     "core_contracts.manual_entry : core_contracts.observation_block : core_contracts.retention_ops : core_contracts.runtime",
     "core_contracts.rules : core_contracts.adapter_config : core_contracts.calendar_cache : core_contracts.calendar_coverage : core_contracts.calendar_inputs : core_contracts.calendar_rules : core_contracts.dated_rules : core_contracts.declarative : core_contracts.engines : core_contracts.environment_formulas : core_contracts.instance_parameters : core_contracts.notifications : core_contracts.producer : core_contracts.refresh_plan : core_contracts.source_values : core_contracts.registry : core_contracts.slots : core_contracts.validation_cache",
@@ -97,8 +97,6 @@ ignore_imports = [
     "core_contracts.manual_entry -> core_contracts.wake.operator",
     "core_contracts.manual_entry -> core_contracts.wake.settings",
     # Schritt 5 (catalog, tc_migration): diese Zeilen müssen verschwinden
-    "core_contracts.api -> core_contracts.title_sync",
-    "core_contracts.api -> core_contracts.title_sync_runs",
 ]
 
 [[tool.importlinter.contracts]]
@@ -187,11 +185,11 @@ forbidden_modules = [
     "core_contracts.extensions.catalog.managed_catalog",
     "core_contracts.openings",
     "core_contracts.extensions.catalog.stash_catalog",
-    "core_contracts.title_import",
-    "core_contracts.title_reader",
-    "core_contracts.title_sync",
-    "core_contracts.title_sync_runs",
-    "core_contracts.title_transfer",
+    "core_contracts.extensions.tc_migration.title_import",
+    "core_contracts.extensions.tc_migration.title_reader",
+    "core_contracts.extensions.tc_migration.title_sync",
+    "core_contracts.extensions.tc_migration.title_sync_runs",
+    "core_contracts.extensions.tc_migration.title_transfer",
     "core_contracts.wake",
 ]
 ignore_imports = [
@@ -204,8 +202,6 @@ ignore_imports = [
     "core_contracts.manual_entry -> core_contracts.wake.operator",
     "core_contracts.manual_entry -> core_contracts.wake.settings",
     # Schritt 5 (catalog, tc_migration): diese Zeilen müssen verschwinden
-    "core_contracts.api -> core_contracts.title_sync",
-    "core_contracts.api -> core_contracts.title_sync_runs",
 ]
 
 [[tool.importlinter.contracts]]
@@ -227,11 +223,11 @@ source_modules = [
 ]
 forbidden_modules = [
     "core_contracts.openings",
-    "core_contracts.title_import",
-    "core_contracts.title_reader",
-    "core_contracts.title_sync",
-    "core_contracts.title_sync_runs",
-    "core_contracts.title_transfer",
+    "core_contracts.extensions.tc_migration.title_import",
+    "core_contracts.extensions.tc_migration.title_reader",
+    "core_contracts.extensions.tc_migration.title_sync",
+    "core_contracts.extensions.tc_migration.title_sync_runs",
+    "core_contracts.extensions.tc_migration.title_transfer",
     "core_contracts.wake",
 ]
 ignore_imports = [
@@ -257,11 +253,11 @@ forbidden_modules = [
     "core_contracts.extensions.catalog.managed_catalog",
     "core_contracts.openings",
     "core_contracts.extensions.catalog.stash_catalog",
-    "core_contracts.title_import",
-    "core_contracts.title_reader",
-    "core_contracts.title_sync",
-    "core_contracts.title_sync_runs",
-    "core_contracts.title_transfer",
+    "core_contracts.extensions.tc_migration.title_import",
+    "core_contracts.extensions.tc_migration.title_reader",
+    "core_contracts.extensions.tc_migration.title_sync",
+    "core_contracts.extensions.tc_migration.title_sync_runs",
+    "core_contracts.extensions.tc_migration.title_transfer",
 ]
 
 [[tool.importlinter.contracts]]
@@ -283,11 +279,11 @@ forbidden_modules = [
     "core_contracts.extensions.catalog.interface_upgrade",
     "core_contracts.extensions.catalog.managed_catalog",
     "core_contracts.extensions.catalog.stash_catalog",
-    "core_contracts.title_import",
-    "core_contracts.title_reader",
-    "core_contracts.title_sync",
-    "core_contracts.title_sync_runs",
-    "core_contracts.title_transfer",
+    "core_contracts.extensions.tc_migration.title_import",
+    "core_contracts.extensions.tc_migration.title_reader",
+    "core_contracts.extensions.tc_migration.title_sync",
+    "core_contracts.extensions.tc_migration.title_sync_runs",
+    "core_contracts.extensions.tc_migration.title_transfer",
     "core_contracts.wake",
 ]
 
@@ -296,11 +292,11 @@ name = "Titelabgleich kennt nur catalog"
 type = "forbidden"
 allow_indirect_imports = true
 source_modules = [
-    "core_contracts.title_import",
-    "core_contracts.title_reader",
-    "core_contracts.title_sync",
-    "core_contracts.title_sync_runs",
-    "core_contracts.title_transfer",
+    "core_contracts.extensions.tc_migration.title_import",
+    "core_contracts.extensions.tc_migration.title_reader",
+    "core_contracts.extensions.tc_migration.title_sync",
+    "core_contracts.extensions.tc_migration.title_sync_runs",
+    "core_contracts.extensions.tc_migration.title_transfer",
 ]
 forbidden_modules = [
     "core_contracts.openings",
@@ -324,11 +320,11 @@ source_modules = [
     "core_contracts.extensions.catalog.managed_catalog",
     "core_contracts.openings",
     "core_contracts.extensions.catalog.stash_catalog",
-    "core_contracts.title_import",
-    "core_contracts.title_reader",
-    "core_contracts.title_sync",
-    "core_contracts.title_sync_runs",
-    "core_contracts.title_transfer",
+    "core_contracts.extensions.tc_migration.title_import",
+    "core_contracts.extensions.tc_migration.title_reader",
+    "core_contracts.extensions.tc_migration.title_sync",
+    "core_contracts.extensions.tc_migration.title_sync_runs",
+    "core_contracts.extensions.tc_migration.title_transfer",
     "core_contracts.wake",
 ]
 forbidden_modules = [
@@ -430,11 +426,11 @@ source_modules = [
     "core_contracts.extensions.catalog.managed_catalog",
     "core_contracts.openings",
     "core_contracts.extensions.catalog.stash_catalog",
-    "core_contracts.title_import",
-    "core_contracts.title_reader",
-    "core_contracts.title_sync",
-    "core_contracts.title_sync_runs",
-    "core_contracts.title_transfer",
+    "core_contracts.extensions.tc_migration.title_import",
+    "core_contracts.extensions.tc_migration.title_reader",
+    "core_contracts.extensions.tc_migration.title_sync",
+    "core_contracts.extensions.tc_migration.title_sync_runs",
+    "core_contracts.extensions.tc_migration.title_transfer",
     "core_contracts.wake",
 ]
 forbidden_modules = [

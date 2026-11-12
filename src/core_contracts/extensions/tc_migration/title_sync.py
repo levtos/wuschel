@@ -6,12 +6,12 @@ from uuid import uuid4
 
 from pydantic import Field
 
-from . import slots
-from .model import Model, checksum
-from .persistence import State
+from core_contracts import slots
+from core_contracts.model import Model, checksum
+from core_contracts.persistence import State
 
 if TYPE_CHECKING:
-    from .runtime import Runtime
+    from core_contracts.runtime import Runtime
 
 from collections import Counter
 
@@ -27,11 +27,19 @@ from core_contracts.extensions.catalog.managed_catalog import (
     invalidate,
     prepare,
 )
+from core_contracts.extensions.tc_migration.title_import import (
+    MAX_BYTES,
+    MAX_ENTRIES,
+    plan_title_import,
+    source_identity,
+)
+from core_contracts.extensions.tc_migration.title_transfer import (
+    TargetMapping,
+    classification,
+    context_key,
+)
+from core_contracts.model import canonical
 from core_contracts.rules.catalog_models import EntryChange, TitleMetadata
-
-from .model import canonical
-from .title_import import MAX_BYTES, MAX_ENTRIES, plan_title_import, source_identity
-from .title_transfer import TargetMapping, classification, context_key
 
 MAPPING_LIMIT = 6400
 
@@ -416,7 +424,7 @@ def write_request(group: dict[str, Any], revision: int, request_id: str) -> Impo
 async def process(
     runtime: Any, state: Any, operation: str, body: dict[str, Any], now: Any
 ) -> dict[str, Any]:
-    from .title_sync_runs import process as process_run
+    from core_contracts.extensions.tc_migration.title_sync_runs import process as process_run
 
     return await process_run(runtime, state, operation, body, now)
 

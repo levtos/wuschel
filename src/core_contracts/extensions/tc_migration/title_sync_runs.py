@@ -6,22 +6,20 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-from . import slots
-from .model import checksum
-from .persistence import State
-from .registry import (
-    RegistryConfig,
-)
+from core_contracts import slots
+from core_contracts.model import checksum
+from core_contracts.persistence import State
+from core_contracts.registry import RegistryConfig
 
 if TYPE_CHECKING:
-    from .runtime import Runtime
+    from core_contracts.runtime import Runtime
 
 from typing import TYPE_CHECKING
 
-from .model import canonical
+from core_contracts.model import canonical
 
 if TYPE_CHECKING:
-    from .runtime import Runtime
+    from core_contracts.runtime import Runtime
 
 from collections import Counter, defaultdict
 from uuid import UUID
@@ -33,9 +31,13 @@ from core_contracts.extensions.catalog.managed_catalog import (
     prepare,
 )
 from core_contracts.extensions.catalog.managed_catalog import identity as entry_identity
-
-from .title_import import MAX_ENTRIES, source_identity
-from .title_sync import current_mapping, plan, public_plan, write_request
+from core_contracts.extensions.tc_migration.title_import import MAX_ENTRIES, source_identity
+from core_contracts.extensions.tc_migration.title_sync import (
+    current_mapping,
+    plan,
+    public_plan,
+    write_request,
+)
 
 PAGE_SIZE = 350
 MAX_RUNS = 16
@@ -412,7 +414,7 @@ async def operation_title_sync_preview(
     now: datetime,
     config: RegistryConfig | None,
 ) -> Any:
-    from .title_sync_runs import process as sync_process
+    from core_contracts.extensions.tc_migration.title_sync_runs import process as sync_process
 
     return await sync_process(runtime, runtime.state, operation, payload, runtime.clock.now_utc())
 

@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from core_contracts.title_import import plan_title_import
+from core_contracts.extensions.tc_migration.title_import import plan_title_import
 
 
 def row(key="Synthetic Example", **extra):

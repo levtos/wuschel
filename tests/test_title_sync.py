@@ -4,9 +4,9 @@ from uuid import uuid4
 import pytest
 
 from core_contracts.extensions.catalog.managed_catalog import head
+from core_contracts.extensions.tc_migration.title_sync import current_mapping
 from core_contracts.model import canonical
 from core_contracts.runtime import Runtime
-from core_contracts.title_sync import current_mapping
 
 from .conftest import activate
 from .test_beta_media_import import document, row
@@ -147,8 +147,8 @@ async def test_preview_is_immutable_and_target_conflict_blocks_entire_operation(
 
 
 async def test_hidden_parent_closure_override_conflict_and_saved_standalone(runtime, config):
-    from core_contracts.title_sync import standalone_key
-    from core_contracts.title_transfer import TargetMapping
+    from core_contracts.extensions.tc_migration.title_sync import standalone_key
+    from core_contracts.extensions.tc_migration.title_transfer import TargetMapping
 
     await activate(runtime, document(config))
     master = observed("Synthetic Master", contexts=[], hidden_at="2032-01-01T00:00:00Z", enum=0)
@@ -242,7 +242,7 @@ async def test_multi_catalog_atomic_failure_and_tc_reassertion(runtime, config, 
 
 
 async def test_empty_and_invalid_records_do_not_crash_and_diff_is_paged(runtime, config):
-    from core_contracts.title_sync import diff_page
+    from core_contracts.extensions.tc_migration.title_sync import diff_page
 
     await activate(runtime, document(config))
     invalid = await inspect(runtime, [{"key": "Synthetic incomplete"}], mapping())
