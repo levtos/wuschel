@@ -80,7 +80,7 @@ type = "layers"
 layers = [
     "core_contracts.app : core_contracts.apple_tv_package : core_contracts.contract_types : core_contracts.fact_package : core_contracts.stash_package",
     "core_contracts.api : core_contracts.security",
-    "core_contracts.apple_tv_catalog : core_contracts.catalog_care : core_contracts.catalog_cleanup : core_contracts.catalog_hierarchy : core_contracts.catalog_models : core_contracts.catalog_playback : core_contracts.catalog_scope : core_contracts.interface_upgrade : core_contracts.managed_catalog : core_contracts.openings : core_contracts.stash_catalog : core_contracts.testing : core_contracts.title_import : core_contracts.title_reader : core_contracts.title_sync : core_contracts.title_sync_runs : core_contracts.title_transfer : core_contracts.wake",
+    "core_contracts.apple_tv_catalog : core_contracts.catalog_care : core_contracts.catalog_cleanup : core_contracts.catalog_hierarchy : core_contracts.catalog_mapping : core_contracts.catalog_models : core_contracts.catalog_playback : core_contracts.catalog_scope : core_contracts.interface_upgrade : core_contracts.managed_catalog : core_contracts.openings : core_contracts.stash_catalog : core_contracts.testing : core_contracts.title_import : core_contracts.title_reader : core_contracts.title_sync : core_contracts.title_sync_runs : core_contracts.title_transfer : core_contracts.wake",
     "core_contracts.adapters.ha : core_contracts.adapters.mqtt : core_contracts.authoring : core_contracts.capabilities : core_contracts.editorial : core_contracts.ha_projection : core_contracts.management : core_contracts.manual_restart : core_contracts.mqtt_restore : core_contracts.portable : core_contracts.provision : core_contracts.reconfiguration : core_contracts.revision_plan : core_contracts.service_jobs : core_contracts.setup : core_contracts.validation",
     "core_contracts.manual_entry : core_contracts.observation_block : core_contracts.runtime",
     "core_contracts.calendar_cache : core_contracts.calendar_coverage : core_contracts.calendar_inputs : core_contracts.calendar_rules : core_contracts.dated_rules : core_contracts.declarative : core_contracts.engines : core_contracts.environment_formulas : core_contracts.instance_parameters : core_contracts.notifications : core_contracts.producer : core_contracts.refresh_plan : core_contracts.source_values : core_contracts.registry : core_contracts.validation_cache",
@@ -88,10 +88,6 @@ layers = [
     "core_contracts.clock : core_contracts.declarative_models : core_contracts.evidence : core_contracts.field_since : core_contracts.freshness_templates : core_contracts.fusion : core_contracts.ha_context : core_contracts.identity : core_contracts.lifecycle : core_contracts.machine_events : core_contracts.manual_source : core_contracts.model : core_contracts.multibucket : core_contracts.numeric_equivalence : core_contracts.operation_timing : core_contracts.quality : core_contracts.resolver : core_contracts.schema : core_contracts.sensor_profile : core_contracts.state_tracking : core_contracts.statemachine : core_contracts.temporal : core_contracts.text_rules : core_contracts.user_text : core_contracts.value_origin",
 ]
 ignore_imports = [
-    # Schritt 3: diese Zeilen müssen verschwinden
-    "core_contracts.catalog_care -> core_contracts.title_sync",
-    "core_contracts.catalog_scope -> core_contracts.title_sync",
-    "core_contracts.interface_upgrade -> core_contracts.title_sync",
     # Schritt 4: diese Zeilen müssen verschwinden
     "core_contracts.runtime -> core_contracts.authoring",
     "core_contracts.runtime -> core_contracts.capabilities",
@@ -215,6 +211,7 @@ forbidden_modules = [
     "core_contracts.catalog_care",
     "core_contracts.catalog_cleanup",
     "core_contracts.catalog_hierarchy",
+    "core_contracts.catalog_mapping",
     "core_contracts.catalog_models",
     "core_contracts.catalog_playback",
     "core_contracts.catalog_scope",
@@ -230,10 +227,6 @@ forbidden_modules = [
     "core_contracts.wake",
 ]
 ignore_imports = [
-    # Schritt 3: diese Zeilen müssen verschwinden
-    "core_contracts.catalog_care -> core_contracts.title_sync",
-    "core_contracts.catalog_scope -> core_contracts.title_sync",
-    "core_contracts.interface_upgrade -> core_contracts.title_sync",
     # Schritt 4: diese Zeilen müssen verschwinden
     "core_contracts.runtime -> core_contracts.catalog_care",
     "core_contracts.runtime -> core_contracts.catalog_cleanup",
@@ -281,6 +274,7 @@ source_modules = [
     "core_contracts.catalog_care",
     "core_contracts.catalog_cleanup",
     "core_contracts.catalog_hierarchy",
+    "core_contracts.catalog_mapping",
     "core_contracts.catalog_models",
     "core_contracts.catalog_playback",
     "core_contracts.catalog_scope",
@@ -298,10 +292,6 @@ forbidden_modules = [
     "core_contracts.wake",
 ]
 ignore_imports = [
-    # Schritt 3: diese Zeilen müssen verschwinden
-    "core_contracts.catalog_care -> core_contracts.title_sync",
-    "core_contracts.catalog_scope -> core_contracts.title_sync",
-    "core_contracts.interface_upgrade -> core_contracts.title_sync",
 ]
 
 [[tool.importlinter.contracts]]
@@ -316,6 +306,7 @@ forbidden_modules = [
     "core_contracts.catalog_care",
     "core_contracts.catalog_cleanup",
     "core_contracts.catalog_hierarchy",
+    "core_contracts.catalog_mapping",
     "core_contracts.catalog_models",
     "core_contracts.catalog_playback",
     "core_contracts.catalog_scope",
@@ -342,6 +333,7 @@ forbidden_modules = [
     "core_contracts.catalog_care",
     "core_contracts.catalog_cleanup",
     "core_contracts.catalog_hierarchy",
+    "core_contracts.catalog_mapping",
     "core_contracts.catalog_models",
     "core_contracts.catalog_playback",
     "core_contracts.catalog_scope",
@@ -381,6 +373,7 @@ source_modules = [
     "core_contracts.catalog_care",
     "core_contracts.catalog_cleanup",
     "core_contracts.catalog_hierarchy",
+    "core_contracts.catalog_mapping",
     "core_contracts.catalog_models",
     "core_contracts.catalog_playback",
     "core_contracts.catalog_scope",
@@ -481,6 +474,7 @@ source_modules = [
     "core_contracts.catalog_care",
     "core_contracts.catalog_cleanup",
     "core_contracts.catalog_hierarchy",
+    "core_contracts.catalog_mapping",
     "core_contracts.catalog_models",
     "core_contracts.catalog_playback",
     "core_contracts.catalog_scope",

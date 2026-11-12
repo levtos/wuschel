@@ -106,6 +106,7 @@
    "src/core_contracts/catalog_care.py",
    "src/core_contracts/catalog_cleanup.py",
    "src/core_contracts/catalog_hierarchy.py",
+   "src/core_contracts/catalog_mapping.py",
    "src/core_contracts/catalog_models.py",
    "src/core_contracts/catalog_playback.py",
    "src/core_contracts/catalog_scope.py",

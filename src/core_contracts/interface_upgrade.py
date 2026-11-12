@@ -309,8 +309,8 @@ def migration_preview(state: Any, contents: list[dict[str, Any]]) -> list[dict[s
 
 def migrate_runtime(state: Any, contents: list[dict[str, Any]], now: Any) -> None:
     """Part of portable.apply's existing transaction; never called on startup."""
+    from .catalog_mapping import current_mapping
     from .catalog_playback import PREFIX
-    from .title_sync import current_mapping
 
     upgrades = {row["catalog_id"]: row for row in contents if row.get("class_migration")}
     for catalog_id, content in upgrades.items():

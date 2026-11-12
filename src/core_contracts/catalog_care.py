@@ -376,7 +376,7 @@ def listing(
         except ValueError, KeyError, TypeError, UnicodeError:
             raise ValueError("catalog_content_conflict") from None
     page = selected[offset : offset + limit]
-    from .title_sync import current_mapping
+    from .catalog_mapping import current_mapping
 
     next_cursor = (
         base64.urlsafe_b64encode(
@@ -615,9 +615,9 @@ def detail(
     view: str = "all",
     filters: dict[str, str] | None = None,
 ) -> dict[str, Any]:
+    from .catalog_mapping import current_mapping, keys
     from .managed_catalog import definition, identity
     from .registry import RegistryConfig
-    from .title_sync import current_mapping, keys
 
     filters = filters or {}
     if (

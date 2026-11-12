@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from .catalog_care import fields
+from .catalog_mapping import ImportWrite, current_mapping
 from .managed_catalog import (
     affected_contracts,
     effective,
@@ -17,7 +18,6 @@ from .managed_catalog import (
 )
 from .model import canonical, checksum
 from .text_rules import normalize_key
-from .title_sync import ImportWrite, current_mapping
 
 RECEIPT = "catalog_scope_repair:v1"
 LIMIT = 100_000
