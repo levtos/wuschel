@@ -46,13 +46,14 @@ def test_unknown_area_fails():
 
 def test_changed_selection_combines_areas_and_fails_closed_for_core():
     areas = json.loads((ROOT / "tests/areas.json").read_text())
-    selected = affected_tests(areas, ["src/core_contracts/wake/operator.py"])
+    selected = affected_tests(areas, ["src/core_contracts/extensions/wake/operator.py"])
     assert shlex.split(selected) == sorted(areas["wake"]["tests"])
     assert affected_tests(areas, ["src/core_contracts/quality.py"]) == "ALL"
     assert affected_tests(areas, ["src/core_contracts/wakefulness.py"]) == "ALL"
     assert affected_tests(areas, ["tests/test_replay.py"]) == "ALL"
     combined = affected_tests(
-        areas, ["src/core_contracts/wake/operator.py", "src/core_contracts/calendar_cache.py"]
+        areas,
+        ["src/core_contracts/extensions/wake/operator.py", "src/core_contracts/calendar_cache.py"],
     )
     assert shlex.split(combined) == sorted(set(areas["wake"]["tests"] + areas["calendar"]["tests"]))
     assert affected_tests(areas, []) == ""
@@ -72,7 +73,7 @@ def test_changed_cli_uses_real_git_and_default_or_explicit_base(tmp_path, change
     script = tmp_path / "dev/area_tests.py"
     script.write_bytes((ROOT / "dev/area_tests.py").read_bytes())
     (tmp_path / "tests/areas.json").write_bytes((ROOT / "tests/areas.json").read_bytes())
-    operator = tmp_path / "src/core_contracts/wake/operator.py"
+    operator = tmp_path / "src/core_contracts/extensions/wake/operator.py"
     operator.parent.mkdir(parents=True)
     operator.write_text("# baseline\n")
     git("init", "--quiet")

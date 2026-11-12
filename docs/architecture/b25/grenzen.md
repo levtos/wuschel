@@ -623,3 +623,48 @@ Konfigurationshelfer. Damit bleiben die vorhandenen Runtime-Aufruf- und
 - Alle 20 Schritt-4-Ausnahmepaare entfallen: 44 → 24. Es wurde keine
   neue Ausnahme eingeführt. `slots` gehört zu rules, `errors` zu kernel,
   `retention_ops` zu lane, `catalog_operations` zur Katalogkartusche.
+
+
+## Umgesetzt in Schritt 5 (#119)
+
+Die Tabellen und die Startkonfiguration oben dokumentieren den Ausgangsstand.
+Die ausführbare Grenzprüfung in `pyproject.toml` prüft jetzt die vollständigen
+Ordner `extensions/catalog`, `extensions/tc_migration`, `extensions/wake` und
+`extensions/openings`. Alle 24 verbliebenen Ausnahmepaare entfallen; alle acht
+Regeln bleiben erhalten. Insbesondere darf nur `tc_migration` die Kartusche
+`catalog` importieren. Die neuen Beitragsmodule werden durch die Ordnerregeln
+mitgeprüft. `rules` ist Teil der Kernschicht und ebenfalls gegen Kartuschen-
+und Testhilfenimporte abgesichert.
+
+- Format: `rules/catalog_models.py`, `rules/apple_title.py` und
+  `rules/wake.py` (manuelle Ausnahme, reine Uhrzeitparser). `WakeSettings`
+  bleibt wegen seiner Rückgabe von `WakePlanningConfig` und der ursprünglichen
+  Planungsvalidierung in der Kartusche und meldet sich als `wake_planning_v1`
+  in `PARAMETER_MODELS` an. Das Konfigurationsformat bleibt unverändert.
+- `RULES` meldet Modellklassen mit Typprüfung, Kindern, Auswertung, Fälligkeit,
+  Abhängigkeiten und optionaler zusätzlicher Definitionsprüfung an. Die
+  manuelle Ausnahme meldet ihr Formatmodell und die bestehende Ablaufzeit-
+  Prüfung ebenfalls dort an. `declarative` und `producer` rufen die Beiträge
+  an den bisherigen Stellen auf; Fehler bleiben sichtbares `unknown`.
+- `SOURCE_PROFILES` enthält die bestehenden Stash-/Apple-Titel-Funktionen.
+  Die generische HA-Anbindung übergibt den bisherigen Rahmen; die Kartusche
+  ergänzt dieselben Metadaten und Ereignishashes in derselben Reihenfolge.
+- `ROUTES` meldet die Katalog- und Titelrouten vor der allgemeinen API-Route
+  an. Authentifizierung, Rollen-/Protokollprüfung, Fehlerbehandlung und
+  Serialisierung bleiben bei der API. Die Routen rufen dieselben Operationen
+  auf; sie speichern nicht selbst.
+- `PORTABLE`, `VALIDATION` und `AUTHORING` enthalten die verschobenen
+  Katalogbeiträge zu Import/Export, Nachprüfung und Entwurfsvergleich. Der
+  gemeinsame Zustand, die Katalogtabellen und die eine Transaktion bleiben
+  erhalten. `Connection` bleibt unverändert in `setup`.
+- `wiring` lädt alle Eigentümer ausdrücklich und exportiert den TC-Leser
+  samt Credential-Modell für die App. Außerhalb der Kartuschen importieren
+  nur `wiring`, `contract_types` und die vorhandenen Vorlagenbauwerkzeuge aus
+  `extensions`; der Kern kennt keine Implementierung der Kartuschen.
+
+Strukturnachweis: 18 verschobene Module haben nach Abzug ihrer Importzeilen
+identische AST-Körper. Auch die verbliebenen Wake-Settings-/Planungsdefinitionen
+sind nach Abzug der verschobenen reinen Formate unverändert. Konfigurations-
+schema und vollständige Capability-Antwort stimmen mit `b25@406d57d` überein.
+Prüfläufe, Checkpoints und CI-Nachweis stehen in Issue #119. Dieser Schritt
+veröffentlicht und installiert nichts; Version bleibt `1.0.0b24`.
