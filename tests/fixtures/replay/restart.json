@@ -1,0 +1,625 @@
+{
+  "messages": [
+    {
+      "reason": "epoch",
+      "type": "resync_required"
+    },
+    {
+      "bridge": "not_needed",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": false
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": null
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": null
+        },
+        {
+          "code": "publication",
+          "satisfied": null
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "not_needed",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": false,
+      "reasons": [
+        "no_active_registry"
+      ],
+      "type": "service_state"
+    },
+    {
+      "contracts": {
+        "fixture.machine": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:00Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.machine",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "a"
+            }
+          },
+          "fixture": true,
+          "publication_seq": 1,
+          "published_at": "2026-01-01T12:00:00Z",
+          "registry_revision": 1,
+          "state_machine": {
+            "deadline": {
+              "at": "2026-01-01T12:00:10Z",
+              "deadline_id": "uuid-4",
+              "episode_id": "uuid-2",
+              "fired": false
+            },
+            "episode_ended_at": null,
+            "episode_id": "uuid-2",
+            "episode_started_at": "2026-01-01T12:00:00Z",
+            "evidence": [],
+            "fingerprint": "2383c7c1d591b6afd755f36dc8d58a978759473edd65b2b6bee1b5011e6e1f9c",
+            "origin": "automatic",
+            "previous_state": null,
+            "registry_revision": 1,
+            "session_id": "uuid-3",
+            "since_at": "2026-01-01T12:00:00Z",
+            "source": "runtime",
+            "state": "a",
+            "transition_reason": "initial",
+            "trigger": "first_start"
+          },
+          "type": {
+            "id": "test.state_machine",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 0,
+      "publication_seq": 1,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "bridge": "disconnected",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": true
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": false
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": false
+        },
+        {
+          "code": "publication",
+          "satisfied": true
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "disconnected",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": false,
+      "reasons": [
+        "first_bridge_snapshot_pending"
+      ],
+      "type": "service_state"
+    },
+    {
+      "contracts": {
+        "fixture.machine": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:00Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.machine",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [
+                "uuid-1:1:binding.a"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "b"
+            }
+          },
+          "fixture": true,
+          "publication_seq": 2,
+          "published_at": "2026-01-01T12:00:00Z",
+          "registry_revision": 1,
+          "state_machine": {
+            "deadline": {
+              "at": "2026-01-01T12:00:10Z",
+              "deadline_id": "uuid-4",
+              "episode_id": "uuid-2",
+              "fired": false
+            },
+            "episode_ended_at": null,
+            "episode_id": "uuid-2",
+            "episode_started_at": "2026-01-01T12:00:00Z",
+            "evidence": [
+              "uuid-1:1:binding.a"
+            ],
+            "fingerprint": "2383c7c1d591b6afd755f36dc8d58a978759473edd65b2b6bee1b5011e6e1f9c",
+            "origin": "manual",
+            "previous_state": "a",
+            "registry_revision": 1,
+            "session_id": "uuid-3",
+            "since_at": "2026-01-01T12:00:00Z",
+            "source": "command",
+            "state": "b",
+            "transition_reason": "test_request",
+            "trigger": "request_b"
+          },
+          "type": {
+            "id": "test.state_machine",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 1,
+      "publication_seq": 2,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "type": "going_away"
+    },
+    {
+      "reason": "epoch",
+      "type": "resync_required"
+    },
+    {
+      "bridge": "not_needed",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": true
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": false
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": false
+        },
+        {
+          "code": "publication",
+          "satisfied": true
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "not_needed",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": false,
+      "reasons": [
+        "first_bridge_snapshot_pending"
+      ],
+      "type": "service_state"
+    },
+    {
+      "bridge": "not_needed",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": true
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": true
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": false
+        },
+        {
+          "code": "publication",
+          "satisfied": true
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "not_needed",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": true,
+      "reasons": [],
+      "type": "service_state"
+    },
+    {
+      "bridge": "not_needed",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": true
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": true
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": false
+        },
+        {
+          "code": "publication",
+          "satisfied": true
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "not_needed",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": true,
+      "reasons": [],
+      "type": "service_state"
+    },
+    {
+      "contracts": {
+        "fixture.machine": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:11Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.machine",
+          "enabled": true,
+          "epoch_id": "uuid-5",
+          "fields": {
+            "value": {
+              "evidence": [
+                "uuid-5:1:binding.a"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:11Z",
+              "status": "valid",
+              "value": "c"
+            }
+          },
+          "fixture": true,
+          "publication_seq": 4,
+          "published_at": "2026-01-01T12:00:11Z",
+          "registry_revision": 1,
+          "state_machine": {
+            "deadline": {
+              "at": "2026-01-01T12:00:10Z",
+              "deadline_id": "uuid-4",
+              "episode_id": "uuid-2",
+              "fired": true
+            },
+            "episode_ended_at": "2026-01-01T12:00:11Z",
+            "episode_id": "uuid-2",
+            "episode_started_at": "2026-01-01T12:00:00Z",
+            "evidence": [
+              "uuid-5:1:binding.a"
+            ],
+            "fingerprint": "2383c7c1d591b6afd755f36dc8d58a978759473edd65b2b6bee1b5011e6e1f9c",
+            "origin": "automatic",
+            "previous_state": "b",
+            "registry_revision": 1,
+            "session_id": "uuid-3",
+            "since_at": "2026-01-01T12:00:11Z",
+            "source": "input",
+            "state": "c",
+            "transition_reason": "test_deadline",
+            "trigger": "deadline"
+          },
+          "type": {
+            "id": "test.state_machine",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-5",
+      "prev_seq": 3,
+      "publication_seq": 4,
+      "registry_revision": 1,
+      "type": "delta"
+    }
+  ],
+  "results": [],
+  "snapshot": {
+    "contracts": {
+      "fixture.machine": {
+        "available": true,
+        "computed_at": "2026-01-01T12:00:11Z",
+        "contract_health": "healthy",
+        "contract_id": "fixture.machine",
+        "enabled": true,
+        "epoch_id": "uuid-5",
+        "fields": {
+          "value": {
+            "evidence": [
+              "uuid-5:1:binding.a"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:11Z",
+            "status": "valid",
+            "value": "c"
+          }
+        },
+        "fixture": true,
+        "publication_seq": 4,
+        "published_at": "2026-01-01T12:00:11Z",
+        "registry_revision": 1,
+        "state_machine": {
+          "deadline": {
+            "at": "2026-01-01T12:00:10Z",
+            "deadline_id": "uuid-4",
+            "episode_id": "uuid-2",
+            "fired": true
+          },
+          "episode_ended_at": "2026-01-01T12:00:11Z",
+          "episode_id": "uuid-2",
+          "episode_started_at": "2026-01-01T12:00:00Z",
+          "evidence": [
+            "uuid-5:1:binding.a"
+          ],
+          "fingerprint": "2383c7c1d591b6afd755f36dc8d58a978759473edd65b2b6bee1b5011e6e1f9c",
+          "origin": "automatic",
+          "previous_state": "b",
+          "registry_revision": 1,
+          "session_id": "uuid-3",
+          "since_at": "2026-01-01T12:00:11Z",
+          "source": "input",
+          "state": "c",
+          "transition_reason": "test_deadline",
+          "trigger": "deadline"
+        },
+        "type": {
+          "id": "test.state_machine",
+          "version": 1
+        }
+      }
+    },
+    "epoch_id": "uuid-5",
+    "publication_confirmed": true,
+    "publication_seq": 4,
+    "registry_revision": 1,
+    "type": "snapshot"
+  },
+  "tables": {
+    "contract_state_current": {
+      "fixture.machine": {
+        "available": true,
+        "computed_at": "2026-01-01T12:00:11Z",
+        "contract_health": "healthy",
+        "contract_id": "fixture.machine",
+        "enabled": true,
+        "epoch_id": "uuid-5",
+        "fields": {
+          "value": {
+            "evidence": [
+              "uuid-5:1:binding.a"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": null,
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:11Z",
+            "status": "valid",
+            "value": "c"
+          }
+        },
+        "fixture": true,
+        "publication_seq": 4,
+        "published_at": "2026-01-01T12:00:11Z",
+        "registry_revision": 1,
+        "state_machine": {
+          "deadline": {
+            "at": "2026-01-01T12:00:10Z",
+            "deadline_id": "uuid-4",
+            "episode_id": "uuid-2",
+            "fired": true
+          },
+          "episode_ended_at": "2026-01-01T12:00:11Z",
+          "episode_id": "uuid-2",
+          "episode_started_at": "2026-01-01T12:00:00Z",
+          "evidence": [
+            "uuid-5:1:binding.a"
+          ],
+          "fingerprint": "2383c7c1d591b6afd755f36dc8d58a978759473edd65b2b6bee1b5011e6e1f9c",
+          "origin": "automatic",
+          "previous_state": "b",
+          "registry_revision": 1,
+          "session_id": "uuid-3",
+          "since_at": "2026-01-01T12:00:11Z",
+          "source": "input",
+          "state": "c",
+          "transition_reason": "test_deadline",
+          "trigger": "deadline"
+        },
+        "type": {
+          "id": "test.state_machine",
+          "version": 1
+        }
+      }
+    },
+    "deadline": {
+      "uuid-4": {
+        "at": "2026-01-01T12:00:10Z",
+        "contract_id": "fixture.machine",
+        "deadline_id": "uuid-4",
+        "episode_id": "uuid-2",
+        "fired": true
+      }
+    },
+    "history_gap": {
+      "uuid-6": {
+        "at": "2026-01-01T12:00:00+00:00",
+        "epoch_id": "uuid-5",
+        "reason": "process_restart"
+      }
+    },
+    "sm_instance": {
+      "fixture.machine": {
+        "deadline": {
+          "at": "2026-01-01T12:00:10Z",
+          "deadline_id": "uuid-4",
+          "episode_id": "uuid-2",
+          "fired": true
+        },
+        "episode_ended_at": "2026-01-01T12:00:11Z",
+        "episode_id": "uuid-2",
+        "episode_started_at": "2026-01-01T12:00:00Z",
+        "evidence": [
+          "uuid-5:1:binding.a"
+        ],
+        "fingerprint": "2383c7c1d591b6afd755f36dc8d58a978759473edd65b2b6bee1b5011e6e1f9c",
+        "origin": "automatic",
+        "previous_state": "b",
+        "registry_revision": 1,
+        "session_id": "uuid-3",
+        "since_at": "2026-01-01T12:00:11Z",
+        "source": "input",
+        "state": "c",
+        "transition_reason": "test_deadline",
+        "trigger": "deadline"
+      }
+    }
+  }
+}

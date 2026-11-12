@@ -1,0 +1,554 @@
+{
+  "messages": [
+    {
+      "reason": "epoch",
+      "type": "resync_required"
+    },
+    {
+      "bridge": "not_needed",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": false
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": null
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": null
+        },
+        {
+          "code": "publication",
+          "satisfied": null
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "not_needed",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": false,
+      "reasons": [
+        "no_active_registry"
+      ],
+      "type": "service_state"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": false,
+          "computed_at": "2026-01-01T12:00:00Z",
+          "contract_health": "degraded",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.a",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            }
+          },
+          "fixture": true,
+          "publication_seq": 1,
+          "published_at": "2026-01-01T12:00:00Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.declarative",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 0,
+      "publication_seq": 1,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "bridge": "disconnected",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": true
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": false
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": false
+        },
+        {
+          "code": "publication",
+          "satisfied": true
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "disconnected",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": false,
+      "reasons": [
+        "first_bridge_snapshot_pending"
+      ],
+      "type": "service_state"
+    },
+    {
+      "bridge": "connected",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": true
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": false
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": true
+        },
+        {
+          "code": "publication",
+          "satisfied": true
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "connected",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": false,
+      "reasons": [
+        "first_bridge_snapshot_pending"
+      ],
+      "type": "service_state"
+    },
+    {
+      "bridge": "connected",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": true
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": false
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": true
+        },
+        {
+          "code": "publication",
+          "satisfied": true
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "connected",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": false,
+      "reasons": [
+        "first_bridge_snapshot_pending"
+      ],
+      "type": "service_state"
+    },
+    {
+      "bridge": "connected",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": true
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": true
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": true
+        },
+        {
+          "code": "publication",
+          "satisfied": true
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "connected",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": true,
+      "reasons": [],
+      "type": "service_state"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:00Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "configuration": {
+                "complete": false,
+                "hints": [
+                  {
+                    "code": "catalog_assignment_missing",
+                    "message": ""
+                  }
+                ]
+              },
+              "evidence": [
+                "uuid-1:1:binding.a",
+                "catalog:465e1f1827d3e3c4e26afd5cfaf727ac000271cba407534ec7da0b705a355abd:1256c9c58044e228d2efc708b6844eadf18fe6051e379dc15a4ec598d36fbfc9:592dc4418337cf1da34fd6ed17a85382df43e3ae63e9851423666933493b8374"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "valid",
+              "value": "other"
+            }
+          },
+          "fixture": true,
+          "publication_seq": 2,
+          "published_at": "2026-01-01T12:00:00Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.declarative",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 1,
+      "publication_seq": 2,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "type": "catalog_changed"
+    },
+    {
+      "type": "catalog_changed"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:02Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [
+                "uuid-1:1:binding.a",
+                "catalog:465e1f1827d3e3c4e26afd5cfaf727ac000271cba407534ec7da0b705a355abd:1256c9c58044e228d2efc708b6844eadf18fe6051e379dc15a4ec598d36fbfc9:f6f465ff0c0e8a36b3e2f46a2697ffff0e1dd29f43db31522cc1a0ca7ce64ea5"
+              ],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:02Z",
+              "status": "valid",
+              "value": "example"
+            }
+          },
+          "fixture": true,
+          "publication_seq": 3,
+          "published_at": "2026-01-01T12:00:02Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.declarative",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 2,
+      "publication_seq": 3,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "type": "catalog_changed"
+    }
+  ],
+  "results": [
+    {
+      "affected_contracts": 0,
+      "affected_keys": 0,
+      "changes": [
+        {
+          "classification": "example",
+          "display_name": "",
+          "key": "Synthetic First",
+          "master_key": null,
+          "media_type": "music",
+          "note": "",
+          "reviewed_at": "2026-01-01T12:00:02Z",
+          "scope": "example",
+          "signal_type": "title",
+          "tombstone": false
+        }
+      ],
+      "context_effects": [],
+      "timings_ms": {
+        "catalog_plan_ms": 0.0,
+        "impact_ms": 0.0,
+        "prepare_ms": 0.0,
+        "state_copy_ms": 0.0,
+        "writer_wait_ms": 0.0
+      }
+    },
+    {
+      "affected_keys": [],
+      "catalog": "465e1f1827d3e3c4e26afd5cfaf727ac000271cba407534ec7da0b705a355abd",
+      "changed": 1,
+      "content_revision": 2,
+      "publication_seq": 3
+    },
+    {
+      "catalog_id": "example.titles",
+      "definition_digest": "69c9975e1d447be92bdb7906daa8485302d4de661be287aa037f5521d5f4cb08",
+      "definition_version": 1,
+      "entries": {
+        "1256c9c58044e228d2efc708b6844eadf18fe6051e379dc15a4ec598d36fbfc9": {
+          "classification": "example",
+          "display_name": "",
+          "key": "Synthetic First",
+          "master_identity": null,
+          "master_key": null,
+          "media_type": "music",
+          "normalized_key": "synthetic first",
+          "note": "",
+          "reviewed_at": "2026-01-01T12:00:02Z",
+          "scope": "example",
+          "signal_type": "title",
+          "tombstone": false
+        }
+      },
+      "revision": 2
+    }
+  ],
+  "snapshot": {
+    "contracts": {
+      "fixture.echo": {
+        "available": true,
+        "computed_at": "2026-01-01T12:00:02Z",
+        "contract_health": "healthy",
+        "contract_id": "fixture.echo",
+        "enabled": true,
+        "epoch_id": "uuid-1",
+        "fields": {
+          "value": {
+            "evidence": [
+              "uuid-1:1:binding.a",
+              "catalog:465e1f1827d3e3c4e26afd5cfaf727ac000271cba407534ec7da0b705a355abd:1256c9c58044e228d2efc708b6844eadf18fe6051e379dc15a4ec598d36fbfc9:f6f465ff0c0e8a36b3e2f46a2697ffff0e1dd29f43db31522cc1a0ca7ce64ea5"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:02Z",
+            "status": "valid",
+            "value": "example"
+          }
+        },
+        "fixture": true,
+        "publication_seq": 3,
+        "published_at": "2026-01-01T12:00:02Z",
+        "registry_revision": 1,
+        "state_machine": null,
+        "type": {
+          "id": "test.declarative",
+          "version": 1
+        }
+      }
+    },
+    "epoch_id": "uuid-1",
+    "publication_confirmed": true,
+    "publication_seq": 3,
+    "registry_revision": 1,
+    "type": "snapshot"
+  },
+  "tables": {
+    "contract_state_current": {
+      "fixture.echo": {
+        "available": true,
+        "computed_at": "2026-01-01T12:00:02Z",
+        "contract_health": "healthy",
+        "contract_id": "fixture.echo",
+        "enabled": true,
+        "epoch_id": "uuid-1",
+        "fields": {
+          "value": {
+            "evidence": [
+              "uuid-1:1:binding.a",
+              "catalog:465e1f1827d3e3c4e26afd5cfaf727ac000271cba407534ec7da0b705a355abd:1256c9c58044e228d2efc708b6844eadf18fe6051e379dc15a4ec598d36fbfc9:f6f465ff0c0e8a36b3e2f46a2697ffff0e1dd29f43db31522cc1a0ca7ce64ea5"
+            ],
+            "freshness": null,
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:02Z",
+            "status": "valid",
+            "value": "example"
+          }
+        },
+        "fixture": true,
+        "publication_seq": 3,
+        "published_at": "2026-01-01T12:00:02Z",
+        "registry_revision": 1,
+        "state_machine": null,
+        "type": {
+          "id": "test.declarative",
+          "version": 1
+        }
+      }
+    },
+    "deadline": {},
+    "history_gap": {},
+    "sm_instance": {}
+  }
+}
