@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal, Self
 
 from pydantic import Field, SerializerFunctionWrapHandler, model_serializer, model_validator
 
-from .adapters import AdapterConfig
+from .adapter_config import AdapterConfig
 from .catalog_models import ManagedCatalog
 from .declarative_models import MAX_DEFINITIONS, DeclarativeDefinition
 from .evidence import Freshness
