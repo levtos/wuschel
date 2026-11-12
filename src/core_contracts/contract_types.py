@@ -1,6 +1,7 @@
 """Application type registry: production types are independent of test evaluators."""
 
-from .openings import register
+from core_contracts.extensions.openings import register
+
 from .schema import TypeRegistry
 
 

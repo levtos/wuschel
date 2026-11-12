@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, create_model, model_validator
 
 from . import declarative_models as dm
+from . import slots
 from .model import Model
 
 COMPARISONS = {
@@ -52,10 +53,8 @@ def parameter_model(definition: dm.DeclarativeDefinition) -> type[BaseModel]:
             "timestamp": str,
             "object": dict[str, Any],
         }[schema.type]
-        if declaration.structured_schema == "wake_planning_v1":
-            from .wake.settings import WakeSettings
-
-            annotation = WakeSettings
+        if declaration.structured_schema in slots.PARAMETER_MODELS:
+            annotation = slots.PARAMETER_MODELS[declaration.structured_schema]
         if schema.value_catalog:
             annotation = Literal[tuple(schema.value_catalog)]
         fields[name] = (

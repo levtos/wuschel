@@ -33,3 +33,4 @@ from .extensions.tc_migration import (  # noqa: F401
 )
 from .extensions.tc_migration.title_reader import Credentials as Credentials
 from .extensions.tc_migration.title_reader import read as read_titles
+from .extensions.wake import registration as wake_registration  # noqa: F401

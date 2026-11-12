@@ -55,10 +55,13 @@ SUBMIT_PREFIXES: dict[str, Callable[..., Awaitable[Any]]] = {}
 
 @dataclass(frozen=True)
 class Rule:
-    check: Callable[..., FieldSchema]
-    evaluate: Callable[..., FieldValue]
-    children: Callable[..., list[tuple[str, Any]]]
+    check: Callable[..., FieldSchema] | None = None
+    evaluate: Callable[..., FieldValue] | None = None
+    children: Callable[..., list[tuple[str, Any]]] | None = None
     due: Callable[..., None] | None = None
+    validate: Callable[..., None] | None = None
+    minimum_language: int = 0
+    manual_schema: str | None = None
     dependencies: dict[str, Callable[..., Any]] = field(default_factory=dict)
     manual: Callable[..., tuple[Any, datetime]] | None = None
 

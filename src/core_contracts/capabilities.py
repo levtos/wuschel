@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from . import slots
 from .declarative_models import MAX_DEPTH, MAX_FIELDS, MAX_INPUTS, MAX_NODES, DeclarativeDefinition
 from .engines import FORMULA_SCHEMAS, FUSION_INPUTS
 from .history import HISTORY_TABLES, HistoryQuery
@@ -9,7 +10,6 @@ from .quality import ReasonCode
 from .registry import RegistryConfig, registry_types
 from .schema import TypeRegistry
 from .statemachine import Machine
-from .wake.settings import WakeException, WakeSettings
 
 SEMANTIC_RULES = {
     "document_object_required": "configuration is a JSON object",
@@ -345,8 +345,14 @@ def capabilities(config: RegistryConfig | None, base: TypeRegistry) -> dict[str,
         "language_versions": [1, 2, 3, 4, 5, 6, 7, 8],
         "machine_ordered_v1": True,
         "command_ingress_v1": True,
-        "structured_parameter_schemas": {"wake_planning_v1": WakeSettings.model_json_schema()},
-        "manual_structured_schemas": {"wake_exception_v1": WakeException.model_json_schema()},
+        "structured_parameter_schemas": {
+            name: model.model_json_schema() for name, model in slots.PARAMETER_MODELS.items()
+        },
+        "manual_structured_schemas": {
+            entry.manual_schema: model.model_json_schema()
+            for model, entry in slots.RULES.items()
+            if entry.manual_schema
+        },
         "calendar_rules": {
             "language_version": 5,
             "annual_curve": {

@@ -5,7 +5,7 @@ import json
 from datetime import date
 from pathlib import Path
 
-from core_contracts.wake import wake_config, wake_planning
+from core_contracts.extensions.wake import wake_config, wake_planning
 
 from .wake_reference_cases import VARIANTS, scenario
 

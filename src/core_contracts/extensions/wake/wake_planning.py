@@ -29,6 +29,8 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
+from core_contracts.rules.wake import parse_time as parse_time
+
 SHADOW_VERSION = "1.0.0"
 
 WAKE_STATE_SCHEDULED = "scheduled"
@@ -69,25 +71,6 @@ COMPARISON_DIFFERENT = "different_decision"
 COMPARISON_LEGACY_UNAVAILABLE = "legacy_unavailable"
 COMPARISON_CORE_UNAVAILABLE = "core_state_unavailable"
 COMPARISON_NOT_DECIDABLE = "not_decidable"
-
-
-def parse_time(value: Any) -> time | None:
-    """Parse a local ``HH:MM`` value without accepting invalid clock times."""
-
-    if isinstance(value, time):
-        return value.replace(second=0, microsecond=0, tzinfo=None)
-    if not isinstance(value, str):
-        return None
-    parts = value.strip().split(":")
-    if len(parts) not in (2, 3):
-        return None
-    try:
-        hour, minute = int(parts[0]), int(parts[1])
-    except TypeError, ValueError:
-        return None
-    if not (0 <= hour <= 23 and 0 <= minute <= 59):
-        return None
-    return time(hour, minute)
 
 
 def parse_date(value: Any) -> date | None:

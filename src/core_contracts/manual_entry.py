@@ -3,8 +3,9 @@
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
+from . import slots
 from .manual_source import ManualEvidence, ManualRequest
-from .model import checksum, utc
+from .model import checksum
 from .source_values import normalize as normalize_origin
 
 if TYPE_CHECKING:
@@ -65,18 +66,14 @@ async def enter(runtime: Runtime, state: State, payload: dict[str, Any]) -> dict
     values = [point.value for point in origin_fields.get("forecast", ())] or [normalized]
     end = request.valid_until
     if source and source.manual_structured_schema and request.action == "set":
-        from .wake.operator import local_start
-        from .wake.settings import WakeException
-
         try:
-            from datetime import date
-
-            exception = WakeException.model_validate(normalized)
-            maximum_end = utc(local_start(date.fromisoformat(exception.date) + timedelta(days=1)))
-            if maximum_end <= now or (end is not None and end != maximum_end):
-                raise ValueError("exception_expiry")
-            end = maximum_end
-            normalized = exception.model_dump(mode="json", exclude_none=True)
+            entry = next(
+                item
+                for item in slots.RULES.values()
+                if item.manual_schema == source.manual_structured_schema
+            )
+            assert entry.manual is not None
+            normalized, end = entry.manual(normalized, end, now)
         except ValueError, TypeError:
             origin_error = True
     reason = (
