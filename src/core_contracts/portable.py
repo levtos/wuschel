@@ -11,7 +11,8 @@ from .editorial import EditorialWrite, ObjectRef, Room
 from .managed_catalog import definition_digest, head, head_key, identity, invalidate, prepare
 from .model import canonical, checksum
 from .numeric_equivalence import equivalent, preserve_config, preserve_numbers
-from .registry import RegistryConfig, resolve_ref, safe_document, storage_document, validate
+from .registry import RegistryConfig, resolve_ref, safe_document, storage_document
+from .validation import validate_document as validate
 
 GROUPS = {
     "dependencies": "dependency_id",

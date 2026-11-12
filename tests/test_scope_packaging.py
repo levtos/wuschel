@@ -5,8 +5,8 @@ from pathlib import Path
 
 import yaml
 
-from core_contracts.registry import validate
 from core_contracts.testing.contract_types import type_registry
+from core_contracts.validation import validate_document as validate
 
 ROOT = Path(__file__).resolve().parents[1]
 

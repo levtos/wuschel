@@ -11,9 +11,9 @@ from core_contracts.adapters.ha import BridgeAdapter
 from core_contracts.api import API
 from core_contracts.history import HistoryQuery
 from core_contracts.quality import ReasonCode
-from core_contracts.registry import validate
 from core_contracts.security import Tokens
 from core_contracts.validation import RegistryValidationError
+from core_contracts.validation import validate_document as validate
 from dev.fake_ha import FakeHA
 
 from .conftest import activate, activation_body

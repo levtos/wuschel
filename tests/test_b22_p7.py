@@ -20,7 +20,7 @@ from core_contracts.managed_catalog import head, validate_heads
 from core_contracts.model import checksum
 from core_contracts.portable import read_package
 from core_contracts.quality import FieldValue
-from core_contracts.registry import validate
+from core_contracts.validation import validate_document as validate
 from dev.build_apple_tv_templates import build, catalog
 from dev.build_apple_tv_templates import settings as defaults
 

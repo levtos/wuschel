@@ -11,7 +11,8 @@ from uuid import UUID, uuid4
 from .model import checksum
 from .numeric_equivalence import equivalent, preserve_config, preserve_numbers
 from .persistence import PersistenceUnavailable
-from .registry import RegistryConfig, storage_document, validate
+from .registry import RegistryConfig, storage_document
+from .validation import validate_document as validate
 
 LOGGER = logging.getLogger(__name__)
 

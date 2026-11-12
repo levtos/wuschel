@@ -13,8 +13,9 @@ from core_contracts.declarative import check_definition
 from core_contracts.declarative_models import DeclarativeDefinition
 from core_contracts.fact_package import additions_for, assemble, category
 from core_contracts.freshness_templates import upgrade_document
-from core_contracts.registry import fingerprints, validate
+from core_contracts.registry import fingerprints
 from core_contracts.service_jobs import calendar_status
+from core_contracts.validation import validate_document as validate
 from dev.build_fact_templates import build
 from dev.build_media_templates import definition, inp, literal, schema
 

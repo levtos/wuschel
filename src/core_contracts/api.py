@@ -376,7 +376,7 @@ class API:
             result = configuration_schema()
         elif path == "registry/freshness" and method == "POST":
             from .freshness_templates import effective_freshness
-            from .registry import validate
+            from .validation import validate_document as validate
 
             result = effective_freshness(validate(await self.object_body(request), runtime.types))
         elif path == "title-sync/mapping" and method == "GET":

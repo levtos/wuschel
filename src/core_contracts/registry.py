@@ -389,12 +389,6 @@ def resolve_ref(ref: str, config: RegistryConfig) -> tuple[str, str | None]:
     raise ValueError("unknown reference")
 
 
-def validate(document: dict[str, Any], types: TypeRegistry) -> RegistryConfig:
-    from .validation import validate_document
-
-    return validate_document(document, types)
-
-
 def required_sources(config: RegistryConfig) -> set[str]:
     """Sources reachable from enabled producers, including source monitors/liveness."""
     needed = {

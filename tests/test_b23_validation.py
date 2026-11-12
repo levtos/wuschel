@@ -2,8 +2,8 @@ import copy
 from collections import Counter
 from dataclasses import replace
 
-from core_contracts.registry import validate
 from core_contracts.runtime import Runtime
+from core_contracts.validation import validate_document as validate
 
 from .conftest import activate, activate_draft
 

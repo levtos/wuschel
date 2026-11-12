@@ -2,10 +2,11 @@ import copy
 
 import pytest
 
-from core_contracts.registry import fingerprints, validate
+from core_contracts.registry import fingerprints
 from core_contracts.runtime import Runtime
 from core_contracts.testing.contract_types import type_registry
 from core_contracts.validation import RegistryValidationError
+from core_contracts.validation import validate_document as validate
 
 from .conftest import activate
 from .test_declarative import definition, registry, schema

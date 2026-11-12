@@ -39,12 +39,12 @@ from .registry import (
     resolve_ref,
     storage_document,
     topological,
-    validate,
 )
 from .resolver import Bucket
 from .schema import Envelope, TypeRegistry, validate_fields
 from .statemachine import MachineState
 from .temporal import start_case
+from .validation import validate_document as validate
 from .validation_cache import CHECK_VERSION, ValidationCache
 
 LOGGER = logging.getLogger(__name__)

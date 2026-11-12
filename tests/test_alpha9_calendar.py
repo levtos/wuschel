@@ -4,8 +4,8 @@ import pytest
 
 from core_contracts.calendar_cache import CalendarWindow, normalize_events
 from core_contracts.persistence import PersistenceUnavailable
-from core_contracts.registry import validate
 from core_contracts.service_jobs import calendar_status, plan_calendars
+from core_contracts.validation import validate_document as validate
 
 from .conftest import activate
 

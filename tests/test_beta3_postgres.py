@@ -9,9 +9,10 @@ import pytest
 
 from core_contracts.clock import FakeClock
 from core_contracts.persistence import PostgresStore
-from core_contracts.registry import storage_document, validate
+from core_contracts.registry import storage_document
 from core_contracts.runtime import Runtime
 from core_contracts.testing.contract_types import type_registry
+from core_contracts.validation import validate_document as validate
 from tests.conftest import activate
 from tests.test_beta3_authoring import envelope, legacy_import
 from tests.test_core import NOW

@@ -20,10 +20,11 @@ from core_contracts.app import JsonFormatter, connect_with_health
 from core_contracts.evidence import assess
 from core_contracts.persistence import MemoryStore
 from core_contracts.quality import FieldValue, ReasonCode, unknown
-from core_contracts.registry import fingerprints, validate
+from core_contracts.registry import fingerprints
 from core_contracts.runtime import Runtime
 from core_contracts.security import Tokens
 from core_contracts.temporal import Temporal, TemporalState
+from core_contracts.validation import validate_document as validate
 
 from .conftest import activate
 from .test_runtime import obs

@@ -92,7 +92,6 @@ ignore_imports = [
     "core_contracts.catalog_care -> core_contracts.title_sync",
     "core_contracts.catalog_scope -> core_contracts.title_sync",
     "core_contracts.interface_upgrade -> core_contracts.title_sync",
-    "core_contracts.registry -> core_contracts.validation",
     # Schritt 4: diese Zeilen müssen verschwinden
     "core_contracts.runtime -> core_contracts.authoring",
     "core_contracts.runtime -> core_contracts.capabilities",

@@ -17,8 +17,8 @@ from core_contracts.interface_upgrade import upgrade_package
 from core_contracts.managed_catalog import head, validate_heads
 from core_contracts.model import checksum
 from core_contracts.portable import read_package
-from core_contracts.registry import validate
 from core_contracts.stash_package import augment
+from core_contracts.validation import validate_document as validate
 from dev.build_stash_templates import build
 
 from .conftest import activate

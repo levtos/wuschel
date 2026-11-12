@@ -15,10 +15,10 @@ from core_contracts.interface_upgrade import CLASS_CODES, contract_id, upgrade_p
 from core_contracts.managed_catalog import head, head_key, identity
 from core_contracts.model import checksum
 from core_contracts.portable import objects, package_checksum, payload_digest
-from core_contracts.registry import validate
 from core_contracts.runtime import Runtime
 from core_contracts.title_sync import current_mapping
 from core_contracts.title_transfer import classification
+from core_contracts.validation import validate_document as validate
 from dev.build_interface_templates import definitions
 
 from .conftest import activate, activate_draft

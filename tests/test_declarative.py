@@ -8,9 +8,10 @@ from pydantic import ValidationError
 from core_contracts.declarative import Evaluation, check_definition, compile_definition
 from core_contracts.declarative_models import DeclarativeDefinition
 from core_contracts.quality import FieldValue
-from core_contracts.registry import RegistryConfig, fingerprints, validate
+from core_contracts.registry import RegistryConfig, fingerprints
 from core_contracts.runtime import Runtime
 from core_contracts.testing.contract_types import type_registry
+from core_contracts.validation import validate_document as validate
 
 from .conftest import activate
 from .test_core import NOW
