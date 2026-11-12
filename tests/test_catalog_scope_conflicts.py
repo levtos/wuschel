@@ -4,7 +4,7 @@ import copy
 
 import pytest
 
-from core_contracts.managed_catalog import head, head_key, identity
+from core_contracts.extensions.catalog.managed_catalog import head, head_key, identity
 
 from .test_catalog_scope import entry, preview, repair, setup, write
 
@@ -165,7 +165,7 @@ async def test_imported_family_follows_a_preserved_live_master_without_grandchil
 async def test_apply_rejects_a_different_resolution_even_with_the_same_source_basis(
     runtime, config, monkeypatch
 ):
-    from core_contracts import catalog_scope
+    from core_contracts.extensions.catalog import catalog_scope
 
     catalog = await setup(runtime, config)
     await write(runtime, catalog, [entry()])

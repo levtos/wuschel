@@ -15,11 +15,10 @@ if TYPE_CHECKING:
 
 from collections import Counter
 
-from .catalog_mapping import ImportWrite as ImportWrite
-from .catalog_mapping import current_mapping as current_mapping
-from .catalog_mapping import keys as keys
-from .catalog_models import EntryChange, TitleMetadata
-from .managed_catalog import (
+from core_contracts.extensions.catalog.catalog_mapping import ImportWrite as ImportWrite
+from core_contracts.extensions.catalog.catalog_mapping import current_mapping as current_mapping
+from core_contracts.extensions.catalog.catalog_mapping import keys as keys
+from core_contracts.extensions.catalog.managed_catalog import (
     affected_contracts,
     definition,
     head,
@@ -28,6 +27,8 @@ from .managed_catalog import (
     invalidate,
     prepare,
 )
+from core_contracts.rules.catalog_models import EntryChange, TitleMetadata
+
 from .model import canonical
 from .title_import import MAX_BYTES, MAX_ENTRIES, plan_title_import, source_identity
 from .title_transfer import TargetMapping, classification, context_key
@@ -124,7 +125,7 @@ def plan(
     else:
         mapping = Mapping.model_validate(saved["mapping"])
     config = runtime._config(state)
-    from .catalog_scope import device_scope, validate_target
+    from core_contracts.extensions.catalog.catalog_scope import device_scope, validate_target
 
     for mapping_key, mapped_target in mapping.mappings.items():
         scope = device_scope(config, mapped_target.catalog_id, mapped_target.definition_version)

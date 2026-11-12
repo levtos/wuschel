@@ -5,10 +5,10 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from core_contracts.catalog_models import ClassificationSchema
-from core_contracts.managed_catalog import head
+from core_contracts.extensions.catalog.managed_catalog import head
 from core_contracts.model import canonical
 from core_contracts.persistence import PersistenceUnavailable
+from core_contracts.rules.catalog_models import ClassificationSchema
 from core_contracts.runtime import Runtime
 from core_contracts.text_rules import normalize_key
 

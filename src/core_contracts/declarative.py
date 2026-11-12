@@ -11,6 +11,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, create_model, model_validator
 
 from . import declarative_models as dm
+from . import slots
 from .engines import FORMULA_SCHEMAS, FORMULAS, FUSION, FUSION_INPUTS
 from .instance_parameters import number_slot, parameter_model
 from .model import Model
@@ -56,6 +57,8 @@ def map_key(value: Any) -> str:
 
 
 def rule_children(rule: dm.Rule) -> list[tuple[str, dm.Rule]]:
+    if extension := slots.RULES.get(type(rule)):
+        return extension.children(rule)
     if isinstance(rule, dm.AnnualCurveRule):
         return [("at", rule.at)] + [
             (f"points/{i}/value", point.value)
@@ -86,10 +89,6 @@ def rule_children(rule: dm.Rule) -> list[tuple[str, dm.Rule]]:
                 "otherwise_phase",
                 "otherwise_time",
             )
-        ]
-    if isinstance(rule, dm.ManagedCatalogRule):
-        return [
-            (name, getattr(rule, name)) for name in ("scope", "media_type", "signal_type", "key")
         ]
     if isinstance(rule, dm.ConfigurationHintRule):
         return [("arg", rule.arg), ("when", rule.when)]
@@ -192,12 +191,14 @@ def all_rules(definition: dm.DeclarativeDefinition) -> list[dm.Rule]:
 
 def check_definition(definition: dm.DeclarativeDefinition) -> None:
     rules = all_rules(definition)
-    slots = [r.duration_s for r in rules if isinstance(r, dm.TemporalRule)]
+    parameter_slots = [r.duration_s for r in rules if isinstance(r, dm.TemporalRule)]
     if definition.machine and definition.machine.deadline_s is not None:
-        slots.append(definition.machine.deadline_s)
+        parameter_slots.append(definition.machine.deadline_s)
     if definition.machine:
-        slots.extend(item.duration for item in definition.machine.deadline_by_state.values())
-    for slot in slots:
+        parameter_slots.extend(
+            item.duration for item in definition.machine.deadline_by_state.values()
+        )
+    for slot in parameter_slots:
         if isinstance(slot, dm.ParameterRule):
             declaration = definition.parameter_schema.get(slot.name)
             if (
@@ -330,6 +331,8 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
         if isinstance(rule, dm.LiteralRule):
             return rule.field_schema
         args = [infer(child, guard=guard, depth=depth + 1) for child in children(rule)]
+        if extension := slots.RULES.get(type(rule)):
+            return extension.check(rule, definition, inputs, args, require, scalar)
         if isinstance(rule, dm.EventMatchRule):
             if args[0].type == "object":
                 raise ValueError("event_scalar_required")
@@ -429,18 +432,6 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
             }:
                 raise ValueError("unordered_comparison")
             return scalar("bool")
-        if isinstance(rule, dm.ManagedCatalogRule):
-            if rule.profile == "apple_tv_title" and definition.language_version < 8:
-                raise ValueError("language_version_8_required")
-            if rule.profile and definition.language_version < 7:
-                raise ValueError("language_version_7_required")
-            if definition.language_version < 4:
-                raise ValueError("language_version_4_required")
-            for arg in args:
-                require(arg, scalar("text"))
-            if rule.field_schema.type != "enum" or not rule.field_schema.value_catalog:
-                raise ValueError("catalog_classification_schema")
-            return rule.field_schema
         if isinstance(rule, dm.MapRule):
             if args[0].type == "object":
                 raise ValueError("map_requires_scalar")
@@ -657,7 +648,8 @@ class Evaluation:
         return MachineState.model_validate(data) if data else None
 
     def machine_evidence(self, value: FieldValue) -> None:
-        from .managed_catalog import dependencies, suspend_machine
+        dependencies = slots.RULES[dm.ManagedCatalogRule].dependencies["track"]
+        suspend_machine = slots.RULES[dm.ManagedCatalogRule].dependencies["suspend"]
 
         if self.context is not None:
             slot = self.context.node.setdefault("catalog_machine", {})
@@ -697,6 +689,8 @@ class Evaluation:
 
     def _evaluate(self, rule: dm.Rule) -> FieldValue:
         now = self.now
+        if extension := slots.RULES.get(type(rule)):
+            return extension.evaluate(self, rule)
         if isinstance(rule, (dm.MachineMemoryRule, dm.MachineFieldRule)):
             outcome = self.memo.get("$machine")
             if outcome and not outcome.usable(now):
@@ -855,7 +849,7 @@ class Evaluation:
                 slot = self.context.node.setdefault("catalog_machine", {})
                 after_episode = self.context.node.get("machine", {}).get("episode_id")
                 if after_episode and after_episode != before_episode:
-                    from .managed_catalog import dependencies
+                    dependencies = slots.RULES[dm.ManagedCatalogRule].dependencies["track"]
 
                     slot.clear()
                     dependencies(slot, self.machine_reads)
@@ -883,11 +877,6 @@ class Evaluation:
 
             due = self.context.node.setdefault("clock_due", []) if self.context else []
             return calendar_active(rule, args, now, due)
-        if isinstance(rule, dm.ManagedCatalogRule):
-            from .managed_catalog import lookup
-
-            assert self.context is not None
-            return lookup(self.context, rule, args)
         if isinstance(rule, dm.KnownAutomaticRule):
             return derive(
                 bool(args[0].attribution and args[0].attribution.kind == "known_automatic"),
@@ -995,7 +984,7 @@ class Evaluation:
         assert self.context is not None
         if isinstance(rule, dm.BucketRule):
             key = f"{self.context.contract.contract_id}:{rule.id}"
-            from .managed_catalog import dependencies
+            dependencies = slots.RULES[dm.ManagedCatalogRule].dependencies["track"]
 
             slot = self.context.node.setdefault("catalog_buckets", {}).setdefault(rule.id, {})
             if dependencies(slot, args):

@@ -3,7 +3,8 @@
 import copy
 from typing import Any
 
-from .interface_upgrade import upgrade_package
+from core_contracts.extensions.catalog.interface_upgrade import upgrade_package
+
 from .portable import objects, package_checksum, payload_digest
 
 

@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 
-from core_contracts.managed_catalog import head
+from core_contracts.extensions.catalog.managed_catalog import head
 from core_contracts.model import canonical
 from core_contracts.runtime import Runtime
 from core_contracts.title_sync import current_mapping
@@ -176,7 +176,7 @@ async def test_hidden_parent_closure_override_conflict_and_saved_standalone(runt
 
 
 async def test_multi_catalog_atomic_failure_and_tc_reassertion(runtime, config, monkeypatch):
-    from core_contracts.managed_catalog import identity
+    from core_contracts.extensions.catalog.managed_catalog import identity
     from core_contracts.persistence import PersistenceUnavailable
 
     doc = document(config)

@@ -3,8 +3,8 @@
 import copy
 from typing import Any
 
-from .apple_tv_catalog import AppleTitleConfig
 from .portable import objects, package_checksum, payload_digest, read_package
+from .rules.apple_title import AppleTitleConfig
 
 
 def augment(

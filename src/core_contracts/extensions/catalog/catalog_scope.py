@@ -5,9 +5,9 @@ from collections import defaultdict
 from typing import Any
 from uuid import UUID
 
-from .catalog_care import fields
-from .catalog_mapping import ImportWrite, current_mapping
-from .managed_catalog import (
+from core_contracts.extensions.catalog.catalog_care import fields
+from core_contracts.extensions.catalog.catalog_mapping import ImportWrite, current_mapping
+from core_contracts.extensions.catalog.managed_catalog import (
     affected_contracts,
     effective,
     head,
@@ -16,8 +16,8 @@ from .managed_catalog import (
     invalidate,
     prepare,
 )
-from .model import canonical, checksum
-from .text_rules import normalize_key
+from core_contracts.model import canonical, checksum
+from core_contracts.text_rules import normalize_key
 
 RECEIPT = "catalog_scope_repair:v1"
 LIMIT = 100_000
@@ -360,7 +360,7 @@ async def process(
     previewing = operation == "catalog_scope_preview"
     if not previewing and (body.get("confirmed") is not True or body.get("plan_digest") != digest):
         raise ValueError("catalog_content_conflict")
-    from .catalog_models import EntryChange
+    from core_contracts.rules.catalog_models import EntryChange
 
     affected: set[str] = set()
     latches = copy.deepcopy(runtime.latches)

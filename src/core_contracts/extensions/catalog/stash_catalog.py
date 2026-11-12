@@ -2,9 +2,9 @@
 
 from typing import Any
 
-from .model import checksum
-from .quality import FieldValue, ReasonCode, unknown
-from .text_rules import normalize_key
+from core_contracts.model import checksum
+from core_contracts.quality import FieldValue, ReasonCode, unknown
+from core_contracts.text_rules import normalize_key
 
 
 def text(value: Any) -> str:
@@ -34,8 +34,8 @@ def metadata(attributes: dict[str, Any]) -> dict[str, Any]:
 
 
 def lookup(ctx: Any, rule: Any, args: list[FieldValue]) -> FieldValue:
-    from .catalog_hierarchy import lookup as hierarchy_lookup
-    from .catalog_hierarchy import source_frame
+    from core_contracts.extensions.catalog.catalog_hierarchy import lookup as hierarchy_lookup
+    from core_contracts.extensions.catalog.catalog_hierarchy import source_frame
 
     scene = str(args[-1].value)
     frame = source_frame(ctx, args, "stash_slot")

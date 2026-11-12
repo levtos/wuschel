@@ -7,8 +7,8 @@ from uuid import uuid4
 
 import pytest
 
-from core_contracts.catalog_care import CareRequest, all_rows, detail, listing
-from core_contracts.managed_catalog import effective, head, identity
+from core_contracts.extensions.catalog.catalog_care import CareRequest, all_rows, detail, listing
+from core_contracts.extensions.catalog.managed_catalog import effective, head, identity
 from core_contracts.model import checksum
 
 from .conftest import activate

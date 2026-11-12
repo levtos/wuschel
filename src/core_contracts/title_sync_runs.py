@@ -26,8 +26,14 @@ if TYPE_CHECKING:
 from collections import Counter, defaultdict
 from uuid import UUID
 
-from .managed_catalog import affected_contracts, head, invalidate, prepare
-from .managed_catalog import identity as entry_identity
+from core_contracts.extensions.catalog.managed_catalog import (
+    affected_contracts,
+    head,
+    invalidate,
+    prepare,
+)
+from core_contracts.extensions.catalog.managed_catalog import identity as entry_identity
+
 from .title_import import MAX_ENTRIES, source_identity
 from .title_sync import current_mapping, plan, public_plan, write_request
 
@@ -299,7 +305,7 @@ def prepare_page(
     if current_mapping(state)["version"] != run["mapping_version"]:
         raise ValueError("title_sync_mapping_conflict")
     for catalog in config.catalogs:
-        from .managed_catalog import head_key
+        from core_contracts.extensions.catalog.managed_catalog import head_key
 
         key = head_key(catalog)
         if key in run["_heads"] and head(state, catalog)["revision"] != run["_heads"][key]:

@@ -2,12 +2,7 @@
 
 from . import (  # noqa: F401
     authoring,
-    catalog_cleanup,
-    catalog_operations,
-    catalog_playback,
-    catalog_scope,
     editorial,
-    managed_catalog,
     management,
     manual_restart,
     mqtt_restore,
@@ -20,4 +15,14 @@ from . import (  # noqa: F401
     title_sync_runs,
     title_transfer,
     validation,
+)
+from .extensions.catalog import (  # noqa: F401  # noqa: F401
+    catalog_cleanup,
+    catalog_contributions,
+    catalog_operations,
+    catalog_playback,
+    catalog_profiles,
+    catalog_routes,
+    catalog_scope,
+    managed_catalog,
 )

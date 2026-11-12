@@ -14,7 +14,7 @@ import asyncpg
 from aiohttp import WSMsgType, web
 from pydantic import ValidationError
 
-from . import __version__
+from . import __version__, slots
 from .authoring import AuthoringError
 from .capabilities import capabilities, configuration_schema, describe_types, reasons
 from .history import HISTORY_TABLES, HistoryQuery
@@ -240,6 +240,8 @@ class API:
         app.router.add_get("/api/v1/ws", self.websocket)
         if ingress and self.setup:
             app.router.add_route("*", "/api/v1/setup/{operation}", self.setup_dispatch)
+        for register in slots.ROUTES:
+            register(app, self)
         app.router.add_route("*", "/api/v1/{path:.*}", self.dispatch)
         if ingress:
             app.router.add_get("/{path:.*}", self.static)
@@ -335,9 +337,8 @@ class API:
             raise ValueError("request object required")
         return value
 
-    async def dispatch(self, request: web.Request) -> web.Response:
-        path, method = request.match_info["path"], request.method
-        runtime, state, config = self.runtime, self.runtime.state, self.runtime.config
+    @staticmethod
+    def authorize(request: web.Request, path: str, method: str) -> None:
         public = path in {
             "info",
             "types",
@@ -363,6 +364,19 @@ class API:
             and request.headers.get("X-Authoring-Protocol") != "2"
         ):
             raise AuthoringError("authoring_upgrade_required")
+
+    async def extension_dispatch(
+        self, request: web.Request, *, handler: Callable[..., Awaitable[Any]]
+    ) -> web.Response:
+        path = request.path.removeprefix("/api/v1/")
+        self.authorize(request, path, request.method)
+        result = await handler(self, request)
+        return web.Response(text=canonical(result), content_type="application/json")
+
+    async def dispatch(self, request: web.Request) -> web.Response:
+        path, method = request.match_info["path"], request.method
+        runtime, state, config = self.runtime, self.runtime.state, self.runtime.config
+        self.authorize(request, path, method)
         result: Any
         if path == "info" and method == "GET":
             result = self.info()
@@ -452,148 +466,6 @@ class API:
                 raise ValueError("import_object_required")
             result = await runtime.submit(
                 path.replace("/", "_"), {**body, "_actor": request["actor"]}
-            )
-        elif path == "catalogs" and method == "GET":
-            from .catalog_models import ManagedCatalog
-            from .catalog_scope import device_scope
-
-            result = (
-                [
-                    {
-                        **c.model_dump(mode="json"),
-                        "device_scope": device_scope(config, c.catalog_id, c.version),
-                    }
-                    for c in config.catalogs
-                    if isinstance(c, ManagedCatalog)
-                ]
-                if config
-                else []
-            )
-        elif (
-            path in {"catalogs/care", "catalogs/care/queue", "catalogs/care/detail"}
-            and method == "GET"
-        ):
-            from .catalog_care import detail, listing, queue
-            from .managed_catalog import definition
-
-            catalog = definition(
-                config, request.query["catalog_id"], int(request.query["definition_version"])
-            )
-            filters = {
-                key: request.query.get(key, "")
-                for key in (
-                    "scope",
-                    "media_type",
-                    "signal_type",
-                    "context",
-                    "structure",
-                    "app",
-                    "live_tv",
-                    "sender",
-                )
-            }
-            if path.endswith("detail"):
-                result = detail(
-                    state,
-                    catalog,
-                    request.query["identity"],
-                    request.query.get("after", ""),
-                    query=request.query.get("q", ""),
-                    view=request.query.get("view", "all"),
-                    filters=filters,
-                )
-            elif path.endswith("queue"):
-                result = queue(
-                    state,
-                    catalog,
-                    request.query.get("q", ""),
-                    request.query.get("view", "all"),
-                    filters,
-                )
-            else:
-                result = listing(
-                    state,
-                    catalog,
-                    query=request.query.get("q", ""),
-                    view=request.query.get("view", "all"),
-                    after=request.query.get("after", ""),
-                    filters=filters,
-                    sort=request.query.get("sort", "newest"),
-                    variants_first=request.query.get("variants_first") == "true",
-                    grouped=request.query.get("grouped") == "true",
-                )
-        elif path in {"catalogs/care/preview", "catalogs/care/write"} and method == "POST":
-            result = await runtime.submit(
-                "catalog_care_" + path.rsplit("/", 1)[1],
-                {"request": await self.object_body(request), "_actor": request["actor"]},
-            )
-        elif path in {"catalogs/scope/preview", "catalogs/scope/apply"} and method == "POST":
-            result = await runtime.submit(
-                "catalog_scope_" + path.rsplit("/", 1)[1],
-                {**await self.object_body(request), "_actor": request["actor"]},
-            )
-        elif path in {"catalogs/cleanup/preview", "catalogs/cleanup/apply"} and method == "POST":
-            result = await runtime.submit(
-                "catalog_cleanup_" + path.rsplit("/", 1)[1],
-                {**await self.object_body(request), "_actor": request["actor"]},
-            )
-        elif path == "catalogs/entries" and method == "GET":
-            from .managed_catalog import definition, page
-
-            catalog = definition(
-                config, request.query["catalog_id"], int(request.query["definition_version"])
-            )
-            result = page(
-                state,
-                catalog,
-                query=request.query.get("q", ""),
-                view=request.query.get("view", "all"),
-                after=request.query.get("after", ""),
-                limit=int(request.query.get("limit", "100")),
-                filters={
-                    key: request.query.get(key, "")
-                    for key in ("scope", "media_type", "signal_type")
-                },
-            )
-        elif path == "catalogs/entries" and method == "POST":
-            result = await runtime.submit(
-                "catalog_write",
-                {"request": await self.object_body(request), "_actor": request["actor"]},
-            )
-        elif path == "catalogs/preview" and method == "POST":
-            result = await runtime.submit(
-                "catalog_preview",
-                {"request": await self.object_body(request), "_actor": request["actor"]},
-            )
-        elif path == "catalogs/entry" and method == "GET":
-            from .managed_catalog import definition, entry_view
-
-            catalog = definition(
-                config, request.query["catalog_id"], int(request.query["definition_version"])
-            )
-            result = entry_view(state, catalog, request.query["identity"])
-        elif path == "catalogs/history" and method == "GET":
-            from .managed_catalog import definition, head, head_key
-
-            catalog = definition(
-                config, request.query["catalog_id"], int(request.query["definition_version"])
-            )
-            revision = head(state, catalog)["revision"]
-            before = min(int(request.query.get("after") or revision + 1), revision + 1)
-            rows = await runtime.store.catalog_revisions(head_key(catalog), before)
-            result = [
-                {**row, "head_revision": revision, "active_revision": state.active_revision}
-                for row in rows
-            ]
-        elif path == "catalogs/revision" and method == "GET":
-            result = await runtime.submit(
-                "catalog_revision",
-                {
-                    "catalog_id": request.query["catalog_id"],
-                    "definition_version": int(request.query["definition_version"]),
-                    "revision": int(request.query["revision"]),
-                    "after": request.query.get("after", ""),
-                },
             )
         elif path == "registry/validate" and method == "POST":
             result = await runtime.submit("validate", await request.json())

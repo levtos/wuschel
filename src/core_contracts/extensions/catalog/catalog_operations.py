@@ -3,22 +3,18 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from . import slots
-from .model import checksum
-from .persistence import State
-from .registry import (
-    RegistryConfig,
-    resolve_ref,
-    topological,
-)
+from core_contracts import slots
+from core_contracts.model import checksum
+from core_contracts.persistence import State
+from core_contracts.registry import RegistryConfig, resolve_ref, topological
 
 if TYPE_CHECKING:
-    from .runtime import Runtime
+    from core_contracts.runtime import Runtime
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .runtime import Runtime
+    from core_contracts.runtime import Runtime
 
 
 def care_timing(runtime: Runtime, payload: Any, care_started: float) -> None:
@@ -36,7 +32,7 @@ async def operation_catalog_scope_preview(
     now: datetime,
     config: RegistryConfig | None,
 ) -> Any:
-    from .catalog_scope import process as scope_process
+    from core_contracts.extensions.catalog.catalog_scope import process as scope_process
 
     return await scope_process(runtime, state, operation, payload, now)
 
@@ -75,7 +71,7 @@ async def operation_catalog_cleanup_apply(
 ) -> Any:
     from uuid import UUID
 
-    from .catalog_cleanup import apply as cleanup_apply
+    from core_contracts.extensions.catalog.catalog_cleanup import apply as cleanup_apply
 
     cleanup_previous = await runtime.store.get("catalog_request", str(UUID(payload["request_id"])))
     if cleanup_previous:
@@ -101,7 +97,7 @@ async def operation_catalog_tick(
     now: datetime,
     config: RegistryConfig | None,
 ) -> Any:
-    from .catalog_playback import flush
+    from core_contracts.extensions.catalog.catalog_playback import flush
 
     flush(state, now)
     if state.tables != runtime.state.tables:
@@ -122,7 +118,7 @@ async def operation_catalog_revision(
     now: datetime,
     config: RegistryConfig | None,
 ) -> Any:
-    from .managed_catalog import definition, historical_entries
+    from core_contracts.extensions.catalog.managed_catalog import definition, historical_entries
 
     catalog = definition(config, payload["catalog_id"], payload["definition_version"])
     entries = await historical_entries(runtime.store, catalog, payload["revision"])
@@ -149,8 +145,7 @@ async def operation_catalog_write(
     now: datetime,
     config: RegistryConfig | None,
 ) -> Any:
-    from .catalog_models import CatalogRestore, CatalogWrite, EntryChange
-    from .managed_catalog import (
+    from core_contracts.extensions.catalog.managed_catalog import (
         affected_contracts,
         definition,
         head,
@@ -158,13 +153,14 @@ async def operation_catalog_write(
         invalidate,
         prepare,
     )
-    from .registry import safe_document
+    from core_contracts.registry import safe_document
+    from core_contracts.rules.catalog_models import CatalogRestore, CatalogWrite, EntryChange
 
     care = operation.startswith("catalog_care_")
     care_phase = runtime.clock.monotonic()
     care_digest = None
     if care:
-        from .catalog_care import CareRequest, change_request
+        from core_contracts.extensions.catalog.catalog_care import CareRequest, change_request
 
         care_request = CareRequest.model_validate(payload["request"])
         care_digest = checksum(care_request)

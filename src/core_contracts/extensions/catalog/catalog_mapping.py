@@ -5,8 +5,8 @@ from typing import Any
 
 from pydantic import Field
 
-from .catalog_models import CatalogWrite, EntryChange
-from .model import canonical
+from core_contracts.model import canonical
+from core_contracts.rules.catalog_models import CatalogWrite, EntryChange
 
 MAX_ENTRIES = 100_000
 

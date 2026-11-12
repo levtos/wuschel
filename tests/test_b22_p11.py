@@ -10,9 +10,13 @@ import pytest
 
 from core_contracts.declarative import check_definition
 from core_contracts.declarative_models import DeclarativeDefinition
+from core_contracts.extensions.catalog.interface_upgrade import (
+    CLASS_CODES,
+    contract_id,
+    upgrade_package,
+)
+from core_contracts.extensions.catalog.managed_catalog import head, head_key, identity
 from core_contracts.ha_projection import snapshot
-from core_contracts.interface_upgrade import CLASS_CODES, contract_id, upgrade_package
-from core_contracts.managed_catalog import head, head_key, identity
 from core_contracts.model import checksum
 from core_contracts.portable import objects, package_checksum, payload_digest
 from core_contracts.runtime import Runtime

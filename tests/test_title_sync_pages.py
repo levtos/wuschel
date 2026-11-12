@@ -9,7 +9,7 @@ import pytest
 
 from core_contracts import title_reader, title_sync
 from core_contracts.clock import SystemClock
-from core_contracts.managed_catalog import head
+from core_contracts.extensions.catalog.managed_catalog import head
 from core_contracts.model import canonical
 from core_contracts.title_sync_runs import cancel, page_view
 

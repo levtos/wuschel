@@ -9,17 +9,18 @@ import pytest
 
 from core_contracts.adapters import AdapterConfig
 from core_contracts.adapters.ha import BridgeAdapter
-from core_contracts.apple_tv_catalog import AppleTitleConfig, AppTitleRule, parse
 from core_contracts.apple_tv_package import augment
-from core_contracts.catalog_care import all_rows, detail, listing
 from core_contracts.declarative import check_definition
 from core_contracts.declarative_models import DeclarativeDefinition
+from core_contracts.extensions.catalog.apple_tv_catalog import parse
+from core_contracts.extensions.catalog.catalog_care import all_rows, detail, listing
+from core_contracts.extensions.catalog.interface_upgrade import upgrade_package
+from core_contracts.extensions.catalog.managed_catalog import head, validate_heads
 from core_contracts.freshness_templates import upgrade_document
-from core_contracts.interface_upgrade import upgrade_package
-from core_contracts.managed_catalog import head, validate_heads
 from core_contracts.model import checksum
 from core_contracts.portable import read_package
 from core_contracts.quality import FieldValue
+from core_contracts.rules.apple_title import AppleTitleConfig, AppTitleRule
 from core_contracts.validation import validate_document as validate
 from dev.build_apple_tv_templates import build, catalog
 from dev.build_apple_tv_templates import settings as defaults

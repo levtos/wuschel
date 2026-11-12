@@ -3,18 +3,18 @@
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from . import slots
-from .evidence import Observation
-from .model import checksum
-from .persistence import State
-from .quality import FieldValue
+from core_contracts import slots
+from core_contracts.evidence import Observation
+from core_contracts.model import checksum
+from core_contracts.persistence import State
+from core_contracts.quality import FieldValue
 
 if TYPE_CHECKING:
-    from .runtime import Runtime
+    from core_contracts.runtime import Runtime
 
 import json
 
-from .managed_catalog import head_key, identity
+from core_contracts.extensions.catalog.managed_catalog import head_key, identity
 
 PREFIX = "catalog_playback:"
 STABLE_SECONDS = 2
@@ -348,7 +348,7 @@ def flush(state: Any, now: datetime) -> None:
                     and candidate.get("fingerprint") == hierarchy["fingerprint"]
                 )
             else:
-                from .stash_catalog import studio_key
+                from core_contracts.extensions.catalog.stash_catalog import studio_key
 
                 matches = (
                     current_frame.get("catalog_profile") == "stash_slot"

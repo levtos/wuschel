@@ -20,9 +20,15 @@ from collections import Counter
 from typing import Literal
 from uuid import UUID
 
-from .catalog_mapping import music_forms as music_forms
-from .catalog_models import EntryChange
-from .managed_catalog import definition, definition_digest, head, identity
+from core_contracts.extensions.catalog.catalog_mapping import music_forms as music_forms
+from core_contracts.extensions.catalog.managed_catalog import (
+    definition,
+    definition_digest,
+    head,
+    identity,
+)
+from core_contracts.rules.catalog_models import EntryChange
+
 from .portable import export, payload_digest, stage, strict_json
 from .portable import preview as portable_preview
 from .title_import import MAX_BYTES, MAX_ENTRIES, plan_title_import, source_identity
@@ -49,7 +55,7 @@ def classification(profile: str, value: int, catalog: Any = None) -> str:
     else:
         raise ValueError("title_import_profile")
     if catalog is not None and catalog.version >= 2:
-        from .interface_upgrade import CLASS_CODES
+        from core_contracts.extensions.catalog.interface_upgrade import CLASS_CODES
 
         result = CLASS_CODES.get(result, result)
     return result
@@ -177,7 +183,7 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                 errors.append({"row": row_number, "context": key, "reasons": ["context_unmapped"]})
                 continue
             try:
-                from .catalog_scope import validate_target
+                from core_contracts.extensions.catalog.catalog_scope import validate_target
 
                 target = TargetMapping.model_validate(mapping)
                 validate_target(runtime.config, target)

@@ -5,8 +5,8 @@ from uuid import uuid4
 
 import pytest
 
-from core_contracts.catalog_care import all_rows, listing
-from core_contracts.managed_catalog import effective, head, head_key, identity
+from core_contracts.extensions.catalog.catalog_care import all_rows, listing
+from core_contracts.extensions.catalog.managed_catalog import effective, head, head_key, identity
 from core_contracts.model import canonical
 
 from .conftest import activate

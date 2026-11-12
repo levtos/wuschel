@@ -10,13 +10,13 @@ import pytest
 from pydantic import Field
 
 from core_contracts.api import API
-from core_contracts.catalog_care import listing
-from core_contracts.catalog_models import CatalogWrite, EntryChange
 from core_contracts.clock import FakeClock
 from core_contracts.evidence import Observation
+from core_contracts.extensions.catalog.catalog_care import listing
+from core_contracts.extensions.catalog.managed_catalog import head, head_key, identity, prepare
 from core_contracts.history import HistoryQuery
-from core_contracts.managed_catalog import head, head_key, identity, prepare
 from core_contracts.persistence import MemoryStore, PostgresStore, State
+from core_contracts.rules.catalog_models import CatalogWrite, EntryChange
 from core_contracts.runtime import Runtime
 from core_contracts.security import Tokens
 from core_contracts.testing.contract_types import type_registry

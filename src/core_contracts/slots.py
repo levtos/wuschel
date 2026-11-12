@@ -5,7 +5,7 @@ identify the existing insertion points within a lifecycle method.
 """
 
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -59,7 +59,7 @@ class Rule:
     evaluate: Callable[..., FieldValue]
     children: Callable[..., list[tuple[str, Any]]]
     due: Callable[..., None] | None = None
-    dependencies: Callable[..., Any] | None = None
+    dependencies: dict[str, Callable[..., Any]] = field(default_factory=dict)
     manual: Callable[..., tuple[Any, datetime]] | None = None
 
 

@@ -11,6 +11,8 @@ from typing import Any, Literal
 
 from pydantic import Field, ValidationError
 
+from . import declarative_models as dm
+from . import slots
 from .clock import Clock
 from .evidence import Observation
 from .model import Model
@@ -128,7 +130,7 @@ class Producer:
 def temporal(ctx: Context, parameters: TemporalParameters, *, input_name: str = "a") -> FieldValue:
     """Restore and advance a temporal node without replaying events or renewing Grace."""
     now, node, p = ctx.now, ctx.node, parameters
-    from .managed_catalog import dependencies
+    dependencies = slots.RULES[dm.ManagedCatalogRule].dependencies["track"]
 
     missing_catalog_trace = (
         "temporal" in node
@@ -184,7 +186,8 @@ def state_machine(
 ) -> FieldValue:
     """Generic CP-15 restore, explicit type-owned re-init rule and deadline dispatch."""
     now, node = ctx.now, ctx.node
-    from .managed_catalog import dependencies, suspend_machine
+    dependencies = slots.RULES[dm.ManagedCatalogRule].dependencies["track"]
+    suspend_machine = slots.RULES[dm.ManagedCatalogRule].dependencies["suspend"]
 
     missing_catalog_trace = (
         "machine" in node

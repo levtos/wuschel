@@ -3,21 +3,19 @@
 import copy
 from typing import TYPE_CHECKING, Any
 
-from . import slots
-from .model import checksum
-from .persistence import State
-from .quality import FieldValue
-from .registry import (
-    RegistryConfig,
-)
+from core_contracts import slots
+from core_contracts.model import checksum
+from core_contracts.persistence import State
+from core_contracts.quality import FieldValue
+from core_contracts.registry import RegistryConfig
 
 if TYPE_CHECKING:
-    from .runtime import Runtime
+    from core_contracts.runtime import Runtime
 
 
-from .catalog_models import CatalogWrite, EntryChange, ManagedCatalog
-from .quality import ConfigurationHint, ConfigurationStatus, derive
-from .text_rules import normalize_key
+from core_contracts.quality import ConfigurationHint, ConfigurationStatus, derive
+from core_contracts.rules.catalog_models import CatalogWrite, EntryChange, ManagedCatalog
+from core_contracts.text_rules import normalize_key
 
 
 def definition(config: Any, catalog_id: str, version: int) -> ManagedCatalog:
@@ -138,13 +136,13 @@ def suspend_machine(node: dict[str, Any]) -> None:
 
 def lookup(ctx: Any, rule: Any, args: list[FieldValue]) -> FieldValue:
     if getattr(rule, "profile", None) == "apple_tv_title":
-        from .apple_tv_catalog import lookup as title_lookup
+        from core_contracts.extensions.catalog.apple_tv_catalog import lookup as title_lookup
 
         return title_lookup(ctx, rule, args)
     if any(not value.usable(ctx.now) for value in args):
         return derive(None, args, ctx.now)
     if getattr(rule, "profile", None) == "stash_slot":
-        from .stash_catalog import lookup as slot_lookup
+        from core_contracts.extensions.catalog.stash_catalog import lookup as slot_lookup
 
         return slot_lookup(ctx, rule, args)
     document = ctx.state.tables["registry_revision"][str(ctx.state.active_revision)]["config"]
@@ -178,7 +176,7 @@ def lookup(ctx: Any, rule: Any, args: list[FieldValue]) -> FieldValue:
         )
     # Only offer a catalog candidate. Contract evaluation remains immediate.
     evidence = tuple(e for arg in args for e in arg.evidence if not e.startswith("catalog:"))
-    from .catalog_playback import offer
+    from core_contracts.extensions.catalog.catalog_playback import offer
 
     offer(
         ctx,
