@@ -5,12 +5,13 @@ from datetime import datetime
 
 import pytest
 
-from core_contracts import runtime as registry_module
+from core_contracts import registry as registry_module
 from core_contracts.freshness_templates import upgrade_document
 from core_contracts.reconfiguration import context_effects
 from core_contracts.registry import legacy_context_compatibility, storage_document
 from core_contracts.runtime import Runtime
 from core_contracts.testing.contract_types import type_registry
+from core_contracts.validation import validate_document
 
 from .conftest import activate, activate_draft
 from .test_beta_media import TEMPLATES as MEDIA
@@ -164,7 +165,7 @@ async def test_temporal_matrix_and_independent_slot(runtime, config, operation, 
     expected = context_effects(
         runtime.state,
         runtime.config,
-        registry_module.validate(changed, runtime.types),
+        validate_document(changed, runtime.types),
         runtime.types,
         runtime.latches,
     )
