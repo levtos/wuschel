@@ -1,5 +1,7 @@
 """Load owners in an explicit application composition root."""
 
+__all__ = ["Credentials", "read_titles"]
+
 from . import (  # noqa: F401
     authoring,
     editorial,
@@ -30,3 +32,4 @@ from .extensions.tc_migration import (  # noqa: F401
     title_transfer,
 )
 from .extensions.tc_migration.title_reader import Credentials as Credentials
+from .extensions.tc_migration.title_reader import read as read_titles
