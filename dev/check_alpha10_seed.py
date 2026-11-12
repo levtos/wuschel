@@ -2,6 +2,7 @@ import asyncio
 
 from workbench_alpha10 import seed
 
+from core_contracts import wiring  # noqa: F401
 from core_contracts.clock import SystemClock
 from core_contracts.persistence import MemoryStore
 from core_contracts.runtime import Runtime

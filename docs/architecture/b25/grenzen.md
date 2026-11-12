@@ -15,7 +15,7 @@ Regeln:
 
 | Paket | Module |
 |---|---|
-| **app – Zusammenstecken** | `app`, `contract_types` |
+| **app – Zusammenstecken** | `app`, `wiring`, `contract_types` |
 | **tooling – Bauwerkzeuge für Vorlagen** | `apple_tv_package`, `fact_package`, `stash_package` |
 | **api – HTTP, WebSocket, Sicherheit** | `api`, `security` |
 | **Kartusche catalog** | `apple_tv_catalog`, `catalog_care`, `catalog_cleanup`, `catalog_hierarchy`, `catalog_models`, `catalog_playback`, `catalog_scope`, `interface_upgrade`, `managed_catalog`, `stash_catalog` |
@@ -53,12 +53,12 @@ exclude_type_checking_imports = true
 name = "Schichten: oben darf unten importieren, nie umgekehrt"
 type = "layers"
 layers = [
-    "core_contracts.app : core_contracts.apple_tv_package : core_contracts.contract_types : core_contracts.fact_package : core_contracts.stash_package",
+    "core_contracts.wiring : core_contracts.app : core_contracts.apple_tv_package : core_contracts.contract_types : core_contracts.fact_package : core_contracts.stash_package",
     "core_contracts.api : core_contracts.security",
     "core_contracts.apple_tv_catalog : core_contracts.catalog_care : core_contracts.catalog_cleanup : core_contracts.catalog_hierarchy : core_contracts.catalog_models : core_contracts.catalog_playback : core_contracts.catalog_scope : core_contracts.interface_upgrade : core_contracts.managed_catalog : core_contracts.openings : core_contracts.stash_catalog : core_contracts.testing : core_contracts.title_import : core_contracts.title_reader : core_contracts.title_sync : core_contracts.title_sync_runs : core_contracts.title_transfer : core_contracts.wake",
     "core_contracts.adapters.ha : core_contracts.adapters.mqtt : core_contracts.authoring : core_contracts.capabilities : core_contracts.editorial : core_contracts.ha_projection : core_contracts.management : core_contracts.manual_restart : core_contracts.mqtt_restore : core_contracts.portable : core_contracts.provision : core_contracts.reconfiguration : core_contracts.revision_plan : core_contracts.service_jobs : core_contracts.setup : core_contracts.validation",
     "core_contracts.observation_block : core_contracts.runtime",
-    "core_contracts.calendar_cache : core_contracts.calendar_coverage : core_contracts.calendar_inputs : core_contracts.calendar_rules : core_contracts.dated_rules : core_contracts.declarative : core_contracts.engines : core_contracts.environment_formulas : core_contracts.instance_parameters : core_contracts.notifications : core_contracts.producer : core_contracts.refresh_plan : core_contracts.registry : core_contracts.validation_cache",
+    "core_contracts.calendar_cache : core_contracts.calendar_coverage : core_contracts.calendar_inputs : core_contracts.calendar_rules : core_contracts.dated_rules : core_contracts.declarative : core_contracts.engines : core_contracts.environment_formulas : core_contracts.instance_parameters : core_contracts.notifications : core_contracts.producer : core_contracts.refresh_plan : core_contracts.registry : core_contracts.slots : core_contracts.validation_cache",
     "core_contracts.history : core_contracts.persistence : core_contracts.retention",
     "core_contracts.clock : core_contracts.declarative_models : core_contracts.evidence : core_contracts.field_since : core_contracts.freshness_templates : core_contracts.fusion : core_contracts.ha_context : core_contracts.identity : core_contracts.lifecycle : core_contracts.machine_events : core_contracts.manual_source : core_contracts.model : core_contracts.multibucket : core_contracts.numeric_equivalence : core_contracts.operation_timing : core_contracts.quality : core_contracts.resolver : core_contracts.schema : core_contracts.sensor_profile : core_contracts.state_tracking : core_contracts.statemachine : core_contracts.temporal : core_contracts.text_rules : core_contracts.user_text : core_contracts.value_origin",
 ]
@@ -174,6 +174,7 @@ source_modules = [
     "core_contracts.runtime",
     "core_contracts.schema",
     "core_contracts.security",
+    "core_contracts.slots",
     "core_contracts.sensor_profile",
     "core_contracts.service_jobs",
     "core_contracts.setup",
@@ -183,6 +184,7 @@ source_modules = [
     "core_contracts.text_rules",
     "core_contracts.user_text",
     "core_contracts.validation",
+    "core_contracts.slots",
     "core_contracts.validation_cache",
     "core_contracts.value_origin",
 ]
@@ -380,6 +382,7 @@ forbidden_modules = [
     "core_contracts.observation_block",
     "core_contracts.runtime",
     "core_contracts.security",
+    "core_contracts.slots",
     "core_contracts.service_jobs",
 ]
 
@@ -439,6 +442,7 @@ source_modules = [
     "core_contracts.runtime",
     "core_contracts.schema",
     "core_contracts.security",
+    "core_contracts.slots",
     "core_contracts.sensor_profile",
     "core_contracts.service_jobs",
     "core_contracts.setup",
@@ -448,6 +452,7 @@ source_modules = [
     "core_contracts.text_rules",
     "core_contracts.user_text",
     "core_contracts.validation",
+    "core_contracts.slots",
     "core_contracts.validation_cache",
     "core_contracts.value_origin",
     "core_contracts.apple_tv_catalog",
@@ -603,3 +608,11 @@ Zeilennummern gelten für den Stand oben und verschieben sich mit jedem Schritt.
 | rules → Kartusche wake | `declarative:739` | fn | `wake.settings` | `WakeSettings` |
 | rules → Kartusche wake | `instance_parameters:56` | fn | `wake.settings` | `WakeSettings` |
 
+
+## Schritt 4 – Steckplätze
+
+`slots` gehört zu rules, `wiring` zu app. Register enthalten nur Einträge;
+die Zentrale ruft Haken nach fester Ordnungszahl an ihren bisherigen Stellen auf.
+`SUBMIT` bindet vorgelagerte Planer an, `CONFIGURATION` die bisherigen
+Konfigurationshelfer. Damit bleiben die vorhandenen Runtime-Aufruf- und
+Überschreibungspunkte erhalten, ohne ihre Eigentümer zu importieren.

@@ -18,6 +18,7 @@ from uuid import uuid4
 
 import asyncpg
 
+from core_contracts import wiring  # noqa: F401
 from core_contracts.clock import FakeClock
 from core_contracts.evidence import Observation
 from core_contracts.history import TIME_SQL, HistoryQuery

@@ -9,6 +9,7 @@ from uuid import uuid4
 from aiohttp import web
 from workbench_demo import FinishedSetup
 
+from core_contracts import wiring  # noqa: F401
 from core_contracts.api import API
 from core_contracts.clock import SystemClock
 from core_contracts.persistence import MemoryStore
