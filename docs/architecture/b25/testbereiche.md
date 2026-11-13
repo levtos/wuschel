@@ -514,3 +514,36 @@ Bereichstests bereit. Die bisherigen
 Frontend-/Dokumentationsregeln gelten weiter. PRs nach `main`, Main-Pushes und
 Release-Prüfungen laufen immer vollständig; der manuelle Messjob ist kein
 Release-Nachweis.
+
+### Messnachweis nach dem Umbau
+
+[Manueller Lauf 43398658896](https://github.com/levtos/wuschel/actions/runs/43398658896)
+auf `835937675527872b9d4a8b43dd7f6757a6bf754b`: 1.800 Tests bestanden,
+ein bestehender HA-Umgebungs-Skip, 9:06 Minuten. 979 Testfälle mit gestarteter
+Zentrale, 132 Testdateien mit gemessenen Funktionszeilen, 1.474 Grundrauschzeilen.
+Quellpfade unverändert; `tests/areas.revision.txt` und
+`tests/areas.measurement.json` übernehmen den Artefaktbeleg unverändert.
+Nur der separat ausgeführte HA-Kernel-Test bleibt ungemessen explizit zugeordnet;
+`store` und `load` behalten zusätzlich ihre Umgebungszuordnung.
+
+| Bereich | Testdateien nach Neumessung |
+|---|---:|
+| wake | 9 |
+| calendar | 13 |
+| openings | 17 |
+| environment | 1 |
+| tc_migration | 25 |
+| catalog | 88 |
+| api | 35 |
+| adapters | 61 |
+| management | 105 |
+| tooling | 3 |
+| traber | 15 |
+| release | 31 |
+| store | 8 |
+| load | 3 |
+
+Die größere Katalogzuordnung bildet die tatsächlich über die Steckplätze
+erreichten Funktionszeilen und die jetzt mitgemessenen PostgreSQL-/Lasttests ab.
+Sie wird nicht zugunsten einer kürzeren CI verkleinert. Replay ist bereits
+enthalten und wird beim Zusammenführen der Auswahl genau einmal ausgeführt.
