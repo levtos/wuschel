@@ -5,11 +5,12 @@ from fnmatch import fnmatchcase
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from ..model import checksum, utc
-from ..quality import FieldValue, ReasonCode, derive, unknown
-from . import wake_config as config
-from . import wake_planning as planning
-from .settings import WakeException, WakeSettings
+from core_contracts.extensions.wake import wake_config as config
+from core_contracts.extensions.wake import wake_planning as planning
+from core_contracts.extensions.wake.settings import WakeSettings
+from core_contracts.model import checksum, utc
+from core_contracts.quality import FieldValue, ReasonCode, derive, unknown
+from core_contracts.rules.wake import WakeException
 
 ZONE = ZoneInfo("Europe/Berlin")
 

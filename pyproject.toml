@@ -80,47 +80,20 @@ type = "layers"
 layers = [
     "core_contracts.wiring : core_contracts.app : core_contracts.apple_tv_package : core_contracts.contract_types : core_contracts.fact_package : core_contracts.stash_package",
     "core_contracts.api : core_contracts.security",
-    "core_contracts.apple_tv_catalog : core_contracts.catalog_care : core_contracts.catalog_cleanup : core_contracts.catalog_hierarchy : core_contracts.catalog_mapping : core_contracts.catalog_operations : core_contracts.catalog_models : core_contracts.catalog_playback : core_contracts.catalog_scope : core_contracts.interface_upgrade : core_contracts.managed_catalog : core_contracts.openings : core_contracts.stash_catalog : core_contracts.testing : core_contracts.title_import : core_contracts.title_reader : core_contracts.title_sync : core_contracts.title_sync_runs : core_contracts.title_transfer : core_contracts.wake",
+    "core_contracts.extensions.catalog : core_contracts.extensions.openings : core_contracts.testing : core_contracts.extensions.tc_migration : core_contracts.extensions.wake",
     "core_contracts.adapters.ha : core_contracts.adapters.mqtt : core_contracts.authoring : core_contracts.capabilities : core_contracts.editorial : core_contracts.ha_projection : core_contracts.management : core_contracts.manual_restart : core_contracts.mqtt_restore : core_contracts.portable : core_contracts.provision : core_contracts.reconfiguration : core_contracts.revision_plan : core_contracts.service_jobs : core_contracts.setup : core_contracts.validation",
     "core_contracts.manual_entry : core_contracts.observation_block : core_contracts.retention_ops : core_contracts.runtime",
-    "core_contracts.adapter_config : core_contracts.calendar_cache : core_contracts.calendar_coverage : core_contracts.calendar_inputs : core_contracts.calendar_rules : core_contracts.dated_rules : core_contracts.declarative : core_contracts.engines : core_contracts.environment_formulas : core_contracts.instance_parameters : core_contracts.notifications : core_contracts.producer : core_contracts.refresh_plan : core_contracts.source_values : core_contracts.registry : core_contracts.slots : core_contracts.validation_cache",
+    "core_contracts.rules : core_contracts.adapter_config : core_contracts.calendar_cache : core_contracts.calendar_coverage : core_contracts.calendar_inputs : core_contracts.calendar_rules : core_contracts.dated_rules : core_contracts.declarative : core_contracts.engines : core_contracts.environment_formulas : core_contracts.instance_parameters : core_contracts.notifications : core_contracts.producer : core_contracts.refresh_plan : core_contracts.source_values : core_contracts.registry : core_contracts.slots : core_contracts.validation_cache",
     "core_contracts.history : core_contracts.persistence : core_contracts.retention",
     "core_contracts.errors : core_contracts.clock : core_contracts.declarative_models : core_contracts.evidence : core_contracts.field_since : core_contracts.freshness_templates : core_contracts.fusion : core_contracts.ha_context : core_contracts.identity : core_contracts.lifecycle : core_contracts.machine_events : core_contracts.manual_source : core_contracts.model : core_contracts.multibucket : core_contracts.numeric_equivalence : core_contracts.operation_timing : core_contracts.quality : core_contracts.resolver : core_contracts.schema : core_contracts.sensor_profile : core_contracts.state_tracking : core_contracts.statemachine : core_contracts.temporal : core_contracts.text_rules : core_contracts.user_text : core_contracts.value_origin",
 ]
-ignore_imports = [
-    # Schritt 4: diese Zeilen müssen verschwinden
-    # Schritt 5 (wake): diese Zeilen müssen verschwinden
-    "core_contracts.capabilities -> core_contracts.wake.settings",
-    "core_contracts.declarative -> core_contracts.wake.operator",
-    "core_contracts.declarative -> core_contracts.wake.settings",
-    "core_contracts.instance_parameters -> core_contracts.wake.settings",
-    "core_contracts.manual_entry -> core_contracts.wake.operator",
-    "core_contracts.manual_entry -> core_contracts.wake.settings",
-    # Schritt 5 (catalog, tc_migration): diese Zeilen müssen verschwinden
-    "core_contracts.adapter_config -> core_contracts.apple_tv_catalog",
-    "core_contracts.adapters.ha -> core_contracts.apple_tv_catalog",
-    "core_contracts.adapters.ha -> core_contracts.stash_catalog",
-    "core_contracts.api -> core_contracts.catalog_care",
-    "core_contracts.api -> core_contracts.catalog_models",
-    "core_contracts.api -> core_contracts.catalog_scope",
-    "core_contracts.api -> core_contracts.managed_catalog",
-    "core_contracts.api -> core_contracts.title_sync",
-    "core_contracts.api -> core_contracts.title_sync_runs",
-    "core_contracts.authoring -> core_contracts.catalog_models",
-    "core_contracts.authoring -> core_contracts.managed_catalog",
-    "core_contracts.declarative -> core_contracts.managed_catalog",
-    "core_contracts.portable -> core_contracts.catalog_models",
-    "core_contracts.portable -> core_contracts.interface_upgrade",
-    "core_contracts.portable -> core_contracts.managed_catalog",
-    "core_contracts.producer -> core_contracts.managed_catalog",
-    "core_contracts.registry -> core_contracts.catalog_models",
-    "core_contracts.validation -> core_contracts.catalog_models",
-]
+ignore_imports = []
 
 [[tool.importlinter.contracts]]
 name = "Kern importiert keine Kartusche"
 type = "forbidden"
 source_modules = [
+    "core_contracts.rules",
     "core_contracts.adapter_config",
     "core_contracts.adapters.ha",
     "core_contracts.adapters.mqtt",
@@ -191,112 +164,38 @@ source_modules = [
     "core_contracts.value_origin",
 ]
 forbidden_modules = [
-    "core_contracts.apple_tv_catalog",
-    "core_contracts.catalog_care",
-    "core_contracts.catalog_cleanup",
-    "core_contracts.catalog_hierarchy",
-    "core_contracts.catalog_mapping",
-    "core_contracts.catalog_operations",
-    "core_contracts.catalog_models",
-    "core_contracts.catalog_playback",
-    "core_contracts.catalog_scope",
-    "core_contracts.interface_upgrade",
-    "core_contracts.managed_catalog",
-    "core_contracts.openings",
-    "core_contracts.stash_catalog",
-    "core_contracts.title_import",
-    "core_contracts.title_reader",
-    "core_contracts.title_sync",
-    "core_contracts.title_sync_runs",
-    "core_contracts.title_transfer",
-    "core_contracts.wake",
+    "core_contracts.extensions.catalog",
+    "core_contracts.extensions.openings",
+    "core_contracts.extensions.tc_migration",
+    "core_contracts.extensions.wake",
 ]
-ignore_imports = [
-    # Schritt 4: diese Zeilen müssen verschwinden
-    # Schritt 5 (wake): diese Zeilen müssen verschwinden
-    "core_contracts.capabilities -> core_contracts.wake.settings",
-    "core_contracts.declarative -> core_contracts.wake.operator",
-    "core_contracts.declarative -> core_contracts.wake.settings",
-    "core_contracts.instance_parameters -> core_contracts.wake.settings",
-    "core_contracts.manual_entry -> core_contracts.wake.operator",
-    "core_contracts.manual_entry -> core_contracts.wake.settings",
-    # Schritt 5 (catalog, tc_migration): diese Zeilen müssen verschwinden
-    "core_contracts.adapter_config -> core_contracts.apple_tv_catalog",
-    "core_contracts.adapters.ha -> core_contracts.apple_tv_catalog",
-    "core_contracts.adapters.ha -> core_contracts.stash_catalog",
-    "core_contracts.api -> core_contracts.catalog_care",
-    "core_contracts.api -> core_contracts.catalog_models",
-    "core_contracts.api -> core_contracts.catalog_scope",
-    "core_contracts.api -> core_contracts.managed_catalog",
-    "core_contracts.api -> core_contracts.title_sync",
-    "core_contracts.api -> core_contracts.title_sync_runs",
-    "core_contracts.authoring -> core_contracts.catalog_models",
-    "core_contracts.authoring -> core_contracts.managed_catalog",
-    "core_contracts.declarative -> core_contracts.managed_catalog",
-    "core_contracts.portable -> core_contracts.catalog_models",
-    "core_contracts.portable -> core_contracts.interface_upgrade",
-    "core_contracts.portable -> core_contracts.managed_catalog",
-    "core_contracts.producer -> core_contracts.managed_catalog",
-    "core_contracts.registry -> core_contracts.catalog_models",
-    "core_contracts.validation -> core_contracts.catalog_models",
-]
+ignore_imports = []
 
 [[tool.importlinter.contracts]]
 name = "Kartusche catalog kennt keine andere Kartusche"
 type = "forbidden"
 allow_indirect_imports = true
 source_modules = [
-    "core_contracts.apple_tv_catalog",
-    "core_contracts.catalog_care",
-    "core_contracts.catalog_cleanup",
-    "core_contracts.catalog_hierarchy",
-    "core_contracts.catalog_mapping",
-    "core_contracts.catalog_operations",
-    "core_contracts.catalog_models",
-    "core_contracts.catalog_playback",
-    "core_contracts.catalog_scope",
-    "core_contracts.interface_upgrade",
-    "core_contracts.managed_catalog",
-    "core_contracts.stash_catalog",
+    "core_contracts.extensions.catalog",
 ]
 forbidden_modules = [
-    "core_contracts.openings",
-    "core_contracts.title_import",
-    "core_contracts.title_reader",
-    "core_contracts.title_sync",
-    "core_contracts.title_sync_runs",
-    "core_contracts.title_transfer",
-    "core_contracts.wake",
+    "core_contracts.extensions.openings",
+    "core_contracts.extensions.tc_migration",
+    "core_contracts.extensions.wake",
 ]
-ignore_imports = [
-]
+ignore_imports = []
 
 [[tool.importlinter.contracts]]
 name = "Kartusche wake kennt keine andere Kartusche"
 type = "forbidden"
 allow_indirect_imports = true
 source_modules = [
-    "core_contracts.wake",
+    "core_contracts.extensions.wake",
 ]
 forbidden_modules = [
-    "core_contracts.apple_tv_catalog",
-    "core_contracts.catalog_care",
-    "core_contracts.catalog_cleanup",
-    "core_contracts.catalog_hierarchy",
-    "core_contracts.catalog_mapping",
-    "core_contracts.catalog_operations",
-    "core_contracts.catalog_models",
-    "core_contracts.catalog_playback",
-    "core_contracts.catalog_scope",
-    "core_contracts.interface_upgrade",
-    "core_contracts.managed_catalog",
-    "core_contracts.openings",
-    "core_contracts.stash_catalog",
-    "core_contracts.title_import",
-    "core_contracts.title_reader",
-    "core_contracts.title_sync",
-    "core_contracts.title_sync_runs",
-    "core_contracts.title_transfer",
+    "core_contracts.extensions.catalog",
+    "core_contracts.extensions.openings",
+    "core_contracts.extensions.tc_migration",
 ]
 
 [[tool.importlinter.contracts]]
@@ -304,27 +203,12 @@ name = "Kartusche openings kennt keine andere Kartusche"
 type = "forbidden"
 allow_indirect_imports = true
 source_modules = [
-    "core_contracts.openings",
+    "core_contracts.extensions.openings",
 ]
 forbidden_modules = [
-    "core_contracts.apple_tv_catalog",
-    "core_contracts.catalog_care",
-    "core_contracts.catalog_cleanup",
-    "core_contracts.catalog_hierarchy",
-    "core_contracts.catalog_mapping",
-    "core_contracts.catalog_operations",
-    "core_contracts.catalog_models",
-    "core_contracts.catalog_playback",
-    "core_contracts.catalog_scope",
-    "core_contracts.interface_upgrade",
-    "core_contracts.managed_catalog",
-    "core_contracts.stash_catalog",
-    "core_contracts.title_import",
-    "core_contracts.title_reader",
-    "core_contracts.title_sync",
-    "core_contracts.title_sync_runs",
-    "core_contracts.title_transfer",
-    "core_contracts.wake",
+    "core_contracts.extensions.catalog",
+    "core_contracts.extensions.tc_migration",
+    "core_contracts.extensions.wake",
 ]
 
 [[tool.importlinter.contracts]]
@@ -332,15 +216,11 @@ name = "Titelabgleich kennt nur catalog"
 type = "forbidden"
 allow_indirect_imports = true
 source_modules = [
-    "core_contracts.title_import",
-    "core_contracts.title_reader",
-    "core_contracts.title_sync",
-    "core_contracts.title_sync_runs",
-    "core_contracts.title_transfer",
+    "core_contracts.extensions.tc_migration",
 ]
 forbidden_modules = [
-    "core_contracts.openings",
-    "core_contracts.wake",
+    "core_contracts.extensions.openings",
+    "core_contracts.extensions.wake",
 ]
 
 [[tool.importlinter.contracts]]
@@ -348,25 +228,10 @@ name = "Kartuschen importieren weder lane noch adapters noch api"
 type = "forbidden"
 allow_indirect_imports = true
 source_modules = [
-    "core_contracts.apple_tv_catalog",
-    "core_contracts.catalog_care",
-    "core_contracts.catalog_cleanup",
-    "core_contracts.catalog_hierarchy",
-    "core_contracts.catalog_mapping",
-    "core_contracts.catalog_operations",
-    "core_contracts.catalog_models",
-    "core_contracts.catalog_playback",
-    "core_contracts.catalog_scope",
-    "core_contracts.interface_upgrade",
-    "core_contracts.managed_catalog",
-    "core_contracts.openings",
-    "core_contracts.stash_catalog",
-    "core_contracts.title_import",
-    "core_contracts.title_reader",
-    "core_contracts.title_sync",
-    "core_contracts.title_sync_runs",
-    "core_contracts.title_transfer",
-    "core_contracts.wake",
+    "core_contracts.extensions.catalog",
+    "core_contracts.extensions.openings",
+    "core_contracts.extensions.tc_migration",
+    "core_contracts.extensions.wake",
 ]
 forbidden_modules = [
     "core_contracts.adapters.ha",
@@ -387,6 +252,7 @@ name = "Testhilfen nur über die Zusammensteckung"
 type = "forbidden"
 allow_indirect_imports = true
 source_modules = [
+    "core_contracts.rules",
     "core_contracts.adapter_config",
     "core_contracts.adapters.ha",
     "core_contracts.adapters.mqtt",
@@ -455,25 +321,10 @@ source_modules = [
     "core_contracts.validation",
     "core_contracts.validation_cache",
     "core_contracts.value_origin",
-    "core_contracts.apple_tv_catalog",
-    "core_contracts.catalog_care",
-    "core_contracts.catalog_cleanup",
-    "core_contracts.catalog_hierarchy",
-    "core_contracts.catalog_mapping",
-    "core_contracts.catalog_operations",
-    "core_contracts.catalog_models",
-    "core_contracts.catalog_playback",
-    "core_contracts.catalog_scope",
-    "core_contracts.interface_upgrade",
-    "core_contracts.managed_catalog",
-    "core_contracts.openings",
-    "core_contracts.stash_catalog",
-    "core_contracts.title_import",
-    "core_contracts.title_reader",
-    "core_contracts.title_sync",
-    "core_contracts.title_sync_runs",
-    "core_contracts.title_transfer",
-    "core_contracts.wake",
+    "core_contracts.extensions.catalog",
+    "core_contracts.extensions.openings",
+    "core_contracts.extensions.tc_migration",
+    "core_contracts.extensions.wake",
 ]
 forbidden_modules = [
     "core_contracts.testing",

@@ -3,8 +3,8 @@ from uuid import uuid4
 
 import pytest
 
-from core_contracts.catalog_care import all_rows
-from core_contracts.managed_catalog import head_key, identity
+from core_contracts.extensions.catalog.catalog_care import all_rows
+from core_contracts.extensions.catalog.managed_catalog import head_key, identity
 from core_contracts.model import canonical
 from tests.test_catalog_care import seeded
 from tests.test_title_sync import observed
@@ -239,7 +239,7 @@ async def test_cleanup_commit_failure_leaves_runtime_content_and_counts_unchange
 def test_proof_requires_every_occurrence_and_preserves_real_short_titles():
     from types import SimpleNamespace
 
-    from core_contracts.catalog_cleanup import transitions
+    from core_contracts.extensions.catalog.catalog_cleanup import transitions
 
     config = SimpleNamespace(
         bindings=[
@@ -280,7 +280,7 @@ def test_proof_requires_every_occurrence_and_preserves_real_short_titles():
 
 
 async def test_expired_plans_release_capacity_and_cannot_be_applied(runtime, config):
-    from core_contracts.catalog_cleanup import PLAN_SECONDS
+    from core_contracts.extensions.catalog.catalog_cleanup import PLAN_SECONDS
 
     catalog = await populated(runtime, config)
     plans = [await runtime.submit("catalog_cleanup_preview", initial(catalog)) for _ in range(16)]
@@ -294,7 +294,7 @@ async def test_expired_plans_release_capacity_and_cannot_be_applied(runtime, con
 def test_unavailable_history_breaks_transition_proof():
     from types import SimpleNamespace
 
-    from core_contracts.catalog_cleanup import transitions
+    from core_contracts.extensions.catalog.catalog_cleanup import transitions
 
     config = SimpleNamespace(
         bindings=[

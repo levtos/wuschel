@@ -96,9 +96,7 @@ def bind_plan(draft: dict[str, Any]) -> None:
 
 def effects_match(runtime: Any, state: Any, plan: dict[str, Any]) -> bool:
     """Conservative proof of ALL package effects, including selected keep outcomes."""
-    from .catalog_models import EntryChange
     from .editorial import ObjectRef, Room
-    from .managed_catalog import definition, definition_digest, head, identity
 
     package = plan.get("package", {})
     for row in package.get("editorial", []):
@@ -111,28 +109,7 @@ def effects_match(runtime: Any, state: Any, plan: dict[str, Any]) -> bool:
         ):
             return False
     config = runtime._config(state)
-    for content in package.get("catalog_contents", []):
-        if config is None:
-            return False
-        try:
-            catalog = definition(config, content["catalog_id"], content["definition_version"])
-        except ValueError:
-            return False
-        if definition_digest(catalog) != content["definition_digest"]:
-            return False
-        current_head = head(state, catalog)
-        for row in content["entries"]:
-            entry = EntryChange.model_validate(
-                {k: v for k, v in row.items() if k not in {"master_identity", "normalized_key"}}
-            )
-            key = identity(entry.scope, entry.media_type, entry.signal_type, entry.key)
-            current = current_head.get("entries", {}).get(key)
-            if not current:
-                return False
-            desired = entry.model_dump(mode="json")
-            if any(current.get(k) != v for k, v in desired.items() if k not in {"operation"}):
-                return False
-    return True
+    return bool(slots.AUTHORING["catalog_effects"](state, config, package))
 
 
 def comparison(runtime: Any, state: Any, draft: dict[str, Any]) -> dict[str, Any]:
@@ -820,9 +797,7 @@ async def rebuild_plan(
     decisions: dict[str, Any],
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Recompare every unconsumed effect and validate the newly bound executable plan."""
-    from .catalog_models import EntryChange
     from .editorial import ObjectRef
-    from .managed_catalog import definition, definition_digest, head, head_key, identity
     from .portable import apply
 
     plan = deepcopy(old)
@@ -854,49 +829,9 @@ async def rebuild_plan(
         row.update(merged)
         plan.setdefault("editorial_base", {})[key] = deepcopy(actual)
         plan["editorial_choices"][key] = "file" if merged != actual else "keep"
-    for content in plan["package"]["catalog_contents"]:
-        catalog = definition(config, content["catalog_id"], content["definition_version"])
-        key = head_key(catalog)
-        current = head(state, catalog)
-        if definition_digest(catalog) != content["definition_digest"]:
-            raise AuthoringError("catalog_definition_conflict", catalog_id=catalog.catalog_id)
-        plan["catalog_heads"][key] = current["revision"]
-        original_entries = await runtime.store.managed_entries(
-            key, old["catalog_heads"].get(key, 0)
-        )
-        kept_entries = []
-        for row in content["entries"]:
-            wanted_entry = EntryChange.model_validate(
-                {k: v for k, v in row.items() if k not in {"master_identity", "normalized_key"}}
-            )
-            entry_key = identity(
-                wanted_entry.scope,
-                wanted_entry.media_type,
-                wanted_entry.signal_type,
-                wanted_entry.key,
-            )
-            actual = current["entries"].get(entry_key, MISSING)
-            old_entry = original_entries.get(entry_key, MISSING)
-            wanted = wanted_entry.model_dump(mode="json")
-            actual_plain = {k: actual.get(k) for k in wanted} if actual != MISSING else MISSING
-            old_plain = {k: old_entry.get(k) for k in wanted} if old_entry != MISSING else MISSING
-            path = f"/catalog_contents/{key}/{entry_key}"
-            # An explicit keep in the original plan carries no overwrite intent.
-            if old.get("resolutions", {}).get(f"catalog-entry:{key}:{entry_key}") == "keep":
-                continue
-            if actual_plain == wanted or wanted == old_plain:
-                continue
-            if actual_plain == old_plain:
-                kept_entries.append(row)
-                continue
-            entry_conflict = conflict_row(path, old_plain, wanted, actual_plain, "catalog")
-            digests = entry_conflict["digests"]
-            choice = decisions.get(path, {})
-            if choice.get("digests") != digests or choice.get("choice") not in {"draft", "current"}:
-                conflicts.append(entry_conflict)
-            elif choice["choice"] == "draft":
-                kept_entries.append(row)
-        content["entries"] = kept_entries
+    await slots.AUTHORING["catalog_rebuild"](
+        runtime, state, old, plan, config, decisions, conflicts
+    )
     plan["plan_digest"] = checksum({k: v for k, v in plan.items() if k != "plan_digest"})
     if not conflicts:
         apply(

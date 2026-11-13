@@ -3,9 +3,9 @@
 from collections import Counter, defaultdict
 from typing import Any
 
-from .catalog_mapping import MAX_ENTRIES as MAX_ENTRIES
-from .model import checksum
-from .text_rules import normalize_key
+from core_contracts.extensions.catalog.catalog_mapping import MAX_ENTRIES as MAX_ENTRIES
+from core_contracts.model import checksum
+from core_contracts.text_rules import normalize_key
 
 MAX_BYTES = 50 * 1024 * 1024
 

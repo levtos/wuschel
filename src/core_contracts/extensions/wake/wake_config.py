@@ -16,7 +16,7 @@ from dataclasses import dataclass, replace
 from datetime import date, time
 from typing import Any
 
-from . import wake_planning
+from core_contracts.extensions.wake import wake_planning
 
 CONFIG_CONTRACT_VERSION = "1.0.0"
 CONFIG_STORAGE_VERSION = 1

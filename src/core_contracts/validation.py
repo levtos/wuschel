@@ -233,33 +233,9 @@ def validate_document(
     dependencies = {d.dependency_id: d for d in config.dependencies}
     contracts = {c.contract_id: c for c in config.contracts}
     catalogs = {c.catalog_id for c in config.catalogs}
-    from .catalog_models import ManagedCatalog
-    from .declarative import rule_children
-    from .declarative_models import ManagedCatalogRule, ReferenceRule
+    from .rules.catalog_models import ManagedCatalog
 
-    def check_lookup(rule: Any, path: str) -> None:
-        if isinstance(rule, ManagedCatalogRule):
-            catalog = next(
-                (
-                    c
-                    for c in config.catalogs
-                    if c.catalog_id == rule.catalog_id and c.version == rule.definition_version
-                ),
-                None,
-            )
-            if (
-                not isinstance(catalog, ManagedCatalog)
-                or catalog.classification_schema.field_schema() != rule.field_schema
-            ):
-                add("catalog_reference", path, "managed catalog definition or schema mismatch")
-        if not isinstance(rule, ReferenceRule):
-            for name, child in rule_children(rule):
-                check_lookup(child, path + "/" + name)
-
-    for index, lookup_definition in enumerate(config.definitions):
-        for group in ("rules", "outputs"):
-            for name, rule in getattr(lookup_definition, group).items():
-                check_lookup(rule, f"/definitions/{index}/{group}/{name}")
+    slots.VALIDATION["catalog"](config, add)
     for index, binding in enumerate(config.bindings):
         if (
             binding.transform

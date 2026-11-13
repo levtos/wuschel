@@ -6,16 +6,11 @@ from typing import Literal, Self
 
 from pydantic import Field, field_validator, model_validator
 
-from ..model import Model, canonical
-from . import wake_config as config
-from . import wake_planning as planning
-
-
-def time_text(value: str) -> str:
-    parsed = planning.parse_time(value)
-    if parsed is None or not re.fullmatch(r"\d{2}:\d{2}", value):
-        raise ValueError("wake_time_invalid")
-    return value
+from core_contracts.extensions.wake import wake_config as config
+from core_contracts.extensions.wake import wake_planning as planning
+from core_contracts.model import Model, canonical
+from core_contracts.rules.wake import WakeException as WakeException
+from core_contracts.rules.wake import time_text
 
 
 class Profile(Model):
@@ -137,18 +132,3 @@ class WakeSettings(Model):
 
     def original(self) -> config.WakePlanningConfig:
         return config.WakePlanningConfig.from_dict(self.model_dump(mode="json"))
-
-
-class WakeException(Model):
-    date: str
-    wake_time: str | None = None
-    skip: bool = Field(default=False, strict=True)
-
-    @model_validator(mode="after")
-    def coherent(self) -> Self:
-        date.fromisoformat(self.date)
-        if self.skip == (self.wake_time is not None):
-            raise ValueError("exception_time_or_skip")
-        if self.wake_time is not None:
-            time_text(self.wake_time)
-        return self

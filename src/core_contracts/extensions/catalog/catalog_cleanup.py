@@ -6,21 +6,21 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-from . import slots
-from .model import checksum
+from core_contracts import slots
+from core_contracts.model import checksum
 
 if TYPE_CHECKING:
-    from .runtime import Runtime
+    from core_contracts.runtime import Runtime
 
 import json
 from collections import Counter, defaultdict
 from uuid import UUID
 
-from .authoring import AuthoringError
-from .catalog_care import all_rows
-from .history import HistoryQuery
-from .managed_catalog import definition, head, head_key
-from .model import canonical
+from core_contracts.authoring import AuthoringError
+from core_contracts.extensions.catalog.catalog_care import all_rows
+from core_contracts.extensions.catalog.managed_catalog import definition, head, head_key
+from core_contracts.history import HistoryQuery
+from core_contracts.model import canonical
 
 LIMIT = 100_000
 PLAN_SECONDS = 30 * 60

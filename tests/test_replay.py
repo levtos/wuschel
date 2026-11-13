@@ -17,7 +17,7 @@ from uuid import uuid4
 import pytest
 
 from core_contracts.clock import FakeClock
-from core_contracts.managed_catalog import head
+from core_contracts.extensions.catalog.managed_catalog import head
 from core_contracts.persistence import MemoryStore
 from core_contracts.runtime import Runtime
 from core_contracts.testing.contract_types import type_registry

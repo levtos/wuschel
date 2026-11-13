@@ -11,13 +11,13 @@ from uuid import uuid4
 import aiohttp
 
 from core_contracts.adapters.ha import BridgeAdapter
-from core_contracts.catalog_models import CatalogWrite
 from core_contracts.clock import SystemClock
 from core_contracts.contract_types import type_registry
-from core_contracts.managed_catalog import prepare as prepare_catalog
+from core_contracts.extensions.catalog.managed_catalog import prepare as prepare_catalog
 from core_contracts.management import Planner, prepare
 from core_contracts.operation_timing import percentile
 from core_contracts.persistence import MemoryStore, PostgresStore
+from core_contracts.rules.catalog_models import CatalogWrite
 from core_contracts.runtime import Runtime
 from dev.fake_ha import FakeHA
 

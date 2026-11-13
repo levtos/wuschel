@@ -5,9 +5,9 @@ from typing import Annotated, Literal, Self
 
 from pydantic import Field, model_validator
 
-from .lifecycle import Lifecycle
-from .model import Model
-from .schema import FieldSchema
+from core_contracts.lifecycle import Lifecycle
+from core_contracts.model import Model
+from core_contracts.schema import FieldSchema
 
 
 class IdentityRule(Model):

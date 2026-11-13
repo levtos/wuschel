@@ -10,9 +10,9 @@ from uuid import UUID
 import asyncpg
 from pydantic import Field, SecretStr
 
-from .model import Model, canonical
-from .setup import Connection
-from .title_import import MAX_BYTES, MAX_ENTRIES
+from core_contracts.extensions.tc_migration.title_import import MAX_BYTES, MAX_ENTRIES
+from core_contracts.model import Model, canonical
+from core_contracts.setup import Connection
 
 
 class Credentials(Model):

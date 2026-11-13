@@ -6,9 +6,9 @@ import re
 from collections import Counter
 from typing import Any
 
-from .catalog_models import EntryChange, ManagedCatalog
-from .managed_catalog import definition_digest, identity
-from .model import checksum
+from core_contracts.extensions.catalog.managed_catalog import definition_digest, identity
+from core_contracts.model import checksum
+from core_contracts.rules.catalog_models import EntryChange, ManagedCatalog
 
 CLASS_CODES = {
     "heimkino": "home_cinema",
@@ -142,7 +142,7 @@ def upgrade_package(package: dict[str, Any]) -> dict[str, Any]:
     Names/addresses remain only in the caller's private file. Published examples
     and tests supply synthetic data. The app later verifies every source head.
     """
-    from .portable import objects, package_checksum, payload_digest, read_package
+    from core_contracts.portable import objects, package_checksum, payload_digest, read_package
 
     result = copy.deepcopy(read_package(package))
     if result.get("legacy") or result["scope"] != "configuration":
@@ -309,8 +309,8 @@ def migration_preview(state: Any, contents: list[dict[str, Any]]) -> list[dict[s
 
 def migrate_runtime(state: Any, contents: list[dict[str, Any]], now: Any) -> None:
     """Part of portable.apply's existing transaction; never called on startup."""
-    from .catalog_mapping import current_mapping
-    from .catalog_playback import PREFIX
+    from core_contracts.extensions.catalog.catalog_mapping import current_mapping
+    from core_contracts.extensions.catalog.catalog_playback import PREFIX
 
     upgrades = {row["catalog_id"]: row for row in contents if row.get("class_migration")}
     for catalog_id, content in upgrades.items():

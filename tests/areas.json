@@ -1,7 +1,7 @@
 {
  "wake": {
   "paths": [
-   "src/core_contracts/wake/"
+   "src/core_contracts/extensions/wake/"
   ],
   "tests": [
    "tests/test_beta_command_ingress.py",
@@ -39,7 +39,7 @@
  },
  "openings": {
   "paths": [
-   "src/core_contracts/openings.py"
+   "src/core_contracts/extensions/openings/"
   ],
   "tests": [
    "tests/test_b23_p6_scale.py",
@@ -65,11 +65,7 @@
  },
  "tc_migration": {
   "paths": [
-   "src/core_contracts/title_import.py",
-   "src/core_contracts/title_reader.py",
-   "src/core_contracts/title_sync.py",
-   "src/core_contracts/title_sync_runs.py",
-   "src/core_contracts/title_transfer.py"
+   "src/core_contracts/extensions/tc_migration/"
   ],
   "tests": [
    "tests/test_b20_a1_repro.py",
@@ -102,18 +98,7 @@
  },
  "catalog": {
   "paths": [
-   "src/core_contracts/apple_tv_catalog.py",
-   "src/core_contracts/catalog_care.py",
-   "src/core_contracts/catalog_cleanup.py",
-   "src/core_contracts/catalog_hierarchy.py",
-   "src/core_contracts/catalog_mapping.py",
-   "src/core_contracts/catalog_models.py",
-   "src/core_contracts/catalog_playback.py",
-   "src/core_contracts/catalog_scope.py",
-   "src/core_contracts/interface_upgrade.py",
-   "src/core_contracts/managed_catalog.py",
-   "src/core_contracts/stash_catalog.py",
-   "src/core_contracts/catalog_operations.py"
+   "src/core_contracts/extensions/catalog/"
   ],
   "tests": [
    "tests/test_alpha4_acceptance.py",

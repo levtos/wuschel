@@ -1,0 +1,1 @@
+"""Catalog behavior and registration."""

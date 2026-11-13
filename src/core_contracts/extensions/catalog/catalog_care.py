@@ -9,10 +9,17 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from .catalog_models import CatalogWrite, EntryChange
-from .managed_catalog import discovered_entries, effective, head, head_key, identity, semantic
-from .model import Model, canonical, checksum
-from .text_rules import normalize_key
+from core_contracts.extensions.catalog.managed_catalog import (
+    discovered_entries,
+    effective,
+    head,
+    head_key,
+    identity,
+    semantic,
+)
+from core_contracts.model import Model, canonical, checksum
+from core_contracts.rules.catalog_models import CatalogWrite, EntryChange
+from core_contracts.text_rules import normalize_key
 
 
 class CareRequest(Model):
@@ -376,7 +383,7 @@ def listing(
         except ValueError, KeyError, TypeError, UnicodeError:
             raise ValueError("catalog_content_conflict") from None
     page = selected[offset : offset + limit]
-    from .catalog_mapping import current_mapping
+    from core_contracts.extensions.catalog.catalog_mapping import current_mapping
 
     next_cursor = (
         base64.urlsafe_b64encode(
@@ -615,9 +622,9 @@ def detail(
     view: str = "all",
     filters: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    from .catalog_mapping import current_mapping, keys
-    from .managed_catalog import definition, identity
-    from .registry import RegistryConfig
+    from core_contracts.extensions.catalog.catalog_mapping import current_mapping, keys
+    from core_contracts.extensions.catalog.managed_catalog import definition, identity
+    from core_contracts.registry import RegistryConfig
 
     filters = filters or {}
     if (

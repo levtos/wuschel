@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 import aiohttp
 
+from .. import slots
 from ..evidence import Observation
 from ..ha_context import ContextIndex, HAContext
 from ..model import checksum, utc
@@ -395,25 +396,8 @@ class BridgeAdapter:
                 else None,
             }
             catalog_frame["event"] = checksum([catalog_frame, (state or {}).get("last_updated")])
-            if binding.adapter.catalog_profile == "stash_slot":
-                from ..stash_catalog import metadata as stash_metadata
-
-                catalog_frame.update(stash_metadata(attributes))
-                catalog_frame["event"] = checksum(
-                    [catalog_frame, (state or {}).get("last_updated")]
-                )
-            elif binding.adapter.catalog_profile == "apple_tv_title":
-                from ..apple_tv_catalog import parse
-
-                if binding.adapter.title_catalog is not None:
-                    # Independent from the app catalog's frame on the same player.
-                    catalog_frame["source"] = checksum(
-                        [binding.adapter.ha_entity_id, "apple_tv_title"]
-                    )
-                    catalog_frame.update(parse(attributes, binding.adapter.title_catalog))
-                    catalog_frame["event"] = checksum(
-                        [catalog_frame, (state or {}).get("last_updated")]
-                    )
+            if profile := slots.SOURCE_PROFILES.get(binding.adapter.catalog_profile or ""):
+                profile.metadata(catalog_frame, attributes, binding.adapter, state)
         if self.protocol_selected == 2:
             raw_context = (
                 (state or {}).get("context") if kind == "snapshot" else event.get("context")

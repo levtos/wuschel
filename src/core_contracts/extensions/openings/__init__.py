@@ -5,12 +5,12 @@ from typing import Any
 
 from pydantic import Field
 
-from .fusion import Fusion
-from .model import Model
-from .producer import Context, Producer
-from .quality import FieldValue, Reason, ReasonCode, derive, unknown
-from .schema import ContractType, FieldSchema, InputDeclaration, Schema, TypeRegistry
-from .temporal import Temporal, TemporalState
+from core_contracts.fusion import Fusion
+from core_contracts.model import Model
+from core_contracts.producer import Context, Producer
+from core_contracts.quality import FieldValue, Reason, ReasonCode, derive, unknown
+from core_contracts.schema import ContractType, FieldSchema, InputDeclaration, Schema, TypeRegistry
+from core_contracts.temporal import Temporal, TemporalState
 
 OPENING_TYPES = {"opening.dual_contact", "opening.single_contact"}
 STATES = ("closed", "tilted", "open")

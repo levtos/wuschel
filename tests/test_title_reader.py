@@ -5,14 +5,14 @@ from uuid import uuid4
 import pytest
 from pydantic import SecretStr
 
-from core_contracts.setup import Connection
-from core_contracts.title_reader import (
+from core_contracts.extensions.tc_migration.title_reader import (
     CATALOG_SQL,
     CONTEXT_SQL,
     Credentials,
     connection_settings,
     read,
 )
+from core_contracts.setup import Connection
 
 
 def base():
@@ -111,7 +111,9 @@ class Database:
 async def test_reader_single_readonly_snapshot_and_close(monkeypatch):
     db = Database()
     connect = AsyncMock(return_value=db)
-    monkeypatch.setattr("core_contracts.title_reader.asyncpg.connect", connect)
+    monkeypatch.setattr(
+        "core_contracts.extensions.tc_migration.title_reader.asyncpg.connect", connect
+    )
     result = await read(base(), credentials())
     assert db.closed and not db.entered
     assert db.queries == [CATALOG_SQL, CONTEXT_SQL]
@@ -127,8 +129,11 @@ async def test_reader_failure_never_returns_partial_rows_or_raw_errors(monkeypat
     elif failure == "timeout":
         db.failure = TimeoutError("synthetic sensitive driver text")
     else:
-        monkeypatch.setattr("core_contracts.title_reader.MAX_BYTES", 1)
-    monkeypatch.setattr("core_contracts.title_reader.asyncpg.connect", AsyncMock(return_value=db))
+        monkeypatch.setattr("core_contracts.extensions.tc_migration.title_reader.MAX_BYTES", 1)
+    monkeypatch.setattr(
+        "core_contracts.extensions.tc_migration.title_reader.asyncpg.connect",
+        AsyncMock(return_value=db),
+    )
     with pytest.raises(ValueError) as error:
         await read(base(), credentials())
     assert "sensitive" not in str(error.value)

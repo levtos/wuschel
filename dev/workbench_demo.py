@@ -108,7 +108,7 @@ async def main() -> None:
         if args.post1 or args.alpha8 or args.alpha9 or args.alpha10
         else SystemClock()
     )
-    from core_contracts.openings import register as register_openings
+    from core_contracts.extensions.openings import register as register_openings
 
     types = type_registry()
     register_openings(types)

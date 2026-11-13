@@ -4,10 +4,10 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
-from .apple_tv_catalog import AppleTitleConfig
 from .calendar_cache import CalendarWindow
 from .calendar_inputs import CalendarInput
 from .model import Model
+from .rules.apple_title import AppleTitleConfig
 
 
 class AdapterConfig(Model):

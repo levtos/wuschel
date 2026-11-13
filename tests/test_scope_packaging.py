@@ -51,8 +51,8 @@ def test_only_approved_opening_domain_registration_outside_testing():
                     for keyword in node.keywords
                 ):
                     continue
-                if path == ROOT / "src/core_contracts/openings.py":
-                    from core_contracts.openings import register
+                if path == ROOT / "src/core_contracts/extensions/openings/__init__.py":
+                    from core_contracts.extensions.openings import register
                     from core_contracts.schema import TypeRegistry
 
                     production = TypeRegistry()

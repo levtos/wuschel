@@ -5,8 +5,8 @@ from uuid import uuid4
 
 import pytest
 
-from core_contracts.catalog_care import all_rows, listing
-from core_contracts.managed_catalog import effective, head, head_key, identity
+from core_contracts.extensions.catalog.catalog_care import all_rows, listing
+from core_contracts.extensions.catalog.managed_catalog import effective, head, head_key, identity
 from core_contracts.model import canonical
 
 from .conftest import activate
@@ -167,7 +167,7 @@ async def test_master_variants_move_together_and_repeated_action_returns_receipt
 
 
 async def test_import_provenance_and_telemetry_survive_collision_and_reset_epoch(runtime, config):
-    from core_contracts.title_sync import metadata
+    from core_contracts.extensions.tc_migration.title_sync import metadata
 
     catalog = await setup(runtime, config)
     original = metadata(observed()).model_dump(mode="json")

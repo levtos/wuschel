@@ -42,7 +42,7 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
 {
  "wake": {
   "paths": [
-   "src/core_contracts/wake/"
+   "src/core_contracts/extensions/wake/"
   ],
   "tests": [
    "tests/test_beta_command_ingress.py",
@@ -80,7 +80,7 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
  },
  "openings": {
   "paths": [
-   "src/core_contracts/openings.py"
+   "src/core_contracts/extensions/openings/"
   ],
   "tests": [
    "tests/test_b23_p6_scale.py",
@@ -106,11 +106,7 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
  },
  "tc_migration": {
   "paths": [
-   "src/core_contracts/title_import.py",
-   "src/core_contracts/title_reader.py",
-   "src/core_contracts/title_sync.py",
-   "src/core_contracts/title_sync_runs.py",
-   "src/core_contracts/title_transfer.py"
+   "src/core_contracts/extensions/tc_migration/"
   ],
   "tests": [
    "tests/test_b20_a1_repro.py",
@@ -143,18 +139,7 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
  },
  "catalog": {
   "paths": [
-   "src/core_contracts/apple_tv_catalog.py",
-   "src/core_contracts/catalog_care.py",
-   "src/core_contracts/catalog_cleanup.py",
-   "src/core_contracts/catalog_hierarchy.py",
-   "src/core_contracts/catalog_mapping.py",
-   "src/core_contracts/catalog_models.py",
-   "src/core_contracts/catalog_playback.py",
-   "src/core_contracts/catalog_scope.py",
-   "src/core_contracts/interface_upgrade.py",
-   "src/core_contracts/managed_catalog.py",
-   "src/core_contracts/stash_catalog.py",
-   "src/core_contracts/catalog_operations.py"
+   "src/core_contracts/extensions/catalog/"
   ],
   "tests": [
    "tests/test_alpha4_acceptance.py",
@@ -474,3 +459,20 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
 ## Nur-Kern-Testdateien
 
 `test_alpha10_runbook.py`, `test_alpha8_platform.py`, `test_configuration_completeness.py`, `test_core.py`, `test_named_formulas.py`, `test_operation_timing.py`, `test_text_rules.py`
+
+
+## Umgesetzt in Schritt 5 (#119)
+
+Die Kartuschenpfade zeigen auf die vollständigen Ordner unter
+`src/core_contracts/extensions/`: `catalog/`, `tc_migration/`, `wake/` und
+`openings/`. Die Testzuordnung bleibt unverändert. Neue Formatmodelle in
+`rules/` und Änderungen an `slots`, `declarative`, `producer` oder der
+allgemeinen API sind weiterhin Kernänderungen: `--changed` meldet dafür
+konservativ `ALL`; lokal werden die betroffenen Modul- und Bereichstests
+gewählt, die vollständige Suite läuft in CI.
+
+Der Replay-Test behält alle Testkörper und Referenzen; ausschließlich sein
+Import von `managed_catalog.head` folgt dem neuen Modulort. Bestehende Tests
+ändern sonst nur Importe und Modulpfade, einschließlich der exakten erlaubten
+Openings-Datei in der Packagingprüfung und der Wake-Pfade im Bereichsselektor.
+Es werden keine Aussagen, Schwellen oder ausgewählten Testdateien gelockert.

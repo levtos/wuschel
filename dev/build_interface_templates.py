@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from core_contracts.interface_upgrade import upgrade_catalog, upgrade_definition
+from core_contracts.extensions.catalog.interface_upgrade import upgrade_catalog, upgrade_definition
 
 ROOT = Path(__file__).parents[1]
 

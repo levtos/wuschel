@@ -7,11 +7,11 @@ from uuid import uuid4
 
 import pytest
 
-from core_contracts import title_reader, title_sync
 from core_contracts.clock import SystemClock
-from core_contracts.managed_catalog import head
+from core_contracts.extensions.catalog.managed_catalog import head
+from core_contracts.extensions.tc_migration import title_reader, title_sync
+from core_contracts.extensions.tc_migration.title_sync_runs import cancel, page_view
 from core_contracts.model import canonical
-from core_contracts.title_sync_runs import cancel, page_view
 
 from .conftest import activate
 from .test_beta_media_import import document
@@ -293,7 +293,7 @@ async def test_two_tab_runs_replan_their_own_snapshot_without_rereading_and_conf
 
 
 async def test_run_capacity_rejects_without_replacing_other_tabs(runtime, config, monkeypatch):
-    from core_contracts import title_sync_runs
+    from core_contracts.extensions.tc_migration import title_sync_runs
 
     await activate(runtime, document(config))
     monkeypatch.setattr(title_sync_runs, "MAX_RUNS", 2)
@@ -344,7 +344,7 @@ async def test_abort_during_reader_or_preparation_never_commits_and_frees_snapsh
 ):
     from concurrent.futures import Future
 
-    from core_contracts import title_sync_runs
+    from core_contracts.extensions.tc_migration import title_sync_runs
 
     await activate(runtime, document(config))
     started = asyncio.Event()

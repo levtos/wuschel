@@ -5,10 +5,10 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from core_contracts.catalog_models import ClassificationSchema
-from core_contracts.managed_catalog import head
+from core_contracts.extensions.catalog.managed_catalog import head
 from core_contracts.model import canonical
 from core_contracts.persistence import PersistenceUnavailable
+from core_contracts.rules.catalog_models import ClassificationSchema
 from core_contracts.runtime import Runtime
 from core_contracts.text_rules import normalize_key
 
@@ -462,8 +462,8 @@ async def test_import_size_and_expanded_target_guards(runtime, config, monkeypat
     assert strict_json(" " * 20 + "{}", max_bytes=22) == {}
     with pytest.raises(ValueError, match="import_size_limit"):
         strict_json(" " * 20 + "{}", max_bytes=21)
-    from core_contracts import title_transfer
-    from core_contracts.title_import import MAX_ENTRIES, plan_title_import
+    from core_contracts.extensions.tc_migration import title_transfer
+    from core_contracts.extensions.tc_migration.title_import import MAX_ENTRIES, plan_title_import
 
     with pytest.raises(ValueError, match="title_export_limit"):
         plan_title_import({"version": 3, "entries": [{}] * (MAX_ENTRIES + 1)}, "synthetic")

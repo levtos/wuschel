@@ -2,8 +2,8 @@ import copy
 
 import pytest
 
-from core_contracts.catalog_care import all_rows, candidate_key, queue
-from core_contracts.managed_catalog import head_key, identity
+from core_contracts.extensions.catalog.catalog_care import all_rows, candidate_key, queue
+from core_contracts.extensions.catalog.managed_catalog import head_key, identity
 from core_contracts.model import canonical
 
 from .test_catalog_care import seeded
