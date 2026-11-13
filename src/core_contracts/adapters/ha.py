@@ -119,14 +119,19 @@ class BridgeAdapter:
         """Read-only discovery; bounded state previews require an explicit admin request."""
         async with self.discovery_lock:
             cached_at = self.discovery_preview_at if preview else self.discovery_at
-            if self.runtime.clock.monotonic() - cached_at < 15:
+            if (
+                self.runtime.clock.monotonic() - cached_at
+                < self.runtime.operations.ha_discovery_cache_s
+            ):
                 return self.discovery_preview_cache if preview else self.discovery_cache
             areas, devices, entries = {}, {}, {}
             area_metadata: list[dict[str, Any]] | None = None
             enriched: dict[str, dict[str, Any]] = {}
-            async with asyncio.timeout(10):
+            async with asyncio.timeout(self.runtime.operations.ha_discovery_timeout_s):
                 async with self.session.ws_connect(
-                    self.url, heartbeat=20, max_msg_size=4_000_000
+                    self.url,
+                    heartbeat=self.runtime.operations.ha_heartbeat_s,
+                    max_msg_size=4_000_000,
                 ) as socket:
                     if (await socket.receive_json()).get("type") != "auth_required":
                         raise ConnectionError("ha_auth_protocol")
@@ -552,7 +557,7 @@ class BridgeAdapter:
         future = asyncio.get_running_loop().create_future()
         number: int | None = None
         try:
-            async with asyncio.timeout(12):
+            async with asyncio.timeout(self.runtime.operations.ha_service_timeout_s):
                 number = await connection.send(
                     {
                         "type": "traber/service_call",
@@ -579,7 +584,7 @@ class BridgeAdapter:
         self.runtime.resubscribe.clear()
         self.runtime.revision_changed.clear()
         async with self.session.ws_connect(
-            self.url, heartbeat=20, max_msg_size=4_000_000
+            self.url, heartbeat=self.runtime.operations.ha_heartbeat_s, max_msg_size=4_000_000
         ) as socket:
             if (await socket.receive_json()).get("type") != "auth_required":
                 raise ConnectionError("ha_auth_protocol")
@@ -696,6 +701,7 @@ class BridgeAdapter:
                         return
                     if self.runtime.clock.monotonic() - connected_at >= 10:
                         self.retry_delay = 1.0
+                        self.runtime.retry_succeeded("ha")
                     if message.get("type") == "result" and message.get("id") in connection.pending:
                         if not message.get("success"):
                             request_error("traber/service_call", message)
@@ -833,19 +839,25 @@ class BridgeAdapter:
                         identifier = None
                         try:
                             identifier = await connection.send(payload, future)
-                            async with asyncio.timeout(20):
+                            async with asyncio.timeout(
+                                self.runtime.operations.projection_timeout_s
+                            ):
                                 result = await future
                             if not isinstance(result, dict) or "applied" not in result:
                                 raise ConnectionError("projection_not_acknowledged")
                             previous = payload
                             retry_delay = 0.25
-                        except TimeoutError, ConnectionError, aiohttp.ClientError:
+                            self.runtime.retry_succeeded("projection")
+                        except (TimeoutError, ConnectionError, aiohttp.ClientError) as error:
+                            self.runtime.retry_failed("projection", error)
                             if connection is self.connection:
                                 LOGGER.warning("projection_retry")
                                 await self.runtime.clock.sleep(
                                     random.uniform(retry_delay / 2, retry_delay)
                                 )
-                                retry_delay = min(retry_delay * 2, 5)
+                                retry_delay = min(
+                                    retry_delay * 2, self.runtime.operations.projection_retry_max_s
+                                )
                                 continue
                             break
                         finally:
@@ -860,7 +872,9 @@ class BridgeAdapter:
                         previous = payload
                     changed = asyncio.create_task(queue.get())
                     disconnected = asyncio.create_task(self.projection_disconnected.wait())
-                    heartbeat = asyncio.create_task(self.runtime.clock.sleep(5))
+                    heartbeat = asyncio.create_task(
+                        self.runtime.clock.sleep(self.runtime.operations.projection_heartbeat_s)
+                    )
                     try:
                         done, _ = await asyncio.wait(
                             {changed, disconnected, heartbeat}, return_when=asyncio.FIRST_COMPLETED
@@ -888,11 +902,12 @@ class BridgeAdapter:
                 self.runtime.bridge_subscriptions = 0
                 if self.runtime.bridge != "not_needed" or self.runtime.ha != "not_needed":
                     await self.runtime.submit("bridge_state", ("not_needed", "not_needed"))
-                await self.runtime.clock.sleep(1)
+                await self.runtime.clock.sleep(self.runtime.operations.adapter_poll_interval_s)
                 continue
             try:
                 await self.connect(config)
             except Exception as error:
+                self.runtime.retry_failed("ha", error)
                 self.runtime.bridge_subscriptions = 0
                 LOGGER.warning(
                     "bridge_disconnected",
@@ -906,7 +921,7 @@ class BridgeAdapter:
                 await self.runtime.clock.sleep(
                     random.uniform(self.retry_delay / 2, self.retry_delay)
                 )
-                self.retry_delay = min(self.retry_delay * 2, 5)
+                self.retry_delay = min(self.retry_delay * 2, self.runtime.operations.ha_retry_max_s)
 
     async def request_refresh(self, source_id: str) -> None:
         config = self.runtime.config

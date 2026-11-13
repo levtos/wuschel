@@ -87,7 +87,7 @@ layers = [
     "core_contracts.manual_entry : core_contracts.observation_block : core_contracts.retention_ops : core_contracts.runtime",
     "core_contracts.rules : core_contracts.adapter_config : core_contracts.calendar_cache : core_contracts.calendar_coverage : core_contracts.calendar_inputs : core_contracts.calendar_rules : core_contracts.dated_rules : core_contracts.declarative : core_contracts.engines : core_contracts.environment_formulas : core_contracts.instance_parameters : core_contracts.notifications : core_contracts.producer : core_contracts.refresh_plan : core_contracts.source_values : core_contracts.registry : core_contracts.slots : core_contracts.validation_cache",
     "core_contracts.history : core_contracts.persistence : core_contracts.retention",
-    "core_contracts.errors : core_contracts.clock : core_contracts.declarative_models : core_contracts.evidence : core_contracts.field_since : core_contracts.freshness_templates : core_contracts.fusion : core_contracts.ha_context : core_contracts.identity : core_contracts.lifecycle : core_contracts.machine_events : core_contracts.manual_source : core_contracts.model : core_contracts.multibucket : core_contracts.numeric_equivalence : core_contracts.operation_timing : core_contracts.quality : core_contracts.resolver : core_contracts.schema : core_contracts.sensor_profile : core_contracts.state_tracking : core_contracts.statemachine : core_contracts.temporal : core_contracts.text_rules : core_contracts.user_text : core_contracts.value_origin",
+    "core_contracts.errors : core_contracts.clock : core_contracts.declarative_models : core_contracts.evidence : core_contracts.field_since : core_contracts.freshness_templates : core_contracts.fusion : core_contracts.ha_context : core_contracts.identity : core_contracts.lifecycle : core_contracts.machine_events : core_contracts.manual_source : core_contracts.model : core_contracts.multibucket : core_contracts.numeric_equivalence : core_contracts.operations : core_contracts.operation_timing : core_contracts.quality : core_contracts.resolver : core_contracts.schema : core_contracts.sensor_profile : core_contracts.state_tracking : core_contracts.statemachine : core_contracts.temporal : core_contracts.text_rules : core_contracts.user_text : core_contracts.value_origin",
 ]
 ignore_imports = []
 
@@ -135,6 +135,7 @@ source_modules = [
     "core_contracts.numeric_equivalence",
     "core_contracts.manual_entry",
     "core_contracts.observation_block",
+    "core_contracts.operations",
     "core_contracts.operation_timing",
     "core_contracts.persistence",
     "core_contracts.portable",
@@ -294,6 +295,7 @@ source_modules = [
     "core_contracts.numeric_equivalence",
     "core_contracts.manual_entry",
     "core_contracts.observation_block",
+    "core_contracts.operations",
     "core_contracts.operation_timing",
     "core_contracts.persistence",
     "core_contracts.portable",

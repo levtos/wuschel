@@ -27,9 +27,13 @@ export const NAVIGATION: NavigationModule[] = [
     { to: '/settings/connections', label: t('alpha7.nav.connections') },
     { to: '/settings/notifications', label: t('alpha9.notifications.title') },
     { to: '/settings/retention', label: t('alpha9.retention.title') },
+    { to: '/settings/operations', label: t('b26.operations.title') },
     { to: '/settings/keys', label: t('alpha7.nav.keys') },
     { to: '/settings/log', label: t('alpha7.nav.log') },
     { to: '/settings/diagnostics', label: t('alpha7.nav.diagnostics') },
+  ] },
+  { id: 'diagnosis', label: t('b26.system.navigation'), children: [
+    { to: '/diagnosis/system-state', label: t('b26.system.title') },
   ] },
 ];
 

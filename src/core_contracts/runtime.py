@@ -8,6 +8,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from datetime import datetime, timedelta
+from statistics import median
 from time import perf_counter
 from typing import Any, cast
 from uuid import uuid4
@@ -23,6 +24,7 @@ from .evidence import Observation, assess, is_new, is_older
 from .ha_context import ContextIndex
 from .model import Model, checksum, utc
 from .operation_timing import ObservationTimings, TimedStore, Timing, current
+from .operations import OperationsSettings
 from .persistence import State, Store
 from .producer import Context, Producer
 from .quality import FieldValue, ReasonCode, unknown
@@ -86,10 +88,12 @@ class Runtime:
         clock: Clock,
         types: TypeRegistry,
         *,
-        queue_size: int = 256,
+        queue_size: int | None = None,
         require_history_retention: bool = False,
+        operations: OperationsSettings | None = None,
     ) -> None:
         self.store, self.clock, self.types = TimedStore(store), clock, types
+        self.operations = operations or OperationsSettings()
         self.observation_timings = ObservationTimings()
         self.validation_cache = ValidationCache()
         self.require_history_retention = require_history_retention
@@ -111,7 +115,9 @@ class Runtime:
         self.evaluation_stats = {"evaluated": 0, "reused": 0}
         from .observation_block import IngestQueue
 
-        self.queue: asyncio.Queue[Work] = IngestQueue(queue_size)
+        self.queue: asyncio.Queue[Work] = IngestQueue(
+            self.operations.ingest_queue_size if queue_size is None else queue_size
+        )
         self.task: asyncio.Task[None] | None = None
         self.confirmed = False
         self.persistence = False
@@ -128,6 +134,8 @@ class Runtime:
         self.next_retention = self.clock.now_utc()
         self.retention_receipt: dict[str, Any] | None = None
         self.mqtt = "disabled"
+        self.mqtt_queue: asyncio.Queue[Any] | None = None
+        self.mqtt_overflow = 0
         self.mqtt_mode: str | None = None
         self.mqtt_external_settings_present: bool | None = None
         self.latest: dict[str, Observation] = {}
@@ -150,17 +158,84 @@ class Runtime:
         self.pending_latches: dict[str, Bucket] | None = None
         self.stopping = False
         self.commit_duration = 0.0
+        self.commit_samples: deque[float] = deque(maxlen=256)
+        self.event_loop_lag_ms: float | None = None
+        self.event_loop_lag_max_ms: float | None = None
+        self.retries: dict[str, dict[str, Any]] = {
+            name: {"count": 0, "consecutive": 0, "last_error": None, "last_error_at": None}
+            for name in ("startup", "database", "ha", "mqtt", "projection")
+        }
         self.catalog_care_timings: dict[str, float] = {}
         self.startup_timings: dict[str, float] = {}
         self.startup_attempts = 0
         self.last_heartbeat = clock.monotonic()
-        self.refresh_requests: asyncio.Queue[tuple[int, str]] = asyncio.Queue(256)
+        self.refresh_requests: asyncio.Queue[tuple[int, str]] = asyncio.Queue(
+            self.operations.refresh_queue_size
+        )
         self.pending_refresh: set[str] = set()
         self.refresh_overflow = 0
         self.entity_discovery: Callable[..., Awaitable[list[dict[str, Any]]]] | None = None
         self.discovered_areas: list[dict[str, Any]] | None = None
         self.service_jobs_changed = asyncio.Event()
-        self.management_slots = asyncio.Semaphore(2)
+        self.management_slots = asyncio.Semaphore(self.operations.management_concurrency)
+
+    def retry_failed(self, name: str, error: Exception) -> None:
+        retry = self.retries[name]
+        retry["count"] += 1
+        retry["consecutive"] += 1
+        retry["last_error"] = type(error).__name__
+        retry["last_error_at"] = self.clock.now_utc().isoformat()
+
+    def retry_succeeded(self, name: str) -> None:
+        self.retries[name]["consecutive"] = 0
+
+    async def measure_event_loop(self) -> None:
+        while True:
+            started = self.clock.monotonic()
+            await self.clock.sleep(1)
+            lag = max(0.0, (self.clock.monotonic() - started - 1) * 1000)
+            self.event_loop_lag_ms = round(lag, 3)
+            self.event_loop_lag_max_ms = max(
+                self.event_loop_lag_max_ms or 0, self.event_loop_lag_ms
+            )
+
+    def system_state(self) -> dict[str, Any]:
+        samples = sorted(self.commit_samples)
+        return {
+            **self.service_state(),
+            "publication_seq": self.state.publication_seq,
+            "queues": {
+                "ingest": {
+                    "depth": self.queue.qsize(),
+                    "capacity": self.queue.maxsize,
+                    "overflows": self.overflow_serial,
+                },
+                "refresh": {
+                    "depth": self.refresh_requests.qsize(),
+                    "capacity": self.refresh_requests.maxsize,
+                    "overflows": self.refresh_overflow,
+                },
+                "mqtt": {
+                    "depth": self.mqtt_queue.qsize() if self.mqtt_queue is not None else None,
+                    "capacity": self.operations.mqtt_queue_size,
+                    "overflows": self.mqtt_overflow,
+                },
+            },
+            "event_loop": {
+                "lag_ms": self.event_loop_lag_ms,
+                "max_lag_ms": self.event_loop_lag_max_ms,
+            },
+            "commits": {
+                "count": len(samples),
+                "window": 256,
+                "median_ms": round(median(samples), 3) if samples else None,
+                "p95_ms": round(samples[max(0, (95 * len(samples) + 99) // 100 - 1)], 3)
+                if samples
+                else None,
+            },
+            "retries": copy.deepcopy(self.retries),
+            "traber_version": self.bridge_version,
+        }
 
     @property
     def config(self) -> RegistryConfig | None:
@@ -1727,6 +1802,7 @@ class Runtime:
         self, state: State, *, publication: bool = False, resync: bool = False
     ) -> None:
         started = self.clock.monotonic()
+        measured_at = perf_counter()
         catalog_changed = (
             state.tables["catalog_sighting"] != self.state.tables["catalog_sighting"]
             or state.tables["catalog_head"] != self.state.tables["catalog_head"]
@@ -1786,6 +1862,7 @@ class Runtime:
                 LOGGER.warning("refresh_queue_overflow")
         self.pending_refresh.clear()
         self.commit_duration = self.clock.monotonic() - started
+        self.commit_samples.append((perf_counter() - measured_at) * 1000)
         self._plan_evaluation()
         self.service_jobs_changed.set()
         if catalog_changed:
@@ -1981,8 +2058,10 @@ class Runtime:
             "contracts": {k: v for k, v in items.items() if contracts is None or k in contracts},
         }
 
-    def subscribe(self, max_queue: int = 32) -> asyncio.Queue[dict[str, Any]]:
-        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(max_queue)
+    def subscribe(self, max_queue: int | None = None) -> asyncio.Queue[dict[str, Any]]:
+        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(
+            self.operations.subscriber_queue_size if max_queue is None else max_queue
+        )
         self.subscribers.add(queue)
         return queue
 

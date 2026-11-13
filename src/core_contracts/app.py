@@ -23,6 +23,7 @@ from .clock import SystemClock
 from .contract_types import type_registry
 from .identity import load_id, reconcile, write_private
 from .model import Model, canonical
+from .operations import OperationsFile, OperationsSettings
 from .persistence import PersistenceUnavailable, PostgresStore
 from .runtime import Runtime
 from .security import Tokens
@@ -114,6 +115,7 @@ RETRYABLE_DATABASE = (
 
 async def connect_with_health(store: PostgresStore, clock: SystemClock) -> None:
     """The already-bound API and scheduler remain alive throughout startup."""
+    settings = getattr(store, "operations", OperationsSettings())
     delay = 1.0
     while True:
         try:
@@ -123,10 +125,12 @@ async def connect_with_health(store: PostgresStore, clock: SystemClock) -> None:
             LOGGER.warning("database_start_pending", extra={"error_type": type(error).__name__})
             await store.close()
             await clock.sleep(delay)
-            delay = min(delay * 2, 30)
+            delay = min(delay * 2, settings.startup_retry_max_s)
 
 
-def prepare_setup(options: Options | None, data: Path) -> Setup:
+def prepare_setup(
+    options: Options | None, data: Path, operations: OperationsSettings | None = None
+) -> Setup:
     try:
         if options is None:
             raise ValueError("invalid_supervisor_options")
@@ -144,8 +148,10 @@ def prepare_setup(options: Options | None, data: Path) -> Setup:
             else None
         )
     except ValueError:
-        return Setup(data, None, configuration_error="invalid_supervisor_options")
-    return Setup(data, legacy)
+        return Setup(
+            data, None, configuration_error="invalid_supervisor_options", operations=operations
+        )
+    return Setup(data, legacy, operations=operations)
 
 
 def diagnostic_options() -> Options:
@@ -181,7 +187,9 @@ def mqtt_status(options: Options) -> tuple[str, bool]:
 
 
 async def run(options: Options | None, data: Path, migrations: Path, frontend: Path) -> None:
-    setup = prepare_setup(options, data)
+    operations_file = OperationsFile(data / "operations.json")
+    operations = operations_file.active
+    setup = prepare_setup(options, data, operations)
     options = options or diagnostic_options()
     clock = SystemClock()
     handler = logging.StreamHandler()
@@ -193,8 +201,11 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
         connection.dsn() if connection else "",
         migrations,
         tls=False,
+        operations=operations,
     )
-    runtime = Runtime(store, clock, type_registry(), require_history_retention=True)
+    runtime = Runtime(
+        store, clock, type_registry(), require_history_retention=True, operations=operations
+    )
     if not setup.configuration_error:
         runtime.mqtt_mode, runtime.mqtt_external_settings_present = mqtt_status(options)
     runtime.task = asyncio.create_task(runtime.run(), name="processor")
@@ -209,15 +220,22 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
         installation_label=options.installation_label,
         frontend=frontend,
         setup=setup,
+        operations=operations_file,
     )
     from .wiring import read_titles
 
     async def title_reader() -> dict[str, object]:
-        return await read_titles(setup.connection, options.title_classifier)
+        return await read_titles(setup.connection, options.title_classifier, operations=operations)
 
     api.title_reader = title_reader
-    consumer = web.AppRunner(api.application(), access_log=None, shutdown_timeout=3)
-    ingress = web.AppRunner(api.application(ingress=True), access_log=None, shutdown_timeout=3)
+    consumer = web.AppRunner(
+        api.application(), access_log=None, shutdown_timeout=operations.http_shutdown_timeout_s
+    )
+    ingress = web.AppRunner(
+        api.application(ingress=True),
+        access_log=None,
+        shutdown_timeout=operations.http_shutdown_timeout_s,
+    )
     await consumer.setup()
     await ingress.setup()
     await web.TCPSite(consumer, "0.0.0.0", 8787).start()
@@ -229,9 +247,10 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
                 runtime.tick()
             else:
                 runtime.last_heartbeat = clock.monotonic()
-            await clock.sleep(0.5)
+            await clock.sleep(operations.scheduler_interval_s)
 
     ticker = asyncio.create_task(scheduler(), name="scheduler")
+    loop_meter = asyncio.create_task(runtime.measure_event_loop(), name="event_loop_meter")
     stop_waiter = asyncio.create_task(stopped.wait())
     shutdown_file = data / "last_shutdown.json"
 
@@ -249,7 +268,9 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
         store.dsn, store.tls = connection.dsn(), connection.tls()
         if setup.authority == "wizard":
             checked = await probe(
-                connection, resume=bool(setup.pending.get("initialize_empty_database"))
+                connection,
+                resume=bool(setup.pending.get("initialize_empty_database")),
+                operations=operations,
             )
             expected = load_id(data) or setup.pending.get("prepared_identity")
             if checked["database_id"] and checked["database_id"] != expected:
@@ -308,14 +329,17 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
         delay = 1.0
         while True:
             try:
-                return await initialize_once()
+                installation = await initialize_once()
+                runtime.retry_succeeded("startup")
+                return installation
             except RETRYABLE_DATABASE as error:
+                runtime.retry_failed("startup", error)
                 runtime._unavailable()
                 setup.error = "database_connection_failed"
                 LOGGER.warning("initialization_retry", extra={"error_type": type(error).__name__})
                 await store.close()
                 await clock.sleep(delay)
-                delay = min(delay * 2, 30)
+                delay = min(delay * 2, operations.startup_retry_max_s)
             except ValueError:
                 # A rejected identity/schema remains diagnosable through setup.
                 # Reconfigure explicitly; never auto-adopt or reinitialize.
@@ -352,19 +376,23 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
                         if await store.metadata("installation_id") != installation_id:
                             raise ValueError("installation_mismatch")
                         await runtime.submit("recover")
+                        runtime.retry_succeeded("database")
                         delay = 1.0
                         LOGGER.info("persistence_recovered")
                     except RETRYABLE_DATABASE as error:
+                        runtime.retry_failed("database", error)
                         LOGGER.warning(
                             "recovery_pending", extra={"error_type": type(error).__name__}
                         )
                         await clock.sleep(delay)
-                        delay = min(delay * 2, 30)
+                        delay = min(delay * 2, operations.startup_retry_max_s)
                         continue
-                await clock.sleep(2)
+                await clock.sleep(operations.health_interval_s)
 
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=operations.http_timeout_s)
+            ) as session:
                 bridge = BridgeAdapter(
                     runtime, session, "ws://supervisor/core/websocket", supervisor_token
                 )
@@ -398,11 +426,13 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
         finally:
             LOGGER.info("stopping")
     finally:
-        for background in (ticker, stop_waiter, initialization):
+        for background in (ticker, loop_meter, stop_waiter, initialization):
             background.cancel()
-        await asyncio.gather(ticker, stop_waiter, initialization, return_exceptions=True)
+        await asyncio.gather(
+            ticker, loop_meter, stop_waiter, initialization, return_exceptions=True
+        )
         try:
-            async with asyncio.timeout(25):
+            async with asyncio.timeout(operations.shutdown_timeout_s):
                 await api.close_sockets(consumer.app)
                 await runtime.stop()
                 if runtime.persistence and api.installation_id:
