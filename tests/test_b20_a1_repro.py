@@ -7,9 +7,9 @@ import aiohttp
 
 from core_contracts.adapters.ha import BridgeAdapter
 from core_contracts.api import API
-from core_contracts.catalog_care import candidate_key, queue
+from core_contracts.extensions.catalog.catalog_care import candidate_key, queue
+from core_contracts.extensions.catalog.managed_catalog import head_key, identity
 from core_contracts.freshness_templates import upgrade_document
-from core_contracts.managed_catalog import head_key, identity
 from core_contracts.model import canonical
 from core_contracts.security import Tokens
 from tests.conftest import activate

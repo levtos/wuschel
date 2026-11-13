@@ -1,17 +1,37 @@
 """Portable configuration snapshots and explicitly staged, atomic import plans."""
 
 import copy
-import json
-from typing import Any
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+from . import slots
+from .model import checksum
+from .numeric_equivalence import preserve_config
+from .persistence import State
+from .registry import (
+    RegistryConfig,
+    resolve_ref,
+    storage_document,
+)
+from .validation import validate_document as validate
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+from typing import TYPE_CHECKING
+
+from .model import canonical
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+import json
+
 from . import __version__
-from .catalog_models import CatalogWrite, EntryChange, ManagedCatalog
 from .editorial import EditorialWrite, ObjectRef, Room
-from .managed_catalog import definition_digest, head, head_key, identity, invalidate, prepare
-from .model import canonical, checksum
-from .numeric_equivalence import equivalent, preserve_config, preserve_numbers
-from .registry import RegistryConfig, resolve_ref, safe_document, storage_document, validate
+from .numeric_equivalence import equivalent
+from .registry import safe_document
 
 GROUPS = {
     "dependencies": "dependency_id",
@@ -209,33 +229,9 @@ def export(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]:
                 editorial = [r for r in editorial if r["object"] != row["object"]] + [
                     {key: row[key] for key in ("object", "category", "room")}
                 ]
-    contents = []
-    for catalog in checked.catalogs:
-        if isinstance(catalog, ManagedCatalog):
-            current = head(state, catalog)
-            contents.append(
-                {
-                    "catalog_id": catalog.catalog_id,
-                    "definition_version": catalog.version,
-                    "definition_digest": current["definition_digest"],
-                    "source_revision": current["revision"],
-                    "entries": [row for _, row in sorted(current["entries"].items())],
-                }
-            )
-            if request.get("draft_id"):
-                migration = next(
-                    (
-                        row.get("class_migration")
-                        for row in draft.get("portable", {})
-                        .get("package", {})
-                        .get("catalog_contents", [])
-                        if row["catalog_id"] == catalog.catalog_id
-                        and row["definition_version"] == catalog.version
-                    ),
-                    None,
-                )
-                if migration:
-                    contents[-1]["class_migration"] = copy.deepcopy(migration)
+    contents = slots.PORTABLE["catalog_export"](
+        checked, state, request, draft if request.get("draft_id") else None
+    )
     if sum(len(c["entries"]) for c in contents) > 100_000:
         raise ValueError("export_entry_limit")
     result: dict[str, Any] = {
@@ -433,22 +429,7 @@ def preview(
                 "editorial_entries": len(package["editorial"]),
             }
     # Verify the original declared digests before adapting a plan to stored numbers.
-    for content in package["catalog_contents"]:
-        original_catalog = next(
-            (
-                catalog
-                for catalog in incoming.catalogs
-                if isinstance(catalog, ManagedCatalog)
-                and (catalog.catalog_id, catalog.version)
-                == (content["catalog_id"], content["definition_version"])
-            ),
-            None,
-        )
-        if (
-            original_catalog is None
-            or definition_digest(original_catalog) != content["definition_digest"]
-        ):
-            raise ValueError("import_catalog_definition")
+    slots.PORTABLE["catalog_verify"](package, incoming)
     active = runtime._config(state)
     existing = storage_document(active) if active else {}
     target = None
@@ -572,14 +553,7 @@ def preview(
     package["editorial"] = remap(package["editorial"])
     package["catalog_contents"] = remap(package["catalog_contents"])
     incoming = validate(incoming_doc, runtime.types)
-    for content in package["catalog_contents"]:
-        catalog = next(
-            c
-            for c in incoming.catalogs
-            if c.catalog_id == content["catalog_id"] and c.version == content["definition_version"]
-        )
-        assert isinstance(catalog, ManagedCatalog)
-        content["definition_digest"] = definition_digest(catalog)
+    slots.PORTABLE["catalog_remap"](package, incoming)
     unresolved = [
         key
         for key in conflicts
@@ -682,49 +656,9 @@ def preview(
             raise ValueError("import_freshness_choices_invalid")
         if not unresolved:
             validate(document, runtime.types)
-    from .interface_upgrade import migration_preview
-
-    catalog_migrations = migration_preview(state, package["catalog_contents"])
-    heads = {
-        head_key(c): head(state, c)["revision"]
-        for c in incoming.catalogs
-        if isinstance(c, ManagedCatalog)
-    }
-    for content in package["catalog_contents"]:
-        content_catalog = next(
-            (
-                c
-                for c in incoming.catalogs
-                if isinstance(c, ManagedCatalog)
-                and (c.catalog_id, c.version)
-                == (content["catalog_id"], content["definition_version"])
-            ),
-            None,
-        )
-        if (
-            content_catalog is None
-            or definition_digest(content_catalog) != content["definition_digest"]
-        ):
-            raise ValueError("import_catalog_definition")
-        seen: set[str] = set()
-        for row in content["entries"]:
-            entry = EntryChange.model_validate(
-                {k: v for k, v in row.items() if k not in {"master_identity", "normalized_key"}}
-            )
-            key = identity(entry.scope, entry.media_type, entry.signal_type, entry.key)
-            if key in seen:
-                raise ValueError("import_catalog_duplicate")
-            seen.add(key)
-            previous = head(state, content_catalog)["entries"].get(key)
-            if previous:
-                restored_entry = preserve_numbers(row, previous)
-                row.clear()
-                row.update(restored_entry)
-            if previous and not equivalent(previous, row):
-                conflict = f"catalog-entry:{head_key(content_catalog)}:{key}"
-                conflicts.append(conflict)
-                if resolutions.get(conflict) not in ("keep", "file"):
-                    unresolved.append(conflict)
+    catalog_migrations, heads = slots.PORTABLE["catalog_preview"](
+        state, package, incoming, conflicts, unresolved, resolutions
+    )
     editorial_versions = {
         ObjectRef.model_validate(row["object"]).key: state.tables["editorial_current"]
         .get(ObjectRef.model_validate(row["object"]).key, {})
@@ -883,55 +817,14 @@ def apply(
         raise ValueError("import_plan_conflict")
     if state.active_revision != plan["expected_active_revision"]:
         raise ValueError("import_plan_conflict")
-    from .interface_upgrade import migrate_runtime, migration_preview
-
-    migration_preview(state, plan["package"]["catalog_contents"])
+    slots.PORTABLE["catalog_migrations"](state, plan["package"]["catalog_contents"])
     title_import = plan.get("title_import")
     if title_import:
         import_key = "title:" + title_import["import_id"]
         if import_key in state.tables["catalog_import"]:
             raise ValueError("import_plan_conflict")
         state.tables["catalog_import"][import_key] = title_import
-    from .managed_catalog import definition
-
-    latches = runtime.latches
-    for content in plan["package"]["catalog_contents"]:
-        catalog = definition(config, content["catalog_id"], content["definition_version"])
-        current = head(state, catalog)
-        if (
-            current["revision"] != plan["catalog_heads"][head_key(catalog)]
-            or definition_digest(catalog) != content["definition_digest"]
-        ):
-            raise ValueError("catalog_content_conflict")
-        changes = [
-            EntryChange.model_validate(
-                {k: v for k, v in row.items() if k not in {"master_identity", "normalized_key"}}
-            )
-            for row in content["entries"]
-        ]
-        changes = [
-            entry
-            for entry in changes
-            if plan["resolutions"].get(
-                f"catalog-entry:{head_key(catalog)}:{identity(entry.scope, entry.media_type, entry.signal_type, entry.key)}"
-            )
-            != "keep"
-        ]
-        # One staged mutation and one DB commit, including cross-row parent links.
-        if changes:
-            body = CatalogWrite(
-                catalog_id=catalog.catalog_id,
-                definition_version=catalog.version,
-                expected_active_revision=state.active_revision,
-                expected_content_revision=head(state, catalog)["revision"],
-                request_id=str(uuid4()),
-                changes=(changes[0],),
-                reason="Konfiguration eingelesen",
-            )
-            body = body.model_copy(update={"changes": tuple(changes)})
-            result = prepare(state, config, body, plan["actor"], now, expanded_limit=100_000)
-            latches = invalidate(state, result, latches, context_effects)
-    migrate_runtime(state, plan["package"]["catalog_contents"], now)
+    latches = slots.PORTABLE["catalog_apply"](runtime, state, plan, config, now, context_effects)
     for row in plan["package"]["editorial"]:
         ref = ObjectRef.model_validate(row["object"])
         old = state.tables["editorial_current"].get(ref.key)
@@ -948,3 +841,103 @@ def apply(
             "updated_at": now.isoformat(),
         }
     return dict(latches)
+
+
+async def operation_portable_export(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from .portable import export
+
+    return export(runtime, state, payload)
+
+
+slots.OPERATIONS["portable_export"] = slots.Operation(
+    operation_portable_export, state="full", early=False
+)
+
+
+async def operation_portable_preview(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from .portable import preview as portable_preview
+
+    return portable_preview(
+        runtime, state, payload, restored=await runtime._portable_numbers(payload)
+    )
+
+
+slots.OPERATIONS["portable_preview"] = slots.Operation(
+    operation_portable_preview, state="full", early=False
+)
+
+
+async def operation_portable_stage(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from uuid import UUID
+
+    from .portable import stage
+
+    import_record = "stage:" + str(UUID(payload["request_id"]))
+    import_digest = checksum(payload)
+    import_previous = await runtime.store.get("catalog_import", import_record)
+    if import_previous:
+        if import_previous["digest"] != import_digest:
+            raise ValueError("import_plan_conflict")
+        return import_previous["result"]
+    result = stage(
+        runtime,
+        state,
+        payload,
+        payload.get("_actor"),
+        now,
+        restored=await runtime._portable_numbers(payload),
+    )
+    state.tables["catalog_import"][import_record] = {
+        "digest": import_digest,
+        "result": result,
+    }
+    await runtime._commit(state)
+    return result
+
+
+slots.OPERATIONS["portable_stage"] = slots.Operation(
+    operation_portable_stage, state="full", early=False
+)
+
+
+async def _portable_numbers(runtime: Runtime, request: dict[str, Any]) -> dict[str, Any]:
+    from .portable import read_package, strict_json
+
+    package = read_package(
+        strict_json(request["package_text"]) if "package_text" in request else request["package"]
+    )
+    target = runtime.state.tables["registry_draft"].get(request.get("target_draft_id", ""))
+    from .validation import RegistryValidationError
+
+    try:
+        return await runtime._restore_numbers(
+            package["config"], target["config"] if target else None
+        )
+    except RegistryValidationError:
+        # Package integrity and structural parsing have already succeeded.
+        # The preview must display semantic issues before offering a correction.
+        return copy.deepcopy(package["config"])
+
+
+slots.CONFIGURATION["_portable_numbers"] = _portable_numbers

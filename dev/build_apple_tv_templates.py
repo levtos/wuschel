@@ -4,7 +4,7 @@ import copy
 import json
 from pathlib import Path
 
-from core_contracts.apple_tv_catalog import AppleTitleConfig, AppTitleRule, TitleMode
+from core_contracts.rules.apple_title import AppleTitleConfig, AppTitleRule, TitleMode
 from dev.build_media_templates import (
     definition,
     inp,

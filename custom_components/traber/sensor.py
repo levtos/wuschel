@@ -120,5 +120,13 @@ class ContractSensor(SensorEntity):
         }
 
     async def async_added_to_hass(self):
-        self.projection.listeners.add(self.async_write_ha_state)
-        self.async_on_remove(lambda: self.projection.listeners.discard(self.async_write_ha_state))
+        listeners = self.projection.sensor_listeners.setdefault(self.contract_id, set())
+        listeners.add(self.async_write_ha_state)
+
+        @callback
+        def unsubscribe():
+            listeners.discard(self.async_write_ha_state)
+            if not listeners:
+                self.projection.sensor_listeners.pop(self.contract_id, None)
+
+        self.async_on_remove(unsubscribe)

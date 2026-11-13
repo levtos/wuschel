@@ -8,8 +8,9 @@ from typing import Annotated, Any, Literal, Self
 
 from pydantic import Field, SerializerFunctionWrapHandler, model_serializer, model_validator
 
-from .adapters import AdapterConfig
-from .catalog_models import ManagedCatalog
+from core_contracts.rules.catalog_models import ManagedCatalog
+
+from .adapter_config import AdapterConfig
 from .declarative_models import MAX_DEFINITIONS, DeclarativeDefinition
 from .evidence import Freshness
 from .freshness_templates import FreshnessSelection, FreshnessTemplate, SensorKind
@@ -387,12 +388,6 @@ def resolve_ref(ref: str, config: RegistryConfig) -> tuple[str, str | None]:
         if ref.startswith(contract.contract_id + "."):
             return contract.contract_id, ref[len(contract.contract_id) + 1 :]
     raise ValueError("unknown reference")
-
-
-def validate(document: dict[str, Any], types: TypeRegistry) -> RegistryConfig:
-    from .validation import validate_document
-
-    return validate_document(document, types)
 
 
 def required_sources(config: RegistryConfig) -> set[str]:

@@ -8,9 +8,9 @@ import pytest
 
 from core_contracts.adapters.ha import BridgeAdapter
 from core_contracts.api import API
-from core_contracts.catalog_care import all_rows, listing
+from core_contracts.extensions.catalog.catalog_care import all_rows, listing
+from core_contracts.extensions.catalog.managed_catalog import head, head_key
 from core_contracts.freshness_templates import upgrade_document
-from core_contracts.managed_catalog import head, head_key
 from core_contracts.model import checksum
 from core_contracts.runtime import Runtime
 from core_contracts.security import Tokens

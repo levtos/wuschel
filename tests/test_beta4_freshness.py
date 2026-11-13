@@ -15,9 +15,9 @@ from core_contracts.registry import (
     diff,
     observation_fingerprints,
     storage_document,
-    validate,
 )
 from core_contracts.runtime import Runtime
+from core_contracts.validation import validate_document as validate
 from tests.conftest import activate
 from tests.test_beta_openings import closed, configuration, field, report
 from tests.test_core import NOW

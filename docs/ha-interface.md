@@ -57,3 +57,10 @@ koalesziert je Verknüpfung und trennt die Bridge nicht. Ein echter
 Verbindungsverlust verbindet mit exponentiellem Backoff und Jitter neu; im
 Normalfall nach Reload/HA-Neustart stehen die Entitäten innerhalb von 10 s
 wieder bereit. Live-Abnahme dieses Verhaltens bleibt Bennis Gate.
+
+Traber vergleicht die geprüften Vertragszeilen einschließlich aller Nebenfelder
+mit dem vorherigen Stand. Nur geänderte, neue oder entfallene Verträge lösen
+Zustandsschreibungen ihrer Sensoren aus. Verbindungsaufbau und -trennung,
+Karenzablauf sowie Wechsel der Installations- oder Epochenkennung aktualisieren
+alle Sensoren. Vollständige Projektion, Protokoll und Entitätskennungen bleiben
+unverändert; neue Verträge werden weiterhin automatisch angelegt.

@@ -10,12 +10,14 @@ from uuid import UUID, uuid4
 
 import aiohttp
 
+from .. import slots
 from ..evidence import Observation
 from ..ha_context import ContextIndex, HAContext
 from ..model import checksum, utc
 from ..registry import Binding, RegistryConfig
 from ..runtime import Runtime
-from ..value_origin import normalize as normalize_origin
+from ..source_values import normalize as normalize_origin
+from ..source_values import transform as transform
 
 LOGGER = logging.getLogger(__name__)
 
@@ -85,36 +87,6 @@ def device_timestamp(value: Any) -> datetime:
     if not isfinite(seconds):
         raise ValueError("invalid_device_time")
     return datetime.fromtimestamp(seconds, UTC)
-
-
-def transform(value: Any, binding: Binding, config: RegistryConfig) -> Any:
-    def finite(number: float) -> float:
-        if not isfinite(number):
-            raise ValueError("non-finite number")
-        return number
-
-    transformation = binding.transform
-    if transformation is None:
-        return value
-    if transformation.kind == "type_cast":
-        if transformation.target == "number":
-            if type(value) is bool:
-                raise ValueError("invalid number")
-            return finite(float(value))
-        if transformation.target == "bool":
-            if type(value) is not bool and (
-                not isinstance(value, str) or value not in ("true", "false", "on", "off")
-            ):
-                raise ValueError("invalid boolean")
-            return value in (True, "true", "on")
-        return str(value)
-    if transformation.kind == "unit_scale":
-        assert transformation.factor is not None and transformation.offset is not None
-        return finite(float(value) * transformation.factor + transformation.offset)
-    catalog = next(c for c in config.catalogs if c.catalog_id == transformation.catalog_id)
-    if catalog.kind != "map":
-        raise ValueError("inline_catalog_required")
-    return catalog.entries[str(value)]
 
 
 class BridgeAdapter:
@@ -424,25 +396,8 @@ class BridgeAdapter:
                 else None,
             }
             catalog_frame["event"] = checksum([catalog_frame, (state or {}).get("last_updated")])
-            if binding.adapter.catalog_profile == "stash_slot":
-                from ..stash_catalog import metadata as stash_metadata
-
-                catalog_frame.update(stash_metadata(attributes))
-                catalog_frame["event"] = checksum(
-                    [catalog_frame, (state or {}).get("last_updated")]
-                )
-            elif binding.adapter.catalog_profile == "apple_tv_title":
-                from ..apple_tv_catalog import parse
-
-                if binding.adapter.title_catalog is not None:
-                    # Independent from the app catalog's frame on the same player.
-                    catalog_frame["source"] = checksum(
-                        [binding.adapter.ha_entity_id, "apple_tv_title"]
-                    )
-                    catalog_frame.update(parse(attributes, binding.adapter.title_catalog))
-                    catalog_frame["event"] = checksum(
-                        [catalog_frame, (state or {}).get("last_updated")]
-                    )
+            if profile := slots.SOURCE_PROFILES.get(binding.adapter.catalog_profile or ""):
+                profile.metadata(catalog_frame, attributes, binding.adapter, state)
         if self.protocol_selected == 2:
             raw_context = (
                 (state or {}).get("context") if kind == "snapshot" else event.get("context")

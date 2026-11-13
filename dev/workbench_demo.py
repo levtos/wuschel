@@ -30,6 +30,7 @@ from aiohttp import ClientSession, web
 from workbench_devices import attach as attach_devices
 from workbench_devices import feed as feed_devices
 
+from core_contracts import wiring  # noqa: F401
 from core_contracts.adapters.ha import BridgeAdapter
 from core_contracts.api import API
 from core_contracts.clock import FakeClock, SystemClock
@@ -107,7 +108,7 @@ async def main() -> None:
         if args.post1 or args.alpha8 or args.alpha9 or args.alpha10
         else SystemClock()
     )
-    from core_contracts.openings import register as register_openings
+    from core_contracts.extensions.openings import register as register_openings
 
     types = type_registry()
     register_openings(types)

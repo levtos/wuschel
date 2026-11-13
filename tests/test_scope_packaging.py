@@ -5,8 +5,8 @@ from pathlib import Path
 
 import yaml
 
-from core_contracts.registry import validate
 from core_contracts.testing.contract_types import type_registry
+from core_contracts.validation import validate_document as validate
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -51,8 +51,8 @@ def test_only_approved_opening_domain_registration_outside_testing():
                     for keyword in node.keywords
                 ):
                     continue
-                if path == ROOT / "src/core_contracts/openings.py":
-                    from core_contracts.openings import register
+                if path == ROOT / "src/core_contracts/extensions/openings/__init__.py":
+                    from core_contracts.extensions.openings import register
                     from core_contracts.schema import TypeRegistry
 
                     production = TypeRegistry()

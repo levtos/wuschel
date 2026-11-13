@@ -12,11 +12,11 @@ import pytest
 from core_contracts.declarative import check_definition
 from core_contracts.declarative_models import DeclarativeDefinition
 from core_contracts.evidence import Observation
+from core_contracts.extensions.wake.settings import WakeSettings
+from core_contracts.extensions.wake.wake_config import default_config
 from core_contracts.freshness_templates import upgrade_document
 from core_contracts.manual_source import ManualEvidence
 from core_contracts.registry import fingerprints
-from core_contracts.wake.settings import WakeSettings
-from core_contracts.wake.wake_config import default_config
 
 from .conftest import activate
 

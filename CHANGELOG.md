@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0b25 — Paketgrenzen, Startmessung und Bereichsprüfungen
+
+- Traber schreibt nur geänderte Vertragszustände. Nach Verbindungs- oder Epochenwechsel und beim Ablauf bleibt die vollständige Aktualisierung erhalten.
+- Der Start protokolliert numerische `startup_timing`-Phasen für die weitere Untersuchung des Wiederanlaufs.
+- Die Zentrale verteilt Vorgänge und geordnete Haken über ausdrückliche Steckplätze. Katalogpflege, Titelübernahme, Weckplanung und Öffnungen liegen in eigenen Kartuschen; das Konfigurationsformat bleibt im Kern.
+- Acht Importregeln ohne Ausnahmen und zehn unveränderte Wiedergabe-Aufzeichnungen sichern den Umbau ab. Die Testzuordnung ist mit PostgreSQL neu gemessen; Bereichsänderungen wählen ihre Tests plus Wiedergabetest und Prüfwerkzeuge. Main-PRs und Releases werden vollständig geprüft.
+- Eine kurze Agentenkarte zeigt Pakete, Kartuschen, Steckplätze und die lokale Testauswahl.
+- Nur amd64; keine neue Datenbankmigration. [Masterplan #115](https://github.com/levtos/wuschel/issues/115), [Release-Auftrag #120](https://github.com/levtos/wuschel/issues/120) und [Sammelreview #128](https://github.com/levtos/wuschel/pull/128). Installation und Live-Abnahme folgen dem dokumentierten Ablauf.
+
 ## 1.0.0b24
 
 - Start bricht nicht mehr ab, wenn die Vorbereitung länger als eine Minute dauert.

@@ -1,28 +1,43 @@
 """Safe aggregate diagnostics with JSON Pointer locations, shared by all writers."""
 
 import re
-from typing import Any
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 
-from .declarative import DefinitionValidationErrors, RuleValidationError, all_rules, compatible
-from .declarative_models import DeclarativeDefinition
-from .instance_parameters import validate_slots
+from . import slots
+from .declarative import all_rules
+from .errors import RegistryValidationError as RegistryValidationError
 from .model import Model, canonical, semantic_fingerprint
 from .numeric_equivalence import preserve_numbers
+from .persistence import State
+from .registry import (
+    Contract,
+    RegistryConfig,
+    diff,
+    registry_types,
+    resolve_ref,
+    topological,
+)
+from .schema import TypeRegistry
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+
+from .declarative import DefinitionValidationErrors, RuleValidationError, compatible
+from .declarative_models import DeclarativeDefinition
+from .instance_parameters import validate_slots
 from .registry import (
     Binding,
     Catalog,
-    Contract,
     Dependency,
-    RegistryConfig,
     Source,
     _compile_definition,
-    resolve_ref,
     safe_document,
-    topological,
 )
-from .schema import FieldSchema, TypeRegistry
+from .schema import FieldSchema
 
 
 class ValidationIssue(Model):
@@ -31,12 +46,6 @@ class ValidationIssue(Model):
     object_id: str | None = None
     message: str
     parameters: dict[str, str | None] | None = None
-
-
-class RegistryValidationError(ValueError):
-    def __init__(self, issues: list[ValidationIssue]) -> None:
-        self.issues = issues
-        super().__init__(issues[0].message)
 
 
 def pointer(parts: tuple[str | int, ...]) -> str:
@@ -224,33 +233,9 @@ def validate_document(
     dependencies = {d.dependency_id: d for d in config.dependencies}
     contracts = {c.contract_id: c for c in config.contracts}
     catalogs = {c.catalog_id for c in config.catalogs}
-    from .catalog_models import ManagedCatalog
-    from .declarative import rule_children
-    from .declarative_models import ManagedCatalogRule, ReferenceRule
+    from .rules.catalog_models import ManagedCatalog
 
-    def check_lookup(rule: Any, path: str) -> None:
-        if isinstance(rule, ManagedCatalogRule):
-            catalog = next(
-                (
-                    c
-                    for c in config.catalogs
-                    if c.catalog_id == rule.catalog_id and c.version == rule.definition_version
-                ),
-                None,
-            )
-            if (
-                not isinstance(catalog, ManagedCatalog)
-                or catalog.classification_schema.field_schema() != rule.field_schema
-            ):
-                add("catalog_reference", path, "managed catalog definition or schema mismatch")
-        if not isinstance(rule, ReferenceRule):
-            for name, child in rule_children(rule):
-                check_lookup(child, path + "/" + name)
-
-    for index, lookup_definition in enumerate(config.definitions):
-        for group in ("rules", "outputs"):
-            for name, rule in getattr(lookup_definition, group).items():
-                check_lookup(rule, f"/definitions/{index}/{group}/{name}")
+    slots.VALIDATION["catalog"](config, add)
     for index, binding in enumerate(config.bindings):
         if (
             binding.transform
@@ -833,3 +818,45 @@ def validate_document(
     if issues:
         raise RegistryValidationError(issues)
     return config
+
+
+async def operation_validate(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    candidate = await runtime._checked_config(payload)
+    from .capabilities import machine_description
+
+    types = registry_types(candidate, runtime.types)
+    machines = {}
+    for contract in candidate.contracts:
+        declaration = types.get(contract.type_id, contract.type_version)
+        if declaration.machine_factory:
+            machines[contract.contract_id] = machine_description(
+                declaration.machine_factory(contract.parameters)
+            )
+    return {
+        "valid": True,
+        "issues": [],
+        "warnings": [
+            {
+                "code": "machine_never_recovers",
+                "path": f"/definitions/{index}/machine/reinitialize_when",
+                "object_id": definition.type_id,
+                "message": "Dieser Ablauf kann sich nach einer Änderung nie selbst erholen.",
+            }
+            for index, definition in enumerate(candidate.definitions)
+            if definition.machine
+            and definition.machine.reinitialize_when.op == "literal"
+            and getattr(definition.machine.reinitialize_when, "value", None) is False
+        ],
+        "diff": diff(config, candidate, runtime.types),
+        "machine_definitions": machines,
+    }
+
+
+slots.OPERATIONS["validate"] = slots.Operation(operation_validate, state="full", early=False)

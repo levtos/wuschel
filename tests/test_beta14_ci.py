@@ -36,19 +36,15 @@ def test_release_build_policy_and_unknown_dependencies_require_every_job(path):
 
 
 def test_backend_frontend_bridge_and_test_boundaries():
-    assert active(select(["src/core_contracts/runtime.py"])) == {
-        "platform",
-        "workbench-e2e",
-        "images",
-    }
+    assert active(select(["src/core_contracts/runtime.py"])) == set(JOBS)
     assert active(select(["frontend/src/features/contracts/presentation.ts"])) == {
         "frontend",
         "workbench-e2e",
         "images",
     }
-    assert active(select(["custom_components/traber/__init__.py"])) == {"ha-bridge"}
-    assert active(select(["tests/test_bridge_kernel.py"])) == {"ha-bridge"}
-    assert active(select(["tests/test_runtime.py"])) == {"platform"}
+    assert active(select(["custom_components/traber/__init__.py"])) == {"platform", "ha-bridge"}
+    assert active(select(["tests/test_bridge_kernel.py"])) == {"platform", "ha-bridge"}
+    assert active(select(["tests/test_new_unmapped_core.py"])) == set(JOBS)
     assert active(select(["docs/alpha4/example-registry.json"])) == set(JOBS)
 
 

@@ -9,7 +9,8 @@ import pytest
 from core_contracts.authoring import AuthoringError, comparison, merge, migrate
 from core_contracts.model import checksum
 from core_contracts.persistence import PersistenceUnavailable
-from core_contracts.registry import storage_document, validate
+from core_contracts.registry import storage_document
+from core_contracts.validation import validate_document as validate
 from tests.conftest import activate, activate_draft
 from tests.test_portable import export, plan, stage
 

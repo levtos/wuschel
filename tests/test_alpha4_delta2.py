@@ -7,14 +7,15 @@ from time import perf_counter
 
 import pytest
 
-import core_contracts.runtime as runtime_module
+import core_contracts.reconfiguration as runtime_module
 from core_contracts.declarative import Evaluation, all_rules, check_definition
 from core_contracts.declarative_models import DeclarativeDefinition
 from core_contracts.engines import FORMULAS
-from core_contracts.registry import _compile_definition, validate
+from core_contracts.registry import _compile_definition
 from core_contracts.runtime import Runtime
 from core_contracts.testing.contract_types import type_registry
 from core_contracts.validation import RegistryValidationError
+from core_contracts.validation import validate_document as validate
 
 from .conftest import activate
 from .test_core import NOW

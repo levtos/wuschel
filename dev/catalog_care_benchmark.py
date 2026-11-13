@@ -5,8 +5,9 @@ import json
 from statistics import median
 from time import perf_counter
 
-from core_contracts.catalog_care import all_rows, listing
+from core_contracts import wiring  # noqa: F401
 from core_contracts.clock import SystemClock
+from core_contracts.extensions.catalog.catalog_care import all_rows, listing
 from core_contracts.persistence import MemoryStore
 from core_contracts.runtime import Runtime
 from core_contracts.testing.contract_types import type_registry

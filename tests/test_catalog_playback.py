@@ -6,7 +6,7 @@ import aiohttp
 import pytest
 
 from core_contracts.adapters.ha import BridgeAdapter
-from core_contracts.managed_catalog import head_key
+from core_contracts.extensions.catalog.managed_catalog import head_key
 from core_contracts.model import canonical
 from tests.conftest import activate
 from tests.test_beta_media import configuration, observe
@@ -376,7 +376,7 @@ async def test_multiattribute_events_keep_b19_intermediate_contract_values(
     """A per-event resolver batch would remove the asserted intermediate value."""
     await activate(runtime, player_document(config))
     await observe(runtime, "applicable", True)
-    from core_contracts.managed_catalog import identity
+    from core_contracts.extensions.catalog.managed_catalog import identity
     from core_contracts.model import checksum
 
     catalog = runtime.config.catalogs[0]
@@ -396,7 +396,7 @@ async def test_multiattribute_events_keep_b19_intermediate_contract_values(
             tombstone=False,
         )
     # Isolated in-memory fixture for resolver output, not a live content write.
-    from core_contracts.managed_catalog import definition_digest
+    from core_contracts.extensions.catalog.managed_catalog import definition_digest
 
     runtime.state.tables["catalog_head"][head_key(catalog)] = dict(
         catalog_id=catalog.catalog_id,

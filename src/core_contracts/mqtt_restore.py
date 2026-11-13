@@ -1,10 +1,19 @@
 """Previously accepted device evidence can age across restart; restore is no report."""
 
 from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
+from . import slots
 from .evidence import Observation, assess
-from .registry import RegistryConfig, fingerprints
+from .persistence import State
+from .registry import (
+    RegistryConfig,
+    fingerprints,
+)
 from .schema import TypeRegistry
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
 
 
 def eligible(observation: Observation, config: RegistryConfig, now: datetime) -> bool:
@@ -89,3 +98,27 @@ def restore(
     )
     allowed = bool(candidate.mqtt_revalidated and eligible(candidate, config, now))
     return candidate.model_copy(update={"mqtt_revalidated": allowed, "observation_kind": "restore"})
+
+
+async def restore_observations(runtime: Runtime, state: State, reason: Any) -> None:
+    if reason == "process_restart":
+        from .mqtt_restore import restore as restore_mqtt
+
+        for binding_id, observation in list(state.tables["source_observation_current"].items()):
+            if observation["adapter"] == "mqtt" and runtime.config:
+                restored = restore_mqtt(
+                    Observation.model_validate(observation),
+                    runtime.config,
+                    runtime.types,
+                    runtime.clock.now_utc(),
+                )
+                state.tables["source_observation_current"][binding_id] = restored.storage_document()
+            elif observation["adapter"] not in {"ha_calendar", "manual"}:
+                observation["observation_kind"] = "restore"
+
+
+slots.RESTORE[60] = slots.Hook(restore_observations, "observations")
+
+
+slots.OBSERVATION[10] = slots.Hook(retained_replay, "filter")
+slots.OBSERVATION[20] = slots.Hook(remember, "remember")

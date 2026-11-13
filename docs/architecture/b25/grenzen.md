@@ -15,20 +15,20 @@ Regeln:
 
 | Paket | Module |
 |---|---|
-| **app – Zusammenstecken** | `app`, `contract_types` |
+| **app – Zusammenstecken** | `app`, `wiring`, `contract_types` |
 | **tooling – Bauwerkzeuge für Vorlagen** | `apple_tv_package`, `fact_package`, `stash_package` |
 | **api – HTTP, WebSocket, Sicherheit** | `api`, `security` |
-| **Kartusche catalog** | `apple_tv_catalog`, `catalog_care`, `catalog_cleanup`, `catalog_hierarchy`, `catalog_models`, `catalog_playback`, `catalog_scope`, `interface_upgrade`, `managed_catalog`, `stash_catalog` |
+| **Kartusche catalog** | `apple_tv_catalog`, `catalog_care`, `catalog_cleanup`, `catalog_hierarchy`, `catalog_models`, `catalog_operations`, `catalog_playback`, `catalog_scope`, `interface_upgrade`, `managed_catalog`, `stash_catalog` |
 | **Kartusche tc_migration (entfernbar)** | `title_import`, `title_reader`, `title_sync`, `title_sync_runs`, `title_transfer` |
 | **Kartusche wake** | `wake`, `wake.operator`, `wake.settings`, `wake.wake_config`, `wake.wake_planning` |
 | **Kartusche openings** | `openings` |
 | **testing – Testhilfen** | `testing`, `testing.authoring`, `testing.contract_types`, `testing.contract_types.evaluate` |
 | **management – Entwürfe, Prüfung, Import/Export, Einrichtung** | `authoring`, `capabilities`, `editorial`, `management`, `manual_restart`, `portable`, `provision`, `reconfiguration`, `revision_plan`, `setup`, `validation` |
 | **adapters – HA, MQTT, Dienstkanal** | `adapters.ha`, `adapters.mqtt`, `ha_projection`, `mqtt_restore`, `service_jobs` |
-| **lane – die eine Schreibreihenfolge** | `observation_block`, `runtime` |
-| **rules – Konfigurationsmodell, Regelsprache, Steckplätze** | `adapters`, `calendar_cache`, `calendar_coverage`, `calendar_inputs`, `calendar_rules`, `dated_rules`, `declarative`, `engines`, `environment_formulas`, `instance_parameters`, `notifications`, `producer`, `refresh_plan`, `registry`, `validation_cache` |
+| **lane – die eine Schreibreihenfolge** | `observation_block`, `retention_ops`, `runtime` |
+| **rules – Konfigurationsmodell, Regelsprache, Steckplätze** | `adapters`, `calendar_cache`, `calendar_coverage`, `calendar_inputs`, `calendar_rules`, `dated_rules`, `declarative`, `engines`, `environment_formulas`, `instance_parameters`, `notifications`, `producer`, `refresh_plan`, `registry`, `slots`, `validation_cache` |
 | **store – Zustand und Speicher** | `history`, `persistence`, `retention` |
-| **kernel – Werte und reine Logik, keine Ein-/Ausgabe** | `clock`, `declarative_models`, `evidence`, `field_since`, `freshness_templates`, `fusion`, `ha_context`, `identity`, `lifecycle`, `machine_events`, `manual_source`, `model`, `multibucket`, `numeric_equivalence`, `operation_timing`, `quality`, `resolver`, `schema`, `sensor_profile`, `state_tracking`, `statemachine`, `temporal`, `text_rules`, `user_text`, `value_origin` |
+| **kernel – Werte und reine Logik, keine Ein-/Ausgabe** | `clock`, `errors`, `declarative_models`, `evidence`, `field_since`, `freshness_templates`, `fusion`, `ha_context`, `identity`, `lifecycle`, `machine_events`, `manual_source`, `model`, `multibucket`, `numeric_equivalence`, `operation_timing`, `quality`, `resolver`, `schema`, `sensor_profile`, `state_tracking`, `statemachine`, `temporal`, `text_rules`, `user_text`, `value_origin` |
 
 Hinweise:
 - `adapters/__init__.py` enthält `AdapterConfig` und gehört fachlich zu `rules`. Solange es im Paket `adapters` liegt, kann die Grenzprüfung es nicht getrennt führen; es steht deshalb in keiner Regel. Schritt 3 verschiebt die Klasse in ein eigenes Modul.
@@ -53,14 +53,14 @@ exclude_type_checking_imports = true
 name = "Schichten: oben darf unten importieren, nie umgekehrt"
 type = "layers"
 layers = [
-    "core_contracts.app : core_contracts.apple_tv_package : core_contracts.contract_types : core_contracts.fact_package : core_contracts.stash_package",
+    "core_contracts.wiring : core_contracts.app : core_contracts.apple_tv_package : core_contracts.contract_types : core_contracts.fact_package : core_contracts.stash_package",
     "core_contracts.api : core_contracts.security",
-    "core_contracts.apple_tv_catalog : core_contracts.catalog_care : core_contracts.catalog_cleanup : core_contracts.catalog_hierarchy : core_contracts.catalog_models : core_contracts.catalog_playback : core_contracts.catalog_scope : core_contracts.interface_upgrade : core_contracts.managed_catalog : core_contracts.openings : core_contracts.stash_catalog : core_contracts.testing : core_contracts.title_import : core_contracts.title_reader : core_contracts.title_sync : core_contracts.title_sync_runs : core_contracts.title_transfer : core_contracts.wake",
+    "core_contracts.apple_tv_catalog : core_contracts.catalog_care : core_contracts.catalog_cleanup : core_contracts.catalog_hierarchy : core_contracts.catalog_operations : core_contracts.catalog_models : core_contracts.catalog_playback : core_contracts.catalog_scope : core_contracts.interface_upgrade : core_contracts.managed_catalog : core_contracts.openings : core_contracts.stash_catalog : core_contracts.testing : core_contracts.title_import : core_contracts.title_reader : core_contracts.title_sync : core_contracts.title_sync_runs : core_contracts.title_transfer : core_contracts.wake",
     "core_contracts.adapters.ha : core_contracts.adapters.mqtt : core_contracts.authoring : core_contracts.capabilities : core_contracts.editorial : core_contracts.ha_projection : core_contracts.management : core_contracts.manual_restart : core_contracts.mqtt_restore : core_contracts.portable : core_contracts.provision : core_contracts.reconfiguration : core_contracts.revision_plan : core_contracts.service_jobs : core_contracts.setup : core_contracts.validation",
-    "core_contracts.observation_block : core_contracts.runtime",
-    "core_contracts.calendar_cache : core_contracts.calendar_coverage : core_contracts.calendar_inputs : core_contracts.calendar_rules : core_contracts.dated_rules : core_contracts.declarative : core_contracts.engines : core_contracts.environment_formulas : core_contracts.instance_parameters : core_contracts.notifications : core_contracts.producer : core_contracts.refresh_plan : core_contracts.registry : core_contracts.validation_cache",
+    "core_contracts.observation_block : core_contracts.retention_ops : core_contracts.runtime",
+    "core_contracts.calendar_cache : core_contracts.calendar_coverage : core_contracts.calendar_inputs : core_contracts.calendar_rules : core_contracts.dated_rules : core_contracts.declarative : core_contracts.engines : core_contracts.environment_formulas : core_contracts.instance_parameters : core_contracts.notifications : core_contracts.producer : core_contracts.refresh_plan : core_contracts.registry : core_contracts.slots : core_contracts.validation_cache",
     "core_contracts.history : core_contracts.persistence : core_contracts.retention",
-    "core_contracts.clock : core_contracts.declarative_models : core_contracts.evidence : core_contracts.field_since : core_contracts.freshness_templates : core_contracts.fusion : core_contracts.ha_context : core_contracts.identity : core_contracts.lifecycle : core_contracts.machine_events : core_contracts.manual_source : core_contracts.model : core_contracts.multibucket : core_contracts.numeric_equivalence : core_contracts.operation_timing : core_contracts.quality : core_contracts.resolver : core_contracts.schema : core_contracts.sensor_profile : core_contracts.state_tracking : core_contracts.statemachine : core_contracts.temporal : core_contracts.text_rules : core_contracts.user_text : core_contracts.value_origin",
+    "core_contracts.errors : core_contracts.clock : core_contracts.declarative_models : core_contracts.evidence : core_contracts.field_since : core_contracts.freshness_templates : core_contracts.fusion : core_contracts.ha_context : core_contracts.identity : core_contracts.lifecycle : core_contracts.machine_events : core_contracts.manual_source : core_contracts.model : core_contracts.multibucket : core_contracts.numeric_equivalence : core_contracts.operation_timing : core_contracts.quality : core_contracts.resolver : core_contracts.schema : core_contracts.sensor_profile : core_contracts.state_tracking : core_contracts.statemachine : core_contracts.temporal : core_contracts.text_rules : core_contracts.user_text : core_contracts.value_origin",
 ]
 ignore_imports = [
     # Schritt 3: diese Zeilen müssen verschwinden
@@ -71,26 +71,6 @@ ignore_imports = [
     "core_contracts.registry -> core_contracts.validation",
     "core_contracts.value_origin -> core_contracts.adapters.ha",
     # Schritt 4: diese Zeilen müssen verschwinden
-    "core_contracts.runtime -> core_contracts.authoring",
-    "core_contracts.runtime -> core_contracts.capabilities",
-    "core_contracts.runtime -> core_contracts.catalog_care",
-    "core_contracts.runtime -> core_contracts.catalog_cleanup",
-    "core_contracts.runtime -> core_contracts.catalog_models",
-    "core_contracts.runtime -> core_contracts.catalog_playback",
-    "core_contracts.runtime -> core_contracts.catalog_scope",
-    "core_contracts.runtime -> core_contracts.editorial",
-    "core_contracts.runtime -> core_contracts.managed_catalog",
-    "core_contracts.runtime -> core_contracts.management",
-    "core_contracts.runtime -> core_contracts.manual_restart",
-    "core_contracts.runtime -> core_contracts.mqtt_restore",
-    "core_contracts.runtime -> core_contracts.portable",
-    "core_contracts.runtime -> core_contracts.reconfiguration",
-    "core_contracts.runtime -> core_contracts.revision_plan",
-    "core_contracts.runtime -> core_contracts.service_jobs",
-    "core_contracts.runtime -> core_contracts.title_sync",
-    "core_contracts.runtime -> core_contracts.title_sync_runs",
-    "core_contracts.runtime -> core_contracts.title_transfer",
-    "core_contracts.runtime -> core_contracts.validation",
     # Schritt 5 (wake): diese Zeilen müssen verschwinden
     "core_contracts.capabilities -> core_contracts.wake.settings",
     "core_contracts.declarative -> core_contracts.wake.operator",
@@ -132,6 +112,7 @@ source_modules = [
     "core_contracts.calendar_inputs",
     "core_contracts.calendar_rules",
     "core_contracts.capabilities",
+    "core_contracts.errors",
     "core_contracts.clock",
     "core_contracts.dated_rules",
     "core_contracts.declarative",
@@ -171,9 +152,11 @@ source_modules = [
     "core_contracts.resolver",
     "core_contracts.retention",
     "core_contracts.revision_plan",
+    "core_contracts.retention_ops",
     "core_contracts.runtime",
     "core_contracts.schema",
     "core_contracts.security",
+    "core_contracts.slots",
     "core_contracts.sensor_profile",
     "core_contracts.service_jobs",
     "core_contracts.setup",
@@ -191,6 +174,7 @@ forbidden_modules = [
     "core_contracts.catalog_care",
     "core_contracts.catalog_cleanup",
     "core_contracts.catalog_hierarchy",
+    "core_contracts.catalog_operations",
     "core_contracts.catalog_models",
     "core_contracts.catalog_playback",
     "core_contracts.catalog_scope",
@@ -211,15 +195,6 @@ ignore_imports = [
     "core_contracts.catalog_scope -> core_contracts.title_sync",
     "core_contracts.interface_upgrade -> core_contracts.title_sync",
     # Schritt 4: diese Zeilen müssen verschwinden
-    "core_contracts.runtime -> core_contracts.catalog_care",
-    "core_contracts.runtime -> core_contracts.catalog_cleanup",
-    "core_contracts.runtime -> core_contracts.catalog_models",
-    "core_contracts.runtime -> core_contracts.catalog_playback",
-    "core_contracts.runtime -> core_contracts.catalog_scope",
-    "core_contracts.runtime -> core_contracts.managed_catalog",
-    "core_contracts.runtime -> core_contracts.title_sync",
-    "core_contracts.runtime -> core_contracts.title_sync_runs",
-    "core_contracts.runtime -> core_contracts.title_transfer",
     # Schritt 5 (wake): diese Zeilen müssen verschwinden
     "core_contracts.capabilities -> core_contracts.wake.settings",
     "core_contracts.declarative -> core_contracts.wake.operator",
@@ -257,6 +232,7 @@ source_modules = [
     "core_contracts.catalog_care",
     "core_contracts.catalog_cleanup",
     "core_contracts.catalog_hierarchy",
+    "core_contracts.catalog_operations",
     "core_contracts.catalog_models",
     "core_contracts.catalog_playback",
     "core_contracts.catalog_scope",
@@ -292,6 +268,7 @@ forbidden_modules = [
     "core_contracts.catalog_care",
     "core_contracts.catalog_cleanup",
     "core_contracts.catalog_hierarchy",
+    "core_contracts.catalog_operations",
     "core_contracts.catalog_models",
     "core_contracts.catalog_playback",
     "core_contracts.catalog_scope",
@@ -318,6 +295,7 @@ forbidden_modules = [
     "core_contracts.catalog_care",
     "core_contracts.catalog_cleanup",
     "core_contracts.catalog_hierarchy",
+    "core_contracts.catalog_operations",
     "core_contracts.catalog_models",
     "core_contracts.catalog_playback",
     "core_contracts.catalog_scope",
@@ -357,6 +335,7 @@ source_modules = [
     "core_contracts.catalog_care",
     "core_contracts.catalog_cleanup",
     "core_contracts.catalog_hierarchy",
+    "core_contracts.catalog_operations",
     "core_contracts.catalog_models",
     "core_contracts.catalog_playback",
     "core_contracts.catalog_scope",
@@ -378,6 +357,7 @@ forbidden_modules = [
     "core_contracts.ha_projection",
     "core_contracts.mqtt_restore",
     "core_contracts.observation_block",
+    "core_contracts.retention_ops",
     "core_contracts.runtime",
     "core_contracts.security",
     "core_contracts.service_jobs",
@@ -397,6 +377,7 @@ source_modules = [
     "core_contracts.calendar_inputs",
     "core_contracts.calendar_rules",
     "core_contracts.capabilities",
+    "core_contracts.errors",
     "core_contracts.clock",
     "core_contracts.dated_rules",
     "core_contracts.declarative",
@@ -436,9 +417,11 @@ source_modules = [
     "core_contracts.resolver",
     "core_contracts.retention",
     "core_contracts.revision_plan",
+    "core_contracts.retention_ops",
     "core_contracts.runtime",
     "core_contracts.schema",
     "core_contracts.security",
+    "core_contracts.slots",
     "core_contracts.sensor_profile",
     "core_contracts.service_jobs",
     "core_contracts.setup",
@@ -454,6 +437,7 @@ source_modules = [
     "core_contracts.catalog_care",
     "core_contracts.catalog_cleanup",
     "core_contracts.catalog_hierarchy",
+    "core_contracts.catalog_operations",
     "core_contracts.catalog_models",
     "core_contracts.catalog_playback",
     "core_contracts.catalog_scope",
@@ -603,3 +587,84 @@ Zeilennummern gelten für den Stand oben und verschieben sich mit jedem Schritt.
 | rules → Kartusche wake | `declarative:739` | fn | `wake.settings` | `WakeSettings` |
 | rules → Kartusche wake | `instance_parameters:56` | fn | `wake.settings` | `WakeSettings` |
 
+
+## Schritt 4 – Steckplätze
+
+`slots` gehört zu rules, `wiring` zu app. Register enthalten nur Einträge;
+die Zentrale ruft Haken nach fester Ordnungszahl an ihren bisherigen Stellen auf.
+`SUBMIT` bindet vorgelagerte Planer an, `CONFIGURATION` die bisherigen
+Konfigurationshelfer. Damit bleiben die vorhandenen Runtime-Aufruf- und
+Überschreibungspunkte erhalten, ohne ihre Eigentümer zu importieren.
+
+### Umgesetzt in Schritt 4 (#118)
+
+- 27 bisherige Vorgangszweige liegen unverändert bei ihren Eigentümern;
+  `Runtime.process` verteilt fremde Vorgänge über `OPERATIONS`.
+  `OPERATION_PREFIXES` erhält die bisherige offene `continuation_*`-Verteilung.
+- `Operation.state` wählt dieselbe Standvorbereitung wie vorher. `early`,
+  `drain` und `offline` erhalten die bisherigen Vorprüfungspositionen;
+  `after_prepare` erhält den Messbeginn der Katalogpflege.
+- Haken werden nach ihrer festen Ordnungszahl innerhalb der bisherigen
+  Aufrufphase ausgeführt. RESTORE: Katalogköpfe 10, Baseline 20,
+  Gap-Baseline 25, Entwurfsmigration 30, Kontextmigration 40,
+  Dienstaufträge 50, MQTT 60; Wiederherstellung über Capture 70/80
+  und Merge 90/100 bleibt beiderseits von `store.load`.
+- BEFORE_COMMIT 10 archiviert Entwürfe vor dem Speichern. NEXT_DUE 20
+  plant die Katalogfrist erst nach erfolgreichem Speichern und Wechsel des
+  sichtbaren Stands; NEXT_DUE 10 liefert Dienstfristen für die Auswertung.
+- AFTER_EVALUATE erhält Dienstplanung (10, Phase prepare) und
+  Wiedergabeabschluss (20, Phase contract) an ihren bisherigen Stellen.
+  OBSERVATION erhält MQTT-Filter (10), MQTT-Erinnerung (20) und
+  Katalograhmen (30).
+- Konfigurationsalgorithmen leben in reconfiguration/portable/revision_plan.
+  Schmale Runtime-Weiterleitungen erhalten Aufrufer und Überschreibungen.
+  Erwartete Fehlerklassen leben in kernel/errors und bleiben bei ihren
+  bisherigen Modulen als dieselben Klassen verfügbar.
+- Alle 20 Schritt-4-Ausnahmepaare entfallen: 44 → 24. Es wurde keine
+  neue Ausnahme eingeführt. `slots` gehört zu rules, `errors` zu kernel,
+  `retention_ops` zu lane, `catalog_operations` zur Katalogkartusche.
+
+
+## Umgesetzt in Schritt 5 (#119)
+
+Die Tabellen und die Startkonfiguration oben dokumentieren den Ausgangsstand.
+Die ausführbare Grenzprüfung in `pyproject.toml` prüft jetzt die vollständigen
+Ordner `extensions/catalog`, `extensions/tc_migration`, `extensions/wake` und
+`extensions/openings`. Alle 24 verbliebenen Ausnahmepaare entfallen; alle acht
+Regeln bleiben erhalten. Insbesondere darf nur `tc_migration` die Kartusche
+`catalog` importieren. Die neuen Beitragsmodule werden durch die Ordnerregeln
+mitgeprüft. `rules` ist Teil der Kernschicht und ebenfalls gegen Kartuschen-
+und Testhilfenimporte abgesichert.
+
+- Format: `rules/catalog_models.py`, `rules/apple_title.py` und
+  `rules/wake.py` (manuelle Ausnahme, reine Uhrzeitparser). `WakeSettings`
+  bleibt wegen seiner Rückgabe von `WakePlanningConfig` und der ursprünglichen
+  Planungsvalidierung in der Kartusche und meldet sich als `wake_planning_v1`
+  in `PARAMETER_MODELS` an. Das Konfigurationsformat bleibt unverändert.
+- `RULES` meldet Modellklassen mit Typprüfung, Kindern, Auswertung, Fälligkeit,
+  Abhängigkeiten und optionaler zusätzlicher Definitionsprüfung an. Die
+  manuelle Ausnahme meldet ihr Formatmodell und die bestehende Ablaufzeit-
+  Prüfung ebenfalls dort an. `declarative` und `producer` rufen die Beiträge
+  an den bisherigen Stellen auf; Fehler bleiben sichtbares `unknown`.
+- `SOURCE_PROFILES` enthält die bestehenden Stash-/Apple-Titel-Funktionen.
+  Die generische HA-Anbindung übergibt den bisherigen Rahmen; die Kartusche
+  ergänzt dieselben Metadaten und Ereignishashes in derselben Reihenfolge.
+- `ROUTES` meldet die Katalog- und Titelrouten vor der allgemeinen API-Route
+  an. Authentifizierung, Rollen-/Protokollprüfung, Fehlerbehandlung und
+  Serialisierung bleiben bei der API. Die Routen rufen dieselben Operationen
+  auf; sie speichern nicht selbst.
+- `PORTABLE`, `VALIDATION` und `AUTHORING` enthalten die verschobenen
+  Katalogbeiträge zu Import/Export, Nachprüfung und Entwurfsvergleich. Der
+  gemeinsame Zustand, die Katalogtabellen und die eine Transaktion bleiben
+  erhalten. `Connection` bleibt unverändert in `setup`.
+- `wiring` lädt alle Eigentümer ausdrücklich und exportiert den TC-Leser
+  samt Credential-Modell für die App. Außerhalb der Kartuschen importieren
+  nur `wiring`, `contract_types` und die vorhandenen Vorlagenbauwerkzeuge aus
+  `extensions`; der Kern kennt keine Implementierung der Kartuschen.
+
+Strukturnachweis: 18 verschobene Module haben nach Abzug ihrer Importzeilen
+identische AST-Körper. Auch die verbliebenen Wake-Settings-/Planungsdefinitionen
+sind nach Abzug der verschobenen reinen Formate unverändert. Konfigurations-
+schema und vollständige Capability-Antwort stimmen mit `b25@406d57d` überein.
+Prüfläufe, Checkpoints und CI-Nachweis stehen in Issue #119. Dieser Schritt
+veröffentlicht und installiert nichts; Version bleibt `1.0.0b24`.

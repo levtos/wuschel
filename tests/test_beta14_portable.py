@@ -2,7 +2,8 @@
 
 from copy import deepcopy
 
-from core_contracts.registry import fingerprints, validate
+from core_contracts.registry import fingerprints
+from core_contracts.validation import validate_document as validate
 
 from .conftest import activate, activate_draft
 from .test_portable import plan, stage

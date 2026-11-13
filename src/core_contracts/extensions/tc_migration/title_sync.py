@@ -1,0 +1,441 @@
+"""Pure reconciliation planning and one serialized, atomic catalog operation."""
+
+import copy
+from typing import TYPE_CHECKING, Any
+from uuid import uuid4
+
+from pydantic import Field
+
+from core_contracts import slots
+from core_contracts.model import Model, checksum
+from core_contracts.persistence import State
+
+if TYPE_CHECKING:
+    from core_contracts.runtime import Runtime
+
+from collections import Counter
+
+from core_contracts.extensions.catalog.catalog_mapping import ImportWrite as ImportWrite
+from core_contracts.extensions.catalog.catalog_mapping import current_mapping as current_mapping
+from core_contracts.extensions.catalog.catalog_mapping import keys as keys
+from core_contracts.extensions.catalog.managed_catalog import (
+    affected_contracts,
+    definition,
+    head,
+    head_key,
+    identity,
+    invalidate,
+    prepare,
+)
+from core_contracts.extensions.tc_migration.title_import import (
+    MAX_BYTES,
+    MAX_ENTRIES,
+    plan_title_import,
+    source_identity,
+)
+from core_contracts.extensions.tc_migration.title_transfer import (
+    TargetMapping,
+    classification,
+    context_key,
+)
+from core_contracts.model import canonical
+from core_contracts.rules.catalog_models import EntryChange, TitleMetadata
+
+MAPPING_LIMIT = 6400
+
+
+def restore_mapping(current: dict[str, Any], restored: dict[str, Any]) -> None:
+    for key, row in current.items():
+        if key in restored and canonical(restored[key]) != canonical(row):
+            raise ValueError("title_sync_mapping_conflict")
+        restored[key] = copy.deepcopy(row)
+
+
+def public_plan(plan: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: value for key, value in plan.items() if key != "groups" and not key.startswith("_")
+    }
+
+
+def diff_page(runtime: Any, actor: Any, plan_id: str, after: str = "") -> dict[str, Any]:
+    plan = runtime.title_sync_plans.get(plan_id)
+    if not plan or plan.get("_owner") != checksum(actor) or plan.get("_cancelled"):
+        raise ValueError("title_sync_plan_conflict")
+    rows = []
+    for group_id, group in sorted(plan.get("groups", {}).items()):
+        for key, row in sorted(group["entries"].items()):
+            cursor = canonical([group_id, key])
+            if cursor > after:
+                old = group.get("before", {}).get(key)
+                rows.append(
+                    {
+                        "cursor": cursor,
+                        "catalog_id": group["catalog_id"],
+                        "before": old,
+                        "after": row,
+                    }
+                )
+    rows.sort(key=lambda row: row["cursor"])
+    return {"items": rows[:100], "next_cursor": rows[99]["cursor"] if len(rows) > 100 else None}
+
+
+class Mapping(Model):
+    mappings: dict[str, TargetMapping] = Field(default_factory=dict, max_length=MAPPING_LIMIT)
+    standalone: tuple[str, ...] = Field(default=(), max_length=MAX_ENTRIES)
+
+
+def standalone_key(row: dict[str, Any], target: TargetMapping) -> str:
+    return checksum([source_identity(row), target.catalog_id, target.definition_version])
+
+
+def metadata(row: dict[str, Any], previous: dict[str, Any] | None = None) -> TitleMetadata:
+    previous = previous or {}
+    values = {
+        k: row.get(k, previous.get(k))
+        for k in ("artist", "title", "album", "app_name", "parent_id", "telemetry")
+    }
+    old_contexts = {context_key(ctx): ctx for ctx in previous.get("contexts", [])}
+    contexts = [
+        {
+            **ctx,
+            "telemetry": ctx.get(
+                "telemetry", old_contexts.get(context_key(ctx), {}).get("telemetry")
+            ),
+        }
+        for ctx in row.get("contexts", [])
+    ]
+    return TitleMetadata.model_validate(
+        {
+            "source_id": row.get("id", previous.get("source_id")),
+            "source_identity": source_identity(row),
+            **values,
+            "source_class": row["enum"],
+            "contexts": contexts,
+        }
+    )
+
+
+def plan(
+    runtime: Any, state: Any, document: dict[str, Any], body: dict[str, Any]
+) -> dict[str, Any]:
+    if len(canonical(document).encode()) > MAX_BYTES:
+        raise ValueError("title_export_limit")
+    if (
+        type(body.get("expected_active_revision")) is not int
+        or body["expected_active_revision"] != state.active_revision
+    ):
+        raise ValueError("active_revision_conflict")
+    saved = current_mapping(state)
+    if "mapping" in body:
+        if body.get("expected_mapping_version") != saved["version"]:
+            raise ValueError("title_sync_mapping_conflict")
+        mapping = Mapping.model_validate(body["mapping"])
+    else:
+        mapping = Mapping.model_validate(saved["mapping"])
+    config = runtime._config(state)
+    from core_contracts.extensions.catalog.catalog_scope import device_scope, validate_target
+
+    for mapping_key, mapped_target in mapping.mappings.items():
+        scope = device_scope(config, mapped_target.catalog_id, mapped_target.definition_version)
+        if "mapping" not in body and scope and mapped_target.scope == "default":
+            mapping.mappings[mapping_key] = mapped_target.model_copy(update={"scope": scope})
+        validate_target(config, mapping.mappings[mapping_key])
+    mapping_doc = mapping.model_dump(mode="json")
+    catalogs: dict[tuple[str, int], Any] = {}
+    heads: dict[str, dict[str, Any]] = {}
+
+    def target_catalog(catalog_id: str, version: int) -> Any:
+        key = (catalog_id, version)
+        if key not in catalogs:
+            catalogs[key] = definition(config, catalog_id, version)
+        return catalogs[key]
+
+    def target_head(catalog: Any) -> dict[str, Any]:
+        key = head_key(catalog)
+        if key not in heads:
+            heads[key] = head(state, catalog)
+        return heads[key]
+
+    parsed = plan_title_import(document, checksum(document))
+    rows = document["entries"]
+    valid_rows = [rows[candidate["row"] - 1] for candidate in parsed["candidates"]]
+    parents = {source_identity(row): row for row in valid_rows}
+    parent_contexts: dict[tuple[str, ...], list[dict[str, str]]] = {}
+    for child in valid_rows:
+        if child.get("parent_key"):
+            parent_contexts.setdefault(source_identity(child, child["parent_key"]), []).extend(
+                {"context": c["context"], "source_app": c.get("source_app", "")}
+                for c in child.get("contexts", [])
+            )
+    contexts = {
+        context_key(ctx): ctx
+        for row in valid_rows
+        for ctx in row.get("contexts") or [{"context": "", "source_app": ""}]
+    }
+    errors = list(parsed["rejected_rows"])
+    groups: dict[str, dict[str, Any]] = {}
+    source_outcomes: dict[int, set[str]] = {}
+    aliases: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    count = 0
+    size = 0
+
+    def add(
+        row: dict[str, Any],
+        target: TargetMapping,
+        ctx: dict[str, Any],
+        number: int,
+        dependency: bool = False,
+    ) -> str:
+        nonlocal count, size
+        catalog = target_catalog(target.catalog_id, target.definition_version)
+        if (
+            (target.profile == "game" and row["media_type"] != "game")
+            or (target.profile == "music" and row["media_type"] != "music")
+            or (target.profile == "private" and row["media_type"] != "video")
+        ):
+            raise ValueError("title_import_profile")
+        group_key = head_key(catalog)
+        group = groups.setdefault(
+            group_key,
+            {
+                "catalog_id": catalog.catalog_id,
+                "definition_version": catalog.version,
+                "expected": target_head(catalog)["revision"],
+                "entries": {},
+                "before": {},
+            },
+        )
+        own_keys = keys(row, target.profile)
+        parent = (
+            parents.get(source_identity(row, row["parent_key"])) if row.get("parent_key") else None
+        )
+        if row.get("parent_id") and (not parent or parent.get("id") != row["parent_id"]):
+            raise ValueError("title_sync_parent_invalid")
+        independent = standalone_key(row, target) in mapping.standalone
+        parent_key = None
+        if parent and not independent:
+            if parent.get("parent_key") or source_identity(parent) == source_identity(row):
+                raise ValueError("catalog_master_invalid")
+            parent_ctx: dict[str, Any] = next(
+                (
+                    item
+                    for item in parent.get("contexts", [])
+                    if context_key(item) == context_key(ctx)
+                ),
+                {},
+            )
+            parent_value = parent_ctx.get("enum_override")
+            parent_class = classification(
+                target.profile, parent["enum"] if parent_value is None else parent_value, catalog
+            )
+            if (
+                ctx.get("enum_override") is not None
+                and classification(target.profile, ctx["enum_override"], catalog) != parent_class
+            ):
+                raise ValueError("title_sync_variant_override")
+            parent_key = add(parent, target, parent_ctx, number, dependency=True)
+        override = ctx.get("enum_override")
+        value = classification(
+            target.profile, row["enum"] if override is None else override, catalog
+        )
+        primary = own_keys[0]
+        ident = identity(target.scope, row["media_type"], row["signal_type"], primary)
+        old = target_head(catalog)["entries"].get(ident, {})
+        group["before"][ident] = copy.deepcopy(old) or None
+        source_meta = metadata(row, old.get("tc_metadata")).model_dump(mode="json")
+        change = EntryChange.model_validate(
+            {
+                "scope": target.scope,
+                "media_type": row["media_type"],
+                "signal_type": row["signal_type"],
+                "key": primary,
+                "classification": None if parent_key else value,
+                "master_key": parent_key,
+                "display_name": row["key"],
+                "note": old.get("note", ""),
+                "tc_metadata": source_meta,
+                "reviewed_at": row.get("reviewed_at"),
+                "hidden_at": row.get("hidden_at"),
+            }
+        ).model_dump(mode="json")
+        previous = group["entries"].get(ident)
+        if previous is not None and previous != change:
+            # A parent closure is identical regardless of traversal order. Distinct context intent is a blocker.
+            raise ValueError("title_sync_target_collision")
+        if previous is None:
+            count += 1
+            size += len(canonical(change).encode())
+            if count > MAX_ENTRIES or size > MAX_BYTES:
+                raise ValueError("title_export_limit")
+            group["entries"][ident] = change
+        for extra in own_keys[1:]:
+            extra_id = identity(target.scope, row["media_type"], row["signal_type"], extra)
+            extra_old = target_head(catalog)["entries"].get(extra_id, {})
+            if (
+                extra_old
+                and extra_old.get("tc_metadata", {}).get("source_identity")
+                != source_meta["source_identity"]
+            ):
+                continue
+            alias = {
+                **change,
+                "key": extra,
+                "classification": None,
+                "master_key": parent_key or primary,
+                "note": extra_old.get("note", ""),
+                "tc_metadata": {**change["tc_metadata"], "is_alias": True},
+            }
+            bucket = aliases.setdefault((group_key, extra_id), [])
+            if alias not in bucket:
+                bucket.append(alias)
+        if not dependency:
+            stored = {
+                k: v for k, v in old.items() if k not in {"normalized_key", "master_identity"}
+            }
+            outcome = "new" if not old else "unchanged" if stored == change else "changed"
+            source_outcomes.setdefault(number, set()).add(outcome)
+        return primary
+
+    for candidate in parsed["candidates"]:
+        number = candidate["row"]
+        row = rows[number - 1]
+        inherited_contexts = parent_contexts.get(source_identity(row), [])
+        row_contexts = (
+            row.get("contexts") or inherited_contexts or [{"context": "", "source_app": ""}]
+        )
+        for ctx in row_contexts:
+            target = mapping.mappings.get(context_key(ctx))
+            if target is None:
+                errors.append(
+                    {"row": number, "context": context_key(ctx), "reasons": ["context_unmapped"]}
+                )
+                continue
+            try:
+                add(row, target, ctx, number)
+            except (ValueError, KeyError) as error:
+                # Never echo submitted values/driver details. Detailed class/raw values remain in the private diff.
+                errors.append(
+                    {
+                        "row": number,
+                        "context": context_key(ctx),
+                        "key": row["key"],
+                        "standalone_key": standalone_key(row, target),
+                        "reasons": [
+                            str(error)
+                            if str(error)
+                            in {
+                                "title_sync_variant_override",
+                                "title_sync_parent_invalid",
+                                "catalog_master_invalid",
+                                "title_sync_target_collision",
+                                "title_import_profile",
+                            }
+                            else "title_sync_mapping_invalid"
+                        ],
+                    }
+                )
+    skipped_aliases = 0
+    for (group_key, ident), candidates in aliases.items():
+        if ident in groups[group_key]["entries"] or len(candidates) != 1:
+            skipped_aliases += 1
+            continue
+        count += 1
+        size += len(canonical(candidates[0]).encode())
+        if count > MAX_ENTRIES or size > MAX_BYTES:
+            raise ValueError("title_export_limit")
+        groups[group_key]["entries"][ident] = candidates[0]
+        catalog = target_catalog(
+            groups[group_key]["catalog_id"],
+            groups[group_key]["definition_version"],
+        )
+        groups[group_key]["before"][ident] = copy.deepcopy(
+            target_head(catalog)["entries"].get(ident)
+        )
+    counts: Counter[str] = Counter()
+    outcomes_by_row: dict[int, str] = {}
+    invalid_rows = {item["row"] for item in errors}
+    for number in range(1, len(rows) + 1):
+        outcomes = source_outcomes.get(number, set())
+        outcome = (
+            "unmappable"
+            if number in invalid_rows or not outcomes
+            else "new"
+            if "new" in outcomes
+            else "changed"
+            if "changed" in outcomes
+            else "unchanged"
+        )
+        counts[outcome] += 1
+        outcomes_by_row[number] = outcome
+    result: dict[str, Any] = {
+        "counts": dict(counts),
+        "_outcomes": outcomes_by_row,
+        "source_rows": len(rows),
+        "target_rows": count,
+        "skipped_aliases": skipped_aliases,
+        "errors": errors,
+        "contexts": [{"key": key, **ctx} for key, ctx in sorted(contexts.items())],
+        "mapping": mapping_doc,
+        "mapping_version": saved["version"],
+        "expected_active_revision": state.active_revision,
+        "groups": groups,
+        "source_digest": checksum(document),
+        "can_apply": not errors,
+    }
+    probe = state.clone()
+    effects: list[dict[str, str]] = []
+    affected: set[str] = set()
+    changes = 0
+    if not errors:
+        for group in groups.values():
+            request = write_request(group, state.active_revision, str(uuid4()))
+            prepared = prepare(
+                probe,
+                config,
+                request,
+                None,
+                runtime.clock.now_utc(),
+                expanded_limit=MAX_ENTRIES,
+            )
+            affected.update(affected_contracts(state, prepared))
+            invalidate(probe, prepared, runtime.latches, effects)
+            changes += prepared["changed"]
+    result.update(
+        changed_targets=changes, affected_contracts=sorted(affected), context_effects=effects
+    )
+    result["plan_digest"] = checksum(result)
+    return result
+
+
+def write_request(group: dict[str, Any], revision: int, request_id: str) -> ImportWrite:
+    return ImportWrite.model_validate(
+        {
+            "catalog_id": group["catalog_id"],
+            "definition_version": group["definition_version"],
+            "expected_active_revision": revision,
+            "expected_content_revision": group["expected"],
+            "request_id": request_id,
+            "reason": "Mit Title Classifier abgleichen",
+            "changes": list(group["entries"].values()),
+        }
+    )
+
+
+async def process(
+    runtime: Any, state: Any, operation: str, body: dict[str, Any], now: Any
+) -> dict[str, Any]:
+    from core_contracts.extensions.tc_migration.title_sync_runs import process as process_run
+
+    return await process_run(runtime, state, operation, body, now)
+
+
+async def recover_capture(runtime: Runtime, state: State, context: Any) -> None:
+    context["mapping"] = copy.deepcopy(runtime.state.tables.get("title_sync_mapping", {}))
+
+
+async def recover_merge(runtime: Runtime, state: State, context: Any) -> None:
+    restore_mapping(context["mapping"], state.tables.setdefault("title_sync_mapping", {}))
+
+
+slots.RESTORE[80] = slots.Hook(recover_capture, "recover_capture")
+slots.RESTORE[100] = slots.Hook(recover_merge, "recover_merge")

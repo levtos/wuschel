@@ -2,8 +2,8 @@ from uuid import uuid4
 
 import pytest
 
-from core_contracts.catalog_care import all_rows, detail, listing, queue
-from core_contracts.managed_catalog import head
+from core_contracts.extensions.catalog.catalog_care import all_rows, detail, listing, queue
+from core_contracts.extensions.catalog.managed_catalog import head
 
 from .conftest import activate
 from .test_beta_media_import import document
@@ -92,7 +92,7 @@ async def test_bulk_group_is_atomic_flattens_runtime_aliases_and_preserves_detai
     )
     assert all_rows(runtime.state, catalog)[child]["effective_classification"] == "stumm"
     child_source = head(runtime.state, catalog)["entries"][child]["tc_metadata"]["source_identity"]
-    from core_contracts.managed_catalog import effective
+    from core_contracts.extensions.catalog.managed_catalog import effective
 
     stored = head(runtime.state, catalog)["entries"]
     child_aliases = [

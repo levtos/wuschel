@@ -6,9 +6,9 @@ from zoneinfo import ZoneInfo
 import pytest
 from pydantic import ValidationError
 
+from core_contracts.extensions.wake.operator import build_plan
+from core_contracts.extensions.wake.settings import WakeException, WakeSettings
 from core_contracts.quality import FieldValue
-from core_contracts.wake.operator import build_plan
-from core_contracts.wake.settings import WakeException, WakeSettings
 
 from .test_beta_sleep import settings
 

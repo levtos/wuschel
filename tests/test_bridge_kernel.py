@@ -102,6 +102,150 @@ def kernel(tmp_path):
     return hass
 
 
+@pytest.mark.ha
+async def test_projection_writes_only_changed_contracts_in_real_ha(tmp_path, monkeypatch):
+    import copy
+
+    from homeassistant import bootstrap
+
+    from custom_components.traber.projection import Projection
+    from custom_components.traber.sensor import ContractSensor
+    from custom_components.traber.sensor import async_setup_entry as setup_sensor
+
+    hass = kernel(tmp_path)
+    loader.async_setup(hass)
+    assert await bootstrap.async_load_base_functionality(hass)
+    assert await async_setup_component(hass, "sensor", {})
+    now, expiry, writes, sensors = [0.0], [], [], []
+    projection = Projection(lambda: now[0], lambda delay, callback: expiry.append(callback))
+    hass.data["traber_projection"] = projection
+    original_write = ContractSensor.async_write_ha_state
+
+    @callback
+    def write(sensor):
+        writes.append(sensor.unique_id)
+        original_write(sensor)
+
+    monkeypatch.setattr(ContractSensor, "async_write_ha_state", write)
+
+    @callback
+    def add(additions):
+        sensors.extend(additions)
+        hass.async_create_task(hass.data[DATA_COMPONENT].async_add_entities(additions))
+
+    await setup_sensor(hass, SimpleNamespace(async_on_unload=lambda callback: None), add)
+    installation, epoch, owner = str(uuid4()), str(uuid4()), object()
+    field = {
+        "value": False,
+        "status": "valid",
+        "quality": "healthy",
+        "since_at": None,
+        "unit": None,
+    }
+    rows = [
+        {
+            "contract_id": f"fixture.value_{index}",
+            "name": f"Fixture {index}",
+            **field,
+            "primary_field": "value",
+            "fields": {"value": copy.deepcopy(field), "secondary": copy.deepcopy(field)},
+        }
+        for index in range(101)
+    ]
+    sequence = 0
+
+    async def project():
+        nonlocal sequence
+        sequence += 1
+        projection.accept(
+            owner,
+            installation,
+            {
+                "installation_id": installation,
+                "epoch_id": epoch,
+                "publication_seq": sequence,
+                "contracts": rows,
+            },
+        )
+        await hass.async_block_till_done()
+
+    try:
+        await project()
+        assert len(sensors) == 101
+        # HA writes during both entity setup and registration; count projections below.
+        assert set(writes) == {sensor.unique_id for sensor in sensors}
+        identities = [(sensor.entity_id, sensor.unique_id) for sensor in sensors]
+        assert identities[0] == (
+            "sensor.wuschel_fixture_value_0",
+            f"{installation}:fixture.value_0",
+        )
+        writes.clear()
+        await project()
+        assert writes == []
+        rows[0]["value"] = rows[0]["fields"]["value"]["value"] = True
+        await project()
+        assert writes == [sensors[0].unique_id]
+        assert hass.states.get(sensors[0].entity_id).state == "on"
+        writes.clear()
+        rows[1]["fields"]["secondary"]["value"] = True
+        await project()
+        assert writes == [sensors[1].unique_id]
+        writes.clear()
+        rows[0]["value"] = rows[0]["fields"]["value"]["value"] = 1
+        await project()
+        assert writes == [sensors[0].unique_id]
+        assert hass.states.get(sensors[0].entity_id).state == "1"
+        writes.clear()
+        removed = rows.pop()
+        await project()
+        # Removing a row also changes HA's fallback name and registry metadata.
+        assert set(writes) == {sensors[-1].unique_id}
+        assert hass.states.get(sensors[-1].entity_id).state == "unavailable"
+        rows.append(removed)
+        await project()
+        assert hass.states.get(sensors[-1].entity_id).state == "off"
+        writes.clear()
+        epoch = str(uuid4())
+        await project()
+        assert len(writes) == 101
+        writes.clear()
+        projection.disconnect(owner)
+        assert len(writes) == 101
+        assert all(
+            hass.states.get(sensor.entity_id).attributes["status"] == "stale" for sensor in sensors
+        )
+        writes.clear()
+        now[0] = 120.0
+        expiry.pop()()
+        assert len(writes) == 101
+        assert all(hass.states.get(sensor.entity_id).state == "unavailable" for sensor in sensors)
+        writes.clear()
+        await project()
+        assert len(writes) == 101
+        assert [(sensor.entity_id, sensor.unique_id) for sensor in sensors] == identities
+        writes.clear()
+        added = copy.deepcopy(removed)
+        added["contract_id"] = "fixture.added"
+        rows.append(added)
+        await project()
+        assert len(sensors) == 102
+        assert set(writes) == {sensors[-1].unique_id}
+        assert sensors[-1].entity_id == "sensor.wuschel_fixture_added"
+        assert sensors[-1].unique_id == f"{installation}:fixture.added"
+        writes.clear()
+        old_sensors = list(sensors)
+        installation = str(uuid4())
+        await project()
+        assert set(sensor.unique_id for sensor in old_sensors) <= set(writes)
+        assert all(
+            hass.states.get(sensor.entity_id).state == "unavailable" for sensor in old_sensors
+        )
+        assert len(sensors) == 204
+    finally:
+        for sensor in sensors:
+            await hass.data[DATA_COMPONENT].async_remove_entity(sensor.entity_id)
+
+
 @pytest.fixture(autouse=True)
 def forward_platforms(monkeypatch):
     # These tests call setup directly, outside HA's ConfigEntry manager.

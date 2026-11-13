@@ -18,12 +18,12 @@ from core_contracts.api import API
 from core_contracts.app import diagnostic_options, prepare_setup
 from core_contracts.producer import Producer
 from core_contracts.quality import FieldValue, ReasonCode, unknown
-from core_contracts.registry import validate
 from core_contracts.runtime import Runtime
 from core_contracts.schema import FieldSchema, Schema, TypeRegistry, validate_fields
 from core_contracts.security import Tokens
 from core_contracts.testing.contract_types import type_registry
 from core_contracts.testing.contract_types.evaluate import machine as machine_fields
+from core_contracts.validation import validate_document as validate
 
 from .conftest import activate
 from .test_core import NOW

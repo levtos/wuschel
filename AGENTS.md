@@ -21,3 +21,33 @@ Repository-specific:
 - Never call tools that return the Wuschel app options (they contain secrets).
 - The legacy integration `benni_core_contracts` is not touched.
 - Before pushing any change to `custom_components/traber/` or `tests/test_bridge_kernel.py`, run the HA-kernel test locally with the exact Python/package versions from the `ha-bridge` CI job. It must pass before push; on Windows use the venv's `Scripts/python.exe` equivalent.
+
+## Wo liegt was
+
+- `src/core_contracts/`: Backend; Paketgrenzen in `docs/architecture/b25/grenzen.md`.
+- Kern: Modell/Qualität/Zeit/Resolver; `rules/` enthält das Konfigurationsformat.
+- `runtime`, `producer`, `manual_entry`, `observation_block`, `retention_ops`: Zentrale und Vorgänge.
+- `persistence`, `history`, `retention`: gemeinsamer Zustand und Speicherung.
+- `management`, `authoring`, `portable`, `validation`: Verwaltung und Konfiguration.
+- `api`, `security`, `adapters/`: HTTP, Zugriffsprüfung, HA/MQTT-Anbindung.
+- `extensions/catalog/`: Katalogpflege und Wiedergabe.
+- `extensions/tc_migration/`: Titelübernahme; darf `catalog` nutzen.
+- `extensions/wake/`, `extensions/openings/`: Weckplanung und Öffnungen.
+- `slots.py`: Steckplätze; `wiring.py` meldet die Kartuschen ausdrücklich an.
+- Steckplätze: Vorgänge/Haken, RULES, PARAMETER_MODELS, SOURCE_PROFILES, ROUTES,
+  PORTABLE, VALIDATION, AUTHORING; Kern importiert keine Kartusche.
+- `client/`, `custom_components/traber/`: Clientvertrag und HA-Integration.
+- `frontend/`: deutsche Oberfläche; `wuschel/`: HA-App-Verpackung.
+- `tests/areas.json`: Testzuordnung; `dev/area_map.py`: manuelle CI-Neumessung.
+- Lokal: `uv run python dev/area_tests.py --changed [BASE]` (Standard `origin/b25`).
+- `ALL` bedeutet Kernänderung: betroffene Modultests wählen; volle Suite nur in CI.
+
+## Grenzen
+
+Die Paketzuordnung und geprüften Ausnahmen stehen in
+`docs/architecture/b25/grenzen.md`: Ein Paket darf nur weiter unten stehende
+Pakete importieren. Kein Kernpaket importiert eine Kartusche; nur `app` und
+`tooling` dürfen das. Kartuschen dürfen `kernel`, `store`, `rules` und
+`management` importieren, nicht `lane`, `adapters` oder `api`. Kartuschen kennen
+einander nicht; nur `tc_migration` darf `catalog` benutzen. Die Ausnahmeliste
+darf nur kürzer werden. Prüfen mit `uv run lint-imports`.

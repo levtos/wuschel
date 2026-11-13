@@ -2,6 +2,7 @@
 
 from uuid import uuid4
 
+from core_contracts import wiring  # noqa: F401
 from core_contracts.runtime import Runtime
 from core_contracts.testing.authoring import activate_draft
 

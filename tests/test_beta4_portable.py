@@ -6,7 +6,8 @@ import pytest
 
 from core_contracts.freshness_templates import upgrade_document
 from core_contracts.portable import read_package
-from core_contracts.registry import storage_document, validate
+from core_contracts.registry import storage_document
+from core_contracts.validation import validate_document as validate
 from tests.conftest import activate, activate_draft
 from tests.test_managed_catalog import configured
 from tests.test_portable import export, plan, stage

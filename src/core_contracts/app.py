@@ -7,6 +7,7 @@ import os
 import re
 import signal
 from pathlib import Path
+from time import perf_counter
 from typing import Literal
 
 import aiohttp
@@ -14,6 +15,7 @@ import asyncpg
 from aiohttp import web
 from pydantic import Field, SecretStr, ValidationError
 
+from . import wiring  # noqa: F401
 from .adapters.ha import BridgeAdapter
 from .adapters.mqtt import MQTTAdapter
 from .api import API
@@ -25,7 +27,7 @@ from .persistence import PersistenceUnavailable, PostgresStore
 from .runtime import Runtime
 from .security import Tokens
 from .setup import Connection, Setup, probe
-from .title_reader import Credentials
+from .wiring import Credentials
 
 LOGGER = logging.getLogger(__name__)
 
@@ -208,7 +210,7 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
         frontend=frontend,
         setup=setup,
     )
-    from .title_reader import read as read_titles
+    from .wiring import read_titles
 
     async def title_reader() -> dict[str, object]:
         return await read_titles(setup.connection, options.title_classifier)
@@ -241,6 +243,7 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
             return await initialize_connection()
 
     async def initialize_connection() -> str:
+        startup_started = perf_counter()
         connection = setup.connection
         assert connection is not None
         store.dsn, store.tls = connection.dsn(), connection.tls()
@@ -253,7 +256,9 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
                 raise ValueError("installation_mismatch")
             if not checked["database_id"] and not setup.pending.get("initialize_empty_database"):
                 raise ValueError("initialize_empty_database_required")
+        opening_at = perf_counter()
         await store.open()
+        store_open_ms = (perf_counter() - opening_at) * 1000
         local = load_id(data)
         pending = setup.pending
         # The prepared UUID closes the DB/local identity crash window without
@@ -295,7 +300,7 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
             if re.fullmatch(r"addon_[a-f0-9]{8}_wuschel", hostname)
             else None
         )
-        await runtime.start()
+        await runtime.start(startup_started=startup_started, store_open_ms=store_open_ms)
         setup.initialized()
         return installation_id
 

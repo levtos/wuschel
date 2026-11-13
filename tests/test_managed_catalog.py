@@ -3,9 +3,9 @@ from uuid import uuid4
 
 import pytest
 
-from core_contracts.catalog_models import ManagedCatalog
-from core_contracts.managed_catalog import head, identity
+from core_contracts.extensions.catalog.managed_catalog import head, identity
 from core_contracts.registry import RegistryConfig, storage_document
+from core_contracts.rules.catalog_models import ManagedCatalog
 from tests.conftest import activate
 
 
@@ -74,7 +74,7 @@ async def test_atomic_idempotent_occ_and_restart(runtime, config):
 
 @pytest.mark.asyncio
 async def test_impact_preview_and_history_check_do_not_publish_or_write(runtime, config):
-    from core_contracts.managed_catalog import verify_stored_heads
+    from core_contracts.extensions.catalog.managed_catalog import verify_stored_heads
 
     await activate(runtime, configured(config))
     before = runtime.state.model_dump()
@@ -95,7 +95,7 @@ async def test_impact_preview_and_history_check_do_not_publish_or_write(runtime,
 async def test_full_catalog_history_exceeds_generic_page_and_filters_other_catalogs(
     runtime, config
 ):
-    from core_contracts.managed_catalog import verify_stored_heads
+    from core_contracts.extensions.catalog.managed_catalog import verify_stored_heads
 
     await activate(runtime, configured(config))
     for start in range(0, 1100, 100):
@@ -228,7 +228,7 @@ async def test_lg_pattern_uses_only_its_declared_default(runtime, config):
     ]
     document["catalogs"][0]["unassigned_value"] = "manual_active"
     await activate(runtime, document)
-    from core_contracts.managed_catalog import definition, effective
+    from core_contracts.extensions.catalog.managed_catalog import definition, effective
 
     current = definition(runtime.config, "example.sources", 1)
     assert effective({}, identity("device", "source", "source", "Synthetic HDMI"), current) == (
@@ -283,7 +283,7 @@ async def test_equivalent_master_link_changes_no_semantic_basis(runtime, config)
 
 @pytest.mark.asyncio
 async def test_catalog_change_cannot_start_machine_episode_from_old_evidence(runtime, config):
-    from core_contracts.managed_catalog import invalidate
+    from core_contracts.extensions.catalog.managed_catalog import invalidate
     from core_contracts.producer import Context, state_machine
     from core_contracts.registry import Contract
 

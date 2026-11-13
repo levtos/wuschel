@@ -3,7 +3,7 @@
 import json
 from collections.abc import Callable
 from dataclasses import replace
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 from math import isfinite
 from typing import Any, Literal
@@ -11,6 +11,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, create_model, model_validator
 
 from . import declarative_models as dm
+from . import slots
 from .engines import FORMULA_SCHEMAS, FORMULAS, FUSION, FUSION_INPUTS
 from .instance_parameters import number_slot, parameter_model
 from .model import Model
@@ -56,6 +57,9 @@ def map_key(value: Any) -> str:
 
 
 def rule_children(rule: dm.Rule) -> list[tuple[str, dm.Rule]]:
+    if extension := slots.RULES.get(type(rule)):
+        assert extension.children is not None
+        return extension.children(rule)
     if isinstance(rule, dm.AnnualCurveRule):
         return [("at", rule.at)] + [
             (f"points/{i}/value", point.value)
@@ -70,8 +74,6 @@ def rule_children(rule: dm.Rule) -> list[tuple[str, dm.Rule]]:
         return [("arg", rule.arg)]
     if isinstance(rule, dm.CalendarAtRule):
         return [("at", rule.at)]
-    if isinstance(rule, dm.WakePlanRule):
-        return [("sleep_since", rule.sleep_since)]
     if isinstance(rule, dm.DailyWindowRule):
         return [
             (name, getattr(rule, name))
@@ -86,10 +88,6 @@ def rule_children(rule: dm.Rule) -> list[tuple[str, dm.Rule]]:
                 "otherwise_phase",
                 "otherwise_time",
             )
-        ]
-    if isinstance(rule, dm.ManagedCatalogRule):
-        return [
-            (name, getattr(rule, name)) for name in ("scope", "media_type", "signal_type", "key")
         ]
     if isinstance(rule, dm.ConfigurationHintRule):
         return [("arg", rule.arg), ("when", rule.when)]
@@ -192,12 +190,14 @@ def all_rules(definition: dm.DeclarativeDefinition) -> list[dm.Rule]:
 
 def check_definition(definition: dm.DeclarativeDefinition) -> None:
     rules = all_rules(definition)
-    slots = [r.duration_s for r in rules if isinstance(r, dm.TemporalRule)]
+    parameter_slots = [r.duration_s for r in rules if isinstance(r, dm.TemporalRule)]
     if definition.machine and definition.machine.deadline_s is not None:
-        slots.append(definition.machine.deadline_s)
+        parameter_slots.append(definition.machine.deadline_s)
     if definition.machine:
-        slots.extend(item.duration for item in definition.machine.deadline_by_state.values())
-    for slot in slots:
+        parameter_slots.extend(
+            item.duration for item in definition.machine.deadline_by_state.values()
+        )
+    for slot in parameter_slots:
         if isinstance(slot, dm.ParameterRule):
             declaration = definition.parameter_schema.get(slot.name)
             if (
@@ -270,6 +270,10 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
     def infer_rule(rule: dm.Rule, *, guard: bool = False, depth: int = 0) -> FieldSchema:
         if depth > dm.MAX_DEPTH:
             raise ValueError("definition_resource_limit")
+        if (
+            extension := slots.RULES.get(type(rule))
+        ) and definition.language_version < extension.minimum_language:
+            raise ValueError(f"language_version_{extension.minimum_language}_required")
         if guard and isinstance(
             rule, (dm.MachineRule, dm.MachineFieldRule, dm.TemporalRule, dm.BucketRule)
         ):
@@ -282,7 +286,6 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
                 dm.EventMatchRule,
                 dm.CalendarAtRule,
                 dm.DailyWindowRule,
-                dm.WakePlanRule,
             ),
         ):
             if definition.language_version < 6:
@@ -330,6 +333,9 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
         if isinstance(rule, dm.LiteralRule):
             return rule.field_schema
         args = [infer(child, guard=guard, depth=depth + 1) for child in children(rule)]
+        if extension := slots.RULES.get(type(rule)):
+            assert extension.check is not None
+            return extension.check(rule, definition, inputs, args, require, scalar)
         if isinstance(rule, dm.EventMatchRule):
             if args[0].type == "object":
                 raise ValueError("event_scalar_required")
@@ -354,29 +360,6 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
                 if arg.type not in {"text", "enum"}:
                     raise ValueError("daily_window_choice_required")
             return scalar("bool")
-        if isinstance(rule, dm.WakePlanRule):
-            wake_declaration = definition.parameter_schema.get(rule.settings_parameter)
-            if not wake_declaration or wake_declaration.structured_schema != "wake_planning_v1":
-                raise ValueError("wake_settings_parameter_required")
-            for name, wake_kind in (
-                (rule.date_input, "text"),
-                (rule.calendar_input, "object"),
-                (rule.holidays_input, "object"),
-            ):
-                if name not in inputs or inputs[name].type != wake_kind:
-                    raise ValueError("wake_input_required")
-            if rule.exception_input and (
-                rule.exception_input not in inputs or inputs[rule.exception_input].type != "object"
-            ):
-                raise ValueError("wake_exception_input_required")
-            require(args[0], scalar("timestamp"))
-            return scalar(
-                "timestamp"
-                if rule.field in {"next_wake_start", "window_start", "window_end"}
-                else "bool"
-                if rule.field == "minimum_sleep_applied"
-                else "text"
-            )
         if isinstance(rule, (dm.AnnualCurveRule, dm.CalendarActiveRule)):
             if definition.language_version < 5:
                 raise ValueError("language_version_5_required")
@@ -429,18 +412,6 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
             }:
                 raise ValueError("unordered_comparison")
             return scalar("bool")
-        if isinstance(rule, dm.ManagedCatalogRule):
-            if rule.profile == "apple_tv_title" and definition.language_version < 8:
-                raise ValueError("language_version_8_required")
-            if rule.profile and definition.language_version < 7:
-                raise ValueError("language_version_7_required")
-            if definition.language_version < 4:
-                raise ValueError("language_version_4_required")
-            for arg in args:
-                require(arg, scalar("text"))
-            if rule.field_schema.type != "enum" or not rule.field_schema.value_catalog:
-                raise ValueError("catalog_classification_schema")
-            return rule.field_schema
         if isinstance(rule, dm.MapRule):
             if args[0].type == "object":
                 raise ValueError("map_requires_scalar")
@@ -586,13 +557,8 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
             if rule.id in event_ids and event_ids[rule.id] != id(rule):
                 issues.append(RuleValidationError("duplicate_event_id", "/rules"))
             event_ids[rule.id] = id(rule)
-        if isinstance(rule, dm.WakePlanRule):
-            from .model import canonical
-
-            identity = canonical(rule.model_dump(exclude={"field"}))
-            if rule.id in plans and plans[rule.id] != identity:
-                issues.append(RuleValidationError("conflicting_plan_id", "/rules"))
-            plans[rule.id] = identity
+        if (extension := slots.RULES.get(type(rule))) and extension.validate:
+            extension.validate(rule, plans, issues, RuleValidationError)
     if definition.machine:
 
         def has_event(rule: dm.Rule, seen: frozenset[str] = frozenset()) -> bool:
@@ -657,7 +623,8 @@ class Evaluation:
         return MachineState.model_validate(data) if data else None
 
     def machine_evidence(self, value: FieldValue) -> None:
-        from .managed_catalog import dependencies, suspend_machine
+        dependencies = slots.RULES[dm.ManagedCatalogRule].dependencies["track"]
+        suspend_machine = slots.RULES[dm.ManagedCatalogRule].dependencies["suspend"]
 
         if self.context is not None:
             slot = self.context.node.setdefault("catalog_machine", {})
@@ -697,6 +664,9 @@ class Evaluation:
 
     def _evaluate(self, rule: dm.Rule) -> FieldValue:
         now = self.now
+        if extension := slots.RULES.get(type(rule)):
+            assert extension.evaluate is not None
+            return extension.evaluate(self, rule)
         if isinstance(rule, (dm.MachineMemoryRule, dm.MachineFieldRule)):
             outcome = self.memo.get("$machine")
             if outcome and not outcome.usable(now):
@@ -734,40 +704,6 @@ class Evaluation:
                     rule, self.evaluate(rule.arg), self.context, self.machine_snapshot()
                 )
             return self.events[rule.id]
-        if isinstance(rule, dm.WakePlanRule):
-            from .wake.operator import build_plan
-            from .wake.settings import WakeSettings
-
-            if rule.id not in self.plans:
-                state = self.machine_snapshot()
-                self.plans[rule.id] = build_plan(
-                    WakeSettings.model_validate(self.parameters[rule.settings_parameter]),
-                    now,
-                    self.inputs[rule.calendar_input],
-                    self.inputs[rule.holidays_input],
-                    self.inputs[rule.date_input],
-                    self.evaluate(rule.sleep_since),
-                    self.inputs.get(rule.exception_input) if rule.exception_input else None,
-                    state.consumed_absolute if state else (),
-                )
-            plan = self.plans[rule.id]
-            if self.context:
-                due = self.context.node.setdefault("clock_due", [])
-                planned = plan.get("next_wake_start")
-                if planned and planned.usable(now):
-                    at = datetime.fromisoformat(planned.value) + timedelta(microseconds=1)
-                    if at > now and at.isoformat() not in due:
-                        due.append(at.isoformat())
-                for name in (rule.calendar_input, rule.holidays_input):
-                    cache = self.inputs[name]
-                    if cache.usable(now) and isinstance(cache.value, dict):
-                        expires = cache.value.get("expires_at")
-                        if isinstance(expires, str) and datetime.fromisoformat(expires) > now:
-                            if expires not in due:
-                                due.append(expires)
-            return plan.get(rule.field, plan.get("all")) or unknown(
-                ReasonCode.EVALUATION_ERROR, "wake_plan", now
-            )
         if isinstance(rule, dm.InputRule):
             return self.inputs.get(rule.name, unknown(ReasonCode.INPUT_ABSENT, rule.name, now))
         if isinstance(rule, dm.ParameterRule):
@@ -855,7 +791,7 @@ class Evaluation:
                 slot = self.context.node.setdefault("catalog_machine", {})
                 after_episode = self.context.node.get("machine", {}).get("episode_id")
                 if after_episode and after_episode != before_episode:
-                    from .managed_catalog import dependencies
+                    dependencies = slots.RULES[dm.ManagedCatalogRule].dependencies["track"]
 
                     slot.clear()
                     dependencies(slot, self.machine_reads)
@@ -883,11 +819,6 @@ class Evaluation:
 
             due = self.context.node.setdefault("clock_due", []) if self.context else []
             return calendar_active(rule, args, now, due)
-        if isinstance(rule, dm.ManagedCatalogRule):
-            from .managed_catalog import lookup
-
-            assert self.context is not None
-            return lookup(self.context, rule, args)
         if isinstance(rule, dm.KnownAutomaticRule):
             return derive(
                 bool(args[0].attribution and args[0].attribution.kind == "known_automatic"),
@@ -995,7 +926,7 @@ class Evaluation:
         assert self.context is not None
         if isinstance(rule, dm.BucketRule):
             key = f"{self.context.contract.contract_id}:{rule.id}"
-            from .managed_catalog import dependencies
+            dependencies = slots.RULES[dm.ManagedCatalogRule].dependencies["track"]
 
             slot = self.context.node.setdefault("catalog_buckets", {}).setdefault(rule.id, {})
             if dependencies(slot, args):
@@ -1210,9 +1141,9 @@ def compile_definition(definition: dm.DeclarativeDefinition) -> ContractType:
                     dm.CalendarActiveRule,
                     dm.CalendarAtRule,
                     dm.DailyWindowRule,
-                    dm.WakePlanRule,
                 ),
             )
+            or bool((extension := slots.RULES.get(type(r))) and extension.due)
             for r in all_rules(definition)
         ):
             ctx.node["clock_due"] = []

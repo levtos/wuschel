@@ -9,11 +9,28 @@ import asyncio
 import copy
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from time import perf_counter
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any
 
+from . import slots
 from .operation_timing import Timing, current
-from .persistence import ARCHIVE, PersistenceUnavailable, State, Store
+from .persistence import State, Store
+from .registry import (
+    RegistryConfig,
+)
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
+
+from typing import cast
+
+from .persistence import ARCHIVE, PersistenceUnavailable
 from .runtime import Runtime
 
 OPERATIONS = frozenset(
@@ -233,3 +250,82 @@ async def commit(runtime: Runtime, plan: Preparation) -> Any:
         runtime.mqtt_revision_changed.set()
         runtime._broadcast(runtime.service_state())
     return plan.result
+
+
+async def operation_management_snapshot(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from .management import capture
+
+    return capture(runtime)
+
+
+slots.OPERATIONS["management_snapshot"] = slots.Operation(
+    operation_management_snapshot, state="none", early=True
+)
+
+
+async def operation_management_commit(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from .management import commit
+
+    return await commit(runtime, payload)
+
+
+slots.OPERATIONS["management_commit"] = slots.Operation(
+    operation_management_commit, state="none", early=True, drain=False
+)
+
+
+async def operation_legacy_refresh_prepare(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from .refresh_plan import prepare_legacy_refresh
+
+    if config is None or payload["revision"] != state.active_revision:
+        return None
+    job = prepare_legacy_refresh(state, config, payload["source_id"], now)
+    if job:
+        await runtime._commit(state)
+    return copy.deepcopy(job)
+
+
+slots.OPERATIONS["legacy_refresh_prepare"] = slots.Operation(
+    operation_legacy_refresh_prepare, state="full", early=False
+)
+
+
+async def operation_audit(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: Any,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    runtime._audit(state, payload["operation"], payload, **payload.get("details", {}))
+    await runtime._commit(state)
+    return None
+
+
+slots.OPERATIONS["audit"] = slots.Operation(operation_audit, state="full", early=False)
+
+
+for operation in OPERATIONS:
+    slots.SUBMIT[operation] = execute

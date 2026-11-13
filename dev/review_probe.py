@@ -18,15 +18,17 @@ from uuid import uuid4
 
 import asyncpg
 
+from core_contracts import wiring  # noqa: F401
 from core_contracts.clock import FakeClock
 from core_contracts.evidence import Observation
 from core_contracts.history import TIME_SQL, HistoryQuery
 from core_contracts.persistence import MemoryStore, PostgresStore
-from core_contracts.registry import _compile_definition, diff, validate
+from core_contracts.registry import _compile_definition, diff
 from core_contracts.runtime import Runtime
 from core_contracts.schema import TypeRegistry
 from core_contracts.testing.authoring import activate_draft
 from core_contracts.testing.contract_types import type_registry
+from core_contracts.validation import validate_document as validate
 
 ROOT = Path(__file__).resolve().parents[1]
 

@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 
+from core_contracts import wiring  # noqa: F401
 from core_contracts.clock import FakeClock
 from core_contracts.persistence import MemoryStore
 from core_contracts.runtime import Runtime

@@ -137,8 +137,8 @@ def test_night_permission_keeps_the_same_morning_group_across_midnight(stamp, ex
 
 
 def test_missing_sleep_memory_never_silently_disables_minimum_sleep():
-    from core_contracts.wake.operator import build_plan
-    from core_contracts.wake.settings import WakeSettings
+    from core_contracts.extensions.wake.operator import build_plan
+    from core_contracts.extensions.wake.settings import WakeSettings
 
     from .test_beta_sleep import settings
 

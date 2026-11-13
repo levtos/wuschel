@@ -9,8 +9,8 @@ from core_contracts.declarative import compile_machine
 from core_contracts.declarative_models import DeclarativeDefinition
 from core_contracts.model import canonical
 from core_contracts.quality import FieldValue, ReasonCode, unknown
-from core_contracts.registry import validate
 from core_contracts.statemachine import Definition, Machine, Transition
+from core_contracts.validation import validate_document as validate
 
 from .conftest import activate
 from .test_core import NOW
