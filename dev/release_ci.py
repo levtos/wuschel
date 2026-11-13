@@ -33,6 +33,11 @@ def verify(run, jobs, proof, tree, tested_tree):
     assert scope.get("full") is True and all(scope.get(name) is True for name in JOBS), (
         "Publication requires the full release gate"
     )
+    assert (
+        scope.get("area_only", False) is False
+        and scope.get("area_map", False) is False
+        and scope.get("pytest_files", []) == []
+    ), "Publication requires an unselected full backend suite"
     assert re.fullmatch(r"[0-9a-f]{40}", proof["revision"]), "Unpinned tested source"
     assert proof["tree"] == tested_tree == tree, "Tested source differs from selected main"
     required = {
@@ -46,6 +51,14 @@ def verify(run, jobs, proof, tree, tested_tree):
         "images (amd64, linux/amd64)",
         "CI result",
     }
+    # The measurement job is deliberately manual and must never replace a gate.
+    measurement = [job for job in jobs if job["name"] == "area-map"]
+    assert not measurement or (
+        len(measurement) == 1
+        and measurement[0]["status"] == "completed"
+        and measurement[0]["conclusion"] == "skipped"
+    ), "Area measurement is not a publication run"
+    jobs = [job for job in jobs if job["name"] != "area-map"]
     names = {job["name"] for job in jobs}
     assert names == required and len(jobs) == len(required), "Incomplete CI jobs"
     assert jobs and all(

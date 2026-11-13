@@ -34,7 +34,7 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
 1. Ändert ein Auftrag **nur** Pfade eines oder mehrerer Bereiche, laufen lokal deren Testdateien.
 2. Ändert er irgendetwas am Kern (`kernel`, `store`, `rules`, `lane`, alles, was in keinem Bereich steht), laufen lokal die Tests der betroffenen Module nach Ermessen; die volle Suite läuft in der CI.
 3. Die volle Suite läuft unabhängig davon bei jedem PR in der CI. Die Auswahl spart Arbeit im Auftrag, sie ersetzt die CI nicht.
-4. Die Zuordnung veraltet mit jedem Umbauschritt. Schritt 7 erzeugt sie mit derselben Methode neu.
+4. Die Zuordnung veraltet mit jedem Umbauschritt. Schritt 6 (#120) erzeugt sie mit derselben Methode neu.
 
 ## Inhalt für `tests/areas.json`
 
@@ -476,3 +476,74 @@ Import von `managed_catalog.head` folgt dem neuen Modulort. Bestehende Tests
 ändern sonst nur Importe und Modulpfade, einschließlich der exakten erlaubten
 Openings-Datei in der Packagingprüfung und der Wake-Pfade im Bereichsselektor.
 Es werden keine Aussagen, Schwellen oder ausgewählten Testdateien gelockert.
+
+## Neumessung und CI in Schritt 6 (#120)
+
+Der JSON-Block oben ist die historische Messung vor dem Umbau. Die aktuelle
+ausführbare Zuordnung steht in `tests/areas.json`; die geprüften Quellpfade
+bleiben gleich. `dev/area_map.py` misst mit Pythons nativer Zeilenüberwachung und
+Coverage-Datenkontexten je Test einschließlich Fixture-Aufbau und -Abbau.
+Jede Zeile wird pro Test einmal erfasst und vor dem nächsten Test wieder
+freigeschaltet. Direkte Vergleichstests sichern identische Kontext-/Zeilenmengen
+zum C-Tracer ab. Der ursprünglich vorgesehene C-Tracer verzerrte die unveränderten
+500-ms-Katalogtests (624/683 ms im ersten instrumentierten CI-Lauf); auch nach
+Eingrenzung der Quellpfade blieb der gezielte Speichertest rot. Native Überwachung
+besteht denselben Test ohne Schwellenänderung. Sie erfasst nur Bereichsdateien
+und `runtime.py` für den Nenner. Nur Funktionskörper zählen.
+Eine Zeile ist Grundrauschen, wenn sie mindestens die Hälfte der Tests erreicht,
+die `Runtime.start` ausführen. Nach dessen Abzug zählen pro Bereich und Testdatei
+mindestens fünf verschiedene Funktionszeilen, auch über mehrere Testfälle hinweg.
+Sammlungs-/Importkontexte zählen nicht. Tests ohne gemessene Funktionszeilen und
+die Umgebungsgruppen `store`/`load` behalten ihre explizite Zuordnung; der Bericht
+weist diese Fälle aus. Ohne gestartete Zentrale oder bei fehlgeschlagener Suite
+wird die Zuordnung nicht ersetzt.
+
+Manuell: CI-Workflow `ci.yml` mit `area_map=true` auf dem zu messenden Branch
+starten. Nur dieser explizite `workflow_dispatch` führt den eigenen Job
+`area-map` mit PostgreSQL und Docker-MQTT aus. Artefakt `test-areas` enthält
+`areas.json`, `areas.measurement.json` und die gemessene Commit-ID.
+Die Datei wird geprüft und in den Branch übernommen, niemals automatisch gepusht.
+
+CI verwendet bei vollständig zugeordneten Backend-Bereichsänderungen die
+Vereinigung der Testdateien plus `tests/test_replay.py`, Ruff/Format, Mypy strict,
+Importgrenzen und Abhängigkeitsprüfung. Image-/Wheel-Bau, Leistungsproben und
+Workbench-E2E entfallen in diesem Fall. Gemeinsamer Kern, unbekannte Pfade und
+Änderungen an Bau-/Prüfregeln lösen die volle Prüfung aus. Bei Traber läuft
+zusätzlich der getrennte HA-Kernel-Job; PostgreSQL und Docker stehen auch für
+Bereichstests bereit. Die bisherigen
+Frontend-/Dokumentationsregeln gelten weiter. PRs nach `main`, Main-Pushes und
+Release-Prüfungen laufen immer vollständig; der manuelle Messjob ist kein
+Release-Nachweis.
+
+### Messnachweis nach dem Umbau
+
+[Manueller Lauf 43398658896](https://github.com/levtos/wuschel/actions/runs/43398658896)
+auf `835937675527872b9d4a8b43dd7f6757a6bf754b`: 1.800 Tests bestanden,
+ein bestehender HA-Umgebungs-Skip, 9:06 Minuten. 979 Testfälle mit gestarteter
+Zentrale, 132 Testdateien mit gemessenen Funktionszeilen, 1.474 Grundrauschzeilen.
+Quellpfade unverändert; `tests/areas.revision.txt` und
+`tests/areas.measurement.json` übernehmen den Artefaktbeleg unverändert.
+Nur der separat ausgeführte HA-Kernel-Test bleibt ungemessen explizit zugeordnet;
+`store` und `load` behalten zusätzlich ihre Umgebungszuordnung.
+
+| Bereich | Testdateien nach Neumessung |
+|---|---:|
+| wake | 9 |
+| calendar | 13 |
+| openings | 17 |
+| environment | 1 |
+| tc_migration | 25 |
+| catalog | 88 |
+| api | 35 |
+| adapters | 61 |
+| management | 105 |
+| tooling | 3 |
+| traber | 15 |
+| release | 31 |
+| store | 8 |
+| load | 3 |
+
+Die größere Katalogzuordnung bildet die tatsächlich über die Steckplätze
+erreichten Funktionszeilen und die jetzt mitgemessenen PostgreSQL-/Lasttests ab.
+Sie wird nicht zugunsten einer kürzeren CI verkleinert. Replay ist bereits
+enthalten und wird beim Zusammenführen der Auswahl genau einmal ausgeführt.

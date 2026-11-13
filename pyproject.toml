@@ -29,6 +29,7 @@ dev = [
     "numpy==2.4.2",
     "pytest-timeout==2.4.0",
     "import-linter==2.16",
+    "coverage>=7.13,<8",
 ]
 
 [tool.pytest.ini_options]
@@ -69,6 +70,7 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "DTZ", "TID251"]
 [tool.ruff.per-file-target-version]
 "client/**/*.py" = "py312"
 "src/core_contracts/provision.py" = "py310"
+"dev/ci_scope.py" = "py312"
 
 [tool.importlinter]
 root_package = "core_contracts"

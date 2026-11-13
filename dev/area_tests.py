@@ -24,6 +24,10 @@ def changed_paths(base):
 def affected_tests(areas, paths):
     selected = set()
     for path in paths:
+        if path in {"tests/test_replay.py", "tests/conftest.py"} or path.startswith(
+            "tests/fixtures/replay/"
+        ):
+            return "ALL"
         matched = False
         for area in areas.values():
             if path in area["tests"] or any(
