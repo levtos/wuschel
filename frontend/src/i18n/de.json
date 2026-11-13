@@ -1,4 +1,5 @@
 {
+"b26.system.ratio": "{count} / {total}",
 "b26.system.phase.restore_authoring": "Entwürfe wiederherstellen",
 "b26.system.phase.restore_contexts": "Kontexte wiederherstellen",
 "b26.system.phase.restore_catalog_baseline": "Katalog-Grundstand wiederherstellen",
