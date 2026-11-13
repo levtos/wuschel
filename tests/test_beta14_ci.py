@@ -36,11 +36,7 @@ def test_release_build_policy_and_unknown_dependencies_require_every_job(path):
 
 
 def test_backend_frontend_bridge_and_test_boundaries():
-    assert active(select(["src/core_contracts/runtime.py"])) == {
-        "platform",
-        "workbench-e2e",
-        "images",
-    }
+    assert active(select(["src/core_contracts/runtime.py"])) == set(JOBS)
     assert active(select(["frontend/src/features/contracts/presentation.ts"])) == {
         "frontend",
         "workbench-e2e",

@@ -11,6 +11,10 @@ on:
         description: Optional ancestor for an affected-path demonstration
         type: string
         default: ''
+      area_map:
+        description: Measure area coverage with PostgreSQL (manual only)
+        type: boolean
+        default: false
       cache_probe:
         description: Repeat the identical image build and verify cached bytes
         type: boolean
@@ -29,6 +33,9 @@ jobs:
     outputs:
       full: ${{ steps.plan.outputs['full'] }}
       plan: ${{ steps.plan.outputs['plan'] }}
+      area_only: ${{ steps.plan.outputs['area_only'] }}
+      pytest_files: ${{ steps.plan.outputs['pytest_files'] }}
+      area_map: ${{ steps.plan.outputs['area_map'] }}
       cache_probe: ${{ steps.plan.outputs['cache_probe'] }}
       platform: ${{ steps.plan.outputs['platform'] }}
       frontend: ${{ steps.plan.outputs['frontend'] }}
@@ -106,23 +113,77 @@ jobs:
       - run: uv run mypy --strict src client/core_contracts_client
       - run: uv export --frozen --no-dev --no-emit-project --format requirements-txt > /tmp/platform-requirements.txt
       - run: uvx pip-audit==2.9.0 --strict --no-deps --disable-pip -r /tmp/platform-requirements.txt
+      - name: Area tests and replay
+        if: needs.scope.outputs.area_only == 'true'
+        env:
+          PYTEST_FILES: ${{ needs.scope.outputs.pytest_files }}
+          PG_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
+          TEST_MQTT_DOCKER: '1'
+        run: python -c 'import json,os,subprocess; subprocess.run(["uv","run","pytest","-q",*json.loads(os.environ["PYTEST_FILES"])],check=True)'
       - run: uv run pytest -q
+        if: needs.scope.outputs.area_only != 'true'
         env:
           PG_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
           TEST_MQTT_DOCKER: '1'
       - run: uv run python dev/resource_probe.py
+        if: needs.scope.outputs.area_only != 'true'
       - run: uv run python dev/review_probe.py
+        if: needs.scope.outputs.area_only != 'true'
       - run: uv run python dev/alpha8_scale_probe.py
+        if: needs.scope.outputs.area_only != 'true'
       - run: uv build --wheel
+        if: needs.scope.outputs.area_only != 'true'
       - run: uv build --wheel --project client
+        if: needs.scope.outputs.area_only != 'true'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: needs.scope.outputs.area_only != 'true'
         with:
           name: python-wheels
+          if-no-files-found: error
           path: |
             dist/*.whl
             client/dist/*.whl
             dist/alpha4-review-performance.json
             dist/alpha8-scale.json
+  area-map:
+    needs: scope
+    if: github.event_name == 'workflow_dispatch' && inputs.area_map
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18-bookworm
+        env:
+          POSTGRES_USER: core_contracts_test
+          POSTGRES_PASSWORD: ephemeral-test-only
+          POSTGRES_DB: core_contracts_test
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U core_contracts_test" --health-interval 2s --health-retries 20
+    env:
+      TEST_DATABASE_DSN: postgresql://core_contracts_test:ephemeral-test-only@localhost:5432/core_contracts_test
+      TEST_MQTT_DOCKER: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          python-version: '3.14.5'
+      - run: uv sync --frozen
+      - name: Measure all backend tests with per-test contexts
+        run: uv run python dev/area_map.py
+        env:
+          PG_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
+      - name: Record measured source
+        run: git rev-parse HEAD > tests/areas.revision.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-areas
+          path: |
+            tests/areas.json
+            tests/areas.measurement.json
+            tests/areas.revision.txt
+          if-no-files-found: error
+          retention-days: 14
   frontend:
     needs: scope
     if: needs.scope.outputs['frontend'] == 'true'
@@ -279,7 +340,7 @@ jobs:
   ci-result:
     name: CI result
     if: always()
-    needs: [scope, source-proof, herd-assets, platform, frontend, workbench-e2e, ha-bridge, images]
+    needs: [scope, source-proof, area-map, herd-assets, platform, frontend, workbench-e2e, ha-bridge, images]
     runs-on: ubuntu-24.04
     steps:
       - name: Require all selected jobs to succeed

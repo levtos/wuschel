@@ -11,19 +11,14 @@ from dev.area_tests import ROOT, affected_tests
 def test_area_files_exist_and_arguments_match_reviewed_mapping():
     areas = json.loads((ROOT / "tests/areas.json").read_text())
     material = (ROOT / "docs/architecture/b25/testbereiche.md").read_text(encoding="utf-8")
-    expected = json.loads(material.split("```json\n", 1)[1].split("```", 1)[0])
-    assert areas == expected
-    assert len(areas) == 14
-    assert len(areas["wake"]["tests"]) == 7
-    # The old two-area format is explicitly superseded by #116; retain its
-    # existence/CLI checks for every entry in the complete reviewed mapping.
-    assert areas["traber"]["tests"] == [
-        "tests/test_b23_projection.py",
-        "tests/test_beta5_projection.py",
-        "tests/test_bridge_kernel.py",
-        "tests/test_ha_projection_reconnect.py",
-    ]
+    baseline = json.loads(material.split("```json\n", 1)[1].split("```", 1)[0])
+    # #120 remeasures test membership; source ownership remains the reviewed map.
+    assert {name: area["paths"] for name, area in areas.items()} == {
+        name: area["paths"] for name, area in baseline.items()
+    }
+    assert "tests/test_bridge_kernel.py" in areas["traber"]["tests"]
     for name, area in areas.items():
+        assert area["tests"] == sorted(set(area["tests"])) and area["tests"]
         assert all((ROOT / path).is_file() for path in area["tests"])
         result = subprocess.run(
             [sys.executable, str(ROOT / "dev/area_tests.py"), name],

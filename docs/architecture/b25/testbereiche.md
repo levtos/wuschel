@@ -34,7 +34,7 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
 1. Ändert ein Auftrag **nur** Pfade eines oder mehrerer Bereiche, laufen lokal deren Testdateien.
 2. Ändert er irgendetwas am Kern (`kernel`, `store`, `rules`, `lane`, alles, was in keinem Bereich steht), laufen lokal die Tests der betroffenen Module nach Ermessen; die volle Suite läuft in der CI.
 3. Die volle Suite läuft unabhängig davon bei jedem PR in der CI. Die Auswahl spart Arbeit im Auftrag, sie ersetzt die CI nicht.
-4. Die Zuordnung veraltet mit jedem Umbauschritt. Schritt 7 erzeugt sie mit derselben Methode neu.
+4. Die Zuordnung veraltet mit jedem Umbauschritt. Schritt 6 (#120) erzeugt sie mit derselben Methode neu.
 
 ## Inhalt für `tests/areas.json`
 
@@ -476,3 +476,33 @@ Import von `managed_catalog.head` folgt dem neuen Modulort. Bestehende Tests
 ändern sonst nur Importe und Modulpfade, einschließlich der exakten erlaubten
 Openings-Datei in der Packagingprüfung und der Wake-Pfade im Bereichsselektor.
 Es werden keine Aussagen, Schwellen oder ausgewählten Testdateien gelockert.
+
+## Neumessung und CI in Schritt 6 (#120)
+
+Der JSON-Block oben ist die historische Messung vor dem Umbau. Die aktuelle
+ausführbare Zuordnung steht in `tests/areas.json`; die geprüften Quellpfade
+bleiben gleich. `dev/area_map.py` misst mit Coverage-C-Tracer und einem Kontext
+je Test einschließlich Fixture-Aufbau und -Abbau. Nur Funktionskörper zählen.
+Eine Zeile ist Grundrauschen, wenn sie mindestens die Hälfte der Tests erreicht,
+die `Runtime.start` ausführen. Nach dessen Abzug zählen pro Bereich und Testdatei
+mindestens fünf verschiedene Funktionszeilen, auch über mehrere Testfälle hinweg.
+Sammlungs-/Importkontexte zählen nicht. Tests ohne gemessene Funktionszeilen und
+die Umgebungsgruppen `store`/`load` behalten ihre explizite Zuordnung; der Bericht
+weist diese Fälle aus. Ohne gestartete Zentrale oder bei fehlgeschlagener Suite
+wird die Zuordnung nicht ersetzt.
+
+Manuell: CI-Workflow `ci.yml` mit `area_map=true` auf dem zu messenden Branch
+starten. Nur dieser explizite `workflow_dispatch` führt den eigenen Job
+`area-map` mit PostgreSQL und Docker-MQTT aus. Artefakt `test-areas` enthält
+`areas.json`, `areas.measurement.json` und die gemessene Commit-ID.
+Die Datei wird geprüft und in den Branch übernommen, niemals automatisch gepusht.
+
+CI verwendet bei vollständig zugeordneten Backend-Bereichsänderungen die
+Vereinigung der Testdateien plus `tests/test_replay.py`, Ruff/Format, Mypy strict,
+Importgrenzen und Abhängigkeitsprüfung. Image-/Wheel-Bau, Leistungsproben und
+Workbench-E2E entfallen in diesem Fall. Gemeinsamer Kern, unbekannte Pfade und
+Änderungen an Bau-/Prüfregeln lösen die volle Prüfung aus. Traber und getrennte
+Testumgebungen werden nicht durch die Bereichsauswahl verkürzt. Die bisherigen
+Frontend-/Dokumentationsregeln gelten weiter. PRs nach `main`, Main-Pushes und
+Release-Prüfungen laufen immer vollständig; der manuelle Messjob ist kein
+Release-Nachweis.
