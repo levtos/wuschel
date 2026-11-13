@@ -175,3 +175,18 @@ def test_measurement_is_never_a_release_gate():
     jobs[-1]["conclusion"] = "success"
     with pytest.raises(AssertionError, match="measurement"):
         verify(run, jobs, proof, "b" * 40, "b" * 40)
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("area_only", True),
+        ("area_map", True),
+        ("pytest_files", ["tests/test_replay.py"]),
+    ],
+)
+def test_partial_backend_cannot_hide_behind_full_job_flags(key, value):
+    run, jobs, proof = ci()
+    proof["scope"][key] = value
+    with pytest.raises(AssertionError, match="full backend suite"):
+        verify(run, jobs, proof, "b" * 40, "b" * 40)

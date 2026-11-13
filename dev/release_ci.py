@@ -33,6 +33,11 @@ def verify(run, jobs, proof, tree, tested_tree):
     assert scope.get("full") is True and all(scope.get(name) is True for name in JOBS), (
         "Publication requires the full release gate"
     )
+    assert (
+        scope.get("area_only", False) is False
+        and scope.get("area_map", False) is False
+        and scope.get("pytest_files", []) == []
+    ), "Publication requires an unselected full backend suite"
     assert re.fullmatch(r"[0-9a-f]{40}", proof["revision"]), "Unpinned tested source"
     assert proof["tree"] == tested_tree == tree, "Tested source differs from selected main"
     required = {
