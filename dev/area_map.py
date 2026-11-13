@@ -6,6 +6,8 @@ Run the full measurement only in the manually dispatched PostgreSQL CI job.
 import argparse
 import ast
 import json
+import os
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -28,6 +30,20 @@ def function_lines(source: str) -> set[int]:
 
 def matches(path: str, prefixes: list[str]) -> bool:
     return any(path.startswith(p) if p.endswith("/") else path == p for p in prefixes)
+
+
+def measurement_files(root: Path, areas: dict) -> list[str]:
+    # Unmapped kernel lines cannot belong to an area. Avoid tracing their hot
+    # loops; Runtime.start is the only extra source needed for the denominator.
+    files = {root / "src/core_contracts/runtime.py"}
+    for area in areas.values():
+        for prefix in area["paths"]:
+            path = root / prefix
+            if prefix.endswith("/"):
+                files.update(path.rglob("*.py"))
+            elif path.suffix == ".py":
+                files.add(path)
+    return sorted(str(path.resolve()) for path in files)
 
 
 def measured_areas(areas: dict, data: coverage.CoverageData, root: Path) -> tuple[dict, dict]:
@@ -78,6 +94,7 @@ def measured_areas(areas: dict, data: coverage.CoverageData, root: Path) -> tupl
         if manual:
             retained[name] = sorted(manual)
     return result, {
+        "collector": "sys.monitoring LINE per test (CoverageData contexts)",
         "runtime_tests": len(runtime_tests),
         "observed_test_files": len(observed),
         "noise_lines": noise,
@@ -87,7 +104,7 @@ def measured_areas(areas: dict, data: coverage.CoverageData, root: Path) -> tupl
 
 
 class TestContexts:
-    def __init__(self, cov: coverage.Coverage) -> None:
+    def __init__(self, cov) -> None:
         self.cov = cov
 
     @pytest.hookimpl(wrapper=True)
@@ -100,16 +117,65 @@ class TestContexts:
             self.cov.switch_context("")
 
 
+class LineCoverage:
+    """Record each executed line once per test using Python's native monitoring.
+
+    C tracing adds work on every loop iteration and distorts the unchanged
+    latency gates. LINE/DISABLE records the same sets with bounded overhead.
+    """
+
+    def __init__(self, files: list[str], data_file: str | None = None) -> None:
+        self.files = {os.path.normcase(path): path for path in files}
+        self.paths: dict[str, str | None] = {}
+        self.data = coverage.CoverageData(basename=data_file, no_disk=data_file is None)
+        self.context = ""
+        self.lines: dict[str, set[int]] = defaultdict(set)
+        self.tool = next(
+            (i for i in (1, 5, 4, 3, 2, 0) if sys.monitoring.get_tool(i) is None), None
+        )
+        if self.tool is None:
+            raise RuntimeError("No free Python monitoring tool ID")
+
+    def line(self, code, line):
+        filename = code.co_filename
+        if filename not in self.paths:
+            self.paths[filename] = self.files.get(os.path.normcase(filename))
+        if self.context and (path := self.paths[filename]) is not None:
+            self.lines[path].add(line)
+        return sys.monitoring.DISABLE
+
+    def start(self) -> None:
+        sys.monitoring.use_tool_id(self.tool, "wuschel-area-map")
+        sys.monitoring.register_callback(self.tool, sys.monitoring.events.LINE, self.line)
+        sys.monitoring.set_events(self.tool, sys.monitoring.events.LINE)
+
+    def switch_context(self, context: str) -> None:
+        if self.context:
+            self.data.set_context(self.context)
+            self.data.add_lines(dict(self.lines))
+        self.lines.clear()
+        self.context = context
+        # A line executed in an earlier test must be recorded again for this one.
+        sys.monitoring.restart_events()
+
+    def stop(self) -> None:
+        sys.monitoring.set_events(self.tool, 0)
+        sys.monitoring.register_callback(self.tool, sys.monitoring.events.LINE, None)
+        sys.monitoring.free_tool_id(self.tool)
+
+    def save(self) -> None:
+        self.data.write()
+
+    def get_data(self) -> coverage.CoverageData:
+        return self.data
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=ROOT / "tests/areas.json")
     args = parser.parse_args()
-    cov = coverage.Coverage(
-        data_file=str(ROOT / ".coverage.areas"),
-        source=[str(ROOT / p) for p in ("src", "client", "dev", "custom_components")],
-        config_file=False,
-    )
-    cov.set_option("run:core", "ctrace")
+    areas = json.loads((ROOT / "tests/areas.json").read_text(encoding="utf-8"))
+    cov = LineCoverage(measurement_files(ROOT, areas), str(ROOT / ".coverage.areas"))
     cov.start()
     try:
         status = pytest.main(["-q", str(ROOT / "tests")], plugins=[TestContexts(cov)])
@@ -118,7 +184,6 @@ def main() -> None:
         cov.save()
     if status != pytest.ExitCode.OK:
         raise SystemExit(status)
-    areas = json.loads((ROOT / "tests/areas.json").read_text(encoding="utf-8"))
     result, report = measured_areas(areas, cov.get_data(), ROOT)
     args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     args.output.with_suffix(".measurement.json").write_text(

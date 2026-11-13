@@ -481,8 +481,15 @@ Es werden keine Aussagen, Schwellen oder ausgewählten Testdateien gelockert.
 
 Der JSON-Block oben ist die historische Messung vor dem Umbau. Die aktuelle
 ausführbare Zuordnung steht in `tests/areas.json`; die geprüften Quellpfade
-bleiben gleich. `dev/area_map.py` misst mit Coverage-C-Tracer und einem Kontext
-je Test einschließlich Fixture-Aufbau und -Abbau. Nur Funktionskörper zählen.
+bleiben gleich. `dev/area_map.py` misst mit Pythons nativer Zeilenüberwachung und
+Coverage-Datenkontexten je Test einschließlich Fixture-Aufbau und -Abbau.
+Jede Zeile wird pro Test einmal erfasst und vor dem nächsten Test wieder
+freigeschaltet. Direkte Vergleichstests sichern identische Kontext-/Zeilenmengen
+zum C-Tracer ab. Der ursprünglich vorgesehene C-Tracer verzerrte die unveränderten
+500-ms-Katalogtests (624/683 ms im ersten instrumentierten CI-Lauf); auch nach
+Eingrenzung der Quellpfade blieb der gezielte Speichertest rot. Native Überwachung
+besteht denselben Test ohne Schwellenänderung. Sie erfasst nur Bereichsdateien
+und `runtime.py` für den Nenner. Nur Funktionskörper zählen.
 Eine Zeile ist Grundrauschen, wenn sie mindestens die Hälfte der Tests erreicht,
 die `Runtime.start` ausführen. Nach dessen Abzug zählen pro Bereich und Testdatei
 mindestens fünf verschiedene Funktionszeilen, auch über mehrere Testfälle hinweg.

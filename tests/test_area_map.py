@@ -7,7 +7,55 @@ import sys
 import coverage
 import pytest
 
-from dev.area_map import ROOT, function_lines, measured_areas
+from dev.area_map import ROOT, LineCoverage, function_lines, measured_areas, measurement_files
+
+
+def test_native_monitoring_records_exactly_the_ctracer_context_line_sets(tmp_path):
+    file = tmp_path / "example.py"
+    file.write_text(
+        "def choose(flag):\n    for i in range(100):\n        if flag:\n            seen = True\n        else:\n            seen = False\n    return seen\n"
+    )
+    namespace = {}
+    exec(compile(file.read_text(), str(file), "exec"), namespace)
+    reference = coverage.Coverage(data_file=None, include=[str(file)], config_file=False)
+    reference.set_option("run:core", "ctrace")
+    native = LineCoverage([str(file)])
+    for recorder in (reference, native):
+        recorder.start()
+        try:
+            for name, flag in (("first", True), ("second", False), ("third", True)):
+                recorder.switch_context(f"tests/test_example.py::test_{name}")
+                namespace["choose"](flag)
+            recorder.switch_context("")
+        finally:
+            recorder.stop()
+    actual = native.get_data().contexts_by_lineno(str(file))
+    expected = reference.get_data().contexts_by_lineno(str(file))
+    assert {line: set(contexts) for line, contexts in actual.items()} == {
+        line: set(contexts) for line, contexts in expected.items()
+    }
+    assert set(actual[4]) == {
+        "tests/test_example.py::test_first",
+        "tests/test_example.py::test_third",
+    }
+    assert actual[6] == ["tests/test_example.py::test_second"]
+
+
+def test_measurement_includes_all_area_python_files_and_runtime_only(tmp_path):
+    for name in ("feature.py", "nested/other.py", "metadata.json"):
+        file = tmp_path / "src/feature" / name
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text("")
+    areas = {"feature": {"paths": ["src/feature/", "src/single.py"], "tests": []}}
+    assert measurement_files(tmp_path, areas) == sorted(
+        str((tmp_path / p).resolve())
+        for p in (
+            "src/core_contracts/runtime.py",
+            "src/single.py",
+            "src/feature/feature.py",
+            "src/feature/nested/other.py",
+        )
+    )
 
 
 def test_function_lines_exclude_imports_class_attributes_and_function_headers():
@@ -60,7 +108,8 @@ def test_empty_runtime_measurement_cannot_replace_map(tmp_path):
         measured_areas({}, coverage.CoverageData(no_disk=True), tmp_path)
 
 
-def test_real_pytest_context_includes_async_fixture_setup_and_teardown(tmp_path):
+@pytest.mark.parametrize("backend", ["ctrace", "native"])
+def test_real_pytest_context_includes_async_fixture_setup_and_teardown(tmp_path, backend):
     (tmp_path / "test_context.py").write_text(
         "import pytest\n"
         "@pytest.fixture\n"
@@ -71,10 +120,15 @@ def test_real_pytest_context_includes_async_fixture_setup_and_teardown(tmp_path)
         "async def test_resource(resource):\n"
         "    assert resource == 1\n"
     )
+    constructor = (
+        f"coverage.Coverage(data_file=None,source=[{str(tmp_path)!r}],config_file=False)"
+        if backend == "ctrace"
+        else f"LineCoverage([{str(tmp_path / 'test_context.py')!r}])"
+    )
+    configure = "c.set_option('run:core','ctrace'); " if backend == "ctrace" else ""
     script = (
-        "import coverage,pytest,json; from dev.area_map import TestContexts; "
-        f"c=coverage.Coverage(data_file=None,source=[{str(tmp_path)!r}],config_file=False); "
-        "c.start(); "
+        "import coverage,pytest,json; from dev.area_map import TestContexts,LineCoverage; "
+        f"c={constructor}; " + configure + "c.start(); "
         f"code=pytest.main(['-q','--asyncio-mode=auto',{str(tmp_path / 'test_context.py')!r}],"
         "plugins=[TestContexts(c)]); c.stop(); assert code==0; "
         f"print('CONTEXTS='+json.dumps(c.get_data().contexts_by_lineno({str(tmp_path / 'test_context.py')!r})))"
