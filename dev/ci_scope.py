@@ -59,7 +59,7 @@ def select(paths: list[str], *, full: bool = False, cache_probe: bool = False) -
         try:
             areas = json.loads((ROOT / "tests/areas.json").read_text(encoding="utf-8"))
             area = area_plan(paths, areas)
-        except OSError, ValueError, KeyError, TypeError:
+        except (OSError, ValueError, KeyError, TypeError):
             full = True
     if area:
         return {

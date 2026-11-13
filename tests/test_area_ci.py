@@ -1,5 +1,6 @@
 """Decided b25 area gate and mandatory full main/release gate."""
 
+import ast
 import json
 import os
 import subprocess
@@ -11,6 +12,11 @@ import yaml
 from dev.ci_scope import JOBS, ROOT, select
 from dev.release_ci import verify
 from tests.test_beta5_release import ci
+
+
+def test_bootstrap_selector_parses_with_runner_system_python():
+    # scope intentionally runs before setup-uv, on Ubuntu's Python 3.12.
+    ast.parse((ROOT / "dev/ci_scope.py").read_text(), feature_version=(3, 12))
 
 
 def test_catalog_only_runs_its_measured_tests_replay_and_tools():
