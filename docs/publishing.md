@@ -20,7 +20,7 @@ Der Auswahlplan steht im Job `scope` und im Quellbeleg.
 | Nur zugeordnete Backend-Bereiche (PR nach `b25`) | deren Testdateien plus Replay, Ruff/Format, Mypy strict, Importgrenzen und Abhängigkeits-/Metadatenchecks |
 | Gemeinsamer Backend-Kern oder unbekannter Backendpfad | vollständiger Satz |
 | Frontend | Frontend, Workbench-E2E, Image; bei öffentlichen Assets auch Herdenprüfung |
-| Traber | HA-Kernel-Prüfung |
+| Traber-Bereich | Bereichstests/Prüfwerkzeuge plus getrennte HA-Kernel-Prüfung |
 | Python-Client | Backend, HA-Kernel, Workbench-E2E |
 | Backendtests | Backend |
 | Release-/Build-Regeln, unbekannte Pfade | vollständiger Satz |

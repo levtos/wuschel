@@ -25,7 +25,7 @@ def area_plan(paths: list[str], areas: dict) -> dict | None:
     """Only a wholly mapped backend diff may narrow the backend test gate."""
     names = set()
     for path in paths:
-        if not path.startswith(("src/core_contracts/", "tests/test_")):
+        if not path.startswith(("src/core_contracts/", "tests/", "custom_components/traber/")):
             return None
         matched = {
             name
@@ -36,7 +36,7 @@ def area_plan(paths: list[str], areas: dict) -> dict | None:
                 for prefix in area["paths"]
             )
         }
-        if not matched or matched & {"release", "store", "load", "traber"}:
+        if not matched or "release" in matched:
             return None
         names.update(matched)
     tests = sorted({test for name in names for test in areas[name]["tests"]})
@@ -71,6 +71,7 @@ def select(paths: list[str], *, full: bool = False, cache_probe: bool = False) -
             "cache_probe": False,
             **selected,
             "platform": True,
+            "ha-bridge": "traber" in area["areas"],
             "area_only": True,
             **area,
         }

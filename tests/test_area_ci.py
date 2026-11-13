@@ -61,6 +61,14 @@ def test_catalog_only_runs_its_measured_tests_replay_and_tools():
     )
 
 
+def test_traber_area_keeps_its_separate_ha_kernel_job():
+    plan = select(["src/core_contracts/ha_projection.py"])
+    assert {name for name in JOBS if plan[name]} == {"platform", "ha-bridge"}
+    assert set(plan["areas"]) == {"adapters", "traber"}
+    assert "tests/test_bridge_kernel.py" in plan["pytest_files"]
+    assert "tests/test_replay.py" in plan["pytest_files"]
+
+
 @pytest.mark.parametrize(
     "path",
     [

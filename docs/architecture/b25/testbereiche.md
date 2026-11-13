@@ -501,8 +501,9 @@ CI verwendet bei vollständig zugeordneten Backend-Bereichsänderungen die
 Vereinigung der Testdateien plus `tests/test_replay.py`, Ruff/Format, Mypy strict,
 Importgrenzen und Abhängigkeitsprüfung. Image-/Wheel-Bau, Leistungsproben und
 Workbench-E2E entfallen in diesem Fall. Gemeinsamer Kern, unbekannte Pfade und
-Änderungen an Bau-/Prüfregeln lösen die volle Prüfung aus. Traber und getrennte
-Testumgebungen werden nicht durch die Bereichsauswahl verkürzt. Die bisherigen
+Änderungen an Bau-/Prüfregeln lösen die volle Prüfung aus. Bei Traber läuft
+zusätzlich der getrennte HA-Kernel-Job; PostgreSQL und Docker stehen auch für
+Bereichstests bereit. Die bisherigen
 Frontend-/Dokumentationsregeln gelten weiter. PRs nach `main`, Main-Pushes und
 Release-Prüfungen laufen immer vollständig; der manuelle Messjob ist kein
 Release-Nachweis.

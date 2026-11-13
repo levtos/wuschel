@@ -42,8 +42,8 @@ def test_backend_frontend_bridge_and_test_boundaries():
         "workbench-e2e",
         "images",
     }
-    assert active(select(["custom_components/traber/__init__.py"])) == {"ha-bridge"}
-    assert active(select(["tests/test_bridge_kernel.py"])) == {"ha-bridge"}
+    assert active(select(["custom_components/traber/__init__.py"])) == {"platform", "ha-bridge"}
+    assert active(select(["tests/test_bridge_kernel.py"])) == {"platform", "ha-bridge"}
     assert active(select(["tests/test_new_unmapped_core.py"])) == set(JOBS)
     assert active(select(["docs/alpha4/example-registry.json"])) == set(JOBS)
 
