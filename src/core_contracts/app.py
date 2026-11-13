@@ -243,7 +243,7 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
             return await initialize_connection()
 
     async def initialize_connection() -> str:
-        startup_started = perf_counter()
+        startup_started = runtime.begin_startup()
         connection = setup.connection
         assert connection is not None
         store.dsn, store.tls = connection.dsn(), connection.tls()

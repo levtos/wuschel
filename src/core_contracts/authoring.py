@@ -845,11 +845,24 @@ async def rebuild_plan(
 
 
 async def migrate(runtime: Any, state: Any, now: Any) -> None:
+    tables = ("registry_draft", "draft_continuation", "editorial_draft", "registry_draft_version")
     for key in list(state.tables["registry_draft"]):
         original = state.tables["registry_draft"][key]
         try:
-            # Preserve earlier drafts' uncommitted archive appends in this transaction.
-            probe = state.model_copy(deep=True)
+            if original.get("authoring_version") == 2:
+                version_key = f"{key}:{original['draft_version']}"
+                if version_key in state.tables["registry_draft_version"] or await runtime.store.get(
+                    "registry_draft_version", version_key
+                ):
+                    continue
+            # Only these four tables can change. The probe is never committed;
+            # adoption below journals the isolated rows on the actual writer.
+            # Include earlier drafts' uncommitted archive appends in every probe.
+            probe = state.model_copy(
+                update={
+                    "tables": {**state.tables, **{t: deepcopy(state.tables[t]) for t in tables}}
+                }
+            )
             if original.get("authoring_version") != 2:
                 await _migrate_rows(runtime, probe, now, key)
             # Legacy rows may predate the input archive. Backfill only their current
@@ -875,12 +888,7 @@ async def migrate(runtime: Any, state: Any, now: Any) -> None:
                 extra={"draft_id": key, "error_type": type(error).__name__},
             )
         else:
-            for table in (
-                "registry_draft",
-                "draft_continuation",
-                "editorial_draft",
-                "registry_draft_version",
-            ):
+            for table in tables:
                 state.tables[table] = probe.tables[table]
 
 
@@ -1285,5 +1293,5 @@ async def restore_authoring(runtime: Runtime, state: State, context: Any) -> Non
     await migrate(runtime, state, runtime.clock.now_utc())
 
 
-slots.RESTORE[30] = slots.Hook(restore_authoring, "migration")
+slots.RESTORE[30] = slots.Hook(restore_authoring, "migration", "restore_authoring")
 slots.BEFORE_COMMIT[10] = slots.Hook(archive_versions, "archive")

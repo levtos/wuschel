@@ -309,6 +309,7 @@
       "tests/test_retention_postgres.py",
       "tests/test_runtime.py",
       "tests/test_startup_lifecycle.py",
+      "tests/test_startup_timing.py",
       "tests/test_transports.py",
       "tests/test_workbench_api.py"
     ]
@@ -427,6 +428,7 @@
       "tests/test_setup.py",
       "tests/test_setup_postgres.py",
       "tests/test_startup_lifecycle.py",
+      "tests/test_startup_timing.py",
       "tests/test_title_reader.py",
       "tests/test_title_sync.py",
       "tests/test_title_sync_pages.py",
