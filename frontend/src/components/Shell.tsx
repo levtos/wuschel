@@ -1,6 +1,5 @@
 import { t as uiText } from '@/i18n';
 import {
-  Activity,
   Cable,
   ChevronDown,
   ChevronsLeft,
@@ -34,7 +33,7 @@ import { useQuery } from '@tanstack/react-query';
 import { isObject } from '@/lib/json';
 import { catalogLabel, type NamedCatalog } from '@/features/catalog/catalogLabels';
 
-const MODULE_ICONS = { contracts: FileCode2, 'catalog-care': FileCode2, sources: Cable, changes: FlaskConical, settings: Settings2, diagnosis: Activity };
+const MODULE_ICONS = { contracts: FileCode2, 'catalog-care': FileCode2, sources: Cable, changes: FlaskConical, settings: Settings2 };
 
 /** Top-bar chips: readiness and connection are separate facts. */
 export function StatusChips({ extra }: { extra?: ReactNode }) {

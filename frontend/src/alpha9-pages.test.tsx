@@ -27,7 +27,7 @@ const routes = [
   ['/settings/system', 'alpha9.system.description'],
   ...['installation', 'connections', 'keys', 'log', 'diagnostics'].map(section => [`/settings/${section}`, `alpha9.pages.${section}`]),
   ['/settings/notifications', 'alpha9.notifications.description'], ['/settings/retention', 'alpha9.retention.description'],
-  ['/settings/operations', 'b26.operations.description'], ['/diagnosis/system-state', 'b26.system.description'],
+  ['/settings/operations', 'b26.operations.description'], ['/settings/diagnostics/system-state', 'b26.system.description'],
 ];
 function app(path: string) {
   const api = installFakeApi({ revisions: [{ revision: 1, checksum: 'a'.repeat(64), created_at: '2026-10-18T10:00:00Z', config }], drafts: [makeDraft('d1', config)] });
