@@ -10,13 +10,15 @@ sie werden nicht gelöscht. Auftrag: [#68](https://github.com/levtos/wuschel/iss
 `dev/ci_scope.py` vergleicht bei PRs die Basis mit dem getesteten Merge-Commit,
 bei Pushes den bisherigen mit dem neuen Commit. Unbekannte Pfade und Änderungen
 an Versionsdateien, Build-Regeln oder Workflows erzwingen den vollständigen Satz.
-Jeder Release-PR enthält eine Versionsänderung und muss vor dem Merge alle neun
-Jobs bestehen. Der Auswahlplan steht im Job `scope` und im Quellbeleg.
+Jeder PR nach `main` und jede Release-Prüfung muss vor dem Merge alle neun
+Pflichtjobs bestehen. Der separate manuelle Messjob bleibt dabei ausgelassen.
+Der Auswahlplan steht im Job `scope` und im Quellbeleg.
 
 | Änderung | Betroffene Anwendungsprüfungen |
 |---|---|
 | Markdown-Dokumentation, AGENTS/CLAUDE | keine Backend-/Frontend-/Image-Jobs |
-| Backend | Backend, Workbench-E2E, Image |
+| Nur zugeordnete Backend-Bereiche (PR nach `b25`) | deren Testdateien plus Replay, Ruff/Format, Mypy strict, Importgrenzen und Abhängigkeits-/Metadatenchecks |
+| Gemeinsamer Backend-Kern oder unbekannter Backendpfad | vollständiger Satz |
 | Frontend | Frontend, Workbench-E2E, Image; bei öffentlichen Assets auch Herdenprüfung |
 | Traber | HA-Kernel-Prüfung |
 | Python-Client | Backend, HA-Kernel, Workbench-E2E |
@@ -45,6 +47,13 @@ gh workflow run ci.yml --ref main -f full=false -f base_sha=BASE
 `full=true` fordert den vollständigen Satz an. Ohne passende Basis wird
 konservativ vollständig geprüft. Repository-Einstellungen und Pflichtprüfungen
 werden für die Pfadauswahl nicht verändert.
+
+Die Bereichsauswahl liest `tests/areas.json`. Mischungen mit Kernpfaden sowie
+fehlende, ungültige oder veraltete Zuordnungen fallen auf die vollständige
+Backendprüfung zurück. Quellpfade werden bei Umbenennungen beidseitig geprüft.
+Die separate Neumessung wird ausschließlich mit `area_map=true` per
+`workflow_dispatch` gestartet und stellt `test-areas` als Artefakt bereit;
+Methode und Übernahme stehen in `architecture/b25/testbereiche.md`.
 
 ## Docker-Stufen wiederverwenden
 

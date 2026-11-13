@@ -19,6 +19,29 @@ def test_bootstrap_selector_parses_with_runner_system_python():
     ast.parse((ROOT / "dev/ci_scope.py").read_text(), feature_version=(3, 12))
 
 
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        None,
+        "broken json",
+        "{}",
+        '{"catalog":{}}',
+        '{"catalog":{"paths":["src/core_contracts/extensions/catalog/"],"tests":[]}}',
+        '{"catalog":{"paths":["src/core_contracts/extensions/catalog/"],"tests":["tests/gone.py"]}}',
+    ],
+)
+def test_missing_invalid_or_stale_area_map_fails_closed(tmp_path, monkeypatch, mapping):
+    import dev.ci_scope as scope
+
+    monkeypatch.setattr(scope, "ROOT", tmp_path)
+    if mapping is not None:
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests/areas.json").write_text(mapping)
+    plan = select(["src/core_contracts/extensions/catalog/catalog_care.py"])
+    assert plan["full"] and all(plan[name] for name in JOBS)
+    assert not plan["area_only"] and not plan["pytest_files"]
+
+
 def test_catalog_only_runs_its_measured_tests_replay_and_tools():
     areas = json.loads((ROOT / "tests/areas.json").read_text())
     plan = select(["src/core_contracts/extensions/catalog/catalog_care.py"])
