@@ -15,6 +15,8 @@ RELEASE_FILES = {
     "frontend/package-lock.json",
     "wuschel/config.yaml",
     "wuschel/PENDING_RELEASE.json",
+    "tests/test_replay.py",
+    "tests/conftest.py",
 }
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -49,7 +51,9 @@ def area_plan(paths: list[str], areas: dict) -> dict | None:
 def select(paths: list[str], *, full: bool = False, cache_probe: bool = False) -> dict:
     selected = {name: False for name in JOBS}
     full = full or any(
-        p in RELEASE_FILES or p.startswith((".github/", "dev/", "wuschel/")) for p in paths
+        p in RELEASE_FILES
+        or p.startswith((".github/", "dev/", "wuschel/", "tests/fixtures/replay/"))
+        for p in paths
     )
     probe = cache_probe or any(
         p in {"wuschel/Dockerfile", ".github/workflows/ci.yml"} for p in paths
@@ -87,7 +91,7 @@ def select(paths: list[str], *, full: bool = False, cache_probe: bool = False) -
                 selected[name] = True
             selected["herd-assets"] |= p.startswith("frontend/public/")
         elif p.startswith("tests/"):
-            selected["platform"] = True
+            full = True  # New/unmapped tests and shared fixtures are core too.
         elif p in RELEASE_FILES or p.startswith((".github/", "dev/", "wuschel/")):
             pass  # Already forces the full set above.
         else:

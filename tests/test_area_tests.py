@@ -46,6 +46,12 @@ def test_changed_selection_combines_areas_and_fails_closed_for_core():
     assert affected_tests(areas, ["src/core_contracts/quality.py"]) == "ALL"
     assert affected_tests(areas, ["src/core_contracts/wakefulness.py"]) == "ALL"
     assert affected_tests(areas, ["tests/test_replay.py"]) == "ALL"
+    assert (
+        affected_tests(
+            {"example": {"paths": [], "tests": ["tests/test_replay.py"]}}, ["tests/test_replay.py"]
+        )
+        == "ALL"
+    )
     combined = affected_tests(
         areas,
         ["src/core_contracts/extensions/wake/operator.py", "src/core_contracts/calendar_cache.py"],

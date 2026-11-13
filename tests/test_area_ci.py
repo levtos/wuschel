@@ -69,6 +69,10 @@ def test_catalog_only_runs_its_measured_tests_replay_and_tools():
         "src/core_contracts/extensions/new/feature.py",
         "dev/area_map.py",
         "uv.lock",
+        "tests/test_replay.py",
+        "tests/fixtures/replay/catalog.json",
+        "tests/conftest.py",
+        "tests/test_new_unmapped_core.py",
     ],
 )
 def test_core_unknown_and_mixed_changes_keep_all_jobs(path):
