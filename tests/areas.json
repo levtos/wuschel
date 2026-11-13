@@ -228,6 +228,7 @@
       "tests/test_catalog_cleanup.py",
       "tests/test_catalog_scope.py",
       "tests/test_delta_review.py",
+      "tests/test_operations.py",
       "tests/test_phase1a.py",
       "tests/test_postgres.py",
       "tests/test_remediation.py",
@@ -300,6 +301,7 @@
       "tests/test_measurement_ordering.py",
       "tests/test_mqtt_integration.py",
       "tests/test_multibucket.py",
+      "tests/test_operations.py",
       "tests/test_phase1a.py",
       "tests/test_postgres.py",
       "tests/test_presence_templates.py",
@@ -523,6 +525,7 @@
       "tests/test_beta3_postgres.py",
       "tests/test_beta4_postgres.py",
       "tests/test_beta_persistence.py",
+      "tests/test_operations.py",
       "tests/test_postgres.py",
       "tests/test_retention_postgres.py",
       "tests/test_setup_postgres.py"
@@ -534,6 +537,14 @@
       "tests/test_b23_acceptance.py",
       "tests/test_b23_p6.py",
       "tests/test_b23_p7.py"
+    ]
+  },
+  "operations": {
+    "paths": [
+      "src/core_contracts/operations.py"
+    ],
+    "tests": [
+      "tests/test_operations.py"
     ]
   }
 }

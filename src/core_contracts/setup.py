@@ -19,6 +19,7 @@ from pydantic import Field, SecretStr, StrictBool, field_validator
 
 from .identity import load_id, reconcile, write_private
 from .model import Model, canonical
+from .operations import OperationsSettings
 from .persistence import TABLES
 
 
@@ -86,13 +87,18 @@ class ConfirmRequest(Model):
     confirm: StrictBool = False
 
 
-async def configure_bridge(token: str) -> dict[str, Any]:
+async def configure_bridge(
+    token: str, *, operations: OperationsSettings | None = None
+) -> dict[str, Any]:
     """Supported HA config flow, fixed Bridge domain, after explicit confirmation."""
     if not token:
         raise ValueError("ha_unavailable")
     base = "http://supervisor/core/api/config/config_entries"
     headers = {"Authorization": "Bearer " + token}
-    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as session:
+    settings = operations or OperationsSettings()
+    async with aiohttp.ClientSession(
+        timeout=aiohttp.ClientTimeout(total=settings.setup_bridge_timeout_s)
+    ) as session:
         async with session.get(base + "/entry?domain=traber", headers=headers) as response:
             if response.status != 200:
                 raise ValueError("ha_unavailable")
@@ -128,9 +134,11 @@ async def configure_bridge(token: str) -> dict[str, Any]:
         return {"created": True, "state": "configuration_created"}
 
 
-async def reachability(host: str, port: int) -> dict[str, Any]:
+async def reachability(
+    host: str, port: int, *, operations: OperationsSettings | None = None
+) -> dict[str, Any]:
     """PostgreSQL SSLRequest: no startup credentials, version remains unknown."""
-    async with asyncio.timeout(5):
+    async with asyncio.timeout((operations or OperationsSettings()).setup_reachability_timeout_s):
         reader, writer = await asyncio.open_connection(host, port)
         try:
             writer.write(struct.pack("!II", 8, 80877103))
@@ -144,10 +152,16 @@ async def reachability(host: str, port: int) -> dict[str, Any]:
             await writer.wait_closed()
 
 
-async def probe(connection: Connection, *, resume: bool = False) -> dict[str, Any]:
+async def probe(
+    connection: Connection, *, resume: bool = False, operations: OperationsSettings | None = None
+) -> dict[str, Any]:
     """Authenticated read-only probe, before the migration runner touches any schema."""
+    settings = operations or OperationsSettings()
     client = await asyncpg.connect(
-        connection.dsn(), ssl=connection.tls(), timeout=10, command_timeout=10
+        connection.dsn(),
+        ssl=connection.tls(),
+        timeout=settings.database_connect_timeout_s,
+        command_timeout=settings.database_command_timeout_s,
     )
     try:
         async with client.transaction(readonly=True):
@@ -201,11 +215,17 @@ async def probe(connection: Connection, *, resume: bool = False) -> dict[str, An
         await client.close()
 
 
-async def bridge_status(token: str) -> dict[str, Any]:
+async def bridge_status(
+    token: str, *, operations: OperationsSettings | None = None
+) -> dict[str, Any]:
     if not token:
         return {"state": "unavailable", "release_blocker": True}
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(
+                total=(operations or OperationsSettings()).setup_status_timeout_s
+            )
+        ) as session:
             async with session.ws_connect("ws://supervisor/core/websocket") as socket:
                 await socket.receive_json()
                 await socket.send_json({"type": "auth", "access_token": token})
@@ -254,9 +274,15 @@ async def bridge_status(token: str) -> dict[str, Any]:
 
 class Setup:
     def __init__(
-        self, data: Path, legacy: Connection | None, *, configuration_error: str = ""
+        self,
+        data: Path,
+        legacy: Connection | None,
+        *,
+        configuration_error: str = "",
+        operations: OperationsSettings | None = None,
     ) -> None:
         self.data = data
+        self.operations = operations or OperationsSettings()
         self.directory = data / "setup"
         self.path = self.directory / "connection.json"
         self.csrf = secrets.token_urlsafe(32)
@@ -320,20 +346,28 @@ class Setup:
                 raise ValueError("confirmation_required")
             if not self.completed:
                 raise ValueError("database_setup_pending")
-            if (await bridge_status(os.environ.get("SUPERVISOR_TOKEN", "")))["state"] != "active":
+            if (
+                await bridge_status(
+                    os.environ.get("SUPERVISOR_TOKEN", ""), operations=self.operations
+                )
+            )["state"] != "active":
                 raise ValueError("bridge_setup_pending")
             write_private(self.directory / "onboarding.json", canonical({"completed": True}))
             return {"completed": True}
         if path == "bridge" and method == "GET":
-            return await bridge_status(os.environ.get("SUPERVISOR_TOKEN", ""))
+            return await bridge_status(
+                os.environ.get("SUPERVISOR_TOKEN", ""), operations=self.operations
+            )
         if path == "bridge_configure" and method == "POST":
             if not ConfirmRequest.model_validate(body).confirm:
                 raise ValueError("confirmation_required")
-            return await configure_bridge(os.environ.get("SUPERVISOR_TOKEN", ""))
+            return await configure_bridge(
+                os.environ.get("SUPERVISOR_TOKEN", ""), operations=self.operations
+            )
         if path == "reachability" and method == "POST":
             request = ProvisionRequest.model_validate(body)
             checked = Connection.model_validate({**request.model_dump(), "password": ""})
-            return await reachability(checked.host, checked.port)
+            return await reachability(checked.host, checked.port, operations=self.operations)
         if path == "provision" and method == "POST":
             request = ProvisionRequest.model_validate(body)
             # Reuse the exact request/marker after refresh or interrupted setup.
@@ -397,7 +431,7 @@ class Setup:
         if request.connection.sslmode != "verify-full" and not request.allow_insecure:
             raise ValueError("insecure_tls_confirmation_required")
         async with self.lock:
-            result = await probe(request.connection)
+            result = await probe(request.connection, operations=self.operations)
             local = load_id(self.data)
             database = result["database_id"]
             if not database and not request.initialize_empty_database:

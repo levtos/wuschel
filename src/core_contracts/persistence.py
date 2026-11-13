@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field, PrivateAttr
 
 from .history import CONTRACT_SQL, HISTORY_TABLES, TIME_SQL, HistoryQuery, page, timestamp
 from .model import canonical
+from .operations import OperationsSettings
 from .retention import (
     EvidenceOutsideRetention,
     RetentionPolicy,
@@ -599,10 +600,18 @@ class PostgresStore:
         rows = rollup_rows([dict(row) for row in records], query, position)
         return page(rows, query, "observation_rollups")
 
-    def __init__(self, dsn: str, migrations: Path, *, tls: ssl.SSLContext | bool = True) -> None:
+    def __init__(
+        self,
+        dsn: str,
+        migrations: Path,
+        *,
+        tls: ssl.SSLContext | bool = True,
+        operations: OperationsSettings | None = None,
+    ) -> None:
         self.dsn = dsn
         self.migrations = migrations
         self.tls = tls
+        self.operations = operations or OperationsSettings()
         self.writer: asyncpg.Connection[Any] | None = None
         self.pool: asyncpg.Pool[Any] | None = None
         self._committed = State()
@@ -616,15 +625,17 @@ class PostgresStore:
         connection = await asyncpg.connect(
             self.dsn,
             ssl=self.tls,
-            timeout=10,
-            command_timeout=10,
+            timeout=self.operations.database_connect_timeout_s,
+            command_timeout=self.operations.database_command_timeout_s,
             server_settings={
-                "tcp_keepalives_idle": "15",
-                "tcp_keepalives_interval": "5",
-                "tcp_keepalives_count": "3",
-                "tcp_user_timeout": "30000",
-                "idle_session_timeout": "600000",
-                "idle_in_transaction_session_timeout": "15000",
+                "tcp_keepalives_idle": str(self.operations.database_keepalive_idle_s),
+                "tcp_keepalives_interval": str(self.operations.database_keepalive_interval_s),
+                "tcp_keepalives_count": str(self.operations.database_keepalive_count),
+                "tcp_user_timeout": str(self.operations.database_tcp_timeout_s * 1000),
+                "idle_session_timeout": str(self.operations.database_idle_session_timeout_s * 1000),
+                "idle_in_transaction_session_timeout": str(
+                    self.operations.database_idle_transaction_timeout_s * 1000
+                ),
                 "application_name": "core_contracts_writer",
             },
         )
@@ -639,7 +650,12 @@ class PostgresStore:
             self.writer = connection
             await self.migrate()
             self.pool = await asyncpg.create_pool(
-                self.dsn, ssl=self.tls, min_size=1, max_size=2, timeout=10, command_timeout=10
+                self.dsn,
+                ssl=self.tls,
+                min_size=1,
+                max_size=self.operations.database_pool_size,
+                timeout=self.operations.database_connect_timeout_s,
+                command_timeout=self.operations.database_command_timeout_s,
             )
             LOGGER.info("writer_lock_acquired")
         except BaseException:
@@ -928,14 +944,15 @@ class PostgresStore:
     async def close(self) -> None:
         if self.pool:
             try:
-                async with asyncio.timeout(3):
+                async with asyncio.timeout(self.operations.database_close_timeout_s):
                     await self.pool.close()
             except TimeoutError:
                 LOGGER.warning("reader_pool_close_timeout")
                 self.pool.terminate()
             self.pool = None
         if self.writer and not self.writer.is_closed():
-            await self.writer.close(timeout=3)  # Session lock is released by PostgreSQL.
+            # Session lock is released by PostgreSQL.
+            await self.writer.close(timeout=self.operations.database_close_timeout_s)
         self.writer = None
 
 

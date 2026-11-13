@@ -19,6 +19,7 @@ from .authoring import AuthoringError
 from .capabilities import capabilities, configuration_schema, describe_types, reasons
 from .history import HISTORY_TABLES, HistoryQuery
 from .model import canonical
+from .operations import OperationsFile
 from .registry import fingerprints, registry_types
 from .retention import EvidenceOutsideRetention
 from .runtime import Runtime
@@ -38,6 +39,7 @@ class API:
         ingress_address: str = "172.30.32.2",
         frontend: Path | None = None,
         setup: Setup | None = None,
+        operations: OperationsFile | None = None,
     ) -> None:
         self.runtime, self.tokens, self.installation_id = runtime, tokens, installation_id
         self.installation_label, self.ingress_address, self.frontend = (
@@ -47,6 +49,7 @@ class API:
         )
         self.limiter = RateLimiter(runtime.clock)
         self.setup = setup
+        self.operations = operations or OperationsFile(active=runtime.operations)
         runtime.configuration_error = bool(setup and setup.configuration_error)
         self.auth_limiter = RateLimiter(runtime.clock)
         self.sockets: set[web.WebSocketResponse] = set()
@@ -296,7 +299,7 @@ class API:
     async def close_sockets(self, app: web.Application) -> None:
         async def close(socket: web.WebSocketResponse) -> None:
             try:
-                async with asyncio.timeout(2):
+                async with asyncio.timeout(self.runtime.operations.websocket_close_timeout_s):
                     await socket.send_json({"type": "going_away"})
                     await socket.close(code=1001, message=b"shutdown")
             except TimeoutError, ConnectionError:
@@ -380,6 +383,62 @@ class API:
         result: Any
         if path == "info" and method == "GET":
             result = self.info()
+        elif path == "operations/settings" and method == "GET":
+            result = self.operations.view()
+        elif (
+            path == "operations/settings"
+            and method == "PUT"
+            or path == "operations/settings/reset"
+            and method == "POST"
+        ):
+            body = await self.object_body(request)
+            try:
+                if path.endswith("/reset"):
+                    if set(body) - {"key"} or "key" in body and not isinstance(body["key"], str):
+                        raise ValueError("invalid_operations_reset")
+                    result = self.operations.reset(body.get("key"))
+                else:
+                    result = self.operations.update(body)
+                logging.getLogger(__name__).info(
+                    "operations_settings_saved", extra={"count": len(body)}
+                )
+            except ValidationError as error:
+                properties = self.operations.view()["settings"]
+                fields = {item["key"]: item for item in properties}
+                details = []
+                for item in error.errors(
+                    include_input=False, include_context=False, include_url=False
+                ):
+                    key = str(item["loc"][0])
+                    field = fields.get(key)
+                    message = (
+                        f"{field['name']}: Gib einen Wert von {field['minimum']} bis {field['maximum']} {field['unit']} ein."
+                        if field
+                        else "Diese Betriebseinstellung ist unbekannt."
+                    )
+                    details.append({"location": [key] if field else [], "message": message})
+                return web.json_response(
+                    {
+                        "error": "invalid_operations_settings",
+                        "issues": [
+                            {
+                                "code": "operations_range",
+                                "path": "/" + "/".join(item["location"]),
+                                "message": item["message"],
+                            }
+                            for item in details
+                        ],
+                    },
+                    status=400,
+                )
+            except OSError:
+                return web.json_response({"error": "operations_write_failed"}, status=503)
+        elif path == "system/state" and method == "GET":
+            result = {
+                **runtime.system_state(),
+                "version": __version__,
+                "operations_notice": self.operations.notice,
+            }
         elif path == "types" and method == "GET":
             result = describe_types(config, runtime.types)
         elif path == "capabilities" and method == "GET":

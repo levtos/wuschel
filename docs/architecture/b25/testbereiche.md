@@ -25,6 +25,7 @@ Die Backend-Suite lief einmal mit Zeilenabdeckung je Test (`coverage`, Kontext j
 | `release` | 7 | Release- und CI-Prüfungen |
 | `store` | 8 | braucht PostgreSQL, läuft nur in der CI |
 | `load` | 3 | Lasttests, laufen nur in der vollen CI |
+| `operations` | 1 | b26: Betriebsmodell und atomare Betriebsdatei (`kernel`), eigener Testbereich aus #131 |
 
 7 gemessene Testdateien berühren keinen der Bereiche und prüfen nur den Kern (`kernel`, `store`, `rules`, `lane`).
 Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdateien.
@@ -40,6 +41,10 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
 
 ```json
 {
+ "operations": {
+  "paths": ["src/core_contracts/operations.py"],
+  "tests": ["tests/test_operations.py"]
+ },
  "wake": {
   "paths": [
    "src/core_contracts/extensions/wake/"

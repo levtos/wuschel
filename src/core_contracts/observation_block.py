@@ -58,13 +58,16 @@ async def process_block(runtime: Runtime, first: Work) -> None:
     started = perf_counter()
     timing = Timing(asyncio.current_task())
     token = current.set(timing)
-    deadline = started + 0.05
+    deadline = started + runtime.operations.observation_block_window_s
     error: Exception | None = None
     try:
         while True:
             works.append(work)
             await worker.process("observation", work.payload)
-            if len(works) >= 100 or perf_counter() >= deadline:
+            if (
+                len(works) >= runtime.operations.observation_block_size
+                or perf_counter() >= deadline
+            ):
                 break
             if runtime.queue.empty() and first.future is not None:
                 break

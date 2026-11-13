@@ -47,6 +47,10 @@ class MQTTAdapter:
         class ObservableQueue(asyncio.Queue[aiomqtt.Message]):
             ordered_put = False
 
+            def __init__(self, maxsize: int = 0) -> None:
+                super().__init__(maxsize)
+                adapter.runtime.mqtt_queue = self
+
             def full(self) -> bool:
                 return False if self.ordered_put else super().full()
 
@@ -66,6 +70,7 @@ class MQTTAdapter:
                         self.ordered_put = False
                     return
                 if self.full():
+                    adapter.runtime.mqtt_overflow += 1
                     adapter.queue_overflow = True
                     adapter.runtime.overflow = True
                     adapter.runtime.overflow_serial += 1
@@ -155,7 +160,7 @@ class MQTTAdapter:
             self.runtime.mqtt_revision_changed.clear()
             config = self.runtime.config
             if config is None:
-                await self.runtime.clock.sleep(1)
+                await self.runtime.clock.sleep(self.runtime.operations.adapter_poll_interval_s)
                 continue
             revision = self.runtime.state.active_revision
             try:
@@ -169,7 +174,7 @@ class MQTTAdapter:
                     tls_context=ssl.create_default_context(cafile=credentials.get("ca") or None)
                     if credentials.get("tls")
                     else None,
-                    max_queued_incoming_messages=256,
+                    max_queued_incoming_messages=self.runtime.operations.mqtt_queue_size,
                     queue_type=self.queue_type,
                 ) as client:
                     bindings = [b for b in config.bindings if b.adapter.kind == "mqtt"]
@@ -178,6 +183,7 @@ class MQTTAdapter:
                     await self.runtime.submit("mqtt_state", "connected")
                     self.seen.clear()
                     self.retry_delay = 1.0
+                    self.runtime.retry_succeeded("mqtt")
                     LOGGER.info("mqtt_connected")
 
                     async def ingest() -> None:
@@ -243,7 +249,9 @@ class MQTTAdapter:
                                 self.runtime.mqtt_revision_changed.clear()
                             if self.runtime.mqtt_revision_changed.is_set():
                                 return
-                            await self.runtime.clock.sleep(1)
+                            await self.runtime.clock.sleep(
+                                self.runtime.operations.adapter_poll_interval_s
+                            )
 
                     reader, watcher = asyncio.create_task(ingest()), asyncio.create_task(changed())
                     try:
@@ -256,7 +264,10 @@ class MQTTAdapter:
                         reader.cancel()
                         watcher.cancel()
                         await asyncio.gather(reader, watcher, return_exceptions=True)
+                        self.runtime.mqtt_queue = None
             except Exception as error:
+                self.runtime.mqtt_queue = None
+                self.runtime.retry_failed("mqtt", error)
                 LOGGER.warning("mqtt_disconnected", extra={"error_type": type(error).__name__})
                 try:
                     await self.runtime.submit("mqtt_state", "disconnected")
@@ -265,4 +276,6 @@ class MQTTAdapter:
                         "mqtt_status_failed", extra={"error_type": type(status_error).__name__}
                     )
                 await self.runtime.clock.sleep(self.retry_delay)
-                self.retry_delay = min(self.retry_delay * 2, 30)
+                self.retry_delay = min(
+                    self.retry_delay * 2, self.runtime.operations.mqtt_retry_max_s
+                )
