@@ -590,4 +590,4 @@ async def restore_contexts(runtime: Runtime, state: State, context: Any) -> None
         migrate_legacy_contexts(state, restored_config, runtime.types)
 
 
-slots.RESTORE[40] = slots.Hook(restore_contexts, "migration")
+slots.RESTORE[40] = slots.Hook(restore_contexts, "migration", "restore_contexts")

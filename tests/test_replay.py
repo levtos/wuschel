@@ -1,7 +1,9 @@
 """b25 published-truth baseline. Record deliberately with WUSCHEL_REPLAY_RECORD=1.
 
-Only random UUIDs are renamed, including occurrences inside evidence references
-and table keys. Values, ordering, timestamps and every other byte stay visible.
+Random UUIDs are renamed, including occurrences inside evidence references
+and table keys. Additive b26 startup diagnostics in service_state are tested in
+test_startup_timing, not in the frozen b25 baseline. All other values, ordering,
+timestamps and bytes stay visible.
 All configurations derive from conftest's synthetic registry or examples/.
 """
 
@@ -51,11 +53,23 @@ def canonical(document):
         if isinstance(value, list):
             return [normalize(item) for item in value]
         if isinstance(value, dict):
+            # #130 adds diagnostics with real, non-deterministic durations. Keep
+            # the ten b25 recordings intact; every original service field stays checked.
+            if value.get("type") == "service_state":
+                value = {k: v for k, v in value.items() if k not in {"startup", "startup_attempts"}}
             # Traverse in publication/insertion order before canonical key sorting.
             return {normalize(key): normalize(item) for key, item in value.items()}
         return value
 
     return json.dumps(normalize(document), ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+
+
+def test_baseline_excludes_only_additive_service_startup_diagnostics():
+    before = {"type": "service_state", "ready": False, "reasons": ["snapshot"]}
+    after = {**before, "startup": {"total": 123}, "startup_attempts": 2}
+    assert canonical(after) == canonical(before)
+    assert canonical({**after, "ready": True}) != canonical(before)
+    assert canonical({"type": "other", "startup": 123}) != canonical({"type": "other"})
 
 
 class Replay:

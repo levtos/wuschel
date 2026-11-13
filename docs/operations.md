@@ -48,6 +48,23 @@ Aufforderung, die bestehenden produktiven Optionen zu ändern.
 App, API-Protokoll, Bridge-Protokoll, Client und Registry-/DB-Schema haben
 getrennte Versionsnummern. Dieser Build erzeugt keinen Release oder Tag.
 
+## Startdauer und Katalogpflege
+
+`/health/ready` liefert unter `startup` die Phasen des letzten Startversuchs
+in gerundeten Millisekunden. `startup_attempts` zählt die Versuche seit
+Prozessbeginn, auch bei Fehlern beim Datenbankaufbau. Der Fehlergrund bleibt
+in `setup.error`. Ein neuer Versuch ersetzt die bisherigen Phasen.
+`startup_timing` protokolliert weiterhin die ungerundeten Messwerte.
+`restore_migration` bleibt die Gesamtdauer; `restore_clone`,
+`restore_catalog_baseline`, `restore_authoring` und `restore_contexts` zeigen
+die einzelnen Anteile. Diese Teilwerte nicht noch einmal zur Gesamtdauer addieren.
+
+Die Katalogpflege hat für Vorschau, Schreiben und Auflisten das Laufzeitziel
+500 ms mit dem synthetischen Bestand aus `tests/test_b22_p2.py` (Speicher und
+PostgreSQL). Alle Messwerte bleiben als `record_property` erhalten. Erst über
+2.500 ms schlägt die Stabilitätsprüfung fehl; das Laufzeitziel allein sperrt
+keinen Merge.
+
 ## Identität und Tokens
 
 `/data/installation.json` und `cc_meta.installation_id` müssen übereinstimmen.

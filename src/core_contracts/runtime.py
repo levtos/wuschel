@@ -151,6 +151,8 @@ class Runtime:
         self.stopping = False
         self.commit_duration = 0.0
         self.catalog_care_timings: dict[str, float] = {}
+        self.startup_timings: dict[str, float] = {}
+        self.startup_attempts = 0
         self.last_heartbeat = clock.monotonic()
         self.refresh_requests: asyncio.Queue[tuple[int, str]] = asyncio.Queue(256)
         self.pending_refresh: set[str] = set()
@@ -235,6 +237,8 @@ class Runtime:
     def service_state(self) -> dict[str, Any]:
         return {
             "type": "service_state",
+            "startup": {key: round(value) for key, value in self.startup_timings.items()},
+            "startup_attempts": self.startup_attempts,
             "ready": self.ready,
             "publication_confirmed": self.confirmed,
             "persistence": "available" if self.persistence else "persistence_unavailable",
@@ -394,21 +398,31 @@ class Runtime:
             return True
         return False
 
+    def begin_startup(self) -> float:
+        """Count an initialization attempt, including failures before store.load()."""
+        self.startup_attempts += 1
+        self.startup_timings = {}
+        return perf_counter()
+
     async def start(
         self, *, startup_started: float | None = None, store_open_ms: float = 0.0
     ) -> None:
-        started = perf_counter() if startup_started is None else startup_started
-        phases = {"store_open": store_open_ms}
-        loaded_at = perf_counter()
-        self.state = await self.store.load()
-        phases["load"] = (perf_counter() - loaded_at) * 1000
-        self.persistence = True
-        restored_at = perf_counter()
-        await self._restore("process_restart", phases=phases)
-        phases["restore"] = (perf_counter() - restored_at) * 1000
-        if self.task is None:
-            self.task = asyncio.create_task(self.run(), name="processor")
-        phases["total"] = (perf_counter() - started) * 1000
+        # App initialization calls begin_startup before opening the database.
+        started = self.begin_startup() if startup_started is None else startup_started
+        phases = self.startup_timings
+        phases["store_open"] = store_open_ms
+        try:
+            loaded_at = perf_counter()
+            self.state = await self.store.load()
+            phases["load"] = (perf_counter() - loaded_at) * 1000
+            self.persistence = True
+            restored_at = perf_counter()
+            await self._restore("process_restart", phases=phases)
+            phases["restore"] = (perf_counter() - restored_at) * 1000
+            if self.task is None:
+                self.task = asyncio.create_task(self.run(), name="processor")
+        finally:
+            phases["total"] = (perf_counter() - started) * 1000
         LOGGER.info("startup_timing", extra={"phases_ms": phases})
 
     def _gap(self, state: State, reason: str) -> None:
@@ -429,11 +443,23 @@ class Runtime:
             if hook.phase == phase:
                 hook.handler(*args)
 
-    async def _restore_hooks(self, phase: str, state: State, context: Any = None) -> None:
+    async def _restore_hooks(
+        self,
+        phase: str,
+        state: State,
+        context: Any = None,
+        *,
+        timings: dict[str, float] | None = None,
+    ) -> None:
         for order in sorted(slots.RESTORE):
             hook = slots.RESTORE[order]
             if hook.phase == phase:
-                await hook.handler(self, state, context)
+                started = perf_counter()
+                try:
+                    await hook.handler(self, state, context)
+                finally:
+                    if timings is not None and hook.timing is not None:
+                        timings[hook.timing] = (perf_counter() - started) * 1000
 
     async def _restore(self, reason: str, *, phases: dict[str, float] | None = None) -> None:
         timings = phases if phases is not None else {}
@@ -444,8 +470,10 @@ class Runtime:
         self.first_snapshot = False
         if self.context_index:
             self.context_index.clear_registered()
+        cloned_at = perf_counter()
         state = self.state.clone()
-        await self._restore_hooks("migration", state)
+        timings["restore_clone"] = (perf_counter() - cloned_at) * 1000
+        await self._restore_hooks("migration", state, timings=timings)
         timings["restore_migration"] = (perf_counter() - started) * 1000
         started = perf_counter()
         old_epoch = state.epoch_id

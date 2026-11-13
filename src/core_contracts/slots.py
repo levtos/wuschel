@@ -34,6 +34,7 @@ class Operation:
 class Hook:
     handler: Callable[..., Any]
     phase: str = ""
+    timing: str | None = None
 
 
 OPERATIONS: dict[str, Operation] = {}

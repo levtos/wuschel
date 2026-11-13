@@ -351,6 +351,68 @@ async def test_UX_1_08_bad_legacy_content_does_not_block_startup_or_discard_inpu
     assert result["base_status"] == "needs_review" and result["config"] == old["config"]
 
 
+async def test_migration_isolates_partial_failure_and_backfills_versions(
+    runtime, config, monkeypatch
+):
+    from core_contracts import authoring
+    from core_contracts.persistence import State
+
+    old = await legacy_import(runtime, config)
+    state = runtime.state.clone()
+    state.tables["registry_draft"][old["draft_id"]] = old
+    broken = {**deepcopy(old), "draft_id": "synthetic.broken"}
+    state.tables["registry_draft"][broken["draft_id"]] = broken
+    unrelated = {
+        t: rows
+        for t, rows in state.tables.items()
+        if t
+        not in {"registry_draft", "draft_continuation", "editorial_draft", "registry_draft_version"}
+    }
+    expected_unrelated = deepcopy(unrelated)
+    original = authoring._migrate_rows
+    probes = []
+
+    async def migrate_or_fail(runtime, probe, now, key):
+        probes.append(probe)
+        assert all(probe.tables[t] is rows for t, rows in unrelated.items())
+        if key == broken["draft_id"]:
+            probe.tables["registry_draft"][key]["config"]["sources"].clear()
+            for table in ("draft_continuation", "editorial_draft", "registry_draft_version"):
+                probe.tables[table]["synthetic.partial"] = {"partial": True}
+            raise ValueError("synthetic failure after partial writes")
+        await original(runtime, probe, now, key)
+
+    def no_full_copy(*args, **kwargs):
+        pytest.fail("migration copied the entire State")
+
+    monkeypatch.setattr(authoring, "_migrate_rows", migrate_or_fail)
+    monkeypatch.setattr(State, "__deepcopy__", no_full_copy)
+    await migrate(runtime, state, runtime.clock.now_utc())
+    assert len(probes) == 2
+    migrated = state.tables["registry_draft"][old["draft_id"]]
+    assert migrated["lifecycle"] == "continued" and migrated["base_status"] == "known"
+    target = state.tables["registry_draft"][migrated["continued_to_draft_id"]]
+    assert target["lifecycle"] == "open" and target["base_revision"] == 2
+    assert state.tables["registry_draft"][broken["draft_id"]] == {
+        **broken,
+        "authoring_version": 2,
+        "lifecycle": "open",
+        "base_status": "needs_review",
+    }
+    for table in ("draft_continuation", "editorial_draft", "registry_draft_version"):
+        assert "synthetic.partial" not in state.tables[table]
+    for draft in (migrated, target):
+        key = f"{draft['draft_id']}:{draft['draft_version']}"
+        assert state.tables["registry_draft_version"][key] == authoring.version_snapshot(draft)
+    assert {t: state.tables[t] for t in unrelated} == expected_unrelated
+    # A migrated row without an archive still gets its current version backfilled.
+    await migrate(runtime, state, runtime.clock.now_utc())
+    key = f"{broken['draft_id']}:{broken['draft_version']}"
+    assert state.tables["registry_draft_version"][key] == authoring.version_snapshot(
+        state.tables["registry_draft"][broken["draft_id"]]
+    )
+
+
 @pytest.mark.parametrize(
     "failure", [PersistenceUnavailable, asyncio.CancelledError, KeyboardInterrupt]
 )

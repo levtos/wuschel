@@ -467,7 +467,7 @@ async def restore_baseline(runtime: Runtime, state: State, context: Any) -> None
     baseline_pending(state)
 
 
-slots.RESTORE[20] = slots.Hook(restore_baseline, "migration")
+slots.RESTORE[20] = slots.Hook(restore_baseline, "migration", "restore_catalog_baseline")
 slots.RESTORE[25] = slots.Hook(restore_baseline, "gap")
 
 
