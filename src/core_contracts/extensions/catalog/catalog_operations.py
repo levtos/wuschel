@@ -38,10 +38,10 @@ async def operation_catalog_scope_preview(
 
 
 slots.OPERATIONS["catalog_scope_preview"] = slots.Operation(
-    operation_catalog_scope_preview, state="full", early=False
+    operation_catalog_scope_preview, state="full", early=False, heavy=True
 )
 slots.OPERATIONS["catalog_scope_apply"] = slots.Operation(
-    operation_catalog_scope_preview, state="full", early=False
+    operation_catalog_scope_preview, state="full", early=False, heavy=True
 )
 
 
@@ -85,7 +85,7 @@ async def operation_catalog_cleanup_apply(
 
 
 slots.OPERATIONS["catalog_cleanup_apply"] = slots.Operation(
-    operation_catalog_cleanup_apply, state="full", early=False
+    operation_catalog_cleanup_apply, state="full", early=False, heavy=True
 )
 
 
@@ -278,16 +278,16 @@ async def operation_catalog_write(
 
 
 slots.OPERATIONS["catalog_write"] = slots.Operation(
-    operation_catalog_write, state="full", early=False
+    operation_catalog_write, state="full", early=False, heavy=True
 )
 slots.OPERATIONS["catalog_preview"] = slots.Operation(
-    operation_catalog_write, state="full", early=False
+    operation_catalog_write, state="full", early=False, heavy=True
 )
 slots.OPERATIONS["catalog_care_write"] = slots.Operation(
-    operation_catalog_write, state="catalog", early=False, after_prepare=care_timing
+    operation_catalog_write, state="catalog", early=False, after_prepare=care_timing, heavy=True
 )
 slots.OPERATIONS["catalog_care_preview"] = slots.Operation(
-    operation_catalog_write, state="catalog", early=False, after_prepare=care_timing
+    operation_catalog_write, state="catalog", early=False, after_prepare=care_timing, heavy=True
 )
 
 

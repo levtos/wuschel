@@ -1,0 +1,896 @@
+{
+  "messages": [
+    {
+      "reason": "epoch",
+      "type": "resync_required"
+    },
+    {
+      "bridge": "not_needed",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": false
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": null
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": null
+        },
+        {
+          "code": "publication",
+          "satisfied": null
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "not_needed",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": false,
+      "reasons": [
+        "no_active_registry"
+      ],
+      "type": "service_state"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": false,
+          "computed_at": "2026-01-01T12:00:00Z",
+          "contract_health": "degraded",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [],
+              "freshness": null,
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": null,
+              "positively_not_applicable": false,
+              "quality": "degraded",
+              "reasons": [
+                {
+                  "code": "input_absent",
+                  "detail": null,
+                  "input": "source.a",
+                  "since": "2026-01-01T12:00:00Z",
+                  "source_id": null
+                }
+              ],
+              "since_at": "2026-01-01T12:00:00Z",
+              "status": "unknown",
+              "value": null
+            }
+          },
+          "fixture": true,
+          "publication_seq": 1,
+          "published_at": "2026-01-01T12:00:00Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.echo",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 0,
+      "publication_seq": 1,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "bridge": "disconnected",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": true
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": false
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": false
+        },
+        {
+          "code": "publication",
+          "satisfied": true
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "disconnected",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": false,
+      "reasons": [
+        "first_bridge_snapshot_pending"
+      ],
+      "type": "service_state"
+    },
+    {
+      "bridge": "disconnected",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": true
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": false
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": false
+        },
+        {
+          "code": "publication",
+          "satisfied": true
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": false
+        }
+      ],
+      "ha": "disconnected",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": false,
+      "reasons": [
+        "first_bridge_snapshot_pending"
+      ],
+      "type": "service_state"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:05Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [
+                "uuid-1:1:binding.a"
+              ],
+              "freshness": "fresh",
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:05Z",
+              "status": "valid",
+              "value": false
+            }
+          },
+          "fixture": true,
+          "publication_seq": 2,
+          "published_at": "2026-01-01T12:00:05Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.echo",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 1,
+      "publication_seq": 2,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:05Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [
+                "uuid-1:2:binding.a"
+              ],
+              "freshness": "fresh",
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:05Z",
+              "status": "valid",
+              "value": true
+            }
+          },
+          "fixture": true,
+          "publication_seq": 3,
+          "published_at": "2026-01-01T12:00:05Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.echo",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 2,
+      "publication_seq": 3,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:05Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [
+                "uuid-1:3:binding.a"
+              ],
+              "freshness": "fresh",
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:05Z",
+              "status": "valid",
+              "value": false
+            }
+          },
+          "fixture": true,
+          "publication_seq": 4,
+          "published_at": "2026-01-01T12:00:05Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.echo",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 3,
+      "publication_seq": 4,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:05Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [
+                "uuid-1:4:binding.a"
+              ],
+              "freshness": "fresh",
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:05Z",
+              "status": "valid",
+              "value": true
+            }
+          },
+          "fixture": true,
+          "publication_seq": 5,
+          "published_at": "2026-01-01T12:00:05Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.echo",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 4,
+      "publication_seq": 5,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:05Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [
+                "uuid-1:5:binding.a"
+              ],
+              "freshness": "fresh",
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:05Z",
+              "status": "valid",
+              "value": false
+            }
+          },
+          "fixture": true,
+          "publication_seq": 6,
+          "published_at": "2026-01-01T12:00:05Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.echo",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 5,
+      "publication_seq": 6,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:05Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [
+                "uuid-1:6:binding.a"
+              ],
+              "freshness": "fresh",
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:05Z",
+              "status": "valid",
+              "value": true
+            }
+          },
+          "fixture": true,
+          "publication_seq": 7,
+          "published_at": "2026-01-01T12:00:05Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.echo",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 6,
+      "publication_seq": 7,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:05Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [
+                "uuid-1:7:binding.a"
+              ],
+              "freshness": "fresh",
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:05Z",
+              "status": "valid",
+              "value": false
+            }
+          },
+          "fixture": true,
+          "publication_seq": 8,
+          "published_at": "2026-01-01T12:00:05Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.echo",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 7,
+      "publication_seq": 8,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:05Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [
+                "uuid-1:8:binding.a"
+              ],
+              "freshness": "fresh",
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:05Z",
+              "status": "valid",
+              "value": true
+            }
+          },
+          "fixture": true,
+          "publication_seq": 9,
+          "published_at": "2026-01-01T12:00:05Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.echo",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 8,
+      "publication_seq": 9,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:05Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [
+                "uuid-1:9:binding.a"
+              ],
+              "freshness": "fresh",
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:05Z",
+              "status": "valid",
+              "value": false
+            }
+          },
+          "fixture": true,
+          "publication_seq": 10,
+          "published_at": "2026-01-01T12:00:05Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.echo",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 9,
+      "publication_seq": 10,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:05Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [
+                "uuid-1:10:binding.a"
+              ],
+              "freshness": "fresh",
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:05Z",
+              "status": "valid",
+              "value": true
+            }
+          },
+          "fixture": true,
+          "publication_seq": 11,
+          "published_at": "2026-01-01T12:00:05Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.echo",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 10,
+      "publication_seq": 11,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:05Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [
+                "uuid-1:11:binding.a"
+              ],
+              "freshness": "fresh",
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:05Z",
+              "status": "valid",
+              "value": false
+            }
+          },
+          "fixture": true,
+          "publication_seq": 12,
+          "published_at": "2026-01-01T12:00:05Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.echo",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 11,
+      "publication_seq": 12,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "contracts": {
+        "fixture.echo": {
+          "available": true,
+          "computed_at": "2026-01-01T12:00:05Z",
+          "contract_health": "healthy",
+          "contract_id": "fixture.echo",
+          "enabled": true,
+          "epoch_id": "uuid-1",
+          "fields": {
+            "value": {
+              "evidence": [
+                "uuid-1:12:binding.a"
+              ],
+              "freshness": "fresh",
+              "grace_declared": false,
+              "held_until": null,
+              "measured_at": "2026-01-01T12:00:00Z",
+              "positively_not_applicable": false,
+              "quality": "healthy",
+              "reasons": [],
+              "since_at": "2026-01-01T12:00:05Z",
+              "status": "valid",
+              "value": true
+            }
+          },
+          "fixture": true,
+          "publication_seq": 13,
+          "published_at": "2026-01-01T12:00:05Z",
+          "registry_revision": 1,
+          "state_machine": null,
+          "type": {
+            "id": "test.echo",
+            "version": 1
+          }
+        }
+      },
+      "epoch_id": "uuid-1",
+      "prev_seq": 12,
+      "publication_seq": 13,
+      "registry_revision": 1,
+      "type": "delta"
+    },
+    {
+      "bridge": "disconnected",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": true
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": false
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": false
+        },
+        {
+          "code": "publication",
+          "satisfied": true
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "disconnected",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": false,
+      "reasons": [
+        "first_bridge_snapshot_pending"
+      ],
+      "type": "service_state"
+    }
+  ],
+  "results": [
+    {
+      "heavy_operation": "load_protected",
+      "load_states": [
+        "normal",
+        "geschützt",
+        "normal"
+      ],
+      "protected_ingest_sequences": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "publication_sequences": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "reconnect_requested": false
+    }
+  ],
+  "snapshot": {
+    "contracts": {
+      "fixture.echo": {
+        "available": true,
+        "computed_at": "2026-01-01T12:00:05Z",
+        "contract_health": "healthy",
+        "contract_id": "fixture.echo",
+        "enabled": true,
+        "epoch_id": "uuid-1",
+        "fields": {
+          "value": {
+            "evidence": [
+              "uuid-1:12:binding.a"
+            ],
+            "freshness": "fresh",
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:05Z",
+            "status": "valid",
+            "value": true
+          }
+        },
+        "fixture": true,
+        "publication_seq": 13,
+        "published_at": "2026-01-01T12:00:05Z",
+        "registry_revision": 1,
+        "state_machine": null,
+        "type": {
+          "id": "test.echo",
+          "version": 1
+        }
+      }
+    },
+    "epoch_id": "uuid-1",
+    "publication_confirmed": true,
+    "publication_seq": 13,
+    "registry_revision": 1,
+    "type": "snapshot"
+  },
+  "tables": {
+    "contract_state_current": {
+      "fixture.echo": {
+        "available": true,
+        "computed_at": "2026-01-01T12:00:05Z",
+        "contract_health": "healthy",
+        "contract_id": "fixture.echo",
+        "enabled": true,
+        "epoch_id": "uuid-1",
+        "fields": {
+          "value": {
+            "evidence": [
+              "uuid-1:12:binding.a"
+            ],
+            "freshness": "fresh",
+            "grace_declared": false,
+            "held_until": null,
+            "measured_at": "2026-01-01T12:00:00Z",
+            "positively_not_applicable": false,
+            "quality": "healthy",
+            "reasons": [],
+            "since_at": "2026-01-01T12:00:05Z",
+            "status": "valid",
+            "value": true
+          }
+        },
+        "fixture": true,
+        "publication_seq": 13,
+        "published_at": "2026-01-01T12:00:05Z",
+        "registry_revision": 1,
+        "state_machine": null,
+        "type": {
+          "id": "test.echo",
+          "version": 1
+        }
+      }
+    },
+    "deadline": {},
+    "history_gap": {},
+    "sm_instance": {}
+  }
+}

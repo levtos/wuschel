@@ -8,6 +8,7 @@ import { api, describeError } from '@/lib/api';
 import { formatNumber, formatTime } from '@/lib/format';
 import { connectionLabel } from '@/lib/status';
 import type { SystemState } from '@/features/admin/operations';
+import { ProjectionControl } from '@/features/admin/ProjectionControl';
 
 const measurement = (value: number | null | undefined) => value == null ? t('b26.system.unmeasured') : `${formatNumber(value)} ms`;
 const name = (kind: string, key: string) => hasTranslation(`b26.system.${kind}.${key}`) ? t(`b26.system.${kind}.${key}`) : key;
@@ -22,6 +23,12 @@ export default function SystemStatePage() {
     {state && <div className="space-y-4">
       <p className="text-sm text-muted">{t('b26.system.updated', { at: formatTime(new Date(query.dataUpdatedAt).toISOString()) })}</p>
       {state.operations_notice && <Notice tone="warn">{t(state.operations_notice === 'operations_missing' ? 'b26.operations.missing' : 'b26.operations.invalid')}</Notice>}
+      <Panel><PanelHeader title={t('b26.load.title')} /><div className="space-y-3 p-4">
+        <Badge tone={state.load.state === 'normal' ? 'ok' : 'warn'}>{t(`b26.load.${state.load.state}`)}</Badge>
+        {state.load.state !== 'normal' && <p>{t(state.load.state === 'geschützt' ? 'b26.load.protectedHelp' : 'b26.load.strainedHelp')}</p>}
+        {state.load.reasons.map(reason => <p key={reason} className="text-sm text-muted">{t(`b26.load.metric.${reason}`)}</p>)}
+        <ProjectionControl paused={state.projection_paused} disabled={query.isError || query.isFetching} onChanged={() => { void query.refetch(); }} />
+      </div></Panel>
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel><PanelHeader title={t('b26.system.connections')} /><div className="space-y-3 p-4">
           <Badge tone={state.ready ? 'ok' : 'warn'}>{t(state.ready ? 'b26.system.ready' : 'b26.system.notReady')}</Badge>
@@ -58,7 +65,8 @@ export default function SystemStatePage() {
         { label: t('b26.system.consecutive'), value: retry.consecutive },
         { label: t('b26.system.lastError'), value: retry.last_error ?? t('b26.system.noError') },
         { label: t('b26.system.lastErrorAt'), value: retry.last_error_at ? formatTime(retry.last_error_at) : t('b26.system.noError') },
-      ]} /></div>)}</div></Panel>
+        { label: t('b26.system.retryStarted'), value: retry.started_at ? formatTime(retry.started_at) : t('b26.system.noError') },
+      ]} />{retry.warning && <Notice tone="warn">{t('b26.system.retryWarning')}</Notice>}</div>)}</div></Panel>
     </div>}
   </>;
 }

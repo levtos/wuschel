@@ -406,6 +406,62 @@ async def test_projected_sensor_uses_real_ha_state_engine(tmp_path, monkeypatch,
 
 
 @pytest.mark.ha
+async def test_paused_projection_expires_on_open_socket_and_same_snapshot_recovers(tmp_path):
+    from homeassistant import bootstrap
+
+    from custom_components.traber.projection import Projection
+    from custom_components.traber.sensor import ContractSensor
+
+    hass = kernel(tmp_path)
+    loader.async_setup(hass)
+    assert await bootstrap.async_load_base_functionality(hass)
+    assert await async_setup_component(hass, "sensor", {})
+    now, callbacks = [0.0], []
+
+    def schedule(delay, callback):
+        callbacks.append((delay, callback))
+        return SimpleNamespace(cancel=lambda: None)
+
+    projection = Projection(now=lambda: now[0], schedule=schedule)
+    installation, epoch, owner = str(uuid4()), str(uuid4()), object()
+    field = {"value": True, "status": "valid", "quality": "healthy", "since_at": None, "unit": None}
+    row = {
+        "contract_id": "synthetic.pause",
+        "name": "Synthetic pause",
+        **field,
+        "primary_field": "value",
+        "fields": {"value": field},
+    }
+    message = {
+        "installation_id": installation,
+        "epoch_id": epoch,
+        "publication_seq": 1,
+        "contracts": [row],
+    }
+    assert projection.accept(owner, installation, message)
+    sensor = ContractSensor(projection, installation, row["contract_id"])
+    await hass.data[DATA_COMPONENT].async_add_entities([sensor])
+    await hass.async_block_till_done()
+    now[0] = 119
+    projection.notify()
+    assert hass.states.get(sensor.entity_id).state == "on"
+    assert hass.states.get(sensor.entity_id).attributes["status"] == "valid"
+    now[0] = 120
+    delay, expire = callbacks[-1]
+    assert delay == 120
+    expire()
+    state = hass.states.get(sensor.entity_id)
+    assert projection.connected and not projection.fresh
+    assert state.state == "unknown" and state.attributes["status"] == "stale"
+    assert state.attributes["fields"]["value"]["status"] == "stale"
+    assert state.attributes["fields"]["value"]["quality"] == "degraded"
+    assert projection.accept(owner, installation, message)
+    assert hass.states.get(sensor.entity_id).state == "on"
+    assert hass.states.get(sensor.entity_id).attributes["status"] == "valid"
+    assert hass.states.get(sensor.entity_id).attributes["fields"]["value"]["status"] == "valid"
+
+
+@pytest.mark.ha
 async def test_b23_live_size_reload_restart_reprojects_all_entities_under_ten_seconds(tmp_path):
     from time import perf_counter
 

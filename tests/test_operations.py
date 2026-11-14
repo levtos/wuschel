@@ -20,7 +20,15 @@ def test_every_setting_has_metadata_and_enforces_bounds(key):
     assert field["title"] and field["description"] and field["unit"]
     assert field["restart_required"] is True
     for value in (field["minimum"], field["maximum"]):
-        OperationsSettings.model_validate({key: value})
+        values = {key: value}
+        if key.startswith("load_") and key.endswith(("_strained", "_protected")):
+            # #132 adds a cross-field invariant; exercise both bounds as a valid pair.
+            other = key.rsplit("_", 1)[0] + (
+                "_protected" if key.endswith("_strained") else "_strained"
+            )
+            other_field = OperationsSettings.model_json_schema()["properties"][other]
+            values[other] = min(value, other_field["maximum"])
+        OperationsSettings.model_validate(values)
     for value in (
         field["minimum"] - 1,
         field["maximum"] + 1,

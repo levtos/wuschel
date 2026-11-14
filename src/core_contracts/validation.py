@@ -859,4 +859,6 @@ async def operation_validate(
     }
 
 
-slots.OPERATIONS["validate"] = slots.Operation(operation_validate, state="full", early=False)
+slots.OPERATIONS["validate"] = slots.Operation(
+    operation_validate, state="full", early=False, heavy=True
+)

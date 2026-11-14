@@ -19,9 +19,10 @@ from . import slots
 from .calendar_inputs import project
 from .clock import Alarm, Clock
 from .declarative import GuardEvaluationError
-from .errors import AuthoringError, RegistryValidationError
+from .errors import AuthoringError, LoadProtected, RegistryValidationError
 from .evidence import Observation, assess, is_new, is_older
 from .ha_context import ContextIndex
+from .load_guard import LoadGuard
 from .model import Model, checksum, utc
 from .operation_timing import ObservationTimings, TimedStore, Timing, current
 from .operations import OperationsSettings
@@ -94,6 +95,9 @@ class Runtime:
     ) -> None:
         self.store, self.clock, self.types = TimedStore(store), clock, types
         self.operations = operations or OperationsSettings()
+        self.load_guard = LoadGuard(self.operations)
+        self.projection_paused = False
+        self.projection_changed = asyncio.Event()
         self.observation_timings = ObservationTimings()
         self.validation_cache = ValidationCache()
         self.require_history_retention = require_history_retention
@@ -162,8 +166,24 @@ class Runtime:
         self.event_loop_lag_ms: float | None = None
         self.event_loop_lag_max_ms: float | None = None
         self.retries: dict[str, dict[str, Any]] = {
-            name: {"count": 0, "consecutive": 0, "last_error": None, "last_error_at": None}
-            for name in ("startup", "database", "ha", "mqtt", "projection")
+            name: {
+                "count": 0,
+                "consecutive": 0,
+                "last_error": None,
+                "last_error_at": None,
+                "started_at": None,
+                "warning": False,
+            }
+            for name in (
+                "startup",
+                "database",
+                "ha",
+                "mqtt",
+                "projection",
+                "management",
+                "refresh",
+                "service",
+            )
         }
         self.catalog_care_timings: dict[str, float] = {}
         self.startup_timings: dict[str, float] = {}
@@ -181,13 +201,59 @@ class Runtime:
 
     def retry_failed(self, name: str, error: Exception) -> None:
         retry = self.retries[name]
+        if not retry["consecutive"]:
+            retry["started_at"] = self.clock.now_utc().isoformat()
         retry["count"] += 1
         retry["consecutive"] += 1
         retry["last_error"] = type(error).__name__
         retry["last_error_at"] = self.clock.now_utc().isoformat()
+        warning = retry["consecutive"] >= self.operations.retry_warning_after
+        if warning and not retry["warning"]:
+            LOGGER.warning(
+                "retry_limit_notice", extra={"operation": name, "count": retry["consecutive"]}
+            )
+        retry["warning"] = warning
+        self._broadcast(self.service_state())
 
     def retry_succeeded(self, name: str) -> None:
-        self.retries[name]["consecutive"] = 0
+        retry = self.retries[name]
+        was_warning = retry["warning"]
+        retry.update(consecutive=0, started_at=None, warning=False)
+        if was_warning:
+            self._broadcast(self.service_state())
+
+    def set_projection_paused(self, paused: bool) -> None:
+        self.projection_paused = paused
+        self.projection_changed.set()
+        LOGGER.info("projection_pause_changed", extra={"paused": paused})
+        self._broadcast(self.service_state())
+
+    def sample_load(self) -> None:
+        samples = sorted(self.commit_samples)
+        p95 = samples[max(0, (95 * len(samples) + 99) // 100 - 1)] if samples else None
+        if self.load_guard.sample(
+            self.clock.monotonic(),
+            lag_ms=self.event_loop_lag_ms,
+            queue_depth=self.queue.qsize(),
+            queue_capacity=self.queue.maxsize,
+            overflow_total=self.overflow_serial,
+            commit_p95_ms=p95,
+        ):
+            LOGGER.warning("load_state_changed", extra={"load_state": self.load_guard.state})
+            self.projection_changed.set()
+            self._broadcast(self.service_state())
+
+    def admit_operation(self, operation: str) -> None:
+        entry = slots.OPERATIONS.get(operation) or next(
+            (
+                item
+                for prefix, item in slots.OPERATION_PREFIXES.items()
+                if operation.startswith(prefix)
+            ),
+            None,
+        )
+        if entry is not None and entry.heavy and self.load_guard.state == "geschützt":
+            raise LoadProtected()
 
     async def measure_event_loop(self) -> None:
         while True:
@@ -198,6 +264,7 @@ class Runtime:
             self.event_loop_lag_max_ms = max(
                 self.event_loop_lag_max_ms or 0, self.event_loop_lag_ms
             )
+            self.sample_load()
 
     def system_state(self) -> dict[str, Any]:
         samples = sorted(self.commit_samples)
@@ -314,6 +381,9 @@ class Runtime:
             "type": "service_state",
             "startup": {key: round(value) for key, value in self.startup_timings.items()},
             "startup_attempts": self.startup_attempts,
+            "load": self.load_guard.view(),
+            "projection_paused": self.projection_paused,
+            "retry_notices": [name for name, retry in self.retries.items() if retry["warning"]],
             "ready": self.ready,
             "publication_confirmed": self.confirmed,
             "persistence": "available" if self.persistence else "persistence_unavailable",
@@ -587,6 +657,7 @@ class Runtime:
     async def submit(self, operation: str, payload: Any = None) -> Any:
         if self.stopping:
             raise RuntimeError("going_away")
+        self.admit_operation(operation)
         handler = slots.SUBMIT.get(operation)
         if handler is None:
             handler = next(

@@ -28,6 +28,7 @@ class Operation:
     drain: bool = True
     offline: bool = False
     after_prepare: Callable[[Runtime, Any, float], None] | None = None
+    heavy: bool = False
 
 
 @dataclass(frozen=True)

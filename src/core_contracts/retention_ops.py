@@ -32,8 +32,8 @@ async def operation_retention_preview(
 
 
 slots.OPERATIONS["retention_preview"] = slots.Operation(
-    operation_retention_preview, state="none", early=False
+    operation_retention_preview, state="none", early=False, heavy=True
 )
 slots.OPERATIONS["retention_run"] = slots.Operation(
-    operation_retention_preview, state="none", early=False
+    operation_retention_preview, state="none", early=False, heavy=True
 )

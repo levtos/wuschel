@@ -56,7 +56,18 @@ def canonical(document):
             # #130 adds diagnostics with real, non-deterministic durations. Keep
             # the ten b25 recordings intact; every original service field stays checked.
             if value.get("type") == "service_state":
-                value = {k: v for k, v in value.items() if k not in {"startup", "startup_attempts"}}
+                value = {
+                    k: v
+                    for k, v in value.items()
+                    if k
+                    not in {
+                        "startup",
+                        "startup_attempts",
+                        "load",
+                        "projection_paused",
+                        "retry_notices",
+                    }
+                }
             # Traverse in publication/insertion order before canonical key sorting.
             return {normalize(key): normalize(item) for key, item in value.items()}
         return value
@@ -70,6 +81,14 @@ def test_baseline_excludes_only_additive_service_startup_diagnostics():
     assert canonical(after) == canonical(before)
     assert canonical({**after, "ready": True}) != canonical(before)
     assert canonical({"type": "other", "startup": 123}) != canonical({"type": "other"})
+
+
+def test_baseline_keeps_b25_fields_while_b26_load_diagnostics_have_own_recording():
+    before = {"type": "service_state", "ready": True, "publication_confirmed": True}
+    after = {**before, "load": {"state": "normal"}, "projection_paused": False, "retry_notices": []}
+    assert canonical(before) == canonical(after)
+    assert canonical({**after, "publication_confirmed": False}) != canonical(before)
+    assert canonical({"type": "other", "load": {"state": "normal"}}) != canonical({"type": "other"})
 
 
 class Replay:

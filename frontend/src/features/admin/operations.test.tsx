@@ -6,16 +6,18 @@ import { installFakeApi, reply } from '../../../test/fakeApi';
 import OperationsPage from './OperationsPage';
 import SystemStatePage from '../diagnostics/SystemStatePage';
 import type { OperationSettings, SystemState } from './operations';
+import { ApiError, describeError } from '@/lib/api';
 
 const settings: OperationSettings = { notice: null, settings: [
   { key: 'ingest_queue_size', name: 'Eingangs-Warteschlange', explanation: 'Hier warten Eingänge.', value: 256, active_value: 256, default: 256, minimum: 1, maximum: 16384, unit: 'Einträge', integer: true, restart_required: true, pending_restart: false },
 ] };
 const state: SystemState = {
+  load: { state: 'normal', reasons: [], metrics: {} }, projection_paused: false, retry_notices: [],
   ready: true, publication_confirmed: true, publication_seq: 42, version: '1.0.0b25', persistence: 'available', ha: 'not_needed', bridge: 'not_needed', mqtt: 'disabled', traber_version: null,
   operations_notice: 'operations_invalid', startup_attempts: 2, startup: { total: 500 },
   queues: { ingest: { depth: 3, capacity: 256, overflows: 2 }, refresh: { depth: 0, capacity: 256, overflows: 0 } },
   event_loop: { lag_ms: null, max_lag_ms: null }, commits: { count: 2, window: 256, median_ms: 4, p95_ms: 7 },
-  retries: { ha: { count: 3, consecutive: 0, last_error: 'TimeoutError', last_error_at: '2026-11-13T12:00:00Z' } }, reasons: [],
+  retries: { ha: { count: 3, consecutive: 0, last_error: 'TimeoutError', last_error_at: '2026-11-13T12:00:00Z', started_at: null, warning: false } }, reasons: [],
 };
 function mount(page: React.ReactNode) {
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{page}</QueryClientProvider>);
@@ -97,4 +99,34 @@ it('polls again after five seconds and stops when the page unmounts', async () =
   const count = server.calls.filter(call => call.path === 'system/state').length;
   await act(() => vi.advanceTimersByTimeAsync(10000));
   expect(server.calls.filter(call => call.path === 'system/state')).toHaveLength(count);
+});
+
+it('pauses and resumes projection with a visible warning and reports failed changes', async () => {
+  const server = installFakeApi(); const user = userEvent.setup(); let paused = false; let fail = false;
+  server.routes.push(
+    { match: /^system\/state$/, respond: () => reply(200, { ...state, projection_paused: paused, load: { ...state.load, state: 'geschützt' }, retries: { ha: { ...state.retries.ha, consecutive: 3, warning: true, started_at: '2026-11-13T12:00:00Z' } } }) },
+    { match: /^operations\/projection$/, method: 'PUT', respond: (_path, body) => {
+      if (fail) return reply(503, { error: 'persistence_unavailable' });
+      paused = Boolean((body as { paused: boolean }).paused); return reply(200, { projection_paused: paused });
+    } },
+  );
+  mount(<SystemStatePage />);
+  await user.click(await screen.findByRole('button', { name: 'Projektion pausieren' }));
+  const resume = await screen.findByRole('button', { name: 'Projektion fortsetzen' });
+  expect(resume).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByText(/Nach 120 Sekunden zeigt Traber/)).toBeInTheDocument();
+  expect(screen.getByText('Geschützt')).toBeInTheDocument();
+  expect(screen.getByText(/Mehrere Versuche sind in Folge fehlgeschlagen/)).toBeInTheDocument();
+  fail = true;
+  await user.click(resume);
+  await screen.findByRole('alert');
+  expect(screen.getByRole('button', { name: 'Projektion fortsetzen' })).toBeEnabled();
+  fail = false;
+  await user.click(screen.getByRole('button', { name: 'Projektion fortsetzen' }));
+  await screen.findByRole('button', { name: 'Projektion pausieren' });
+  expect(server.calls.filter(call => call.method === 'PUT').map(call => call.body)).toEqual([{ paused: true }, { paused: false }, { paused: false }]);
+});
+
+it('explains protection when an expensive request is rejected', () => {
+  expect(describeError(new ApiError(503, 'load_protected', [], ''))).toBe('Wuschel ist gerade stark ausgelastet und schützt sich. Bitte gleich noch einmal versuchen.');
 });
