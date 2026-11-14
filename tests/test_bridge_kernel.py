@@ -935,3 +935,260 @@ async def test_multifield_projection_sensor_attributes_in_real_ha_kernel(tmp_pat
     projection.now = lambda: projection.disconnected_at + 121
     projection.notify()
     assert hass.states.get(sensor.entity_id).state == "unavailable"
+
+
+def interface_runtime():
+    """Synthetic published truth for the real producer projection; never live data."""
+    from core_contracts.schema import FieldSchema, Schema
+
+    contracts, current, types = [], {}, {}
+    since = "2026-01-01T00:00:00Z"
+
+    def add(identifier, fields, *, primary=(), type_id=None):
+        type_id = type_id or identifier
+        schema = Schema(
+            fields={
+                name: FieldSchema(
+                    type=kind,
+                    required=True,
+                    physical_state=False,
+                    unit=unit,
+                    value_catalog=("idle", "active") if kind == "enum" else (),
+                )
+                for name, (kind, value, status, quality, unit) in fields.items()
+            },
+            available_projection=primary,
+        )
+        types[type_id, 1] = SimpleNamespace(schema=schema)
+        contracts.append(
+            SimpleNamespace(
+                contract_id=identifier,
+                type_id=type_id,
+                type_version=1,
+                enabled=True,
+                ha_projection=True,
+                display_name=f"Synthetic {identifier}",
+            )
+        )
+        current[identifier] = {
+            "fields": {
+                name: {"value": value, "status": status, "quality": quality, "since_at": since}
+                for name, (kind, value, status, quality, unit) in fields.items()
+            }
+        }
+
+    values = {
+        "true": ("bool", True, None),
+        "false": ("bool", False, None),
+        "number": ("number", 3.05555555555556, "W"),
+        "text": ("text", "Synthetic text ä", None),
+        "timestamp": ("timestamp", "2026-01-02T03:04:05Z", None),
+        "enum": ("enum", "active", None),
+    }
+    # valid is the wire spelling of a usable/ok field; stale is transport-only.
+    for shape in ("scalar", "multi"):
+        for status in ("valid", "unknown", "unresolved", "held", "not_applicable"):
+            for quality in ("healthy", "degraded"):
+                for label, (kind, value, unit) in values.items():
+                    fields = {}
+                    if shape == "multi":
+                        fields["aaa_other"] = (
+                            "text",
+                            "Synthetic side field",
+                            "held",
+                            "degraded",
+                            None,
+                        )
+                    fields["value" if shape == "scalar" else "selected"] = (
+                        kind,
+                        value,
+                        status,
+                        quality,
+                        unit,
+                    )
+                    add(
+                        f"interface.{shape}.{status}.{quality}.{label}",
+                        fields,
+                        primary=("selected",) if shape == "multi" else (),
+                    )
+
+    # Reviewed primaries are independent of the production PRIMARY_FIELDS map.
+    reviewed = {
+        "media.playback_facts": "playing",
+        "media.privacy_facts": "active",
+        "media.quiet_facts": "entry_door_open",
+        "climate.thermostat": "temperature",
+        "opening_zone.facts": "unclear",
+        "wake.plan_view": "status",
+        **{
+            name: "value"
+            for name in (
+                "device.console_state",
+                "device.pc_power",
+                "media.activity_flow",
+                "media.device_power_facts",
+                "media.device_state",
+                "media.stash_slot",
+                "sleep.flow",
+                "sleep.state_view",
+            )
+        },
+    }
+    for type_id, primary in reviewed.items():
+        add(
+            f"interface.primary.{type_id}",
+            {
+                "aaa_other": ("bool", False, "valid", "healthy", None),
+                primary: ("bool", True, "valid", "healthy", None),
+            },
+            type_id=type_id,
+        )
+    add(
+        "interface.primary.value_fallback",
+        {
+            "aaa_other": ("bool", False, "valid", "healthy", None),
+            "value": ("bool", True, "valid", "healthy", None),
+        },
+        primary=("aaa_other",),
+    )
+    add(
+        "interface.primary.first_fallback",
+        {
+            "first": ("text", "Synthetic first", "valid", "healthy", None),
+            "second": ("bool", False, "valid", "healthy", None),
+        },
+    )
+
+    for index, unit in enumerate(
+        (
+            "°C",
+            "°F",
+            "K",
+            "%",
+            "lx",
+            "lm",
+            "m",
+            "Pa",
+            "°",
+            "s",
+            "min",
+            "W",
+            "Wh",
+            "h",
+            "m/s",
+            "km/h",
+            "mm",
+            "hPa",
+            "dB",
+            "kW",
+            "km",
+            "kWh",
+        )
+    ):
+        add(
+            f"interface.unit.u{index}",
+            {
+                "value": ("number", 3.05555555555556, "valid", "healthy", unit),
+            },
+        )
+    return SimpleNamespace(
+        config=SimpleNamespace(contracts=contracts, definitions=()),
+        types=SimpleNamespace(get=lambda name, version: types[name, version]),
+        confirmed=True,
+        installation_id="00000000-0000-4000-8000-000000000001",
+        state=SimpleNamespace(
+            tables={"contract_state_current": current},
+            epoch_id="00000000-0000-4000-8000-000000000002",
+            publication_seq=1,
+        ),
+    )
+
+
+@pytest.mark.ha
+async def test_frozen_ha_interface_v1(tmp_path):
+    import os
+
+    from homeassistant import bootstrap
+
+    from core_contracts.ha_projection import snapshot
+    from custom_components.traber.projection import Projection
+    from custom_components.traber.sensor import ContractSensor
+
+    hass = kernel(tmp_path)
+    loader.async_setup(hass)
+    assert await bootstrap.async_load_base_functionality(hass)
+    assert await async_setup_component(hass, "sensor", {})
+    runtime = interface_runtime()
+    now, owner = [0.0], object()
+    projection = Projection(now=lambda: now[0])
+    message = snapshot(runtime)
+    assert projection.accept(owner, runtime.installation_id, message)
+    sensors = [
+        ContractSensor(projection, runtime.installation_id, row["contract_id"])
+        for row in message["contracts"]
+    ]
+    await hass.data[DATA_COMPONENT].async_add_entities(sensors)
+    await hass.async_block_till_done()
+
+    def visible():
+        result = {}
+        for sensor in sensors:
+            state = hass.states.get(sensor.entity_id)
+            assert state is not None
+            result[sensor.contract_id] = {
+                "entity_id": state.entity_id,
+                "unique_id": sensor.unique_id,
+                "state": state.state,
+                "attributes": dict(state.attributes),
+                "available": sensor.available,
+                "suggested_display_precision": sensor.suggested_display_precision,
+            }
+        return result
+
+    fixtures = Path(__file__).parent / "fixtures/ha_interface"
+    record = os.environ.get("WUSCHEL_INTERFACE_RECORD") == "1"
+
+    def compare(phase):
+        # Every public attribute is retained; HA lifecycle timestamps/contexts are not interface data.
+        actual = (
+            json.dumps(
+                visible(),
+                ensure_ascii=False,
+                allow_nan=False,
+                sort_keys=True,
+                indent=2,
+            )
+            + "\n"
+        )
+        path = fixtures / f"{phase}.json"
+        if record:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(actual, encoding="utf-8", newline="\n")
+        assert actual == path.read_text(encoding="utf-8"), (
+            f"HA interface changed: {phase}. Review the v1 compatibility rule before recording."
+        )
+
+    try:
+        compare("connected")
+        connected = visible()
+        now[0] = 120
+        projection.notify()
+        compare("connected_stale_120")
+        assert projection.accept(owner, runtime.installation_id, message)
+        assert visible() == connected
+        projection.disconnect(owner)
+        now[0] = 239
+        projection.notify()
+        compare("disconnected_119")
+        now[0] = 240
+        projection.notify()
+        expired = visible()  # Exact 120-second boundary too.
+        now[0] = 241
+        projection.notify()
+        compare("disconnected_121")
+        assert visible() == expired
+        assert projection.accept(owner, runtime.installation_id, message)
+        assert visible() == connected
+    finally:
+        for sensor in sensors:
+            await hass.data[DATA_COMPONENT].async_remove_entity(sensor.entity_id)
