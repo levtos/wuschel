@@ -87,7 +87,7 @@ it('formats local catalog rows, accessible labels and edit master options withou
   const select = await screen.findByRole('checkbox', { name: t('b17.selectTitle', { title: 'Synthetic Ensemble – Synthetic Beacon' }) });
   expect(screen.getByText('Synthetic Solo')).toBeInTheDocument();
   const user = userEvent.setup();
-  await user.click(within(select.closest('li')!).getByRole('button', { name: t('b22.object.edit') }));
+  await user.click(within(select.closest('tr')!).getByRole('button', { name: t('b22.object.edit') }));
   await user.selectOptions(screen.getByLabelText(t('alpha10.catalog.assignment')), 'variant');
   const option = await screen.findByRole('option', { name: 'Synthetic Ensemble – Synthetic Beacon (Remix)' });
   expect(option).toHaveValue(compoundRows[1]!.key);

@@ -77,6 +77,7 @@ root_package = "core_contracts"
 exclude_type_checking_imports = true
 
 [[tool.importlinter.contracts]]
+# catalog_families and catalog_views belong to the catalog extension below.
 name = "Schichten: oben darf unten importieren, nie umgekehrt"
 type = "layers"
 layers = [

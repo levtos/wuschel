@@ -35,9 +35,6 @@ async def dispatch(self: Any, request: web.Request) -> Any:
         from core_contracts.extensions.catalog.catalog_care import detail, listing, queue
         from core_contracts.extensions.catalog.managed_catalog import definition
 
-        catalog = definition(
-            config, request.query["catalog_id"], int(request.query["definition_version"])
-        )
         filters = {
             key: request.query.get(key, "")
             for key in (
@@ -49,8 +46,26 @@ async def dispatch(self: Any, request: web.Request) -> Any:
                 "app",
                 "live_tv",
                 "sender",
+                "classification",
             )
         }
+        if path == "catalogs/care" and request.query.get("catalog_id") == "all":
+            from core_contracts.extensions.catalog.catalog_views import page_all
+
+            return page_all(
+                state,
+                config,
+                query=request.query.get("q", ""),
+                view=request.query.get("view", "all"),
+                after=request.query.get("after", ""),
+                filters=filters,
+                sort=request.query.get("sort", "newest"),
+                variants_first=request.query.get("variants_first") == "true",
+                classification_catalog=request.query.get("classification_catalog", ""),
+            )
+        catalog = definition(
+            config, request.query["catalog_id"], int(request.query["definition_version"])
+        )
         if path.endswith("detail"):
             result = detail(
                 state,
@@ -81,6 +96,21 @@ async def dispatch(self: Any, request: web.Request) -> Any:
                 variants_first=request.query.get("variants_first") == "true",
                 grouped=request.query.get("grouped") == "true",
             )
+    elif path in {"catalogs/care/inspect", "catalogs/care/export"} and method == "GET":
+        from core_contracts.extensions.catalog.catalog_views import (
+            export_structure,
+            inspect_structure,
+        )
+
+        catalog_id = request.query.get("catalog_id", "all")
+        version = int(request.query.get("definition_version", "1"))
+        if path.endswith("export"):
+            result = {"csv": export_structure(state, config, catalog_id, version)}
+        else:
+            offset = int(request.query.get("offset", "0"))
+            if offset < 0:
+                raise ValueError("catalog_page_invalid")
+            result = inspect_structure(state, config, catalog_id, version, offset)
     elif path in {"catalogs/care/preview", "catalogs/care/write"} and method == "POST":
         result = await runtime.submit(
             "catalog_care_" + path.rsplit("/", 1)[1],
@@ -166,6 +196,8 @@ def register(app: web.Application, api: Any) -> None:
         "catalogs",
         "catalogs/care",
         "catalogs/care/queue",
+        "catalogs/care/inspect",
+        "catalogs/care/export",
         "catalogs/care/detail",
         "catalogs/care/preview",
         "catalogs/care/write",
