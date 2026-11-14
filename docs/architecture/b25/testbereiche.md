@@ -32,6 +32,11 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
 
 ## Regel für die Auswahl
 
+Ergänzung b26 ([#133](https://github.com/levtos/wuschel/issues/133)):
+Die kanonischen HA-Schnittstellenaufzeichnungen unter
+`tests/fixtures/ha_interface/` gehören zum Bereich `traber`. Ihre Änderung
+löst gemäß `dev/ci_scope.py` immer die volle CI aus.
+
 1. Ändert ein Auftrag **nur** Pfade eines oder mehrerer Bereiche, laufen lokal deren Testdateien.
 2. Ändert er irgendetwas am Kern (`kernel`, `store`, `rules`, `lane`, alles, was in keinem Bereich steht), laufen lokal die Tests der betroffenen Module nach Ermessen; die volle Suite läuft in der CI.
 3. Die volle Suite läuft unabhängig davon bei jedem PR in der CI. Die Auswahl spart Arbeit im Auftrag, sie ersetzt die CI nicht.
@@ -410,6 +415,7 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
   "paths": [
    "custom_components/traber/",
    "tests/ha_kernel/",
+   "tests/fixtures/ha_interface/",
    "src/core_contracts/ha_projection.py"
   ],
   "tests": [
