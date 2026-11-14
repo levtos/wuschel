@@ -41,7 +41,7 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
 
 ```json
 {
- "operations": {
+  "operations": {
   "paths": ["src/core_contracts/operations.py"],
   "tests": ["tests/test_operations.py"]
  },
@@ -450,8 +450,8 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
    "tests/test_setup_postgres.py"
   ]
  },
- "load": {
-  "paths": [],
+  "load": {
+   "paths": ["src/core_contracts/load_guard.py"],
   "tests": [
    "tests/test_b23_acceptance.py",
    "tests/test_b23_p6.py",

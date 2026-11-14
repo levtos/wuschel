@@ -8,9 +8,9 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, model_validator
 
 from .model import Model
 
@@ -35,6 +35,110 @@ def setting(
 
 
 class OperationsSettings(Model):
+    load_lag_ms_strained: float = setting(
+        100,
+        1,
+        10000,
+        "ms",
+        "Lastschutz: Verzögerung angespannt",
+        "Ab dieser Verzögerung der Ereignisschleife gilt die Last als angespannt.",
+    )
+    load_lag_ms_protected: float = setting(
+        500,
+        1,
+        30000,
+        "ms",
+        "Lastschutz: Verzögerung geschützt",
+        "Ab dieser Verzögerung der Ereignisschleife schützt sich Wuschel.",
+    )
+    load_queue_percent_strained: float = setting(
+        50,
+        1,
+        100,
+        "%",
+        "Lastschutz: Warteschlange angespannt",
+        "Ab diesem Füllstand der Eingangs-Warteschlange gilt die Last als angespannt.",
+    )
+    load_queue_percent_protected: float = setting(
+        85,
+        1,
+        100,
+        "%",
+        "Lastschutz: Warteschlange geschützt",
+        "Ab diesem Füllstand der Eingangs-Warteschlange schützt sich Wuschel.",
+    )
+    load_overflows_per_minute_strained: int = setting(
+        1,
+        1,
+        100000,
+        "Überläufe",
+        "Lastschutz: Überläufe angespannt",
+        "Ab so vielen Eingangsüberläufen in einer Minute gilt die Last als angespannt.",
+    )
+    load_overflows_per_minute_protected: int = setting(
+        10,
+        1,
+        100000,
+        "Überläufe",
+        "Lastschutz: Überläufe geschützt",
+        "Ab so vielen Eingangsüberläufen in einer Minute schützt sich Wuschel.",
+    )
+    load_commit_p95_ms_strained: float = setting(
+        100,
+        1,
+        10000,
+        "ms",
+        "Lastschutz: Speicherung angespannt",
+        "Ab dieser p95-Speicherzeit gilt die Last als angespannt.",
+    )
+    load_commit_p95_ms_protected: float = setting(
+        500,
+        1,
+        30000,
+        "ms",
+        "Lastschutz: Speicherung geschützt",
+        "Ab dieser p95-Speicherzeit schützt sich Wuschel.",
+    )
+    load_enter_hold_s: float = setting(
+        5,
+        0.1,
+        300,
+        "s",
+        "Lastschutz: Haltezeit bei steigender Last",
+        "So lange muss eine höhere Last anhalten, bevor der Zustand wechselt.",
+    )
+    load_recover_hold_s: float = setting(
+        30,
+        0.1,
+        600,
+        "s",
+        "Lastschutz: Haltezeit bei sinkender Last",
+        "So lange muss die Last niedriger bleiben, bevor Wuschel den Schutz zurücknimmt.",
+    )
+    projection_protected_interval_s: float = setting(
+        10,
+        1,
+        60,
+        "s",
+        "Lastschutz: HA-Ausgabetakt",
+        "Im Schutz sendet Wuschel höchstens in diesem Abstand den neuesten Stand nach HA.",
+    )
+    retry_warning_after: int = setting(
+        3,
+        1,
+        100,
+        "Fehlschläge",
+        "Wiederholungen: Meldeschwelle",
+        "Ab so vielen Fehlschlägen in Folge zeigt der Systemzustand eine Meldung.",
+    )
+
+    @model_validator(mode="after")
+    def ordered_load_thresholds(self) -> Self:
+        for metric in ("lag_ms", "queue_percent", "overflows_per_minute", "commit_p95_ms"):
+            if getattr(self, f"load_{metric}_protected") < getattr(self, f"load_{metric}_strained"):
+                raise ValueError("load_threshold_order")
+        return self
+
     ha_heartbeat_s: float = setting(
         20,
         5,

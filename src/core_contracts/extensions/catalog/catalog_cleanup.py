@@ -419,3 +419,14 @@ async def submit_preview(runtime: Runtime, operation: str, payload: Any) -> Any:
 
 
 slots.SUBMIT["catalog_cleanup_preview"] = submit_preview
+
+
+async def operation_preview(
+    runtime: Runtime, state: Any, operation: str, payload: Any, now: Any, config: Any
+) -> Any:
+    return await submit_preview(runtime, operation, payload)
+
+
+slots.OPERATIONS["catalog_cleanup_preview"] = slots.Operation(
+    operation_preview, state="none", early=True, heavy=True
+)

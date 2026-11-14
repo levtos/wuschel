@@ -179,6 +179,7 @@ def prepare(
 async def execute(runtime: Runtime, operation: str, payload: Any) -> Any:
     async with runtime.management_slots:
         for attempt in range(3):
+            runtime.admit_operation(operation)
             plan = await runtime.submit("management_snapshot")
             plan.operation = operation
             try:
@@ -186,19 +187,25 @@ async def execute(runtime: Runtime, operation: str, payload: Any) -> Any:
                     prepare, runtime, plan, payload, asyncio.get_running_loop()
                 )
             except (PersistenceUnavailable, OSError) as error:
+                runtime.retry_failed("management", error)
                 runtime._unavailable()
                 logging.getLogger(__name__).error(
                     "management_unavailable", extra={"error_type": type(error).__name__}
                 )
                 raise
             try:
-                return await runtime.submit("management_commit", plan)
-            except ValueError:
+                result = await runtime.submit("management_commit", plan)
+                runtime.retry_succeeded("management")
+                return result
+            except ValueError as error:
                 # This OCC rejection happens before writing anything. Recompute
                 # from a fresh snapshot only for changed live state, never for
                 # changed configuration, drafts or catalog content.
                 if not plan.live_conflict or attempt == 2:
+                    if plan.live_conflict:
+                        runtime.retry_failed("management", error)
                     raise
+                runtime.retry_failed("management", error)
         raise AssertionError("management_attempts_exhausted")
 
 

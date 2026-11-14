@@ -810,10 +810,31 @@ class BridgeAdapter:
         except ValueError, KeyError, TypeError:
             return {"status": "rejected", "reason": "command_session_conflict"}
 
+    async def _projection_wait(
+        self, queue: asyncio.Queue[dict[str, Any]] | None, delay: float | None
+    ) -> str:
+        tasks: dict[asyncio.Task[Any], str] = {
+            asyncio.create_task(self.projection_disconnected.wait()): "disconnected",
+            asyncio.create_task(self.runtime.projection_changed.wait()): "control",
+        }
+        if queue is not None:
+            tasks[asyncio.create_task(queue.get())] = "changed"
+        if delay is not None:
+            tasks[asyncio.create_task(self.runtime.clock.sleep(delay))] = "heartbeat"
+        try:
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            return next(tasks[task] for task in tasks if task in done)
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
     async def projection_worker(self) -> None:
         from ..ha_projection import snapshot
 
         queue = self.runtime.subscribe(max_queue=1)
+        last_sent: float | None = None
         try:
             while True:
                 await self.projection_connected.wait()
@@ -821,6 +842,22 @@ class BridgeAdapter:
                 previous: dict[str, Any] | None = None
                 retry_delay = 0.25
                 while connection is not None and connection is self.connection:
+                    self.runtime.projection_changed.clear()
+                    if self.runtime.projection_paused:
+                        previous = None
+                        if await self._projection_wait(None, None) == "disconnected":
+                            break
+                        continue
+                    if self.runtime.load_guard.state == "geschützt" and last_sent is not None:
+                        remaining = (
+                            last_sent
+                            + self.runtime.operations.projection_protected_interval_s
+                            - self.runtime.clock.monotonic()
+                        )
+                        if remaining > 0:
+                            if await self._projection_wait(None, remaining) == "disconnected":
+                                break
+                            continue
                     payload = snapshot(
                         self.runtime, include_fields=self.projection_fields_supported
                     )
@@ -838,6 +875,7 @@ class BridgeAdapter:
                         future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
                         identifier = None
                         try:
+                            last_sent = self.runtime.clock.monotonic()
                             identifier = await connection.send(payload, future)
                             async with asyncio.timeout(
                                 self.runtime.operations.projection_timeout_s
@@ -870,26 +908,13 @@ class BridgeAdapter:
                             "projection_unavailable", extra={"error_type": "UnsupportedFeature"}
                         )
                         previous = payload
-                    changed = asyncio.create_task(queue.get())
-                    disconnected = asyncio.create_task(self.projection_disconnected.wait())
-                    heartbeat = asyncio.create_task(
-                        self.runtime.clock.sleep(self.runtime.operations.projection_heartbeat_s)
+                    wake = await self._projection_wait(
+                        queue, self.runtime.operations.projection_heartbeat_s
                     )
-                    try:
-                        done, _ = await asyncio.wait(
-                            {changed, disconnected, heartbeat}, return_when=asyncio.FIRST_COMPLETED
-                        )
-                        if disconnected in done:
-                            break
-                        if heartbeat in done:
-                            previous = None
-                    finally:
-                        for task in (changed, disconnected, heartbeat):
-                            if not task.done():
-                                task.cancel()
-                        await asyncio.gather(
-                            changed, disconnected, heartbeat, return_exceptions=True
-                        )
+                    if wake == "disconnected":
+                        break
+                    if wake == "heartbeat":
+                        previous = None
         finally:
             self.runtime.subscribers.discard(queue)
 
@@ -954,7 +979,9 @@ class BridgeAdapter:
                     and not self.runtime.stopping
                 ):
                     await self.request_refresh(source_id)
+                    self.runtime.retry_succeeded("refresh")
             except Exception as error:
+                self.runtime.retry_failed("refresh", error)
                 LOGGER.warning("refresh_failed", extra={"error_type": type(error).__name__})
             finally:
                 self.runtime.refresh_requests.task_done()
@@ -969,6 +996,10 @@ class BridgeAdapter:
             response = await self.service_call(
                 job["operation"], job["target_ids"], job["arguments"], request_id=job["request_id"]
             )
+            if response.get("outcome") == "completed":
+                self.runtime.retry_succeeded("service")
+            else:
+                self.runtime.retry_failed("service", ConnectionError("service_not_completed"))
             await self.runtime.submit(
                 "service_complete", {"job_id": job["job_id"], "response": response}
             )

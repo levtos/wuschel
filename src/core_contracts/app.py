@@ -76,6 +76,8 @@ class JsonFormatter(logging.Formatter):
                         "field",
                         "previous_status",
                         "status",
+                        "load_state",
+                        "paused",
                         "writer_pid",
                         "binding_id",
                         "error_code",

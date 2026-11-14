@@ -79,7 +79,7 @@ class MQTTAdapter:
                         for b in (adapter.runtime.config.bindings if adapter.runtime.config else ())
                         if b.adapter.kind == "mqtt"
                     )
-                    adapter.runtime.mqtt_revision_changed.set()
+                    # Queue pressure is a visible gap, never a reconnect trigger.
                 super().put_nowait(item)
 
         self.queue_type = ObservableQueue
@@ -182,8 +182,7 @@ class MQTTAdapter:
                         await client.subscribe(binding.adapter.mqtt_topic or "", qos=1)
                     await self.runtime.submit("mqtt_state", "connected")
                     self.seen.clear()
-                    self.retry_delay = 1.0
-                    self.runtime.retry_succeeded("mqtt")
+                    connected_at = self.runtime.clock.monotonic()
                     LOGGER.info("mqtt_connected")
 
                     async def ingest() -> None:
@@ -239,7 +238,10 @@ class MQTTAdapter:
                         nonlocal config, revision
                         from ..reconfiguration import same_mqtt_bindings
 
-                        while not self.queue_overflow:
+                        while True:
+                            if self.runtime.clock.monotonic() - connected_at >= 10:
+                                self.retry_delay = 1.0
+                                self.runtime.retry_succeeded("mqtt")
                             if revision != self.runtime.state.active_revision:
                                 current = self.runtime.config
                                 if not same_mqtt_bindings(config, current):

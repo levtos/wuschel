@@ -1015,15 +1015,15 @@ async def operation_draft_preview(
 
 
 slots.OPERATIONS["draft_preview"] = slots.Operation(
-    operation_draft_preview, state="full", early=False
+    operation_draft_preview, state="full", early=False, heavy=True
 )
 slots.OPERATIONS["draft_complete"] = slots.Operation(
-    operation_draft_preview, state="full", early=False
+    operation_draft_preview, state="full", early=False, heavy=True
 )
 slots.OPERATIONS["draft_reconcile"] = slots.Operation(
-    operation_draft_preview, state="full", early=False
+    operation_draft_preview, state="full", early=False, heavy=True
 )
-slots.OPERATION_PREFIXES["continuation_"] = slots.Operation(operation_draft_preview)
+slots.OPERATION_PREFIXES["continuation_"] = slots.Operation(operation_draft_preview, heavy=True)
 
 
 async def operation_draft_create(

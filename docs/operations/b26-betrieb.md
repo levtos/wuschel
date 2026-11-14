@@ -4,6 +4,10 @@ Entschieden in [#131](https://github.com/Levtos/wuschel/issues/131), aufbauend a
 [#130](https://github.com/Levtos/wuschel/issues/130). Dies ist der technische
 Umsetzungsstand auf `b26`; Release, Sammeldurchsicht und Live-Abnahme folgen in #135.
 
+Schritt 3 ergänzt zwölf Betriebswerte, Lastschutz, Projektionspause und
+Wiederholmeldungen. Der aktuelle Zusatzvertrag und das vollständige
+Schleifeninventar stehen in [b26-selbstschutz.md](b26-selbstschutz.md).
+
 ## Ablage und Wirkung
 
 `operations.json` liegt im Datenverzeichnis. Die Datei gehört weder zur

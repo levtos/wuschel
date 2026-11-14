@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { IssueFocus } from './IssueFocus';
 import { HerdIcon } from './Herd';
 import { ConnectionNotice } from './ConnectionNotice';
+import { ProjectionNotice } from './ProjectionNotice';
 import { RouteScrollRestoration } from './RouteScrollRestoration';
 import { useAuthoringSource } from '@/features/authoring/useAuthoringSource';
 import { useEditorial } from '@/features/editorial/Editorial';
@@ -115,6 +116,7 @@ export function Shell(_props: { onSetup: () => void }) {
         </header>
         <main id="main" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-8">
           <ConnectionNotice />
+          <ProjectionNotice />
           <RouteScrollRestoration />
           <div id="route-content"><LayoutPreferencesProvider value={info.data?.installation_id ?? null}><Outlet /></LayoutPreferencesProvider></div>
           <IssueFocus />

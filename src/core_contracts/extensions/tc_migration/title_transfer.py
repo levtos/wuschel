@@ -496,8 +496,8 @@ async def operation_title_preview(
 
 
 slots.OPERATIONS["title_preview"] = slots.Operation(
-    operation_title_preview, state="full", early=False
+    operation_title_preview, state="full", early=False, heavy=True
 )
 slots.OPERATIONS["title_stage"] = slots.Operation(
-    operation_title_preview, state="full", early=False
+    operation_title_preview, state="full", early=False, heavy=True
 )

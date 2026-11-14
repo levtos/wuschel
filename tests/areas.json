@@ -93,6 +93,7 @@
       "tests/test_catalog_scope.py",
       "tests/test_catalog_title_keys.py",
       "tests/test_delta_review.py",
+      "tests/test_load_guard.py",
       "tests/test_postgres.py",
       "tests/test_remediation.py",
       "tests/test_title_import.py",
@@ -178,6 +179,7 @@
       "tests/test_ha_projection_reconnect.py",
       "tests/test_ha_request_ids.py",
       "tests/test_instance_parameters.py",
+      "tests/test_load_guard.py",
       "tests/test_managed_catalog.py",
       "tests/test_multibucket.py",
       "tests/test_phase1a.py",
@@ -228,6 +230,7 @@
       "tests/test_catalog_cleanup.py",
       "tests/test_catalog_scope.py",
       "tests/test_delta_review.py",
+      "tests/test_load_guard.py",
       "tests/test_operations.py",
       "tests/test_phase1a.py",
       "tests/test_postgres.py",
@@ -297,6 +300,8 @@
       "tests/test_device_timestamp.py",
       "tests/test_ha_projection_reconnect.py",
       "tests/test_ha_request_ids.py",
+      "tests/test_load_guard.py",
+      "tests/test_load_projection.py",
       "tests/test_managed_catalog.py",
       "tests/test_measurement_ordering.py",
       "tests/test_mqtt_integration.py",
@@ -410,6 +415,7 @@
       "tests/test_ha_projection_reconnect.py",
       "tests/test_ha_request_ids.py",
       "tests/test_instance_parameters.py",
+      "tests/test_load_guard.py",
       "tests/test_managed_catalog.py",
       "tests/test_measurement_ordering.py",
       "tests/test_mqtt_integration.py",
@@ -472,7 +478,8 @@
       "tests/test_beta5_projection.py",
       "tests/test_beta_command_ingress.py",
       "tests/test_bridge_kernel.py",
-      "tests/test_ha_projection_reconnect.py"
+      "tests/test_ha_projection_reconnect.py",
+      "tests/test_load_projection.py"
     ]
   },
   "release": {
@@ -532,11 +539,16 @@
     ]
   },
   "load": {
-    "paths": [],
+    "paths": [
+      "src/core_contracts/load_guard.py"
+    ],
     "tests": [
       "tests/test_b23_acceptance.py",
       "tests/test_b23_p6.py",
-      "tests/test_b23_p7.py"
+      "tests/test_b23_p7.py",
+      "tests/test_load_guard.py",
+      "tests/test_load_projection.py",
+      "tests/test_load_storm.py"
     ]
   },
   "operations": {
@@ -544,6 +556,7 @@
       "src/core_contracts/operations.py"
     ],
     "tests": [
+      "tests/test_load_guard.py",
       "tests/test_operations.py"
     ]
   }

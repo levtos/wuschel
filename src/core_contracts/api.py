@@ -17,6 +17,7 @@ from pydantic import ValidationError
 from . import __version__, slots
 from .authoring import AuthoringError
 from .capabilities import capabilities, configuration_schema, describe_types, reasons
+from .errors import LoadProtected
 from .history import HISTORY_TABLES, HistoryQuery
 from .model import canonical
 from .operations import OperationsFile
@@ -102,6 +103,8 @@ class API:
                     raise web.HTTPForbidden()
             try:
                 response = await handler(request)
+            except LoadProtected:
+                response = web.json_response({"error": "load_protected"}, status=503)
             except AuthoringError as error:
                 response = web.json_response(
                     {"error": error.code, "cause": error.code, "details": error.details}, status=409
@@ -409,11 +412,13 @@ class API:
                 for item in error.errors(
                     include_input=False, include_context=False, include_url=False
                 ):
-                    key = str(item["loc"][0])
+                    key = str(item["loc"][0]) if item["loc"] else ""
                     field = fields.get(key)
                     message = (
                         f"{field['name']}: Gib einen Wert von {field['minimum']} bis {field['maximum']} {field['unit']} ein."
                         if field
+                        else "Die Schutzschwelle darf nicht kleiner als die Schwelle für angespannte Last sein."
+                        if not key
                         else "Diese Betriebseinstellung ist unbekannt."
                     )
                     details.append({"location": [key] if field else [], "message": message})
@@ -439,6 +444,12 @@ class API:
                 "version": __version__,
                 "operations_notice": self.operations.notice,
             }
+        elif path == "operations/projection" and method == "PUT":
+            body = await self.object_body(request)
+            if set(body) != {"paused"} or type(body["paused"]) is not bool:
+                raise ValueError("invalid_projection_pause")
+            runtime.set_projection_paused(body["paused"])
+            result = {"projection_paused": runtime.projection_paused}
         elif path == "types" and method == "GET":
             result = describe_types(config, runtime.types)
         elif path == "capabilities" and method == "GET":
@@ -455,6 +466,7 @@ class API:
         elif path in {"portable/export", "portable/preview", "portable/stage"} and method == "POST":
             from .portable import strict_json
 
+            runtime.admit_operation("portable_" + path.rsplit("/", 1)[1])
             body = strict_json(await request.text())
             if not isinstance(body, dict):
                 raise ValueError("import_object_required")
