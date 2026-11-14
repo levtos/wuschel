@@ -83,7 +83,7 @@ export function Tip({ label, children }: { label: ReactNode; children: ReactElem
         <BaseTooltip.Trigger render={children} />
         <BaseTooltip.Portal>
           <BaseTooltip.Positioner sideOffset={6}>
-            <BaseTooltip.Popup className="popup-anim z-[60] max-w-xs rounded-[var(--radius-sm)] bg-raised px-2.5 py-1.5 text-xs text-fg shadow-pop">
+            <BaseTooltip.Popup role="tooltip" className="popup-anim z-[60] max-w-xs rounded-[var(--radius-sm)] bg-raised px-2.5 py-1.5 text-xs text-fg shadow-pop">
               {label}
             </BaseTooltip.Popup>
           </BaseTooltip.Positioner>

@@ -46,6 +46,8 @@ it('sends app live and sender filters to the grouped catalog API and clears them
   fake.routes.push({ match: /^catalogs\/care\?/, respond: () => reply(200, { items: [], content_revision: 0, next_cursor: null, filter_values: { app: ['synthetic.app'], sender: ['Synthetic sender'] }, app_labels: { 'synthetic.app': 'Synthetic app' } }) });
   wrap(<CatalogPage />);
   const user = userEvent.setup();
+  await waitFor(() => expect(screen.getByLabelText(t('alpha10.catalog.catalog')).querySelector('option[value="media.appletv_titles@1"]')).not.toBeNull());
+  await user.selectOptions(screen.getByLabelText(t('alpha10.catalog.catalog')), 'media.appletv_titles@1');
   await screen.findByRole('option', { name: 'Synthetic app' });
   await user.selectOptions(screen.getByLabelText(t('b22.apple.app')), 'synthetic.app');
   await user.selectOptions(screen.getByLabelText(t('b22.apple.kind')), 'true');

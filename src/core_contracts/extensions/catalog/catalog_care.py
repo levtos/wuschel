@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 from pydantic import Field
 
+from core_contracts.extensions.catalog.catalog_families import VERSION_PATTERN
 from core_contracts.extensions.catalog.managed_catalog import (
     discovered_entries,
     effective,
@@ -30,7 +31,15 @@ class CareRequest(Model):
     request_id: str = Field(pattern=r"^[0-9a-fA-F-]{36}$")
     reason: str = Field(min_length=1, max_length=256)
     action: Literal[
-        "classify", "group", "ungroup", "review", "open", "hide", "unhide", "standalone_review"
+        "classify",
+        "group",
+        "ungroup",
+        "promote",
+        "review",
+        "open",
+        "hide",
+        "unhide",
+        "standalone_review",
     ]
     identities: tuple[str, ...] = Field(min_length=1, max_length=100)
     master: str | None = None
@@ -89,9 +98,6 @@ def candidate_key(row: dict[str, Any]) -> str:
     return (
         canonical([row["scope"], row["media_type"], row["signal_type"], *seed]) if any(seed) else ""
     )
-
-
-VERSION_PATTERN = r"\((?:[^()]*(?:remix|mix|edit|version)|live(?: at [^()]*)?)\)"
 
 
 def master_order(row: dict[str, Any]) -> tuple[Any, ...]:
@@ -229,6 +235,17 @@ def all_rows(
             clusters[seed].append(key)
     for row in rows.values():
         row["candidate"] = len(clusters.get(row["cluster_key"], [])) > 1
+    families: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows.values():
+        families[row.get("master_identity") or row["identity"]].append(row)
+    for root, members in families.items():
+        if root in rows:
+            rows[root]["family_seen_count"] = sum(row.get("seen_count", 0) for row in members)
+            rows[root]["family_last_seen"] = max(
+                (row.get("last_seen") for row in members if row.get("last_seen")),
+                default=None,
+                key=epoch,
+            )
     for index, row in enumerate(sorted(rows.values(), key=master_order)):
         row["master_order"] = index
     return rows
@@ -249,7 +266,7 @@ def filtered(
             view == "unassigned"
             and row["complete"]
             or view == "masters"
-            and row.get("master_identity")
+            and not (row.get("master_identity") or row.get("variant_count"))
         ):
             continue
         if any(
@@ -285,12 +302,44 @@ def filtered(
             and not row["variant_count"]
         ):
             continue
+        if filters.get("classification") == "__unassigned__" and row["complete"]:
+            continue
+        if filters.get("classification") not in {
+            None,
+            "",
+            "__unassigned__",
+            row["effective_classification"],
+        }:
+            continue
         result.append(row)
     return result
 
 
 def epoch(value: Any) -> float:
     return datetime.fromisoformat(value).timestamp() if value else 0
+
+
+def validate_page(query: str, view: str, filters: dict[str, str], sort: str, limit: int) -> None:
+    if (
+        sort not in {"identity", "newest", "oldest", "title", "classification"}
+        or view not in {"all", "unassigned", "masters", "open", "reviewed", "hidden"}
+        or filters.keys()
+        - {
+            "scope",
+            "media_type",
+            "signal_type",
+            "context",
+            "structure",
+            "app",
+            "live_tv",
+            "sender",
+            "classification",
+        }
+        or any(len(value) > 16384 for value in filters.values())
+        or len(query) > 1024
+        or not 1 <= limit <= 100
+    ):
+        raise ValueError("catalog_page_invalid")
 
 
 def listing(
@@ -305,18 +354,10 @@ def listing(
     sort: str = "identity",
     variants_first: bool = False,
     grouped: bool = False,
+    _all: bool = False,
 ) -> dict[str, Any]:
     filters = filters or {}
-    if (
-        sort not in {"identity", "newest", "oldest", "title"}
-        or view not in {"all", "unassigned", "masters", "open", "reviewed", "hidden"}
-        or filters.keys()
-        - {"scope", "media_type", "signal_type", "context", "structure", "app", "live_tv", "sender"}
-        or any(len(value) > 16384 for value in filters.values())
-        or len(query) > 1024
-        or not 1 <= limit <= 100
-    ):
-        raise ValueError("catalog_page_invalid")
+    validate_page(query, view, filters, sort, limit)
     current = head(state, catalog)
     rows = all_rows(state, catalog)
     media_metadata = [
@@ -326,7 +367,9 @@ def listing(
 
     def order(row: dict[str, Any]) -> tuple[Any, ...]:
         key = (
-            row["identity"]
+            row["effective_classification"]
+            if sort == "classification"
+            else row["identity"]
             if sort == "identity"
             else normalize_key(row.get("display_name") or row["key"])
             if sort == "title"
@@ -382,14 +425,14 @@ def listing(
             offset = cursor["offset"]
         except ValueError, KeyError, TypeError, UnicodeError:
             raise ValueError("catalog_content_conflict") from None
-    page = selected[offset : offset + limit]
+    page = selected if _all else selected[offset : offset + limit]
     from core_contracts.extensions.catalog.catalog_mapping import current_mapping
 
     next_cursor = (
         base64.urlsafe_b64encode(
             canonical({"binding": binding, "offset": offset + limit}).encode()
         ).decode()
-        if offset + limit < len(selected)
+        if not _all and offset + limit < len(selected)
         else None
     )
     return {
@@ -495,6 +538,32 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
         raise ValueError("catalog_page_invalid")
     selected = {key: fields(rows[key]) for key in request.identities}
     action = request.action
+    if action == "promote":
+        if len(request.identities) != 1:
+            raise ValueError("catalog_page_invalid")
+        child = rows[request.identities[0]]
+        old_root = child.get("master_identity")
+        if not old_root:
+            raise ValueError("catalog_master_missing")
+        family = all_rows(state, catalog)
+        selected = {
+            key: fields(row)
+            for key, row in family.items()
+            if key == old_root or row.get("master_identity") == old_root
+        }
+        if len(selected) > 1000:
+            raise ValueError("catalog_page_invalid")
+        value = (
+            request.classification
+            if request.classification is not None
+            else family[old_root]["effective_classification"]
+        )
+        for key, row in selected.items():
+            row.update(
+                master_key=None if key == child["identity"] else child["key"],
+                classification=value if key == child["identity"] else None,
+                reviewed_at=now.isoformat(),
+            )
     target_master = request.master
     if request.new_master_name is not None and action != "group":
         raise ValueError("catalog_master_name_invalid")
@@ -631,7 +700,17 @@ def detail(
         len(query) > 1024
         or view not in {"all", "unassigned", "masters", "open", "reviewed", "hidden"}
         or filters.keys()
-        - {"scope", "media_type", "signal_type", "context", "structure", "app", "live_tv", "sender"}
+        - {
+            "scope",
+            "media_type",
+            "signal_type",
+            "context",
+            "structure",
+            "app",
+            "live_tv",
+            "sender",
+            "classification",
+        }
         or any(len(value) > 16384 for value in filters.values())
     ):
         raise ValueError("catalog_page_invalid")

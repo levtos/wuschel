@@ -340,7 +340,7 @@ def flush(state: Any, now: datetime) -> None:
         if datetime.fromisoformat(pending["due"]) > now:
             continue
         current_frame = state.tables["service_state"].get("catalog_frame:" + pending["source"], {})
-        if hierarchy := pending.get("hierarchy"):
+        if (hierarchy := pending.get("hierarchy")) and hierarchy.get("profile") != "music":
             if hierarchy.get("profile") == "apple_tv_title":
                 candidate = current_frame.get("title_candidate") or {}
                 matches = (
@@ -432,6 +432,7 @@ def flush(state: Any, now: datetime) -> None:
                     "source",
                 )
             },
+            **({"hierarchy_master": True} if previous.get("hierarchy_master") else {}),
             "first_seen": previous.get("first_seen", pending["observed_at"]),
             "last_seen": pending["observed_at"],
             "seen_count": previous.get("seen_count", 0) + 1,

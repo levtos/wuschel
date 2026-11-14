@@ -1,4 +1,8 @@
 import { t as uiText } from '@/i18n';
+import { useAuthoringSource } from '@/features/authoring/useAuthoringSource';
+import { asArray, str } from '@/features/authoring/model';
+import { isObject } from '@/lib/json';
+import { contractTitle } from '@/features/contracts/presentation';
 import { connectionLabel } from '@/lib/status';
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -22,6 +26,8 @@ import { MachineRestartPanel } from '@/features/contracts/MachineRestartPanel';
 
 function ContractPicker({ value, onChange, allowNone }: { value: string; onChange: (id: string) => void; allowNone?: boolean }) {
   const live = useLive();
+  const source = useAuthoringSource();
+  const contracts = asArray(source.config?.contracts).filter(isObject);
   const ids = Object.keys(live.contracts ?? {}).sort();
   return (
     <Field label={uiText("features.diagnostics.DiagnosticsPage.contract_a6f5b0")} className="max-w-md">
@@ -29,7 +35,7 @@ function ContractPicker({ value, onChange, allowNone }: { value: string; onChang
         <Select {...p} value={value} onChange={(e) => onChange(e.target.value)}>
           {allowNone && <option value="">{uiText("features.diagnostics.DiagnosticsPage.wahlen_602246")}</option>}
           {value && !ids.includes(value) && <option value={value}>{value}</option>}
-          {ids.map((id) => <option key={id} value={id}>{id}</option>)}
+          {ids.map((id) => <option key={id} value={id}>{contractTitle(contracts.find(row => str(row.contract_id) === id), id)}</option>)}
         </Select>
       )}
     </Field>

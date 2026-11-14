@@ -11,7 +11,7 @@ export const buttonVariants = cva(
           'border-accent-strong bg-accent text-accent-fg hover:bg-accent-strong hover:border-accent',
         secondary: 'border-line-strong bg-raised text-fg hover:border-fg/60 hover:bg-line',
         ghost: 'border-transparent bg-transparent text-muted hover:bg-raised hover:text-fg',
-        danger: 'border-line-strong bg-raised text-fg hover:bg-line hover:border-fg/60',
+        danger: 'border-bad/40 bg-bad/10 text-bad hover:bg-bad/20 hover:border-bad',
         outline: 'border-line-strong bg-transparent text-fg hover:border-fg/60',
       },
       size: {

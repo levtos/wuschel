@@ -69,19 +69,22 @@ function installPage(parent: Entry = master) {
 
 it('renders labelled variants as nested children, with selection and edit actions', async () => {
   const fake = installPage();
-  const list = await screen.findByRole('list', { name: t('b22.catalog.entryList') });
-  expect(list.querySelectorAll(':scope > li')).toHaveLength(1);
+  const list = await screen.findByRole('table', { name: t('b22.catalog.entryList') });
+  expect(list.querySelectorAll('tr[data-catalog-role="root"]')).toHaveLength(1);
   expect(within(list).getByText('Master')).toBeInTheDocument();
   expect(fake.calls.some(call => call.path.startsWith('catalogs/care/detail?'))).toBe(false);
   await userEvent.click(within(list).getByText('Varianten · 2'));
   await within(list).findByText('Synthetic two');
-  const nested = within(list).getByRole('list', { name: 'Varianten' });
-  expect(nested.closest('li')).toHaveAttribute('data-catalog-role', 'root');
-  expect(within(nested).getAllByText('Variante')).toHaveLength(2);
-  expect(within(nested).getAllByText(t('b22.catalog.inheritedClass'))).toHaveLength(2);
-  expect(within(nested).getAllByRole('checkbox')).toHaveLength(2);
-  expect(within(nested).getAllByRole('button', { name: t('alpha10.catalog.edit') })).toHaveLength(2);
-  expect(list.querySelectorAll(':scope > li')).toHaveLength(1);
+  const nested = list.querySelectorAll('tr[data-catalog-role="variant"]');
+  expect(nested).toHaveLength(2);
+  for (const row of nested) {
+    expect(within(row as HTMLElement).getByText('Variante')).toBeInTheDocument();
+    expect(within(row as HTMLElement).getByText(t('b22.catalog.inheritedClass'))).toBeInTheDocument();
+    expect(within(row as HTMLElement).getByRole('checkbox')).toBeInTheDocument();
+    expect(within(row as HTMLElement).getByRole('button', { name: t('b22.object.edit') })).toBeInTheDocument();
+    expect(row.children).toHaveLength(list.querySelectorAll('thead th').length);
+  }
+  expect(list.querySelectorAll('tr[data-catalog-role="root"]')).toHaveLength(1);
   expect(new URLSearchParams(fake.calls.find(call => call.path.startsWith('catalogs/care?'))!.path.split('?')[1]).get('grouped')).toBe('true');
 });
 

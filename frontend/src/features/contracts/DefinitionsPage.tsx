@@ -86,7 +86,7 @@ export default function DefinitionsPage() {
     () => [
       col.accessor('typeId', { header: uiText("features.contracts.DefinitionsPage.typ_id_b7db41"), cell: (c) => <code className="text-xs text-fg">{c.getValue()}</code> }),
       col.accessor('version', { header: uiText("features.contracts.DefinitionsPage.version_dd1679"), cell: (c) => <Badge tone="neutral">{uiText("features.contracts.DefinitionsPage.v_4c9448")}{c.getValue()}</Badge> }),
-      col.accessor('name', { header: uiText("features.contracts.DefinitionsPage.name_dcd1d5"), cell: (c) => c.getValue() || <span className="text-faint">—</span> }),
+      col.accessor('name', { header: uiText("features.contracts.DefinitionsPage.name_dcd1d5"), cell: (c) => <span>{c.getValue() || c.row.original.typeId}{c.row.original.usedBy === 0 && <Badge>{uiText(rows.some(row => row.typeId === c.row.original.typeId && row.version > c.row.original.version) ? 'b26.templates.old' : 'b26.templates.unused')}</Badge>}</span> }),
       col.accessor('category', { header: uiText('alpha9.category.label'), cell: c => <CategoryBadge category={c.getValue()} /> }),
       col.accessor('inputs', { header: uiText("features.contracts.DefinitionsPage.eingange_53fb39") }),
       col.accessor('outputs', { header: uiText("features.contracts.DefinitionsPage.ausgaben_44e52a") }),
@@ -95,7 +95,7 @@ export default function DefinitionsPage() {
       col.accessor((r) => r.lockedSince ?? 0, { id: 'status', header: uiText("features.contracts.DefinitionsPage.status_920e41"), cell: (c) => (c.row.original.lockedSince !== null ? <span className="flex items-center gap-1.5"><LockBadge /><span className="text-[11px] text-faint">{uiText("features.contracts.DefinitionsPage.seit_rev_6ccd9c")}{c.row.original.lockedSince}</span></span> : <Badge tone="info">{uiText("features.contracts.DefinitionsPage.entwurf_2ba46e")}</Badge>) }),
       col.accessor('errors', { header: uiText("features.contracts.DefinitionsPage.fehler_f6cc01"), cell: (c) => (c.getValue() ? <Badge tone="bad">{c.getValue()}</Badge> : null) }),
     ],
-    [],
+    [rows],
   );
 
   const usedIds = [...definitions.map(definition => str(definition.type_id)), ...(caps.data?.types.map(type => type.type_id) ?? [])];

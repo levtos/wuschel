@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { t } from '@/i18n';
 import { api, describeError } from '@/lib/api';
+import { formatTime } from '@/lib/format';
 import { uuid } from '@/lib/uuid';
 import { Button } from '@/components/ui/button';
 import { Field, Input, Select } from '@/components/ui/form';
@@ -11,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Catalog, Entry } from './CatalogPage';
 import { titleLabel } from './titleLabel';
 import { catalogLabel, contextLabel } from './catalogLabels';
+import { entryKey } from './CatalogTable';
 import { CatalogMediaFacts } from './CatalogMediaFacts';
 
 export function MasterVariants({ catalog, entry, onOpen, renderEntry, parameters = '' }: { catalog: Catalog; entry: Entry; onOpen: (row: Entry) => void; renderEntry?: (row: Entry) => ReactNode; parameters?: string }) {
@@ -100,7 +102,7 @@ export function CatalogCare({ catalog, rows, selected, setSelected, revision, ac
   };
   return <div className="space-y-3">
     <div className="flex flex-wrap gap-2">
-      <Button onClick={() => { const next = { ...selected }; const all = rows.every(row => !!selected[row.identity]); for (const row of rows) { if (all) delete next[row.identity]; else next[row.identity] = row; } setSelected(next); }}>{t('b17.selectVisible')}</Button>
+      <Button onClick={() => { const next = { ...selected }; const all = rows.every(row => !!selected[entryKey(row)]); for (const row of rows) { if (all) delete next[entryKey(row)]; else next[entryKey(row)] = row; } setSelected(next); }}>{t('b17.selectVisible')}</Button>
       <Button disabled={!Object.keys(selected).length} onClick={() => setSelected({})}>{t('b17.clearSelection')}</Button>
       <p>{t('b17.selected', { n: Object.keys(selected).length })}</p>
     </div>
@@ -149,9 +151,9 @@ export function CatalogDetail({ catalog, entry, onClose, onOpen }: { catalog: Ca
       {data.data.master && <Button onClick={() => open(data.data!.master!)}>{t('alpha10.catalog.master')}: {titleLabel(data.data.master)}</Button>}
       <p>{t(`b17.status.${value.review_status ?? 'open'}`)}</p>
       {meta && <dl><dt>{t('b17.artist')}</dt><dd>{meta.artist ?? '—'}</dd><dt>{t('b17.title')}</dt><dd>{meta.title ?? '—'}</dd><dt>{t('b17.sourceClass')}</dt><dd>{meta.source_class}</dd></dl>}
-      <p>{t('b17.totalSightings', { n: value.seen_count ?? 0, first: value.first_seen ?? '—', last: value.last_seen ?? '—' })}</p>
+      <p>{t('b17.totalSightings', { n: value.seen_count ?? 0, first: formatTime(value.first_seen), last: formatTime(value.last_seen) })}</p>
       <h3>{t('b17.contexts')}</h3>
-      <ul>{data.data.contexts?.map((ctx, index) => <li key={index}><p>{contextLabel(ctx.context)} · {ctx.source_app ? contextLabel(ctx.source_app) : ''} · {ctx.catalog_id ? catalogLabel({ catalog_id: ctx.catalog_id, version: 1 }) : t('alpha10.catalog.unassigned')} · {t('b17.override')}: {ctx.enum_override ?? '—'}</p><p>{t('b17.effectiveClass')}: {ctx.effective_classification ?? t('alpha10.catalog.unassigned')}</p><p>{t('b17.totalSightings', { n: ctx.telemetry?.seen_count ?? 0, first: ctx.telemetry?.first_seen ?? '—', last: ctx.telemetry?.last_seen ?? '—' })}</p></li>)}</ul>
+      <ul>{data.data.contexts?.map((ctx, index) => <li key={index}><p>{contextLabel(ctx.context)} · {ctx.source_app ? contextLabel(ctx.source_app) : ''} · {ctx.catalog_id ? catalogLabel({ catalog_id: ctx.catalog_id, version: 1 }) : t('alpha10.catalog.unassigned')} · {t('b17.override')}: {ctx.enum_override ?? '—'}</p><p>{t('b17.effectiveClass')}: {ctx.effective_classification ?? t('alpha10.catalog.unassigned')}</p><p>{t('b17.totalSightings', { n: ctx.telemetry?.seen_count ?? 0, first: formatTime(ctx.telemetry?.first_seen), last: formatTime(ctx.telemetry?.last_seen) })}</p></li>)}</ul>
       {value.local_sightings && <p>{t('b17.localSightings', { n: value.local_sightings.seen_count })}</p>}
       <h3>{t('b17.variants')}</h3><ul>{data.data.variants.map(row => <li key={row.identity}><Button onClick={() => open(row)}>{titleLabel(row)}</Button></li>)}</ul>
       <Button disabled={!data.data.next_cursor} onClick={() => setAfter(data.data?.next_cursor ?? '')}>{t('alpha10.catalog.next')}</Button>
