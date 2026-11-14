@@ -12,6 +12,7 @@ async def dispatch(self: Any, request: web.Request) -> Any:
     runtime, state, config = self.runtime, self.runtime.state, self.runtime.config
     result: Any
     if path == "catalogs" and method == "GET":
+        from core_contracts.extensions.catalog.catalog_care import all_rows
         from core_contracts.extensions.catalog.catalog_scope import device_scope
         from core_contracts.rules.catalog_models import ManagedCatalog
 
@@ -20,6 +21,7 @@ async def dispatch(self: Any, request: web.Request) -> Any:
                 {
                     **c.model_dump(mode="json"),
                     "device_scope": device_scope(config, c.catalog_id, c.version),
+                    "active_entry_count": len(all_rows(state, c)),
                 }
                 for c in config.catalogs
                 if isinstance(c, ManagedCatalog)
