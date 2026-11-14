@@ -169,7 +169,7 @@ function Collection({ name, idKey, singular, make, render, subtitle, usage, onMo
         open={removing !== null}
         onOpenChange={(o) => !o && setRemoving(null)}
         title={uiText("features.sources.SourcesPage.v0_entfernen_f1cd8a", { v0: (singular) })}
-        description={<>„{removing !== null ? str(list[removing]?.[idKey]) : ''}{uiText("features.sources.SourcesPage.wird_aus_dem_draft_entfernt_verweise_darauf_werd_295ba2")}</>}
+        description={<><p>„{removing !== null ? str(list[removing]?.display_name) || str(list[removing]?.[idKey]) : ''}{uiText("features.sources.SourcesPage.wird_aus_dem_draft_entfernt_verweise_darauf_werd_295ba2")}</p>{removing !== null && <div>{usage(list[removing]!, config)}</div>}<p>{uiText('b26.object.engineNotice')}</p></>}
         confirmLabel={uiText("features.sources.SourcesPage.entfernen_382837")}
         tone="danger"
         onConfirm={() => {

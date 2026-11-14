@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, expect, it } from 'vitest';
 import { Workbench } from '@/Workbench';
 import { installFakeApi, reply, sampleConfig } from '../../test/fakeApi';

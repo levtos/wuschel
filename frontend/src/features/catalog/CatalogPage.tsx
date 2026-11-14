@@ -6,8 +6,10 @@ import { api, describeError } from '@/lib/api';
 import { uuid } from '@/lib/uuid';
 import { useActiveRevision } from '@/lib/queries';
 import { Button } from '@/components/ui/button';
+import { EditButton } from '@/components/EditButton';
 import { Field, Input, Select, Textarea } from '@/components/ui/form';
-import { Dialog } from '@/components/ui/dialog';
+import { ConfirmDialog, Dialog } from '@/components/ui/dialog';
+import { Trash2 } from 'lucide-react';
 import { Empty, Notice, PageHeader, Panel, Spinner } from '@/components/ui/layout';
 import { TitleSync } from './TitleSync';
 import { CatalogCare, CatalogDetail, MasterVariants } from './CatalogCare';
@@ -39,7 +41,7 @@ export default function CatalogPage() {
   const [selected, setSelected] = useState<Record<string, Entry>>({}); const [details, setDetails] = useState<Entry | null>(null);
   const [editing, setEditing] = useState<Entry | null>(null); const [classification, setClassification] = useState('');
   const [master, setMaster] = useState(''); const [mode, setMode] = useState('independent');
-  const [note, setNote] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState(''); const [displayName, setDisplayName] = useState(''); const [removingEntry, setRemovingEntry] = useState(false); const [confirmSave, setConfirmSave] = useState(false); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const [expected, setExpected] = useState(0); const [expectedActive, setExpectedActive] = useState(0); const [comparison, setComparison] = useState('');
   const [scopeFilter, setScopeFilter] = route.field('scope', ''); const [mediaFilter, setMediaFilter] = route.field('media_type', ''); const [signalFilter, setSignalFilter] = route.field('signal_type', ''); const [masterQuery, setMasterQuery] = useState(''); const [requestId, setRequestId] = useState('');
   const parameters = new URLSearchParams({ catalog_id: catalog?.catalog_id ?? '', definition_version: String(catalog?.version ?? 1), view: view === 'history' ? 'all' : view, q: query, after, scope: scopeFilter, media_type: mediaFilter, signal_type: signalFilter, context: contextFilter, structure, sort, variants_first: String(variantsFirst), grouped: 'true', app: appFilter, live_tv: liveFilter, sender: senderFilter });
@@ -52,12 +54,12 @@ export default function CatalogPage() {
     await api('catalogs/entries', { method: 'POST', body: restoreBody() });
     setPast(null); await cache.invalidateQueries({ queryKey: ['catalog-entries'] }); await cache.invalidateQueries({ queryKey: ['catalog-history'] }); await cache.invalidateQueries({ queryKey: ['catalog-details'] }); await cache.invalidateQueries({ queryKey: ['catalog-masters'] });
   } catch (failure) { setError(describeError(failure)); } finally { setBusy(false); } };
-  const open = (entry: Entry) => { setEditing(entry); setClassification(entry.classification ?? catalog?.classification_schema.values[0] ?? ''); setMode(entry.master_key ? 'variant' : 'independent'); setMaster(entry.master_key ?? ''); setNote(entry.note); setExpected(entries.data?.content_revision ?? 0); setExpectedActive(active.data?.revision ?? 0); setComparison(''); setMasterQuery(''); setRequestId(uuid()); setError(''); };
-  useEffect(() => { setRequestId(uuid()); setImpact(null); }, [classification, master, mode, note, editing, past, expected, expectedActive]);
+  const open = (entry: Entry) => { setEditing(entry); setClassification(entry.classification ?? catalog?.classification_schema.values[0] ?? ''); setMode(entry.master_key ? 'variant' : 'independent'); setMaster(entry.master_key ?? ''); setNote(entry.note); setDisplayName(entry.display_name); setRemovingEntry(false); setConfirmSave(false); setExpected(entries.data?.content_revision ?? 0); setExpectedActive(active.data?.revision ?? 0); setComparison(''); setMasterQuery(''); setRequestId(uuid()); setError(''); };
+  useEffect(() => { setRequestId(uuid()); setImpact(null); }, [classification, master, mode, note, displayName, removingEntry, editing, past, expected, expectedActive]);
   const body = () => ({ catalog_id: catalog!.catalog_id, definition_version: catalog!.version,
         expected_active_revision: expectedActive, expected_content_revision: expected, request_id: requestId,
         reason: t('alpha10.catalog.reason'), changes: [{ scope: editing!.scope, media_type: editing!.media_type, signal_type: editing!.signal_type, key: editing!.key,
-          classification: mode === 'variant' ? null : classification, master_key: mode === 'variant' ? master : null, note, display_name: editing!.display_name, tombstone: false }] });
+          classification: mode === 'variant' ? null : classification, master_key: mode === 'variant' ? master : null, note, display_name: displayName, tombstone: removingEntry }] });
   const currentPayload = catalog ? past !== null ? restoreBody() : editing ? body() : null : null;
   const impactCurrent = !!impact && impact.request === JSON.stringify(currentPayload);
   const inspectImpact = async (restoring = false) => { if (!catalog || (!editing && !restoring)) return; const payload = restoring ? restoreBody() : body(); setBusy(true); setError(''); try { const result = await api<{ affected_keys: number; affected_contracts: number }>('catalogs/preview', { method: 'POST', body: payload }); setImpact({ ...result, request: JSON.stringify(payload) }); } catch (failure) { setError(describeError(failure)); } finally { setBusy(false); } };
@@ -66,7 +68,7 @@ export default function CatalogPage() {
     setBusy(true); setError('');
     try {
       await api('catalogs/entries', { method: 'POST', body: body() });
-      setEditing(null); await cache.invalidateQueries({ queryKey: ['catalog-entries'] }); await cache.invalidateQueries({ queryKey: ['catalog-history'] }); await cache.invalidateQueries({ queryKey: ['catalog-details'] }); await cache.invalidateQueries({ queryKey: ['catalog-masters'] });
+      setEditing(null); setConfirmSave(false); await cache.invalidateQueries({ queryKey: ['catalog-entries'] }); await cache.invalidateQueries({ queryKey: ['catalog-history'] }); await cache.invalidateQueries({ queryKey: ['catalog-details'] }); await cache.invalidateQueries({ queryKey: ['catalog-masters'] });
     } catch (failure) { setError(describeError(failure)); }
     finally { setBusy(false); }
   };
@@ -83,7 +85,7 @@ export default function CatalogPage() {
         <p className="text-sm text-muted">{label('scope', entry.scope)} · {label('media_type', entry.media_type)} · {label('signal_type', entry.signal_type)} · {entry.complete ? catalog!.classification_schema.legend?.[entry.effective_classification]?.display_name ?? entry.effective_classification : t('alpha10.catalog.unassigned')}</p>
         {nested && <p className="text-sm text-muted">{t('b22.catalog.inheritedClass')}</p>}
         {entry.last_seen && <p className="text-xs text-muted">{t(entry.playback_counts ? 'b20.catalog.seen' : 'alpha10.catalog.seen', { n: entry.seen_count ?? 0, date: new Date(entry.last_seen).toLocaleString('de-DE') })}</p>}
-      </div><Button onClick={() => setDetails(entry)}>{t('b17.details')}</Button><Button onClick={() => open(entry)}>{t('alpha10.catalog.edit')}</Button>
+      </div><Button onClick={() => setDetails(entry)}>{t('b17.details')}</Button><EditButton onClick={() => open(entry)} />
     </div>
     {!nested && (entry.variant_count ?? 0) > 0 && <MasterVariants catalog={catalog!} entry={entry} onOpen={setDetails} renderEntry={row => renderEntry(row, true)} parameters={parameters.toString()} />}
   </li>;
@@ -122,8 +124,11 @@ export default function CatalogPage() {
     </Panel>}
     {catalog && <CatalogDetail catalog={catalog} entry={details} onClose={() => setDetails(null)} onOpen={setDetails} />}
     {catalog?.classification_schema.legend && <Panel className="mt-4 p-5"><h2>{t('b15.legend')}</h2><Link to={`/sources/catalogs?catalog_id=${encodeURIComponent(catalog.catalog_id)}`}>{t('b17.editLegend')}</Link><p>{t('b17.legendVersioned')}</p><dl>{Object.entries(catalog.classification_schema.legend).map(([key, item]) => <div key={key} className="py-2"><dt className="font-medium">{item.display_name}</dt><dd>{item.description}</dd></div>)}</dl></Panel>}
-    <Dialog open={!!editing} onOpenChange={open => !open && setEditing(null)} title={t('alpha10.catalog.edit')} footer={<><Button disabled={busy || (mode === 'variant' && !master)} onClick={() => void inspectImpact()}>{t('alpha10.catalog.preview')}</Button><Button variant="primary" disabled={busy || !impactCurrent || (mode === 'variant' && !master)} onClick={() => void save()}>{t('alpha10.catalog.save')}</Button></>}>
+    <Dialog open={!!editing} onOpenChange={open => !open && setEditing(null)} title={t('alpha10.catalog.edit')} footer={<><Button disabled={busy || (mode === 'variant' && !master)} onClick={() => void inspectImpact()}>{t('alpha10.catalog.preview')}</Button><Button variant={removingEntry ? "danger" : "primary"} disabled={busy || !impactCurrent || (mode === 'variant' && !master)} onClick={() => setConfirmSave(true)}>{t(removingEntry ? 'b26.catalog.delete' : 'alpha10.catalog.save')}</Button></>}>
       <div className="space-y-4"><p className="font-medium">{editing ? titleLabel(editing) : ''}</p><Notice tone="warn">{t('alpha10.catalog.immediate')}</Notice>{impactCurrent && impact && <Notice tone="info">{t('alpha10.catalog.impact', { keys: impact.affected_keys, contracts: impact.affected_contracts })}</Notice>}
+        <Field label={t('b22.object.name')}>{p => <Input {...p} maxLength={1024} value={displayName} onChange={event => setDisplayName(event.target.value)} />}</Field>
+        <Button variant="danger" disabled={busy} onClick={() => setRemovingEntry(!removingEntry)}><Trash2 size={16} aria-hidden="true" />{t(removingEntry ? 'b26.catalog.cancelDelete' : 'b26.catalog.delete')}</Button>
+        {removingEntry && <Notice tone="warn">{t('b26.catalog.deleteHelp')}</Notice>}
         <Field label={t('alpha10.catalog.assignment')}>{p => <Select {...p} value={mode} onChange={e => setMode(e.target.value)}><option value="independent">{t('alpha10.catalog.independent')}</option><option value="variant">{t('alpha10.catalog.variant')}</option></Select>}</Field>
         {mode === 'independent' ? <Field label={t('alpha10.catalog.class')}>{p => <Select {...p} value={classification} onChange={e => setClassification(e.target.value)}>{catalog?.classification_schema.values.map(value => <option key={value} value={value}>{catalog.classification_schema.legend?.[value]?.display_name ?? value}</option>)}</Select>}</Field> : <><Field label={t('alpha10.catalog.masterSearch')}>{p => <Input {...p} value={masterQuery} onChange={e => setMasterQuery(e.target.value)} />}</Field><Field label={t('alpha10.catalog.master')}>{p => <Select {...p} value={master} onChange={e => setMaster(e.target.value)}><option value="">{t('alpha10.catalog.chooseMaster')}</option>{masters.data?.items.filter(row => row.identity !== editing?.identity && row.scope === editing?.scope && row.media_type === editing?.media_type && row.signal_type === editing?.signal_type).map(row => <option key={row.identity} value={row.key}>{titleLabel(row)}</option>)}</Select>}</Field></>}
         {mode === 'independent' && catalog?.classification_schema.legend?.[classification] && <p>{catalog.classification_schema.legend[classification].description}</p>}
@@ -133,6 +138,7 @@ export default function CatalogPage() {
         {error && <Notice tone="bad">{error}<p>{t('alpha10.catalog.conflictHelp')}</p><Button onClick={async () => { if (!catalog || !editing) return; try { const current = await api<{ content_revision: number; active_revision: number; effective_classification: string; entry: { master_key?: string } | null }>(`catalogs/entry?${new URLSearchParams({ catalog_id: catalog.catalog_id, definition_version: String(catalog.version), identity: editing.identity })}`); setExpected(current.content_revision); setExpectedActive(current.active_revision); setComparison(t('alpha10.catalog.comparison', { classification: current.effective_classification, master: current.entry?.master_key ? titleLabel({ key: current.entry.master_key }) : t('alpha10.catalog.independent') })); setRequestId(uuid()); setError(''); } catch (failure) { setError(describeError(failure)); } }}>{t('alpha10.catalog.reload')}</Button></Notice>}
       </div>
     </Dialog>
+    <ConfirmDialog open={!!editing && confirmSave} onOpenChange={open => !open && !busy && setConfirmSave(false)} title={t(removingEntry ? 'b26.catalog.delete' : 'alpha10.catalog.save')} description={<><p>{removingEntry ? t('b26.catalog.deleteConfirm', { name: editing ? titleLabel(editing) : '' }) : t(displayName !== editing?.display_name ? 'b26.catalog.renameConfirm' : 'b26.catalog.saveConfirm', { old: editing ? titleLabel(editing) : '', next: displayName || (editing ? titleLabel({ ...editing, display_name: '' }) : '') })}</p><p>{t('alpha10.catalog.impact', { keys: impact?.affected_keys ?? 0, contracts: impact?.affected_contracts ?? 0 })}</p><p>{t('alpha10.catalog.immediate')}</p></>} tone={removingEntry ? 'danger' : 'primary'} busy={busy} confirmDisabled={!impactCurrent} confirmLabel={t(removingEntry ? 'b26.catalog.delete' : 'alpha10.catalog.save')} onConfirm={() => void save()} />
     <Dialog open={past !== null} onOpenChange={open => !open && setPast(null)} title={t('alpha10.catalog.revision', { n: past ?? 0 })} footer={<><Button disabled={busy || pastContent.isPending || pastContent.isError} onClick={() => void inspectImpact(true)}>{t('alpha10.catalog.preview')}</Button><Button variant="primary" disabled={busy || !impactCurrent || pastContent.isPending || pastContent.isError} onClick={() => void restore()}>{t('alpha10.catalog.restore')}</Button></>}>
       <Notice tone="warn">{t('alpha10.catalog.restoreHelp')}</Notice>{impactCurrent && impact && <Notice tone="info">{t('alpha10.catalog.impact', { keys: impact.affected_keys, contracts: impact.affected_contracts })}</Notice>}
       {pastContent.isPending ? <Spinner /> : pastContent.isError ? <Notice tone="bad">{t('alpha10.catalog.loadError')}</Notice> : <ul className="divide-y divide-line">{pastContent.data?.items.map(row => <li key={row.identity} className="py-2">{titleLabel(row)} · {row.tombstone ? t('alpha10.catalog.removed') : row.master_key ? titleLabel({ key: row.master_key }) : row.classification}</li>)}</ul>}
