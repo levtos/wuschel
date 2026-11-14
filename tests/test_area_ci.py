@@ -79,6 +79,8 @@ def test_traber_area_keeps_its_separate_ha_kernel_job():
         "uv.lock",
         "tests/test_replay.py",
         "tests/fixtures/replay/catalog.json",
+        "tests/fixtures/ha_interface/connected.json",
+        "tests/fixtures/ha_interface/future.json",
         "tests/conftest.py",
         "tests/test_new_unmapped_core.py",
     ],

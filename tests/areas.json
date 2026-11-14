@@ -461,6 +461,7 @@
     "paths": [
       "custom_components/traber/",
       "tests/ha_kernel/",
+      "tests/fixtures/ha_interface/",
       "src/core_contracts/ha_projection.py"
     ],
     "tests": [

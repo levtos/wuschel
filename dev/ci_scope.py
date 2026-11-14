@@ -52,7 +52,15 @@ def select(paths: list[str], *, full: bool = False, cache_probe: bool = False) -
     selected = {name: False for name in JOBS}
     full = full or any(
         p in RELEASE_FILES
-        or p.startswith((".github/", "dev/", "wuschel/", "tests/fixtures/replay/"))
+        or p.startswith(
+            (
+                ".github/",
+                "dev/",
+                "wuschel/",
+                "tests/fixtures/replay/",
+                "tests/fixtures/ha_interface/",
+            )
+        )
         for p in paths
     )
     probe = cache_probe or any(
