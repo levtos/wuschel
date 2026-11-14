@@ -48,10 +48,13 @@ it('edits only the selected contract through its action and leaves active config
   expect(screen.getByRole('button', { name: t('b22.object.applyChanges') })).toBeVisible();
 });
 
-it.each(['rename', 'disable'] as const)('starts a draft for a direct %s action without activating', async action => {
+it.each(['rename', 'disable'] as const)('allows %s only after editing and confirmation, without activating', async action => {
   const fake = installFakeApi({ revisions: [revision()] });
   app('#/contracts/view/synthetic.one');
   const user = userEvent.setup();
+  const edit = await screen.findByRole('button', { name: t('b22.object.edit') });
+  expect(screen.queryByRole('button', { name: t(`b22.object.${action}`) })).toBeNull();
+  await user.click(edit);
   await user.click(await screen.findByRole('button', { name: t(`b22.object.${action}`) }));
   if (action === 'rename') {
     const dialog = await screen.findByRole('dialog', { name: t('b22.object.rename') });
@@ -59,6 +62,11 @@ it.each(['rename', 'disable'] as const)('starts a draft for a direct %s action w
     await user.type(within(dialog).getByLabelText(t('b22.object.name')), 'Synthetic renamed contract');
     await user.click(within(dialog).getByRole('button', { name: t('b22.object.save') }));
   }
+  expect(fake.calls.some(call => call.method === 'PUT' && call.path.startsWith('registry/drafts/'))).toBe(false);
+  const confirmation = await screen.findByRole('alertdialog', { name: t(`b22.object.${action}`) });
+  expect(confirmation).toHaveTextContent('Synthetic contract');
+  if (action === 'rename') expect(confirmation).toHaveTextContent('Synthetic renamed contract');
+  await user.click(within(confirmation).getByRole('button', { name: t('b22.object.save') }));
   await waitFor(() => expect(asArray([...fake.drafts.values()][0]?.config.contracts)[0]).toMatchObject(action === 'rename' ? { contract_id: contract.contract_id, display_name: 'Synthetic renamed contract' } : { contract_id: contract.contract_id, enabled: false }));
   expect(fake.revisions).toHaveLength(1);
   expect(fake.revisions[0]!.config).toEqual(config());

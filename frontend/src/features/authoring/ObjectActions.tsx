@@ -35,13 +35,13 @@ export function ObjectActions({ collection, idKey, value, editing, onEdit, onSav
     if (!editing) return;
     setBusy(true); setError('');
     try { await doc.ensureDraft(); await doc.editAndSave(config => patchObject(config, collection, idKey, id, patch)); setConfirming(null); setRenaming(false); onSaved?.(); }
-    catch (failure) { setError(describeError(failure)); }
+    catch (failure) { setConfirming(null); setError(describeError(failure)); }
     finally { setBusy(false); }
   };
   const disabled = busy || doc.starting || doc.saving;
   return <>
     <div className="flex flex-nowrap items-center gap-2" aria-label={t('b22.object.actions')}>
-      {editing ? <Button variant={primary ? 'primary' : 'secondary'} disabled={disabled} onClick={() => void onEdit()}>{t('b22.object.finish')}</Button> : <EditButton disabled={disabled} onClick={() => void onEdit()} />}
+      {editing ? <Button variant={primary ? 'primary' : 'secondary'} disabled={disabled} onClick={() => void onEdit()}>{t('b22.object.finish')}</Button> : <EditButton variant={primary ? 'primary' : 'ghost'} disabled={disabled} onClick={() => void onEdit()} />}
       {editing && rename && <Button disabled={disabled} aria-label={t('b22.object.rename')} onClick={() => { setName(str(value.display_name)); setError(''); setRenaming(true); }}><TextCursorInput size={16} aria-hidden="true" />{t('b22.object.rename')}</Button>}
       {editing && toggle && <Button disabled={disabled} aria-label={t(value.enabled === false ? 'b22.object.enable' : 'b22.object.disable')} onClick={() => setConfirming('toggle')}>{value.enabled === false ? <Power size={16} aria-hidden="true" /> : <PowerOff size={16} aria-hidden="true" />}{t(value.enabled === false ? 'b22.object.enable' : 'b22.object.disable')}</Button>}
     </div>

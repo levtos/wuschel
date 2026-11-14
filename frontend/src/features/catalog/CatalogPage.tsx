@@ -75,7 +75,7 @@ export default function CatalogPage() {
       await api(mode === 'promote' ? 'catalogs/care/write' : 'catalogs/entries', { method: 'POST', body: body() });
       await cache.invalidateQueries({ queryKey: ['managed-catalogs'] });
       setEditing(null); setConfirmSave(false); await cache.invalidateQueries({ queryKey: ['catalog-entries'] }); await cache.invalidateQueries({ queryKey: ['catalog-history'] }); await cache.invalidateQueries({ queryKey: ['catalog-details'] }); await cache.invalidateQueries({ queryKey: ['catalog-masters'] });
-    } catch (failure) { setError(describeError(failure)); }
+    } catch (failure) { setConfirmSave(false); setError(describeError(failure)); }
     finally { setBusy(false); }
   };
   const label = catalogValue;
