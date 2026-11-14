@@ -43,8 +43,11 @@ function DraftsTab() {
   const active = useActiveRevision();
   const [completed, setCompleted] = useState(false);
   const [staleOnly, setStaleOnly] = useState(false);
+  const [cleanup, setCleanup] = useState<Draft[] | null>(null);
+  const [cleaning, setCleaning] = useState(false);
   const all = drafts.data ?? [];
   const openCount = all.filter(d => (d.lifecycle ?? 'open') === 'open').length;
+  const obsolete = active.isSuccess ? all.filter(d => (d.lifecycle ?? 'open') === 'open' && !currentDraft(d, active.data?.revision ?? 0) && d.draft_id !== doc.draft?.draft_id) : [];
   const list = all.filter(d => ((d.lifecycle ?? 'open') !== 'open') === completed).filter(d => !staleOnly || !currentDraft(d, active.data?.revision ?? 0));
 
   const open = (draft: Draft) => {
@@ -56,6 +59,14 @@ function DraftsTab() {
     <>
     <PageHeader title={uiText('alpha7.nav.drafts')} description={uiText('alpha9.pages.drafts')} actions={<Button variant="primary" disabled={openCount >= 100} disabledReason={uiText('alpha7.import.limit')} onClick={() => setCreating(true)}><FilePlus2 size={15} />{uiText('features.registry.RegistryPage.neuer_draft_610fb2')}</Button>} />
     <div className="flex flex-wrap gap-2"><Button aria-pressed={!completed} onClick={() => setCompleted(false)}>{uiText('beta3.6bdbd1fb5da3')}</Button><Button aria-pressed={completed} onClick={() => setCompleted(true)}>{uiText('beta3.467e01ba533e')}</Button>{!completed && <Button aria-pressed={staleOnly} onClick={() => setStaleOnly(!staleOnly)}>{staleOnly ? uiText('beta3.fe1a5c4bbaa7') : uiText('beta3.d9075b29ee27')}</Button>}</div>
+    {!completed && <Button disabled={!obsolete.length || cleaning} onClick={() => setCleanup(obsolete)}><Trash2 size={15} />{uiText('b26.drafts.cleanup')}</Button>}
+    <ConfirmDialog open={cleanup !== null} onOpenChange={open => !open && !cleaning && setCleanup(null)} title={uiText('b26.drafts.cleanup')} description={uiText('b26.drafts.preview')} confirmLabel={uiText("features.registry.RegistryPage.endgultig_loschen_6c1fd3")} tone="danger" busy={cleaning} onConfirm={async () => {
+      setCleaning(true); setError('');
+      try {
+        for (const draft of cleanup ?? []) await remove.mutateAsync(draft);
+      } catch (failure) { setError(describeError(failure)); }
+      finally { setCleaning(false); setCleanup(null); }
+    }}><ul>{cleanup?.map(draft => <li key={draft.draft_id}>{draftLabel(draft)} · {draftState(draft, active.data?.revision ?? 0)}</li>)}</ul></ConfirmDialog>
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted">{openCount} {uiText("features.registry.RegistryPage.von_100_drafts_drafts_sind_niemals_live_sie_durf_c3fc1f")}</p>

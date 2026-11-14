@@ -76,7 +76,7 @@ it('shows the HA identifier only once when it is also the available name', async
 it('formats a timestamp contract value in the list instead of exposing its wire format', async () => {
   fake(); app('#/contracts/list/all', { ...envelope, fields: { stamp: { ...field, value: '2026-01-01T12:00:00Z' } } });
   const table = await screen.findByRole('table', { name: 'Verträge' });
-  await waitFor(() => expect(within(table).getByText('1. Jan. 2026, 13:00')).toBeVisible());
+  await waitFor(() => expect(within(table).getByText('01.01.2026, 13:00')).toBeVisible());
   expect(within(table).queryByText('2026-01-01T12:00:00Z')).not.toBeInTheDocument();
 });
 
