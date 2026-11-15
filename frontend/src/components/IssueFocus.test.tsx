@@ -13,3 +13,13 @@ it('focuses the addressed field when its editor mounts asynchronously', async ()
   render(<MemoryRouter initialEntries={['/sources?focus=%2Fsources%2F1%2Ffreshness%2Fmode']}><Page /></MemoryRouter>);
   await waitFor(() => expect(screen.getByRole('textbox', { name: 'Ziel' })).toHaveFocus());
 });
+
+it('waits for editing to enable the field and opens its details', async () => {
+  function Page() {
+    const [disabled, setDisabled] = useState(true);
+    useEffect(() => { setDisabled(false); }, []);
+    return <><fieldset disabled={disabled}><details><summary>Details</summary><div data-pointer="/contracts/0/inputs"><input aria-label="Verknüpfung" /></div></details></fieldset><IssueFocus /></>;
+  }
+  render(<MemoryRouter initialEntries={['/contract?focus=%2Fcontracts%2F0%2Finputs']}><Page /></MemoryRouter>);
+  await waitFor(() => expect(screen.getByRole('textbox', { name: 'Verknüpfung' })).toHaveFocus());
+});

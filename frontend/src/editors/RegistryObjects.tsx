@@ -558,7 +558,7 @@ export function ContractEditor({ value, onChange, pointer, types, refs, onAddDev
         {(p) => <Textarea {...p} rows={2} className="font-sans text-sm" value={str(value.description)} onChange={(e) => set({ description: e.target.value })} />}
       </Fld>
 
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3" data-pointer={join(pointer, 'inputs')}>
         <SectionTitle>{uiText("editors.RegistryObjects.eingange_bindung_an_quellen_und_andere_contracts_c3d83b")}</SectionTitle>
         <IssuesAt pointer={join(pointer, 'inputs')} />
         {declared.length === 0 && undeclared.length === 0 && <p className="text-xs text-faint">{uiText("editors.RegistryObjects.dieser_typ_deklariert_keine_eingange_8d0dc9")}</p>}

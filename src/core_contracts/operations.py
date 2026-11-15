@@ -99,6 +99,14 @@ class OperationsSettings(Model):
         "Lastschutz: Speicherung geschützt",
         "Ab dieser p95-Speicherzeit schützt sich Wuschel.",
     )
+    load_commit_window_s: int = setting(
+        60,
+        10,
+        600,
+        "s",
+        "Lastschutz: Zeitfenster der Speicherung",
+        "Nur Ereignis-Speicherungen in diesem Zeitraum zählen. Unter fünf Messungen ist die Speicherzeit noch nicht gemessen.",
+    )
     load_enter_hold_s: float = setting(
         5,
         0.1,

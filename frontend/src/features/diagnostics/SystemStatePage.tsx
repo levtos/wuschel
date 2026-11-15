@@ -49,7 +49,7 @@ export default function SystemStatePage() {
           { label: t('b26.system.maxLag'), value: measurement(state.event_loop.max_lag_ms) },
           { label: t('b26.system.median'), value: measurement(state.commits.median_ms) },
           { label: t('b26.system.p95'), value: measurement(state.commits.p95_ms) },
-          { label: t('b26.system.samples'), value: t('b26.system.ratio', { count: state.commits.count, total: state.commits.window }) },
+          { label: t('b26.system.samples'), value: state.commits.p95_ms == null ? t('b26.system.unmeasured') : t('b26.system.commitSamples', { count: state.commits.count, seconds: state.commits.window_s }) },
         ]} /><p className="text-xs text-muted">{t('b26.system.timingHelp')}</p></div></Panel>
         <Panel><PanelHeader title={t('b26.system.queues')} /><div className="space-y-4 p-4">{Object.entries(state.queues).map(([key, queue]) => <div key={key}><h3 className="mb-2 text-sm font-semibold">{name('queue', key)}</h3><KeyValue items={[
           { label: t('b26.system.depth'), value: queue.depth == null ? t('b26.system.unmeasured') : t('b26.system.ratio', { count: queue.depth, total: queue.capacity }) },

@@ -30,7 +30,12 @@ class IngestQueue(asyncio.Queue[Work]):
 
 class BlockRuntime(Runtime):
     async def _commit(
-        self, state: State, *, publication: bool = False, resync: bool = False
+        self,
+        state: State,
+        *,
+        publication: bool = False,
+        resync: bool = False,
+        measure_load: bool | None = None,
     ) -> None:
         self.state = state
         if self.pending_latches is not None:
@@ -83,7 +88,7 @@ async def process_block(runtime: Runtime, first: Work) -> None:
         if worker._block_changed:
             runtime.pending_latches = worker.latches
             runtime.pending_refresh = worker._block_refresh
-            await runtime._commit(worker.state, publication=True)
+            await runtime._commit(worker.state, publication=True, measure_load=True)
             runtime._observation_models = worker._observation_models
             runtime._field_models = worker._field_models
         runtime.evaluation_stats = worker.evaluation_stats

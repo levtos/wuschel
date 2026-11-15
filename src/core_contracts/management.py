@@ -116,7 +116,12 @@ class Planner(Runtime):
     preparation: Preparation
 
     async def _commit(
-        self, state: State, *, publication: bool = False, resync: bool = False
+        self,
+        state: State,
+        *,
+        publication: bool = False,
+        resync: bool = False,
+        measure_load: bool | None = None,
     ) -> None:
         if self.preparation.staged is not None:
             raise RuntimeError("management_multiple_commits")

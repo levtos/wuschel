@@ -13,7 +13,7 @@ import { wrap } from '../../test/harness';
 beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
 function mount() {
   const value = { contract_id: 'root', display_name: 'Wahrheit', enabled: true };
-  const config = sampleConfig({ contracts: [value, { contract_id: 'child', display_name: 'Folgevertrag', inputs: [{ name: 'a', ref: 'root.value' }] }] });
+  const config = sampleConfig({ contracts: [value, { contract_id: 'child', type_id: 'synthetic.required', type_version: 1, display_name: 'Folgevertrag', enabled: true, inputs: [{ name: 'a', ref: 'root.value' }] }], definitions: [{ type_id: 'synthetic.required', type_version: 1, inputs: [{ name: 'a', schema: { type: 'bool', required: true } }], schema: { fields: {} } }] });
   const api = installFakeApi({ drafts: [makeDraft('d', config)] });
   function Surface() {
     const doc = useWorkingDocument(); const [editing, setEditing] = useState(false);
@@ -54,6 +54,8 @@ it('confirms disabling, names affected contracts and leaves cancellation unchang
   await user.click(screen.getByRole('button', { name: 'Deaktivieren' }));
   let dialog = screen.getByRole('alertdialog', { name: 'Deaktivieren' });
   expect(dialog).toHaveTextContent('Wahrheit'); expect(dialog).toHaveTextContent('Folgevertrag');
+  expect(dialog).toHaveTextContent('Folgevertrag (child)');
+  expect(dialog).toHaveTextContent('Solange sie eingeschaltet sind, sperrt die Prüfung das Übernehmen.');
   await user.click(within(dialog).getByRole('button', { name: 'Abbrechen' }));
   expect(api.calls.some(call => call.method === 'PUT')).toBe(false);
   await user.click(screen.getByRole('button', { name: 'Deaktivieren' }));

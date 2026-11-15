@@ -29,7 +29,6 @@ async def test_guarded_storm_replay(config):
                     )
                 )
             assert runtime.queue.qsize() == 12 and not runtime.latest
-            runtime.commit_samples.clear()
             runtime.sample_load()
             replay.clock.advance(runtime.operations.load_enter_hold_s)
             runtime.sample_load()
@@ -53,7 +52,7 @@ async def test_guarded_storm_replay(config):
             assert not runtime.overflow and not runtime.resubscribe.is_set()
         finally:
             runtime.queue = original_queue
-        runtime.commit_samples.clear()
+        replay.clock.advance(runtime.operations.load_commit_window_s)
         runtime.sample_load()
         replay.clock.advance(runtime.operations.load_recover_hold_s)
         runtime.sample_load()

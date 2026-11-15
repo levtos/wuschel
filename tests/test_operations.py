@@ -161,10 +161,11 @@ async def test_operations_api_roles_validation_reset_and_system_state(
     runtime.retry_failed("ha", ConnectionError("private credential"))
     runtime.retry_succeeded("ha")
     runtime.commit_samples.clear()
-    runtime.commit_samples.extend([1, 3, 2, 100])
+    runtime.commit_samples.extend((runtime.clock.monotonic(), value) for value in [1, 3, 2, 100, 4])
     response = await client.get("/api/v1/system/state", headers=admin)
     result = await response.json()
-    assert result["commits"]["median_ms"] == 2.5 and result["commits"]["p95_ms"] == 100
+    assert result["commits"]["median_ms"] == 3 and result["commits"]["p95_ms"] == 100
+    assert result["commits"]["count"] == 5 and result["commits"]["window_s"] == 60
     assert result["event_loop"]["lag_ms"] is None
     assert result["retries"]["ha"]["count"] == 1 and result["retries"]["ha"]["consecutive"] == 0
     assert result["retries"]["ha"]["last_error"] == "ConnectionError"

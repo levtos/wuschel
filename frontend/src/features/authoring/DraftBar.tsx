@@ -139,7 +139,7 @@ export function ValidationChip() {
   </>;
 }
 
-export function ReviewDraftButton({ children, size = 'sm', variant = 'primary', checkFirst = false, onReview, steadyLabel }: { children?: React.ReactNode; size?: 'sm' | 'md'; variant?: 'primary' | 'secondary' | 'ghost'; checkFirst?: boolean; onReview?: (draft: Draft) => void; steadyLabel?: string }) {
+export function ReviewDraftButton({ children, size = 'sm', variant = 'primary', checkFirst = false, onReview, steadyLabel, hideWithoutDraft = false }: { children?: React.ReactNode; size?: 'sm' | 'md'; variant?: 'primary' | 'secondary' | 'ghost'; checkFirst?: boolean; onReview?: (draft: Draft) => void; steadyLabel?: string; hideWithoutDraft?: boolean }) {
   const doc = useWorkingDocument();
   const navigate = useNavigate();
   const [target, setTarget] = useState<Draft | null>(null);
@@ -156,8 +156,10 @@ export function ReviewDraftButton({ children, size = 'sm', variant = 'primary', 
     finally { setBusy(false); }
   };
   return <>
+    {(!hideWithoutDraft || doc.draft) && <>
     <Button size={size} variant={variant} disabled={!doc.draft || busy || doc.saving || checking} disabledReason={uiText('alpha7.copy.validationRunning')} onClick={() => { if (invalid) { const issue = doc.validation.issues[0]!; const where = locateIssue(issue.path, doc.config); navigate(`${where.to}${where.to.includes('?') ? '&' : '?'}focus=${encodeURIComponent(issue.path)}`); } else if (requiresCheck) void (async () => { if (!doc.dirty || await doc.save() === 'saved') await doc.validateNow(); })(); else void review(); }}>{steadyLabel ?? (busy ? uiText('alpha7.draft.preparingReview') : label)}</Button>
     {!doc.draft && <span className="text-xs text-muted">{uiText('alpha7.draft.noDraft')}</span>}
+    </>}
     {error && <span role="alert" className="text-xs text-bad">{error}</span>}
     {target && <ActivateDialog draft={target} open onOpenChange={open => !open && setTarget(null)} />}
   </>;
@@ -195,7 +197,6 @@ export function DraftBar() {
           <span className="min-w-0 text-xs text-muted"><span title={draftLabel({ draft_id: doc.draft.draft_id, display_name: doc.displayName })} className="block max-w-40 truncate">{draftLabel({ draft_id: doc.draft.draft_id, display_name: doc.displayName })}</span><span id={saveStatusId} role="status" className="block">{uiText(doc.saving ? 'alpha7.draft.saving' : doc.dirty ? 'alpha7.draft.notSaved' : 'alpha7.draft.saved')}</span></span>
           <span aria-label={uiText('alpha7.draft.changeCount')} className="text-sm font-medium">{invalid ? <>–<span className="block text-xs font-normal text-muted">{uiText('post1.draft.countAfterErrors')}</span></> : changes === null ? '…' : countSentence(changes, 'changes')}</span>
           <ValidationChip />
-          <ReviewDraftButton steadyLabel={uiText('b22.object.applyChanges')} />
           {!detailPage && <Link className="min-h-11 underline" to={`/changes/drafts/${doc.draft.draft_id}`}>{uiText('beta3.8afb05d4c53f')}</Link>}
           <span role="status">{draftState(doc.draft, active.data?.revision)}</span>
           <details className="relative" onClick={event => { if ((event.target as HTMLElement).closest('button')) event.currentTarget.open = false; }}><summary aria-label={uiText('alpha7.draft.more')} className="grid size-8 cursor-pointer list-none place-items-center rounded-lg hover:bg-raised"><MoreHorizontal size={16} /></summary><div className="absolute right-0 top-9 z-30 flex min-w-48 flex-col items-start gap-1 rounded-lg border border-line bg-panel p-2 shadow-xl">
@@ -207,6 +208,7 @@ export function DraftBar() {
           </div></details>
         </>
       ) : doc.dirty ? <span className="text-xs text-muted">{uiText('alpha7.draft.kept')}</span> : null}
+      <ReviewDraftButton hideWithoutDraft steadyLabel={uiText('b22.object.applyChanges')} />
       <DraftPicker open={picker} onOpenChange={setPicker} />
       <ConflictDialog />
       <SwitchDialog />

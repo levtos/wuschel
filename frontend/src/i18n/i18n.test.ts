@@ -13,7 +13,7 @@ describe('German platform vocabulary', () => {
     expect(codeLabel('future_platform_code')).toBe('unbekannt');
   });
   it('interpolates structured validation metadata without server prose', () => {
-    expect(validationLabel({ code: 'input_type_mismatch', path: '/contracts/0/inputs/0/ref', object_id: 'fixture.a', message: 'opaque server prose', parameters: { source: 'source.a', input: 'temperature', actual: 'text', expected: 'number', expectedUnit: '°C' } })).toBe('Quelle source.a liefert Text (keine Einheit); Eingang temperature erwartet Zahl (°C).');
+    expect(validationLabel({ code: 'input_type_mismatch', path: '/contracts/0/inputs/0/ref', object_id: 'fixture.a', message: 'opaque server prose', parameters: { source: 'source.a', input: 'temperature', actual: 'text', expected: 'number', expectedUnit: '°C' } })).toBe('Quelle source.a liefert Text (keine Einheit); die Verknüpfung temperature braucht Zahl (°C). Wähle eine Quelle mit passendem Datentyp und passender Einheit.');
   });
   it('keeps an English catalog prepared and fails loudly for missing keys', () => {
     expect(en).toEqual({ 'alpha9.category.openings': 'Openings', 'alpha9.category.time': 'Time, day and sun' });

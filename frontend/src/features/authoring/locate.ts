@@ -36,7 +36,7 @@ export function locateIssue(path: string, config: JsonObject | null | undefined)
   }
   if (collection === 'contracts' && Number.isInteger(i)) {
     const contract = asArray(config?.contracts).filter(isObject)[i];
-    return contract ? { to: `/contracts/view/${encodeURIComponent(str(contract.contract_id))}?tab=config`, label: uiText("features.authoring.locate.contract_v0_fef1f2", { v0: (str(contract.contract_id)) }) } : { to: "/contracts/list/all", label: uiText("features.authoring.locate.contracts_0488ac") };
+    return contract ? { to: `/contracts/view/${encodeURIComponent(str(contract.contract_id))}?tab=config&edit=1`, label: uiText("features.authoring.locate.contract_v0_fef1f2", { v0: (str(contract.display_name) || str(contract.contract_id)) }) } : { to: "/contracts/list/all", label: uiText("features.authoring.locate.contracts_0488ac") };
   }
   if (collection === 'definitions' && Number.isInteger(i)) {
     const definition = asArray(config?.definitions).filter(isObject)[i];

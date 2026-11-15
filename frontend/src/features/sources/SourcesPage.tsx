@@ -325,7 +325,10 @@ export default function SourcesPage() {
                 name="catalogs"
                 idKey="catalog_id"
                 singular={uiText("features.sources.SourcesPage.katalog_1c58e0")}
-                subtitle={(c) => uiText("features.sources.SourcesPage.v_v0_v1_eintrage_a26921", { v0: (String(c.version ?? 1)), v1: c.kind === 'managed' ? managed.data?.find(row => row.catalog_id === c.catalog_id && row.version === Number(c.version ?? 1))?.active_entry_count ?? uiText(managed.isPending ? 'b26.sources.countLoading' : 'b26.sources.countUnavailable') : Object.keys(isObject(c.entries) ? c.entries : {}).length })}
+                subtitle={(c) => {
+                  const count = c.kind === 'managed' ? managed.data?.find(row => row.catalog_id === c.catalog_id && row.version === Number(c.version ?? 1))?.active_entry_count ?? uiText(managed.isPending ? 'b26.sources.countLoading' : 'b26.sources.countUnavailable') : Object.keys(isObject(c.entries) ? c.entries : {}).length;
+                  return uiText(count === 1 ? 'b26.sources.oneEntry' : 'features.sources.SourcesPage.v_v0_v1_eintrage_a26921', { v0: String(c.version ?? 1), v1: count });
+                }}
                 make={(_, ids) => ({ catalog_id: uniqueName('catalog.neu', ids), kind: 'map', version: 1, entries: { an: true } })}
                 usage={(item, config) => <>{chips(uiText("features.sources.SourcesPage.verwendet_von_bindings_6b4d50"), bindingsUsingCatalog(config, str(item.catalog_id)))}{item.kind === 'managed' && <Link className="ml-3 underline" to={`/catalog-care?catalog=${encodeURIComponent(`${str(item.catalog_id)}@${String(item.version ?? 1)}`)}`}>{uiText('b26.sources.openCatalog')}</Link>}</>}
                 render={(item, pointer, onChange) => <CatalogEditor value={item} pointer={pointer} onChange={onChange} />}
