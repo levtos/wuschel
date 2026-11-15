@@ -140,6 +140,8 @@ export async function apiText(path: string, options: RequestOptions = {}): Promi
 }
 
 const MESSAGES: Record<string, string> = {
+  load_protected: uiText('b26.load.rejected'),
+  operations_write_failed: uiText('b26.operations.writeFailed'),
   draft_preparation_timeout: uiText('b23.draft.preparationTimeout'),
   catalog_cleanup_conflict: uiText('b20.cleanup.conflict'),
   catalog_cleanup_invalid: uiText('b20.cleanup.invalid'),

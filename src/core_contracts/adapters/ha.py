@@ -119,14 +119,19 @@ class BridgeAdapter:
         """Read-only discovery; bounded state previews require an explicit admin request."""
         async with self.discovery_lock:
             cached_at = self.discovery_preview_at if preview else self.discovery_at
-            if self.runtime.clock.monotonic() - cached_at < 15:
+            if (
+                self.runtime.clock.monotonic() - cached_at
+                < self.runtime.operations.ha_discovery_cache_s
+            ):
                 return self.discovery_preview_cache if preview else self.discovery_cache
             areas, devices, entries = {}, {}, {}
             area_metadata: list[dict[str, Any]] | None = None
             enriched: dict[str, dict[str, Any]] = {}
-            async with asyncio.timeout(10):
+            async with asyncio.timeout(self.runtime.operations.ha_discovery_timeout_s):
                 async with self.session.ws_connect(
-                    self.url, heartbeat=20, max_msg_size=4_000_000
+                    self.url,
+                    heartbeat=self.runtime.operations.ha_heartbeat_s,
+                    max_msg_size=4_000_000,
                 ) as socket:
                     if (await socket.receive_json()).get("type") != "auth_required":
                         raise ConnectionError("ha_auth_protocol")
@@ -552,7 +557,7 @@ class BridgeAdapter:
         future = asyncio.get_running_loop().create_future()
         number: int | None = None
         try:
-            async with asyncio.timeout(12):
+            async with asyncio.timeout(self.runtime.operations.ha_service_timeout_s):
                 number = await connection.send(
                     {
                         "type": "traber/service_call",
@@ -579,7 +584,7 @@ class BridgeAdapter:
         self.runtime.resubscribe.clear()
         self.runtime.revision_changed.clear()
         async with self.session.ws_connect(
-            self.url, heartbeat=20, max_msg_size=4_000_000
+            self.url, heartbeat=self.runtime.operations.ha_heartbeat_s, max_msg_size=4_000_000
         ) as socket:
             if (await socket.receive_json()).get("type") != "auth_required":
                 raise ConnectionError("ha_auth_protocol")
@@ -696,6 +701,7 @@ class BridgeAdapter:
                         return
                     if self.runtime.clock.monotonic() - connected_at >= 10:
                         self.retry_delay = 1.0
+                        self.runtime.retry_succeeded("ha")
                     if message.get("type") == "result" and message.get("id") in connection.pending:
                         if not message.get("success"):
                             request_error("traber/service_call", message)
@@ -804,10 +810,31 @@ class BridgeAdapter:
         except ValueError, KeyError, TypeError:
             return {"status": "rejected", "reason": "command_session_conflict"}
 
+    async def _projection_wait(
+        self, queue: asyncio.Queue[dict[str, Any]] | None, delay: float | None
+    ) -> str:
+        tasks: dict[asyncio.Task[Any], str] = {
+            asyncio.create_task(self.projection_disconnected.wait()): "disconnected",
+            asyncio.create_task(self.runtime.projection_changed.wait()): "control",
+        }
+        if queue is not None:
+            tasks[asyncio.create_task(queue.get())] = "changed"
+        if delay is not None:
+            tasks[asyncio.create_task(self.runtime.clock.sleep(delay))] = "heartbeat"
+        try:
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            return next(tasks[task] for task in tasks if task in done)
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
     async def projection_worker(self) -> None:
         from ..ha_projection import snapshot
 
         queue = self.runtime.subscribe(max_queue=1)
+        last_sent: float | None = None
         try:
             while True:
                 await self.projection_connected.wait()
@@ -815,6 +842,22 @@ class BridgeAdapter:
                 previous: dict[str, Any] | None = None
                 retry_delay = 0.25
                 while connection is not None and connection is self.connection:
+                    self.runtime.projection_changed.clear()
+                    if self.runtime.projection_paused:
+                        previous = None
+                        if await self._projection_wait(None, None) == "disconnected":
+                            break
+                        continue
+                    if self.runtime.load_guard.state == "geschützt" and last_sent is not None:
+                        remaining = (
+                            last_sent
+                            + self.runtime.operations.projection_protected_interval_s
+                            - self.runtime.clock.monotonic()
+                        )
+                        if remaining > 0:
+                            if await self._projection_wait(None, remaining) == "disconnected":
+                                break
+                            continue
                     payload = snapshot(
                         self.runtime, include_fields=self.projection_fields_supported
                     )
@@ -832,20 +875,27 @@ class BridgeAdapter:
                         future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
                         identifier = None
                         try:
+                            last_sent = self.runtime.clock.monotonic()
                             identifier = await connection.send(payload, future)
-                            async with asyncio.timeout(20):
+                            async with asyncio.timeout(
+                                self.runtime.operations.projection_timeout_s
+                            ):
                                 result = await future
                             if not isinstance(result, dict) or "applied" not in result:
                                 raise ConnectionError("projection_not_acknowledged")
                             previous = payload
                             retry_delay = 0.25
-                        except TimeoutError, ConnectionError, aiohttp.ClientError:
+                            self.runtime.retry_succeeded("projection")
+                        except (TimeoutError, ConnectionError, aiohttp.ClientError) as error:
+                            self.runtime.retry_failed("projection", error)
                             if connection is self.connection:
                                 LOGGER.warning("projection_retry")
                                 await self.runtime.clock.sleep(
                                     random.uniform(retry_delay / 2, retry_delay)
                                 )
-                                retry_delay = min(retry_delay * 2, 5)
+                                retry_delay = min(
+                                    retry_delay * 2, self.runtime.operations.projection_retry_max_s
+                                )
                                 continue
                             break
                         finally:
@@ -858,24 +908,13 @@ class BridgeAdapter:
                             "projection_unavailable", extra={"error_type": "UnsupportedFeature"}
                         )
                         previous = payload
-                    changed = asyncio.create_task(queue.get())
-                    disconnected = asyncio.create_task(self.projection_disconnected.wait())
-                    heartbeat = asyncio.create_task(self.runtime.clock.sleep(5))
-                    try:
-                        done, _ = await asyncio.wait(
-                            {changed, disconnected, heartbeat}, return_when=asyncio.FIRST_COMPLETED
-                        )
-                        if disconnected in done:
-                            break
-                        if heartbeat in done:
-                            previous = None
-                    finally:
-                        for task in (changed, disconnected, heartbeat):
-                            if not task.done():
-                                task.cancel()
-                        await asyncio.gather(
-                            changed, disconnected, heartbeat, return_exceptions=True
-                        )
+                    wake = await self._projection_wait(
+                        queue, self.runtime.operations.projection_heartbeat_s
+                    )
+                    if wake == "disconnected":
+                        break
+                    if wake == "heartbeat":
+                        previous = None
         finally:
             self.runtime.subscribers.discard(queue)
 
@@ -888,11 +927,12 @@ class BridgeAdapter:
                 self.runtime.bridge_subscriptions = 0
                 if self.runtime.bridge != "not_needed" or self.runtime.ha != "not_needed":
                     await self.runtime.submit("bridge_state", ("not_needed", "not_needed"))
-                await self.runtime.clock.sleep(1)
+                await self.runtime.clock.sleep(self.runtime.operations.adapter_poll_interval_s)
                 continue
             try:
                 await self.connect(config)
             except Exception as error:
+                self.runtime.retry_failed("ha", error)
                 self.runtime.bridge_subscriptions = 0
                 LOGGER.warning(
                     "bridge_disconnected",
@@ -906,7 +946,7 @@ class BridgeAdapter:
                 await self.runtime.clock.sleep(
                     random.uniform(self.retry_delay / 2, self.retry_delay)
                 )
-                self.retry_delay = min(self.retry_delay * 2, 5)
+                self.retry_delay = min(self.retry_delay * 2, self.runtime.operations.ha_retry_max_s)
 
     async def request_refresh(self, source_id: str) -> None:
         config = self.runtime.config
@@ -939,7 +979,9 @@ class BridgeAdapter:
                     and not self.runtime.stopping
                 ):
                     await self.request_refresh(source_id)
+                    self.runtime.retry_succeeded("refresh")
             except Exception as error:
+                self.runtime.retry_failed("refresh", error)
                 LOGGER.warning("refresh_failed", extra={"error_type": type(error).__name__})
             finally:
                 self.runtime.refresh_requests.task_done()
@@ -954,6 +996,10 @@ class BridgeAdapter:
             response = await self.service_call(
                 job["operation"], job["target_ids"], job["arguments"], request_id=job["request_id"]
             )
+            if response.get("outcome") == "completed":
+                self.runtime.retry_succeeded("service")
+            else:
+                self.runtime.retry_failed("service", ConnectionError("service_not_completed"))
             await self.runtime.submit(
                 "service_complete", {"job_id": job["job_id"], "response": response}
             )

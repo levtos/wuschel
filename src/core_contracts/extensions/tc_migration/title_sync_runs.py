@@ -420,10 +420,10 @@ async def operation_title_sync_preview(
 
 
 slots.OPERATIONS["title_sync_preview"] = slots.Operation(
-    operation_title_sync_preview, state="none", early=False
+    operation_title_sync_preview, state="none", early=False, heavy=True
 )
 slots.OPERATIONS["title_sync_apply"] = slots.Operation(
-    operation_title_sync_preview, state="none", early=False
+    operation_title_sync_preview, state="none", early=False, heavy=True
 )
 
 

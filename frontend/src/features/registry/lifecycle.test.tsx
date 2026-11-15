@@ -177,7 +177,7 @@ describe('activation requires an explicit, version-checked confirmation', () => 
     renderDialog(<ActivateDialog draft={api.drafts.get('d1') as unknown as Draft} open onOpenChange={() => {}} />);
     await screen.findByText(/nicht gültig/);
     expect(screen.getByRole('button', { name: "Jetzt übernehmen" })).toBeDisabled();
-    expect(screen.getByText('Der Eingang ist in dieser Vorlage nicht deklariert.')).toBeInTheDocument();
+    expect(screen.getByText('Die Regel verwendet eine unbekannte Verknüpfung. Ergänze sie in den Eingängen der Vorlage oder wähle einen vorhandenen Eingang.')).toBeInTheDocument();
     expect(api.calls.some((c) => c.path.endsWith('/activate'))).toBe(false);
   });
 

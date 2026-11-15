@@ -82,6 +82,8 @@ class ContractSensor(SensorEntity):
 
     @property
     def native_value(self):
+        if self.projection.connected and not self.projection.fresh:
+            return None
         if self.row.get("status") == "not_applicable":
             return "not_applicable"
         value = self.row.get("value")
@@ -106,14 +108,20 @@ class ContractSensor(SensorEntity):
     def extra_state_attributes(self):
         return {
             "contract_id": self.contract_id,
-            "status": self.row.get("status", "unknown") if self.projection.connected else "stale",
-            "quality": self.row.get("quality", "degraded")
-            if self.projection.connected
-            else "degraded",
+            "status": self.row.get("status", "unknown") if self.projection.fresh else "stale",
+            "quality": self.row.get("quality", "degraded") if self.projection.fresh else "degraded",
             "since_at": self.row.get("since_at"),
             "raw_value": self.row.get("value"),
             **(
-                {"primary_field": self.row["primary_field"], "fields": self.row["fields"]}
+                {
+                    "primary_field": self.row["primary_field"],
+                    "fields": self.row["fields"]
+                    if self.projection.fresh
+                    else {
+                        name: {**field, "status": "stale", "quality": "degraded"}
+                        for name, field in self.row["fields"].items()
+                    },
+                }
                 if "fields" in self.row
                 else {}
             ),

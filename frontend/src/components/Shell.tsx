@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { IssueFocus } from './IssueFocus';
 import { HerdIcon } from './Herd';
 import { ConnectionNotice } from './ConnectionNotice';
+import { ProjectionNotice } from './ProjectionNotice';
 import { RouteScrollRestoration } from './RouteScrollRestoration';
 import { useAuthoringSource } from '@/features/authoring/useAuthoringSource';
 import { useEditorial } from '@/features/editorial/Editorial';
@@ -55,9 +56,9 @@ export function Shell(_props: { onSetup: () => void }) {
   const { pathname, search } = useLocation();
   const moduleId = pathname.startsWith('/templates') ? 'contracts' : pathname === '/import-export' ? 'changes' : pathname.split('/')[1] ?? '';
   const source = useAuthoringSource(); const editorial = useEditorial();
-  const catalogs = useQuery({ queryKey: ['managed-catalogs'], queryFn: () => api<NamedCatalog[]>('catalogs') });
+  const catalogs = useQuery({ queryKey: ['managed-catalogs'], staleTime: 30_000, queryFn: () => api<NamedCatalog[]>('catalogs') });
   const contracts = asArray(source.config?.contracts).filter(isObject);
-  const categories = CATEGORIES.map(category => ({ to: `/contracts/list/all?category=${category}`, label: uiText('b22.nav.categoryCount', { name: uiText(`alpha9.category.${categoryKeys[category]}`), count: editorial.isPending || source.loading ? '…' : contracts.filter(row => editorial.item({ kind: 'contract', id: str(row.contract_id) }).category === category).length }) }));
+  const categories = CATEGORIES.filter(category => editorial.isPending || source.loading || contracts.some(row => editorial.item({ kind: 'contract', id: str(row.contract_id) }).category === category)).map(category => ({ to: `/contracts/list/all?category=${category}`, label: uiText('b22.nav.categoryCount', { name: uiText(`alpha9.category.${categoryKeys[category]}`), count: editorial.isPending || source.loading ? '…' : contracts.filter(row => editorial.item({ kind: 'contract', id: str(row.contract_id) }).category === category).length }) }));
   const navigation = NAVIGATION.map(module => module.id === 'contracts' ? { ...module, children: [module.children[0]!, ...categories, ...module.children.slice(1)] } : module.id === 'catalog-care' ? { ...module, children: [...module.children, ...(catalogs.data ?? []).map(catalog => ({ to: `/catalog-care?catalog=${encodeURIComponent(`${catalog.catalog_id}@${catalog.version}`)}`, label: catalogLabel(catalog) }))] } : module);
   const [expanded, setExpanded] = useState<string[]>([]);
   useEffect(() => { if (moduleId) setExpanded(previous => previous.includes(moduleId) ? previous : [...previous, moduleId]); }, [moduleId]);
@@ -115,6 +116,7 @@ export function Shell(_props: { onSetup: () => void }) {
         </header>
         <main id="main" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-8">
           <ConnectionNotice />
+          <ProjectionNotice />
           <RouteScrollRestoration />
           <div id="route-content"><LayoutPreferencesProvider value={info.data?.installation_id ?? null}><Outlet /></LayoutPreferencesProvider></div>
           <IssueFocus />

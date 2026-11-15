@@ -857,7 +857,7 @@ async def operation_portable_export(
 
 
 slots.OPERATIONS["portable_export"] = slots.Operation(
-    operation_portable_export, state="full", early=False
+    operation_portable_export, state="full", early=False, heavy=True
 )
 
 
@@ -877,7 +877,7 @@ async def operation_portable_preview(
 
 
 slots.OPERATIONS["portable_preview"] = slots.Operation(
-    operation_portable_preview, state="full", early=False
+    operation_portable_preview, state="full", early=False, heavy=True
 )
 
 
@@ -917,7 +917,7 @@ async def operation_portable_stage(
 
 
 slots.OPERATIONS["portable_stage"] = slots.Operation(
-    operation_portable_stage, state="full", early=False
+    operation_portable_stage, state="full", early=False, heavy=True
 )
 
 

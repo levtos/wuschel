@@ -1,3 +1,5 @@
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 import { Collapsible } from '@/components/ui/controls';
 import { t as uiText } from '@/i18n';
 import { Copy, Trash2 } from 'lucide-react';
@@ -167,7 +169,7 @@ function Collection({ name, idKey, singular, make, render, subtitle, usage, onMo
         open={removing !== null}
         onOpenChange={(o) => !o && setRemoving(null)}
         title={uiText("features.sources.SourcesPage.v0_entfernen_f1cd8a", { v0: (singular) })}
-        description={<>„{removing !== null ? str(list[removing]?.[idKey]) : ''}{uiText("features.sources.SourcesPage.wird_aus_dem_draft_entfernt_verweise_darauf_werd_295ba2")}</>}
+        description={<><p>„{removing !== null ? str(list[removing]?.display_name) || str(list[removing]?.[idKey]) : ''}{uiText("features.sources.SourcesPage.wird_aus_dem_draft_entfernt_verweise_darauf_werd_295ba2")}</p>{removing !== null && <div>{usage(list[removing]!, config)}</div>}<p>{uiText('b26.object.engineNotice')}</p></>}
         confirmLabel={uiText("features.sources.SourcesPage.entfernen_382837")}
         tone="danger"
         onConfirm={() => {
@@ -199,6 +201,7 @@ function SourceSection({ items }: { items: { value: string; label: string; conte
 export default function SourcesPage() {
   const caps = useCapabilities();
   const location = useLocation();
+  const managed = useQuery({ queryKey: ['managed-catalogs'], staleTime: 30_000, queryFn: () => api<{ catalog_id: string; version: number; active_entry_count?: number }[]>('catalogs'), enabled: location.pathname === '/sources/catalogs' });
   const [picker, setPicker] = useState<null | ((entityId: string, attributes: string[]) => void)>(null);
   const [addingDevice, setAddingDevice] = useState(false);
   const [addingCalendar, setAddingCalendar] = useState(false);
@@ -230,6 +233,7 @@ export default function SourcesPage() {
   return (
     <>
       {location.pathname === '/sources/devices' && <PageHeader title={uiText('alpha7.nav.sources')} description={uiText('alpha9.pages.sources')} actions={<Button variant="primary" disabled={doc.starting || doc.saving} onClick={() => void addDevice()}>{uiText('alpha9.actions.addSource')}</Button>} />}
+      {location.pathname === '/sources/devices' && <p className="mb-4 text-sm text-muted">{uiText('b26.sources.chain')}</p>}
       {deviceError && <p role="alert" className="mb-3 text-sm text-bad">{deviceError}</p>}
       <DeviceWizard open={addingDevice} onOpenChange={setAddingDevice} manualOption={<><Button onClick={() => { setAddingDevice(false); setAddingManual(true); }}>{uiText('alpha9.manual.title')}</Button><Button onClick={() => { setAddingDevice(false); setAddingCalendar(true); }}>{uiText('alpha9.calendar.add')}</Button><Button onClick={() => void addWithoutDevice()}>{uiText('alpha7.device.withoutDevice')}</Button></>} onAdded={result => setParams({ tab: 'sources', item: String(result.sourceIndex), edit: '1' }, { replace: true })} />
       <ManualSourceDialog open={addingManual} onOpenChange={setAddingManual} onAdded={index => setParams({ tab: 'sources', item: String(index), edit: '1' }, { replace: true })} />
@@ -321,9 +325,12 @@ export default function SourcesPage() {
                 name="catalogs"
                 idKey="catalog_id"
                 singular={uiText("features.sources.SourcesPage.katalog_1c58e0")}
-                subtitle={(c) => uiText("features.sources.SourcesPage.v_v0_v1_eintrage_a26921", { v0: (String(c.version ?? 1)), v1: (Object.keys(isObject(c.entries) ? c.entries : {}).length) })}
+                subtitle={(c) => {
+                  const count = c.kind === 'managed' ? managed.data?.find(row => row.catalog_id === c.catalog_id && row.version === Number(c.version ?? 1))?.active_entry_count ?? uiText(managed.isPending ? 'b26.sources.countLoading' : 'b26.sources.countUnavailable') : Object.keys(isObject(c.entries) ? c.entries : {}).length;
+                  return uiText(count === 1 ? 'b26.sources.oneEntry' : 'features.sources.SourcesPage.v_v0_v1_eintrage_a26921', { v0: String(c.version ?? 1), v1: count });
+                }}
                 make={(_, ids) => ({ catalog_id: uniqueName('catalog.neu', ids), kind: 'map', version: 1, entries: { an: true } })}
-                usage={(item, config) => chips(uiText("features.sources.SourcesPage.verwendet_von_bindings_6b4d50"), bindingsUsingCatalog(config, str(item.catalog_id)))}
+                usage={(item, config) => <>{chips(uiText("features.sources.SourcesPage.verwendet_von_bindings_6b4d50"), bindingsUsingCatalog(config, str(item.catalog_id)))}{item.kind === 'managed' && <Link className="ml-3 underline" to={`/catalog-care?catalog=${encodeURIComponent(`${str(item.catalog_id)}@${String(item.version ?? 1)}`)}`}>{uiText('b26.sources.openCatalog')}</Link>}</>}
                 render={(item, pointer, onChange) => <CatalogEditor value={item} pointer={pointer} onChange={onChange} />}
               />
             ),

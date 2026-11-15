@@ -5,9 +5,11 @@ import copy
 import logging
 from collections import deque
 from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from datetime import datetime, timedelta
+from statistics import median
 from time import perf_counter
 from typing import Any, cast
 from uuid import uuid4
@@ -18,11 +20,13 @@ from . import slots
 from .calendar_inputs import project
 from .clock import Alarm, Clock
 from .declarative import GuardEvaluationError
-from .errors import AuthoringError, RegistryValidationError
+from .errors import AuthoringError, LoadProtected, RegistryValidationError
 from .evidence import Observation, assess, is_new, is_older
 from .ha_context import ContextIndex
+from .load_guard import LoadGuard
 from .model import Model, checksum, utc
 from .operation_timing import ObservationTimings, TimedStore, Timing, current
+from .operations import OperationsSettings
 from .persistence import State, Store
 from .producer import Context, Producer
 from .quality import FieldValue, ReasonCode, unknown
@@ -43,6 +47,7 @@ from .temporal import start_case
 from .validation_cache import ValidationCache
 
 LOGGER = logging.getLogger(__name__)
+_measure_commit_load: ContextVar[bool] = ContextVar("measure_commit_load", default=False)
 
 
 class CommandOrigin(Model):
@@ -86,10 +91,15 @@ class Runtime:
         clock: Clock,
         types: TypeRegistry,
         *,
-        queue_size: int = 256,
+        queue_size: int | None = None,
         require_history_retention: bool = False,
+        operations: OperationsSettings | None = None,
     ) -> None:
         self.store, self.clock, self.types = TimedStore(store), clock, types
+        self.operations = operations or OperationsSettings()
+        self.load_guard = LoadGuard(self.operations)
+        self.projection_paused = False
+        self.projection_changed = asyncio.Event()
         self.observation_timings = ObservationTimings()
         self.validation_cache = ValidationCache()
         self.require_history_retention = require_history_retention
@@ -111,7 +121,9 @@ class Runtime:
         self.evaluation_stats = {"evaluated": 0, "reused": 0}
         from .observation_block import IngestQueue
 
-        self.queue: asyncio.Queue[Work] = IngestQueue(queue_size)
+        self.queue: asyncio.Queue[Work] = IngestQueue(
+            self.operations.ingest_queue_size if queue_size is None else queue_size
+        )
         self.task: asyncio.Task[None] | None = None
         self.confirmed = False
         self.persistence = False
@@ -128,6 +140,8 @@ class Runtime:
         self.next_retention = self.clock.now_utc()
         self.retention_receipt: dict[str, Any] | None = None
         self.mqtt = "disabled"
+        self.mqtt_queue: asyncio.Queue[Any] | None = None
+        self.mqtt_overflow = 0
         self.mqtt_mode: str | None = None
         self.mqtt_external_settings_present: bool | None = None
         self.latest: dict[str, Observation] = {}
@@ -150,15 +164,156 @@ class Runtime:
         self.pending_latches: dict[str, Bucket] | None = None
         self.stopping = False
         self.commit_duration = 0.0
+        self.commit_samples: deque[tuple[float, float]] = deque()
+        self.event_loop_lag_ms: float | None = None
+        self.event_loop_lag_max_ms: float | None = None
+        self.retries: dict[str, dict[str, Any]] = {
+            name: {
+                "count": 0,
+                "consecutive": 0,
+                "last_error": None,
+                "last_error_at": None,
+                "started_at": None,
+                "warning": False,
+            }
+            for name in (
+                "startup",
+                "database",
+                "ha",
+                "mqtt",
+                "projection",
+                "management",
+                "refresh",
+                "service",
+            )
+        }
         self.catalog_care_timings: dict[str, float] = {}
+        self.startup_timings: dict[str, float] = {}
+        self.startup_attempts = 0
         self.last_heartbeat = clock.monotonic()
-        self.refresh_requests: asyncio.Queue[tuple[int, str]] = asyncio.Queue(256)
+        self.refresh_requests: asyncio.Queue[tuple[int, str]] = asyncio.Queue(
+            self.operations.refresh_queue_size
+        )
         self.pending_refresh: set[str] = set()
         self.refresh_overflow = 0
         self.entity_discovery: Callable[..., Awaitable[list[dict[str, Any]]]] | None = None
         self.discovered_areas: list[dict[str, Any]] | None = None
         self.service_jobs_changed = asyncio.Event()
-        self.management_slots = asyncio.Semaphore(2)
+        self.management_slots = asyncio.Semaphore(self.operations.management_concurrency)
+
+    def retry_failed(self, name: str, error: Exception) -> None:
+        retry = self.retries[name]
+        if not retry["consecutive"]:
+            retry["started_at"] = self.clock.now_utc().isoformat()
+        retry["count"] += 1
+        retry["consecutive"] += 1
+        retry["last_error"] = type(error).__name__
+        retry["last_error_at"] = self.clock.now_utc().isoformat()
+        warning = retry["consecutive"] >= self.operations.retry_warning_after
+        if warning and not retry["warning"]:
+            LOGGER.warning(
+                "retry_limit_notice", extra={"operation": name, "count": retry["consecutive"]}
+            )
+        retry["warning"] = warning
+        self._broadcast(self.service_state())
+
+    def retry_succeeded(self, name: str) -> None:
+        retry = self.retries[name]
+        was_warning = retry["warning"]
+        retry.update(consecutive=0, started_at=None, warning=False)
+        if was_warning:
+            self._broadcast(self.service_state())
+
+    def set_projection_paused(self, paused: bool) -> None:
+        self.projection_paused = paused
+        self.projection_changed.set()
+        LOGGER.info("projection_pause_changed", extra={"paused": paused})
+        self._broadcast(self.service_state())
+
+    def _expire_commit_samples(self) -> None:
+        cutoff = self.clock.monotonic() - self.operations.load_commit_window_s
+        while self.commit_samples and self.commit_samples[0][0] <= cutoff:
+            self.commit_samples.popleft()
+
+    def _commit_window(self) -> list[float]:
+        self._expire_commit_samples()
+        return sorted(duration for _, duration in self.commit_samples)
+
+    def sample_load(self) -> None:
+        samples = self._commit_window()
+        p95 = samples[(95 * len(samples) + 99) // 100 - 1] if len(samples) >= 5 else None
+        if self.load_guard.sample(
+            self.clock.monotonic(),
+            lag_ms=self.event_loop_lag_ms,
+            queue_depth=self.queue.qsize(),
+            queue_capacity=self.queue.maxsize,
+            overflow_total=self.overflow_serial,
+            commit_p95_ms=p95,
+        ):
+            LOGGER.warning("load_state_changed", extra={"load_state": self.load_guard.state})
+            self.projection_changed.set()
+            self._broadcast(self.service_state())
+
+    def admit_operation(self, operation: str) -> None:
+        entry = slots.OPERATIONS.get(operation) or next(
+            (
+                item
+                for prefix, item in slots.OPERATION_PREFIXES.items()
+                if operation.startswith(prefix)
+            ),
+            None,
+        )
+        if entry is not None and entry.heavy and self.load_guard.state == "geschützt":
+            raise LoadProtected()
+
+    async def measure_event_loop(self) -> None:
+        while True:
+            started = self.clock.monotonic()
+            await self.clock.sleep(1)
+            lag = max(0.0, (self.clock.monotonic() - started - 1) * 1000)
+            self.event_loop_lag_ms = round(lag, 3)
+            self.event_loop_lag_max_ms = max(
+                self.event_loop_lag_max_ms or 0, self.event_loop_lag_ms
+            )
+            self.sample_load()
+
+    def system_state(self) -> dict[str, Any]:
+        samples = self._commit_window()
+        return {
+            **self.service_state(),
+            "publication_seq": self.state.publication_seq,
+            "queues": {
+                "ingest": {
+                    "depth": self.queue.qsize(),
+                    "capacity": self.queue.maxsize,
+                    "overflows": self.overflow_serial,
+                },
+                "refresh": {
+                    "depth": self.refresh_requests.qsize(),
+                    "capacity": self.refresh_requests.maxsize,
+                    "overflows": self.refresh_overflow,
+                },
+                "mqtt": {
+                    "depth": self.mqtt_queue.qsize() if self.mqtt_queue is not None else None,
+                    "capacity": self.operations.mqtt_queue_size,
+                    "overflows": self.mqtt_overflow,
+                },
+            },
+            "event_loop": {
+                "lag_ms": self.event_loop_lag_ms,
+                "max_lag_ms": self.event_loop_lag_max_ms,
+            },
+            "commits": {
+                "count": len(samples),
+                "window_s": self.operations.load_commit_window_s,
+                "median_ms": round(median(samples), 3) if len(samples) >= 5 else None,
+                "p95_ms": round(samples[max(0, (95 * len(samples) + 99) // 100 - 1)], 3)
+                if len(samples) >= 5
+                else None,
+            },
+            "retries": copy.deepcopy(self.retries),
+            "traber_version": self.bridge_version,
+        }
 
     @property
     def config(self) -> RegistryConfig | None:
@@ -235,6 +390,11 @@ class Runtime:
     def service_state(self) -> dict[str, Any]:
         return {
             "type": "service_state",
+            "startup": {key: round(value) for key, value in self.startup_timings.items()},
+            "startup_attempts": self.startup_attempts,
+            "load": self.load_guard.view(),
+            "projection_paused": self.projection_paused,
+            "retry_notices": [name for name, retry in self.retries.items() if retry["warning"]],
             "ready": self.ready,
             "publication_confirmed": self.confirmed,
             "persistence": "available" if self.persistence else "persistence_unavailable",
@@ -394,21 +554,31 @@ class Runtime:
             return True
         return False
 
+    def begin_startup(self) -> float:
+        """Count an initialization attempt, including failures before store.load()."""
+        self.startup_attempts += 1
+        self.startup_timings = {}
+        return perf_counter()
+
     async def start(
         self, *, startup_started: float | None = None, store_open_ms: float = 0.0
     ) -> None:
-        started = perf_counter() if startup_started is None else startup_started
-        phases = {"store_open": store_open_ms}
-        loaded_at = perf_counter()
-        self.state = await self.store.load()
-        phases["load"] = (perf_counter() - loaded_at) * 1000
-        self.persistence = True
-        restored_at = perf_counter()
-        await self._restore("process_restart", phases=phases)
-        phases["restore"] = (perf_counter() - restored_at) * 1000
-        if self.task is None:
-            self.task = asyncio.create_task(self.run(), name="processor")
-        phases["total"] = (perf_counter() - started) * 1000
+        # App initialization calls begin_startup before opening the database.
+        started = self.begin_startup() if startup_started is None else startup_started
+        phases = self.startup_timings
+        phases["store_open"] = store_open_ms
+        try:
+            loaded_at = perf_counter()
+            self.state = await self.store.load()
+            phases["load"] = (perf_counter() - loaded_at) * 1000
+            self.persistence = True
+            restored_at = perf_counter()
+            await self._restore("process_restart", phases=phases)
+            phases["restore"] = (perf_counter() - restored_at) * 1000
+            if self.task is None:
+                self.task = asyncio.create_task(self.run(), name="processor")
+        finally:
+            phases["total"] = (perf_counter() - started) * 1000
         LOGGER.info("startup_timing", extra={"phases_ms": phases})
 
     def _gap(self, state: State, reason: str) -> None:
@@ -429,11 +599,23 @@ class Runtime:
             if hook.phase == phase:
                 hook.handler(*args)
 
-    async def _restore_hooks(self, phase: str, state: State, context: Any = None) -> None:
+    async def _restore_hooks(
+        self,
+        phase: str,
+        state: State,
+        context: Any = None,
+        *,
+        timings: dict[str, float] | None = None,
+    ) -> None:
         for order in sorted(slots.RESTORE):
             hook = slots.RESTORE[order]
             if hook.phase == phase:
-                await hook.handler(self, state, context)
+                started = perf_counter()
+                try:
+                    await hook.handler(self, state, context)
+                finally:
+                    if timings is not None and hook.timing is not None:
+                        timings[hook.timing] = (perf_counter() - started) * 1000
 
     async def _restore(self, reason: str, *, phases: dict[str, float] | None = None) -> None:
         timings = phases if phases is not None else {}
@@ -444,8 +626,10 @@ class Runtime:
         self.first_snapshot = False
         if self.context_index:
             self.context_index.clear_registered()
+        cloned_at = perf_counter()
         state = self.state.clone()
-        await self._restore_hooks("migration", state)
+        timings["restore_clone"] = (perf_counter() - cloned_at) * 1000
+        await self._restore_hooks("migration", state, timings=timings)
         timings["restore_migration"] = (perf_counter() - started) * 1000
         started = perf_counter()
         old_epoch = state.epoch_id
@@ -484,6 +668,7 @@ class Runtime:
     async def submit(self, operation: str, payload: Any = None) -> Any:
         if self.stopping:
             raise RuntimeError("going_away")
+        self.admit_operation(operation)
         handler = slots.SUBMIT.get(operation)
         if handler is None:
             handler = next(
@@ -652,6 +837,13 @@ class Runtime:
             and (entry is None or entry.drain)
         ):
             await self._drain_overflow()
+        token = _measure_commit_load.set(entry is None)
+        try:
+            return await self._process(operation, payload, entry)
+        finally:
+            _measure_commit_load.reset(token)
+
+    async def _process(self, operation: str, payload: Any, entry: slots.Operation | None) -> Any:
         if entry is not None and entry.early:
             return await entry.handler(
                 self, self.state, operation, payload, self.clock.now_utc(), self.config
@@ -1074,7 +1266,7 @@ class Runtime:
             )
         if config:
             self._evaluate(state, config, origin="revision")
-        await self._commit(state, publication=True)
+        await self._commit(state, publication=True, measure_load=True)
         for key, value in buffered.items():
             if self.latest.get(key) is value:
                 self.latest.pop(key)
@@ -1696,9 +1888,15 @@ class Runtime:
         self._broadcast(self.service_state())
 
     async def _commit(
-        self, state: State, *, publication: bool = False, resync: bool = False
+        self,
+        state: State,
+        *,
+        publication: bool = False,
+        resync: bool = False,
+        measure_load: bool | None = None,
     ) -> None:
         started = self.clock.monotonic()
+        measured_at = perf_counter()
         catalog_changed = (
             state.tables["catalog_sighting"] != self.state.tables["catalog_sighting"]
             or state.tables["catalog_head"] != self.state.tables["catalog_head"]
@@ -1758,6 +1956,11 @@ class Runtime:
                 LOGGER.warning("refresh_queue_overflow")
         self.pending_refresh.clear()
         self.commit_duration = self.clock.monotonic() - started
+        if _measure_commit_load.get() if measure_load is None else measure_load:
+            self.commit_samples.append(
+                (self.clock.monotonic(), (perf_counter() - measured_at) * 1000)
+            )
+            self._expire_commit_samples()
         self._plan_evaluation()
         self.service_jobs_changed.set()
         if catalog_changed:
@@ -1953,8 +2156,10 @@ class Runtime:
             "contracts": {k: v for k, v in items.items() if contracts is None or k in contracts},
         }
 
-    def subscribe(self, max_queue: int = 32) -> asyncio.Queue[dict[str, Any]]:
-        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(max_queue)
+    def subscribe(self, max_queue: int | None = None) -> asyncio.Queue[dict[str, Any]]:
+        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(
+            self.operations.subscriber_queue_size if max_queue is None else max_queue
+        )
         self.subscribers.add(queue)
         return queue
 

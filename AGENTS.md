@@ -16,6 +16,10 @@ Repository-specific:
 - CI retries restart only failed jobs (`gh run rerun <id> --failed`); locally rerun
   only affected tests. Full release checks and release batching follow the canonical working rules.
 - Project baseline: `docs/uebergabe.md` (roles, vocabulary, Beta plan, security rules §10).
+- b26 operations: `docs/operations.md` links the settings, system-state and
+  self-protection contracts; keep process settings separate from configuration
+  drafts. Missing measurements remain unknown. HA interface version 1 and its
+  compatibility/recording rules are in `docs/ha-interface.md`.
 - Backend, code and identifiers in English; user interface in German (Du-Form, vocabulary §3).
 - Never commit real media titles, private data, MQTT addresses of the live system, or secrets.
 - Never call tools that return the Wuschel app options (they contain secrets).
@@ -39,7 +43,10 @@ Repository-specific:
 - `client/`, `custom_components/traber/`: Clientvertrag und HA-Integration.
 - `frontend/`: deutsche Oberfläche; `wuschel/`: HA-App-Verpackung.
 - `tests/areas.json`: Testzuordnung; `dev/area_map.py`: manuelle CI-Neumessung.
-- Lokal: `uv run python dev/area_tests.py --changed [BASE]` (Standard `origin/b25`).
+- Lokal: `uv run python dev/area_tests.py --changed origin/b26` für b26-Arbeit;
+  sonst den passenden Basiszweig ausdrücklich angeben (Werkzeugstandard `origin/b25`).
+- Testzuordnung nur über den manuellen CI-Job `area_map` neu messen; Artefakt
+  `test-areas` samt Quellrevision prüfen. Die Messung ersetzt keine volle Release-CI.
 - `ALL` bedeutet Kernänderung: betroffene Modultests wählen; volle Suite nur in CI.
 
 ## Grenzen

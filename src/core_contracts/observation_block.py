@@ -30,7 +30,12 @@ class IngestQueue(asyncio.Queue[Work]):
 
 class BlockRuntime(Runtime):
     async def _commit(
-        self, state: State, *, publication: bool = False, resync: bool = False
+        self,
+        state: State,
+        *,
+        publication: bool = False,
+        resync: bool = False,
+        measure_load: bool | None = None,
     ) -> None:
         self.state = state
         if self.pending_latches is not None:
@@ -58,13 +63,16 @@ async def process_block(runtime: Runtime, first: Work) -> None:
     started = perf_counter()
     timing = Timing(asyncio.current_task())
     token = current.set(timing)
-    deadline = started + 0.05
+    deadline = started + runtime.operations.observation_block_window_s
     error: Exception | None = None
     try:
         while True:
             works.append(work)
             await worker.process("observation", work.payload)
-            if len(works) >= 100 or perf_counter() >= deadline:
+            if (
+                len(works) >= runtime.operations.observation_block_size
+                or perf_counter() >= deadline
+            ):
                 break
             if runtime.queue.empty() and first.future is not None:
                 break
@@ -80,7 +88,7 @@ async def process_block(runtime: Runtime, first: Work) -> None:
         if worker._block_changed:
             runtime.pending_latches = worker.latches
             runtime.pending_refresh = worker._block_refresh
-            await runtime._commit(worker.state, publication=True)
+            await runtime._commit(worker.state, publication=True, measure_load=True)
             runtime._observation_models = worker._observation_models
             runtime._field_models = worker._field_models
         runtime.evaluation_stats = worker.evaluation_stats

@@ -1,0 +1,4522 @@
+{
+  "interface.multi.held.degraded.enum": {
+    "attributes": {
+      "contract_id": "interface.multi.held.degraded.enum",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "active"
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.held.degraded.enum",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": "active",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_held_degraded_enum",
+    "state": "active",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.held.degraded.enum"
+  },
+  "interface.multi.held.degraded.false": {
+    "attributes": {
+      "contract_id": "interface.multi.held.degraded.false",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.held.degraded.false",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": false,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_held_degraded_false",
+    "state": "off",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.held.degraded.false"
+  },
+  "interface.multi.held.degraded.number": {
+    "attributes": {
+      "contract_id": "interface.multi.held.degraded.number",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.held.degraded.number",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_held_degraded_number",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.held.degraded.number"
+  },
+  "interface.multi.held.degraded.text": {
+    "attributes": {
+      "contract_id": "interface.multi.held.degraded.text",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic text ä"
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.held.degraded.text",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": "Synthetic text ä",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_held_degraded_text",
+    "state": "Synthetic text ä",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.held.degraded.text"
+  },
+  "interface.multi.held.degraded.timestamp": {
+    "attributes": {
+      "contract_id": "interface.multi.held.degraded.timestamp",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "2026-01-02T03:04:05Z"
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.held.degraded.timestamp",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": "2026-01-02T03:04:05Z",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_held_degraded_timestamp",
+    "state": "2026-01-02T03:04:05Z",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.held.degraded.timestamp"
+  },
+  "interface.multi.held.degraded.true": {
+    "attributes": {
+      "contract_id": "interface.multi.held.degraded.true",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.held.degraded.true",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_held_degraded_true",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.held.degraded.true"
+  },
+  "interface.multi.held.healthy.enum": {
+    "attributes": {
+      "contract_id": "interface.multi.held.healthy.enum",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "active"
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.held.healthy.enum",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": "active",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_held_healthy_enum",
+    "state": "active",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.held.healthy.enum"
+  },
+  "interface.multi.held.healthy.false": {
+    "attributes": {
+      "contract_id": "interface.multi.held.healthy.false",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.held.healthy.false",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": false,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_held_healthy_false",
+    "state": "off",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.held.healthy.false"
+  },
+  "interface.multi.held.healthy.number": {
+    "attributes": {
+      "contract_id": "interface.multi.held.healthy.number",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.held.healthy.number",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_held_healthy_number",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.held.healthy.number"
+  },
+  "interface.multi.held.healthy.text": {
+    "attributes": {
+      "contract_id": "interface.multi.held.healthy.text",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic text ä"
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.held.healthy.text",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": "Synthetic text ä",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_held_healthy_text",
+    "state": "Synthetic text ä",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.held.healthy.text"
+  },
+  "interface.multi.held.healthy.timestamp": {
+    "attributes": {
+      "contract_id": "interface.multi.held.healthy.timestamp",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "2026-01-02T03:04:05Z"
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.held.healthy.timestamp",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": "2026-01-02T03:04:05Z",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_held_healthy_timestamp",
+    "state": "2026-01-02T03:04:05Z",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.held.healthy.timestamp"
+  },
+  "interface.multi.held.healthy.true": {
+    "attributes": {
+      "contract_id": "interface.multi.held.healthy.true",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.held.healthy.true",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_held_healthy_true",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.held.healthy.true"
+  },
+  "interface.multi.not_applicable.degraded.enum": {
+    "attributes": {
+      "contract_id": "interface.multi.not_applicable.degraded.enum",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.not_applicable.degraded.enum",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_not_applicable_degraded_enum",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.not_applicable.degraded.enum"
+  },
+  "interface.multi.not_applicable.degraded.false": {
+    "attributes": {
+      "contract_id": "interface.multi.not_applicable.degraded.false",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.not_applicable.degraded.false",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_not_applicable_degraded_false",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.not_applicable.degraded.false"
+  },
+  "interface.multi.not_applicable.degraded.number": {
+    "attributes": {
+      "contract_id": "interface.multi.not_applicable.degraded.number",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.not_applicable.degraded.number",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_not_applicable_degraded_number",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.not_applicable.degraded.number"
+  },
+  "interface.multi.not_applicable.degraded.text": {
+    "attributes": {
+      "contract_id": "interface.multi.not_applicable.degraded.text",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.not_applicable.degraded.text",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_not_applicable_degraded_text",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.not_applicable.degraded.text"
+  },
+  "interface.multi.not_applicable.degraded.timestamp": {
+    "attributes": {
+      "contract_id": "interface.multi.not_applicable.degraded.timestamp",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.not_applicable.degraded.timestamp",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_not_applicable_degraded_timestamp",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.not_applicable.degraded.timestamp"
+  },
+  "interface.multi.not_applicable.degraded.true": {
+    "attributes": {
+      "contract_id": "interface.multi.not_applicable.degraded.true",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.not_applicable.degraded.true",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_not_applicable_degraded_true",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.not_applicable.degraded.true"
+  },
+  "interface.multi.not_applicable.healthy.enum": {
+    "attributes": {
+      "contract_id": "interface.multi.not_applicable.healthy.enum",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.not_applicable.healthy.enum",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_not_applicable_healthy_enum",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.not_applicable.healthy.enum"
+  },
+  "interface.multi.not_applicable.healthy.false": {
+    "attributes": {
+      "contract_id": "interface.multi.not_applicable.healthy.false",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.not_applicable.healthy.false",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_not_applicable_healthy_false",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.not_applicable.healthy.false"
+  },
+  "interface.multi.not_applicable.healthy.number": {
+    "attributes": {
+      "contract_id": "interface.multi.not_applicable.healthy.number",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.not_applicable.healthy.number",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_not_applicable_healthy_number",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.not_applicable.healthy.number"
+  },
+  "interface.multi.not_applicable.healthy.text": {
+    "attributes": {
+      "contract_id": "interface.multi.not_applicable.healthy.text",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.not_applicable.healthy.text",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_not_applicable_healthy_text",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.not_applicable.healthy.text"
+  },
+  "interface.multi.not_applicable.healthy.timestamp": {
+    "attributes": {
+      "contract_id": "interface.multi.not_applicable.healthy.timestamp",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.not_applicable.healthy.timestamp",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_not_applicable_healthy_timestamp",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.not_applicable.healthy.timestamp"
+  },
+  "interface.multi.not_applicable.healthy.true": {
+    "attributes": {
+      "contract_id": "interface.multi.not_applicable.healthy.true",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.not_applicable.healthy.true",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_not_applicable_healthy_true",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.not_applicable.healthy.true"
+  },
+  "interface.multi.unknown.degraded.enum": {
+    "attributes": {
+      "contract_id": "interface.multi.unknown.degraded.enum",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unknown.degraded.enum",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unknown_degraded_enum",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unknown.degraded.enum"
+  },
+  "interface.multi.unknown.degraded.false": {
+    "attributes": {
+      "contract_id": "interface.multi.unknown.degraded.false",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unknown.degraded.false",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unknown_degraded_false",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unknown.degraded.false"
+  },
+  "interface.multi.unknown.degraded.number": {
+    "attributes": {
+      "contract_id": "interface.multi.unknown.degraded.number",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unknown.degraded.number",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unknown_degraded_number",
+    "state": "unknown",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unknown.degraded.number"
+  },
+  "interface.multi.unknown.degraded.text": {
+    "attributes": {
+      "contract_id": "interface.multi.unknown.degraded.text",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unknown.degraded.text",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unknown_degraded_text",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unknown.degraded.text"
+  },
+  "interface.multi.unknown.degraded.timestamp": {
+    "attributes": {
+      "contract_id": "interface.multi.unknown.degraded.timestamp",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unknown.degraded.timestamp",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unknown_degraded_timestamp",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unknown.degraded.timestamp"
+  },
+  "interface.multi.unknown.degraded.true": {
+    "attributes": {
+      "contract_id": "interface.multi.unknown.degraded.true",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unknown.degraded.true",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unknown_degraded_true",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unknown.degraded.true"
+  },
+  "interface.multi.unknown.healthy.enum": {
+    "attributes": {
+      "contract_id": "interface.multi.unknown.healthy.enum",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unknown.healthy.enum",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unknown_healthy_enum",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unknown.healthy.enum"
+  },
+  "interface.multi.unknown.healthy.false": {
+    "attributes": {
+      "contract_id": "interface.multi.unknown.healthy.false",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unknown.healthy.false",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unknown_healthy_false",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unknown.healthy.false"
+  },
+  "interface.multi.unknown.healthy.number": {
+    "attributes": {
+      "contract_id": "interface.multi.unknown.healthy.number",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unknown.healthy.number",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unknown_healthy_number",
+    "state": "unknown",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unknown.healthy.number"
+  },
+  "interface.multi.unknown.healthy.text": {
+    "attributes": {
+      "contract_id": "interface.multi.unknown.healthy.text",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unknown.healthy.text",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unknown_healthy_text",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unknown.healthy.text"
+  },
+  "interface.multi.unknown.healthy.timestamp": {
+    "attributes": {
+      "contract_id": "interface.multi.unknown.healthy.timestamp",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unknown.healthy.timestamp",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unknown_healthy_timestamp",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unknown.healthy.timestamp"
+  },
+  "interface.multi.unknown.healthy.true": {
+    "attributes": {
+      "contract_id": "interface.multi.unknown.healthy.true",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unknown.healthy.true",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unknown_healthy_true",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unknown.healthy.true"
+  },
+  "interface.multi.unresolved.degraded.enum": {
+    "attributes": {
+      "contract_id": "interface.multi.unresolved.degraded.enum",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unresolved.degraded.enum",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unresolved_degraded_enum",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unresolved.degraded.enum"
+  },
+  "interface.multi.unresolved.degraded.false": {
+    "attributes": {
+      "contract_id": "interface.multi.unresolved.degraded.false",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unresolved.degraded.false",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unresolved_degraded_false",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unresolved.degraded.false"
+  },
+  "interface.multi.unresolved.degraded.number": {
+    "attributes": {
+      "contract_id": "interface.multi.unresolved.degraded.number",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unresolved.degraded.number",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unresolved_degraded_number",
+    "state": "unknown",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unresolved.degraded.number"
+  },
+  "interface.multi.unresolved.degraded.text": {
+    "attributes": {
+      "contract_id": "interface.multi.unresolved.degraded.text",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unresolved.degraded.text",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unresolved_degraded_text",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unresolved.degraded.text"
+  },
+  "interface.multi.unresolved.degraded.timestamp": {
+    "attributes": {
+      "contract_id": "interface.multi.unresolved.degraded.timestamp",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unresolved.degraded.timestamp",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unresolved_degraded_timestamp",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unresolved.degraded.timestamp"
+  },
+  "interface.multi.unresolved.degraded.true": {
+    "attributes": {
+      "contract_id": "interface.multi.unresolved.degraded.true",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unresolved.degraded.true",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unresolved_degraded_true",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unresolved.degraded.true"
+  },
+  "interface.multi.unresolved.healthy.enum": {
+    "attributes": {
+      "contract_id": "interface.multi.unresolved.healthy.enum",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unresolved.healthy.enum",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unresolved_healthy_enum",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unresolved.healthy.enum"
+  },
+  "interface.multi.unresolved.healthy.false": {
+    "attributes": {
+      "contract_id": "interface.multi.unresolved.healthy.false",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unresolved.healthy.false",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unresolved_healthy_false",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unresolved.healthy.false"
+  },
+  "interface.multi.unresolved.healthy.number": {
+    "attributes": {
+      "contract_id": "interface.multi.unresolved.healthy.number",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unresolved.healthy.number",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unresolved_healthy_number",
+    "state": "unknown",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unresolved.healthy.number"
+  },
+  "interface.multi.unresolved.healthy.text": {
+    "attributes": {
+      "contract_id": "interface.multi.unresolved.healthy.text",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unresolved.healthy.text",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unresolved_healthy_text",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unresolved.healthy.text"
+  },
+  "interface.multi.unresolved.healthy.timestamp": {
+    "attributes": {
+      "contract_id": "interface.multi.unresolved.healthy.timestamp",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unresolved.healthy.timestamp",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unresolved_healthy_timestamp",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unresolved.healthy.timestamp"
+  },
+  "interface.multi.unresolved.healthy.true": {
+    "attributes": {
+      "contract_id": "interface.multi.unresolved.healthy.true",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.unresolved.healthy.true",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_unresolved_healthy_true",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.unresolved.healthy.true"
+  },
+  "interface.multi.valid.degraded.enum": {
+    "attributes": {
+      "contract_id": "interface.multi.valid.degraded.enum",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "active"
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.valid.degraded.enum",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": "active",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_valid_degraded_enum",
+    "state": "active",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.valid.degraded.enum"
+  },
+  "interface.multi.valid.degraded.false": {
+    "attributes": {
+      "contract_id": "interface.multi.valid.degraded.false",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.valid.degraded.false",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": false,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_valid_degraded_false",
+    "state": "off",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.valid.degraded.false"
+  },
+  "interface.multi.valid.degraded.number": {
+    "attributes": {
+      "contract_id": "interface.multi.valid.degraded.number",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.valid.degraded.number",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_valid_degraded_number",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.valid.degraded.number"
+  },
+  "interface.multi.valid.degraded.text": {
+    "attributes": {
+      "contract_id": "interface.multi.valid.degraded.text",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic text ä"
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.valid.degraded.text",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": "Synthetic text ä",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_valid_degraded_text",
+    "state": "Synthetic text ä",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.valid.degraded.text"
+  },
+  "interface.multi.valid.degraded.timestamp": {
+    "attributes": {
+      "contract_id": "interface.multi.valid.degraded.timestamp",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "2026-01-02T03:04:05Z"
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.valid.degraded.timestamp",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": "2026-01-02T03:04:05Z",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_valid_degraded_timestamp",
+    "state": "2026-01-02T03:04:05Z",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.valid.degraded.timestamp"
+  },
+  "interface.multi.valid.degraded.true": {
+    "attributes": {
+      "contract_id": "interface.multi.valid.degraded.true",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.valid.degraded.true",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_valid_degraded_true",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.valid.degraded.true"
+  },
+  "interface.multi.valid.healthy.enum": {
+    "attributes": {
+      "contract_id": "interface.multi.valid.healthy.enum",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "active"
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.valid.healthy.enum",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": "active",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_valid_healthy_enum",
+    "state": "active",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.valid.healthy.enum"
+  },
+  "interface.multi.valid.healthy.false": {
+    "attributes": {
+      "contract_id": "interface.multi.valid.healthy.false",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.valid.healthy.false",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": false,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_valid_healthy_false",
+    "state": "off",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.valid.healthy.false"
+  },
+  "interface.multi.valid.healthy.number": {
+    "attributes": {
+      "contract_id": "interface.multi.valid.healthy.number",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.valid.healthy.number",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_valid_healthy_number",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.valid.healthy.number"
+  },
+  "interface.multi.valid.healthy.text": {
+    "attributes": {
+      "contract_id": "interface.multi.valid.healthy.text",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic text ä"
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.valid.healthy.text",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": "Synthetic text ä",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_valid_healthy_text",
+    "state": "Synthetic text ä",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.valid.healthy.text"
+  },
+  "interface.multi.valid.healthy.timestamp": {
+    "attributes": {
+      "contract_id": "interface.multi.valid.healthy.timestamp",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "2026-01-02T03:04:05Z"
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.valid.healthy.timestamp",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": "2026-01-02T03:04:05Z",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_valid_healthy_timestamp",
+    "state": "2026-01-02T03:04:05Z",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.valid.healthy.timestamp"
+  },
+  "interface.multi.valid.healthy.true": {
+    "attributes": {
+      "contract_id": "interface.multi.valid.healthy.true",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic side field"
+        },
+        "selected": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.multi.valid.healthy.true",
+      "primary_field": "selected",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_multi_valid_healthy_true",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.multi.valid.healthy.true"
+  },
+  "interface.primary.climate.thermostat": {
+    "attributes": {
+      "contract_id": "interface.primary.climate.thermostat",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        },
+        "temperature": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.climate.thermostat",
+      "primary_field": "temperature",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_climate_thermostat",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.climate.thermostat"
+  },
+  "interface.primary.device.console_state": {
+    "attributes": {
+      "contract_id": "interface.primary.device.console_state",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        },
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.device.console_state",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_device_console_state",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.device.console_state"
+  },
+  "interface.primary.device.pc_power": {
+    "attributes": {
+      "contract_id": "interface.primary.device.pc_power",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        },
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.device.pc_power",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_device_pc_power",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.device.pc_power"
+  },
+  "interface.primary.first_fallback": {
+    "attributes": {
+      "contract_id": "interface.primary.first_fallback",
+      "fields": {
+        "first": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic first"
+        },
+        "second": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.first_fallback",
+      "primary_field": "first",
+      "quality": "degraded",
+      "raw_value": "Synthetic first",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_first_fallback",
+    "state": "Synthetic first",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.first_fallback"
+  },
+  "interface.primary.media.activity_flow": {
+    "attributes": {
+      "contract_id": "interface.primary.media.activity_flow",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        },
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.media.activity_flow",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_media_activity_flow",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.media.activity_flow"
+  },
+  "interface.primary.media.device_power_facts": {
+    "attributes": {
+      "contract_id": "interface.primary.media.device_power_facts",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        },
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.media.device_power_facts",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_media_device_power_facts",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.media.device_power_facts"
+  },
+  "interface.primary.media.device_state": {
+    "attributes": {
+      "contract_id": "interface.primary.media.device_state",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        },
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.media.device_state",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_media_device_state",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.media.device_state"
+  },
+  "interface.primary.media.playback_facts": {
+    "attributes": {
+      "contract_id": "interface.primary.media.playback_facts",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        },
+        "playing": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.media.playback_facts",
+      "primary_field": "playing",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_media_playback_facts",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.media.playback_facts"
+  },
+  "interface.primary.media.privacy_facts": {
+    "attributes": {
+      "contract_id": "interface.primary.media.privacy_facts",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        },
+        "active": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.media.privacy_facts",
+      "primary_field": "active",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_media_privacy_facts",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.media.privacy_facts"
+  },
+  "interface.primary.media.quiet_facts": {
+    "attributes": {
+      "contract_id": "interface.primary.media.quiet_facts",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        },
+        "entry_door_open": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.media.quiet_facts",
+      "primary_field": "entry_door_open",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_media_quiet_facts",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.media.quiet_facts"
+  },
+  "interface.primary.media.stash_slot": {
+    "attributes": {
+      "contract_id": "interface.primary.media.stash_slot",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        },
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.media.stash_slot",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_media_stash_slot",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.media.stash_slot"
+  },
+  "interface.primary.opening_zone.facts": {
+    "attributes": {
+      "contract_id": "interface.primary.opening_zone.facts",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        },
+        "unclear": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.opening_zone.facts",
+      "primary_field": "unclear",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_opening_zone_facts",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.opening_zone.facts"
+  },
+  "interface.primary.sleep.flow": {
+    "attributes": {
+      "contract_id": "interface.primary.sleep.flow",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        },
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.sleep.flow",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_sleep_flow",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.sleep.flow"
+  },
+  "interface.primary.sleep.state_view": {
+    "attributes": {
+      "contract_id": "interface.primary.sleep.state_view",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        },
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.sleep.state_view",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_sleep_state_view",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.sleep.state_view"
+  },
+  "interface.primary.value_fallback": {
+    "attributes": {
+      "contract_id": "interface.primary.value_fallback",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        },
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.value_fallback",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_value_fallback",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.value_fallback"
+  },
+  "interface.primary.wake.plan_view": {
+    "attributes": {
+      "contract_id": "interface.primary.wake.plan_view",
+      "fields": {
+        "aaa_other": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        },
+        "status": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.primary.wake.plan_view",
+      "primary_field": "status",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_primary_wake_plan_view",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.primary.wake.plan_view"
+  },
+  "interface.scalar.held.degraded.enum": {
+    "attributes": {
+      "contract_id": "interface.scalar.held.degraded.enum",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "active"
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.held.degraded.enum",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": "active",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_held_degraded_enum",
+    "state": "active",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.held.degraded.enum"
+  },
+  "interface.scalar.held.degraded.false": {
+    "attributes": {
+      "contract_id": "interface.scalar.held.degraded.false",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.held.degraded.false",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": false,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_held_degraded_false",
+    "state": "off",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.held.degraded.false"
+  },
+  "interface.scalar.held.degraded.number": {
+    "attributes": {
+      "contract_id": "interface.scalar.held.degraded.number",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.held.degraded.number",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_held_degraded_number",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.held.degraded.number"
+  },
+  "interface.scalar.held.degraded.text": {
+    "attributes": {
+      "contract_id": "interface.scalar.held.degraded.text",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic text ä"
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.held.degraded.text",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": "Synthetic text ä",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_held_degraded_text",
+    "state": "Synthetic text ä",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.held.degraded.text"
+  },
+  "interface.scalar.held.degraded.timestamp": {
+    "attributes": {
+      "contract_id": "interface.scalar.held.degraded.timestamp",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "2026-01-02T03:04:05Z"
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.held.degraded.timestamp",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": "2026-01-02T03:04:05Z",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_held_degraded_timestamp",
+    "state": "2026-01-02T03:04:05Z",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.held.degraded.timestamp"
+  },
+  "interface.scalar.held.degraded.true": {
+    "attributes": {
+      "contract_id": "interface.scalar.held.degraded.true",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.held.degraded.true",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_held_degraded_true",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.held.degraded.true"
+  },
+  "interface.scalar.held.healthy.enum": {
+    "attributes": {
+      "contract_id": "interface.scalar.held.healthy.enum",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "active"
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.held.healthy.enum",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": "active",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_held_healthy_enum",
+    "state": "active",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.held.healthy.enum"
+  },
+  "interface.scalar.held.healthy.false": {
+    "attributes": {
+      "contract_id": "interface.scalar.held.healthy.false",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.held.healthy.false",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": false,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_held_healthy_false",
+    "state": "off",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.held.healthy.false"
+  },
+  "interface.scalar.held.healthy.number": {
+    "attributes": {
+      "contract_id": "interface.scalar.held.healthy.number",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.held.healthy.number",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_held_healthy_number",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.held.healthy.number"
+  },
+  "interface.scalar.held.healthy.text": {
+    "attributes": {
+      "contract_id": "interface.scalar.held.healthy.text",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic text ä"
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.held.healthy.text",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": "Synthetic text ä",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_held_healthy_text",
+    "state": "Synthetic text ä",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.held.healthy.text"
+  },
+  "interface.scalar.held.healthy.timestamp": {
+    "attributes": {
+      "contract_id": "interface.scalar.held.healthy.timestamp",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "2026-01-02T03:04:05Z"
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.held.healthy.timestamp",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": "2026-01-02T03:04:05Z",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_held_healthy_timestamp",
+    "state": "2026-01-02T03:04:05Z",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.held.healthy.timestamp"
+  },
+  "interface.scalar.held.healthy.true": {
+    "attributes": {
+      "contract_id": "interface.scalar.held.healthy.true",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.held.healthy.true",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_held_healthy_true",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.held.healthy.true"
+  },
+  "interface.scalar.not_applicable.degraded.enum": {
+    "attributes": {
+      "contract_id": "interface.scalar.not_applicable.degraded.enum",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.not_applicable.degraded.enum",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_not_applicable_degraded_enum",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.not_applicable.degraded.enum"
+  },
+  "interface.scalar.not_applicable.degraded.false": {
+    "attributes": {
+      "contract_id": "interface.scalar.not_applicable.degraded.false",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.not_applicable.degraded.false",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_not_applicable_degraded_false",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.not_applicable.degraded.false"
+  },
+  "interface.scalar.not_applicable.degraded.number": {
+    "attributes": {
+      "contract_id": "interface.scalar.not_applicable.degraded.number",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.not_applicable.degraded.number",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_not_applicable_degraded_number",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.not_applicable.degraded.number"
+  },
+  "interface.scalar.not_applicable.degraded.text": {
+    "attributes": {
+      "contract_id": "interface.scalar.not_applicable.degraded.text",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.not_applicable.degraded.text",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_not_applicable_degraded_text",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.not_applicable.degraded.text"
+  },
+  "interface.scalar.not_applicable.degraded.timestamp": {
+    "attributes": {
+      "contract_id": "interface.scalar.not_applicable.degraded.timestamp",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.not_applicable.degraded.timestamp",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_not_applicable_degraded_timestamp",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.not_applicable.degraded.timestamp"
+  },
+  "interface.scalar.not_applicable.degraded.true": {
+    "attributes": {
+      "contract_id": "interface.scalar.not_applicable.degraded.true",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.not_applicable.degraded.true",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_not_applicable_degraded_true",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.not_applicable.degraded.true"
+  },
+  "interface.scalar.not_applicable.healthy.enum": {
+    "attributes": {
+      "contract_id": "interface.scalar.not_applicable.healthy.enum",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.not_applicable.healthy.enum",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_not_applicable_healthy_enum",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.not_applicable.healthy.enum"
+  },
+  "interface.scalar.not_applicable.healthy.false": {
+    "attributes": {
+      "contract_id": "interface.scalar.not_applicable.healthy.false",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.not_applicable.healthy.false",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_not_applicable_healthy_false",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.not_applicable.healthy.false"
+  },
+  "interface.scalar.not_applicable.healthy.number": {
+    "attributes": {
+      "contract_id": "interface.scalar.not_applicable.healthy.number",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.not_applicable.healthy.number",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_not_applicable_healthy_number",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.not_applicable.healthy.number"
+  },
+  "interface.scalar.not_applicable.healthy.text": {
+    "attributes": {
+      "contract_id": "interface.scalar.not_applicable.healthy.text",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.not_applicable.healthy.text",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_not_applicable_healthy_text",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.not_applicable.healthy.text"
+  },
+  "interface.scalar.not_applicable.healthy.timestamp": {
+    "attributes": {
+      "contract_id": "interface.scalar.not_applicable.healthy.timestamp",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.not_applicable.healthy.timestamp",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_not_applicable_healthy_timestamp",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.not_applicable.healthy.timestamp"
+  },
+  "interface.scalar.not_applicable.healthy.true": {
+    "attributes": {
+      "contract_id": "interface.scalar.not_applicable.healthy.true",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.not_applicable.healthy.true",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_not_applicable_healthy_true",
+    "state": "not_applicable",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.not_applicable.healthy.true"
+  },
+  "interface.scalar.unknown.degraded.enum": {
+    "attributes": {
+      "contract_id": "interface.scalar.unknown.degraded.enum",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unknown.degraded.enum",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unknown_degraded_enum",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unknown.degraded.enum"
+  },
+  "interface.scalar.unknown.degraded.false": {
+    "attributes": {
+      "contract_id": "interface.scalar.unknown.degraded.false",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unknown.degraded.false",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unknown_degraded_false",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unknown.degraded.false"
+  },
+  "interface.scalar.unknown.degraded.number": {
+    "attributes": {
+      "contract_id": "interface.scalar.unknown.degraded.number",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unknown.degraded.number",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unknown_degraded_number",
+    "state": "unknown",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unknown.degraded.number"
+  },
+  "interface.scalar.unknown.degraded.text": {
+    "attributes": {
+      "contract_id": "interface.scalar.unknown.degraded.text",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unknown.degraded.text",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unknown_degraded_text",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unknown.degraded.text"
+  },
+  "interface.scalar.unknown.degraded.timestamp": {
+    "attributes": {
+      "contract_id": "interface.scalar.unknown.degraded.timestamp",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unknown.degraded.timestamp",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unknown_degraded_timestamp",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unknown.degraded.timestamp"
+  },
+  "interface.scalar.unknown.degraded.true": {
+    "attributes": {
+      "contract_id": "interface.scalar.unknown.degraded.true",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unknown.degraded.true",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unknown_degraded_true",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unknown.degraded.true"
+  },
+  "interface.scalar.unknown.healthy.enum": {
+    "attributes": {
+      "contract_id": "interface.scalar.unknown.healthy.enum",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unknown.healthy.enum",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unknown_healthy_enum",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unknown.healthy.enum"
+  },
+  "interface.scalar.unknown.healthy.false": {
+    "attributes": {
+      "contract_id": "interface.scalar.unknown.healthy.false",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unknown.healthy.false",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unknown_healthy_false",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unknown.healthy.false"
+  },
+  "interface.scalar.unknown.healthy.number": {
+    "attributes": {
+      "contract_id": "interface.scalar.unknown.healthy.number",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unknown.healthy.number",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unknown_healthy_number",
+    "state": "unknown",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unknown.healthy.number"
+  },
+  "interface.scalar.unknown.healthy.text": {
+    "attributes": {
+      "contract_id": "interface.scalar.unknown.healthy.text",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unknown.healthy.text",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unknown_healthy_text",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unknown.healthy.text"
+  },
+  "interface.scalar.unknown.healthy.timestamp": {
+    "attributes": {
+      "contract_id": "interface.scalar.unknown.healthy.timestamp",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unknown.healthy.timestamp",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unknown_healthy_timestamp",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unknown.healthy.timestamp"
+  },
+  "interface.scalar.unknown.healthy.true": {
+    "attributes": {
+      "contract_id": "interface.scalar.unknown.healthy.true",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unknown.healthy.true",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unknown_healthy_true",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unknown.healthy.true"
+  },
+  "interface.scalar.unresolved.degraded.enum": {
+    "attributes": {
+      "contract_id": "interface.scalar.unresolved.degraded.enum",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unresolved.degraded.enum",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unresolved_degraded_enum",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unresolved.degraded.enum"
+  },
+  "interface.scalar.unresolved.degraded.false": {
+    "attributes": {
+      "contract_id": "interface.scalar.unresolved.degraded.false",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unresolved.degraded.false",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unresolved_degraded_false",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unresolved.degraded.false"
+  },
+  "interface.scalar.unresolved.degraded.number": {
+    "attributes": {
+      "contract_id": "interface.scalar.unresolved.degraded.number",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unresolved.degraded.number",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unresolved_degraded_number",
+    "state": "unknown",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unresolved.degraded.number"
+  },
+  "interface.scalar.unresolved.degraded.text": {
+    "attributes": {
+      "contract_id": "interface.scalar.unresolved.degraded.text",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unresolved.degraded.text",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unresolved_degraded_text",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unresolved.degraded.text"
+  },
+  "interface.scalar.unresolved.degraded.timestamp": {
+    "attributes": {
+      "contract_id": "interface.scalar.unresolved.degraded.timestamp",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unresolved.degraded.timestamp",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unresolved_degraded_timestamp",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unresolved.degraded.timestamp"
+  },
+  "interface.scalar.unresolved.degraded.true": {
+    "attributes": {
+      "contract_id": "interface.scalar.unresolved.degraded.true",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unresolved.degraded.true",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unresolved_degraded_true",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unresolved.degraded.true"
+  },
+  "interface.scalar.unresolved.healthy.enum": {
+    "attributes": {
+      "contract_id": "interface.scalar.unresolved.healthy.enum",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unresolved.healthy.enum",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unresolved_healthy_enum",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unresolved.healthy.enum"
+  },
+  "interface.scalar.unresolved.healthy.false": {
+    "attributes": {
+      "contract_id": "interface.scalar.unresolved.healthy.false",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unresolved.healthy.false",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unresolved_healthy_false",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unresolved.healthy.false"
+  },
+  "interface.scalar.unresolved.healthy.number": {
+    "attributes": {
+      "contract_id": "interface.scalar.unresolved.healthy.number",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unresolved.healthy.number",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unresolved_healthy_number",
+    "state": "unknown",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unresolved.healthy.number"
+  },
+  "interface.scalar.unresolved.healthy.text": {
+    "attributes": {
+      "contract_id": "interface.scalar.unresolved.healthy.text",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unresolved.healthy.text",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unresolved_healthy_text",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unresolved.healthy.text"
+  },
+  "interface.scalar.unresolved.healthy.timestamp": {
+    "attributes": {
+      "contract_id": "interface.scalar.unresolved.healthy.timestamp",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unresolved.healthy.timestamp",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unresolved_healthy_timestamp",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unresolved.healthy.timestamp"
+  },
+  "interface.scalar.unresolved.healthy.true": {
+    "attributes": {
+      "contract_id": "interface.scalar.unresolved.healthy.true",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": null
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.unresolved.healthy.true",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": null,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_unresolved_healthy_true",
+    "state": "unknown",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.unresolved.healthy.true"
+  },
+  "interface.scalar.valid.degraded.enum": {
+    "attributes": {
+      "contract_id": "interface.scalar.valid.degraded.enum",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "active"
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.valid.degraded.enum",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": "active",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_valid_degraded_enum",
+    "state": "active",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.valid.degraded.enum"
+  },
+  "interface.scalar.valid.degraded.false": {
+    "attributes": {
+      "contract_id": "interface.scalar.valid.degraded.false",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.valid.degraded.false",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": false,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_valid_degraded_false",
+    "state": "off",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.valid.degraded.false"
+  },
+  "interface.scalar.valid.degraded.number": {
+    "attributes": {
+      "contract_id": "interface.scalar.valid.degraded.number",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.valid.degraded.number",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_valid_degraded_number",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.valid.degraded.number"
+  },
+  "interface.scalar.valid.degraded.text": {
+    "attributes": {
+      "contract_id": "interface.scalar.valid.degraded.text",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic text ä"
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.valid.degraded.text",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": "Synthetic text ä",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_valid_degraded_text",
+    "state": "Synthetic text ä",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.valid.degraded.text"
+  },
+  "interface.scalar.valid.degraded.timestamp": {
+    "attributes": {
+      "contract_id": "interface.scalar.valid.degraded.timestamp",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "2026-01-02T03:04:05Z"
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.valid.degraded.timestamp",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": "2026-01-02T03:04:05Z",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_valid_degraded_timestamp",
+    "state": "2026-01-02T03:04:05Z",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.valid.degraded.timestamp"
+  },
+  "interface.scalar.valid.degraded.true": {
+    "attributes": {
+      "contract_id": "interface.scalar.valid.degraded.true",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.valid.degraded.true",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_valid_degraded_true",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.valid.degraded.true"
+  },
+  "interface.scalar.valid.healthy.enum": {
+    "attributes": {
+      "contract_id": "interface.scalar.valid.healthy.enum",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "active"
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.valid.healthy.enum",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": "active",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_valid_healthy_enum",
+    "state": "active",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.valid.healthy.enum"
+  },
+  "interface.scalar.valid.healthy.false": {
+    "attributes": {
+      "contract_id": "interface.scalar.valid.healthy.false",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": false
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.valid.healthy.false",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": false,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_valid_healthy_false",
+    "state": "off",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.valid.healthy.false"
+  },
+  "interface.scalar.valid.healthy.number": {
+    "attributes": {
+      "contract_id": "interface.scalar.valid.healthy.number",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.valid.healthy.number",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_valid_healthy_number",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.valid.healthy.number"
+  },
+  "interface.scalar.valid.healthy.text": {
+    "attributes": {
+      "contract_id": "interface.scalar.valid.healthy.text",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "Synthetic text ä"
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.valid.healthy.text",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": "Synthetic text ä",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_valid_healthy_text",
+    "state": "Synthetic text ä",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.valid.healthy.text"
+  },
+  "interface.scalar.valid.healthy.timestamp": {
+    "attributes": {
+      "contract_id": "interface.scalar.valid.healthy.timestamp",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": "2026-01-02T03:04:05Z"
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.valid.healthy.timestamp",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": "2026-01-02T03:04:05Z",
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_valid_healthy_timestamp",
+    "state": "2026-01-02T03:04:05Z",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.valid.healthy.timestamp"
+  },
+  "interface.scalar.valid.healthy.true": {
+    "attributes": {
+      "contract_id": "interface.scalar.valid.healthy.true",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": null,
+          "value": true
+        }
+      },
+      "friendly_name": "Synthetic interface.scalar.valid.healthy.true",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": true,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_scalar_valid_healthy_true",
+    "state": "on",
+    "suggested_display_precision": null,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.scalar.valid.healthy.true"
+  },
+  "interface.unit.u0": {
+    "attributes": {
+      "contract_id": "interface.unit.u0",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "°C",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u0",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "°C"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u0",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u0"
+  },
+  "interface.unit.u1": {
+    "attributes": {
+      "contract_id": "interface.unit.u1",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "°F",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u1",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "°F"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u1",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u1"
+  },
+  "interface.unit.u10": {
+    "attributes": {
+      "contract_id": "interface.unit.u10",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "min",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u10",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "min"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u10",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 0,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u10"
+  },
+  "interface.unit.u11": {
+    "attributes": {
+      "contract_id": "interface.unit.u11",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "W",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u11",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "W"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u11",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u11"
+  },
+  "interface.unit.u12": {
+    "attributes": {
+      "contract_id": "interface.unit.u12",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "Wh",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u12",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "Wh"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u12",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u12"
+  },
+  "interface.unit.u13": {
+    "attributes": {
+      "contract_id": "interface.unit.u13",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "h",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u13",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "h"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u13",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u13"
+  },
+  "interface.unit.u14": {
+    "attributes": {
+      "contract_id": "interface.unit.u14",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "m/s",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u14",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "m/s"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u14",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u14"
+  },
+  "interface.unit.u15": {
+    "attributes": {
+      "contract_id": "interface.unit.u15",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "km/h",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u15",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "km/h"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u15",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u15"
+  },
+  "interface.unit.u16": {
+    "attributes": {
+      "contract_id": "interface.unit.u16",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "mm",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u16",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "mm"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u16",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u16"
+  },
+  "interface.unit.u17": {
+    "attributes": {
+      "contract_id": "interface.unit.u17",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "hPa",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u17",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "hPa"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u17",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u17"
+  },
+  "interface.unit.u18": {
+    "attributes": {
+      "contract_id": "interface.unit.u18",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "dB",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u18",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "dB"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u18",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u18"
+  },
+  "interface.unit.u19": {
+    "attributes": {
+      "contract_id": "interface.unit.u19",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "kW",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u19",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "kW"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u19",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 2,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u19"
+  },
+  "interface.unit.u2": {
+    "attributes": {
+      "contract_id": "interface.unit.u2",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "K",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u2",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "K"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u2",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 1,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u2"
+  },
+  "interface.unit.u20": {
+    "attributes": {
+      "contract_id": "interface.unit.u20",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "km",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u20",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "km"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u20",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 2,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u20"
+  },
+  "interface.unit.u21": {
+    "attributes": {
+      "contract_id": "interface.unit.u21",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "kWh",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u21",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "kWh"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u21",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 3,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u21"
+  },
+  "interface.unit.u3": {
+    "attributes": {
+      "contract_id": "interface.unit.u3",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "%",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u3",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "%"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u3",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 0,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u3"
+  },
+  "interface.unit.u4": {
+    "attributes": {
+      "contract_id": "interface.unit.u4",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "lx",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u4",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "lx"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u4",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 0,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u4"
+  },
+  "interface.unit.u5": {
+    "attributes": {
+      "contract_id": "interface.unit.u5",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "lm",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u5",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "lm"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u5",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 0,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u5"
+  },
+  "interface.unit.u6": {
+    "attributes": {
+      "contract_id": "interface.unit.u6",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "m",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u6",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "m"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u6",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 0,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u6"
+  },
+  "interface.unit.u7": {
+    "attributes": {
+      "contract_id": "interface.unit.u7",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "Pa",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u7",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "Pa"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u7",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 0,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u7"
+  },
+  "interface.unit.u8": {
+    "attributes": {
+      "contract_id": "interface.unit.u8",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "°",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u8",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "°"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u8",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 0,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u8"
+  },
+  "interface.unit.u9": {
+    "attributes": {
+      "contract_id": "interface.unit.u9",
+      "fields": {
+        "value": {
+          "quality": "degraded",
+          "since_at": "2026-01-01T00:00:00Z",
+          "status": "stale",
+          "unit": "s",
+          "value": 3.05555555555556
+        }
+      },
+      "friendly_name": "Synthetic interface.unit.u9",
+      "primary_field": "value",
+      "quality": "degraded",
+      "raw_value": 3.05555555555556,
+      "since_at": "2026-01-01T00:00:00Z",
+      "status": "stale",
+      "unit_of_measurement": "s"
+    },
+    "available": true,
+    "entity_id": "sensor.wuschel_interface_unit_u9",
+    "state": "3.05555555555556",
+    "suggested_display_precision": 0,
+    "unique_id": "00000000-0000-4000-8000-000000000001:interface.unit.u9"
+  }
+}

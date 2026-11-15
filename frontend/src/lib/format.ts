@@ -3,7 +3,7 @@ import { t } from '@/i18n';
 /** Display-only helpers. Preserve instants and show them in German/Berlin time. */
 
 const dateTime = new Intl.DateTimeFormat('de-DE', {
-  day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   timeZone: 'Europe/Berlin',
 });
 

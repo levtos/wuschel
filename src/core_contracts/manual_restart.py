@@ -223,7 +223,7 @@ async def operation_manual_restart_preview(
 
 
 slots.OPERATIONS["manual_restart_preview"] = slots.Operation(
-    operation_manual_restart_preview, state="full", early=False
+    operation_manual_restart_preview, state="full", early=False, heavy=True
 )
 
 

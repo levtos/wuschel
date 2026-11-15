@@ -25,11 +25,17 @@ Die Backend-Suite lief einmal mit Zeilenabdeckung je Test (`coverage`, Kontext j
 | `release` | 7 | Release- und CI-Prüfungen |
 | `store` | 8 | braucht PostgreSQL, läuft nur in der CI |
 | `load` | 3 | Lasttests, laufen nur in der vollen CI |
+| `operations` | 1 | b26: Betriebsmodell und atomare Betriebsdatei (`kernel`), eigener Testbereich aus #131 |
 
 7 gemessene Testdateien berühren keinen der Bereiche und prüfen nur den Kern (`kernel`, `store`, `rules`, `lane`).
 Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdateien.
 
 ## Regel für die Auswahl
+
+Ergänzung b26 ([#133](https://github.com/levtos/wuschel/issues/133)):
+Die kanonischen HA-Schnittstellenaufzeichnungen unter
+`tests/fixtures/ha_interface/` gehören zum Bereich `traber`. Ihre Änderung
+löst gemäß `dev/ci_scope.py` immer die volle CI aus.
 
 1. Ändert ein Auftrag **nur** Pfade eines oder mehrerer Bereiche, laufen lokal deren Testdateien.
 2. Ändert er irgendetwas am Kern (`kernel`, `store`, `rules`, `lane`, alles, was in keinem Bereich steht), laufen lokal die Tests der betroffenen Module nach Ermessen; die volle Suite läuft in der CI.
@@ -40,6 +46,10 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
 
 ```json
 {
+  "operations": {
+  "paths": ["src/core_contracts/operations.py"],
+  "tests": ["tests/test_operations.py"]
+ },
  "wake": {
   "paths": [
    "src/core_contracts/extensions/wake/"
@@ -405,6 +415,7 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
   "paths": [
    "custom_components/traber/",
    "tests/ha_kernel/",
+   "tests/fixtures/ha_interface/",
    "src/core_contracts/ha_projection.py"
   ],
   "tests": [
@@ -445,8 +456,8 @@ Zum Vergleich: Über Importe erreicht heute fast jedes Modul 114 von 127 Testdat
    "tests/test_setup_postgres.py"
   ]
  },
- "load": {
-  "paths": [],
+  "load": {
+   "paths": ["src/core_contracts/load_guard.py"],
   "tests": [
    "tests/test_b23_acceptance.py",
    "tests/test_b23_p6.py",

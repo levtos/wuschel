@@ -64,11 +64,16 @@ def discovered_entries(state: Any, catalog: ManagedCatalog) -> dict[str, Any]:
     explicit care request persists the selected rows through the ordinary writer.
     """
     entries: dict[str, Any] = head(state, catalog)["entries"]
-    discovered = [
+    sightings = [
         row
         for row in state.tables["catalog_sighting"].values()
         if row["catalog"] == head_key(catalog)
-        and (row.get("master_key") or row.get("hierarchy_master"))
+    ]
+    parents = {row.get("master_identity") for row in sightings if row.get("master_key")}
+    discovered = [
+        row
+        for row in sightings
+        if row.get("master_key") or row.get("hierarchy_master") or row["identity"] in parents
     ]
     if not discovered:
         return entries
@@ -153,6 +158,12 @@ def lookup(ctx: Any, rule: Any, args: list[FieldValue]) -> FieldValue:
     scope, media, signal, raw = (str(value.value) for value in args)
     key = identity(scope, media, signal, raw)
     current = head(ctx.state, catalog)
+    if media == "music" and signal == "title" and key not in current["entries"]:
+        from core_contracts.extensions.catalog.catalog_families import music_hierarchy
+        from core_contracts.extensions.catalog.catalog_hierarchy import lookup as family_lookup
+
+        if hierarchy := music_hierarchy(raw):
+            return family_lookup(ctx, rule, args, raw, hierarchy)
     value, complete, master = effective(current["entries"], key, catalog)
     digest = semantic(current["entries"], key, catalog)
     result = derive(value, args, ctx.now)

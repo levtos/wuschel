@@ -11,7 +11,6 @@ import { emptyRegistry } from './model';
 import { defaultDraftName } from './draftName';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router';
 import type { EditorialEntry } from '@/features/editorial/model';
 import { UnsupportedOrigins, removeUnsupportedOrigins } from './UnsupportedOrigins';
 
@@ -255,7 +254,9 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
     setConflict(null);
     setSwitchRequest(null);
     setEditing(false);
-    setSnap({ draft: null, config: null, name: '', past: [], future: [] });
+    const closed = { draft: null, config: null, name: '', past: [], future: [] };
+    latest.current = closed;
+    setSnap(closed);
   }, []);
 
   // Restore the previously opened draft after a reload (id only; content is re-read from the server).
@@ -265,7 +266,9 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
     const owner = documentId.current;
     api<Draft>(`registry/drafts/${encodeURIComponent(id)}`)
       .then((draft) => {
-        if (owner === documentId.current && latest.current.draft === null) open(draft);
+        if (owner !== documentId.current || latest.current.draft !== null) return;
+        if ((draft.lifecycle ?? 'open') === 'open') open(draft);
+        else rememberDraftId(null);
       })
       .catch(() => { if (owner === documentId.current) rememberDraftId(null); });
   }, [open]);
@@ -505,7 +508,7 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
         {children}
       </IssuesProvider>
       <Dialog open={candidates !== null} onOpenChange={open => { if (!open) { choose.current?.(undefined); setCandidates(null); } }} title={uiText('beta3.6b56c9782abb')} description={uiText('beta3.df29192a8ae6')} footer={<><Button onClick={() => { choose.current?.(null); setCandidates(null); }}>{uiText('beta3.eeb949e516a4')}</Button>{!!candidates?.length && <Button variant="primary" disabled={candidates.length > 1 && selectedDraft === null} onClick={() => { const chosen = candidates.length === 1 ? candidates[0] : candidates.find(d => d.draft_id === selectedDraft); if (chosen) { choose.current?.(chosen); setCandidates(null); } }}>{candidates.length === 1 ? uiText('beta3.a6832204437f') : uiText('beta3.8ec4b93a19e1')}</Button>}</>}>
-        {snap.draft && !currentDraft(snap.draft, activeRevision) && <Link to={`/changes/drafts/${snap.draft.draft_id}`} onClick={() => { choose.current?.(undefined); setCandidates(null); }}>{uiText('beta3.2159c0ff29be')}</Link>}
+        {snap.draft && !currentDraft(snap.draft, activeRevision) && <a href={`#/changes/drafts/${encodeURIComponent(snap.draft.draft_id)}`} onClick={() => { choose.current?.(undefined); setCandidates(null); }}>{uiText('beta3.2159c0ff29be')}</a>}
         {candidates?.map(draft => <label key={draft.draft_id} className="my-3 flex min-h-11 items-center gap-2">{candidates.length > 1 && <input type="radio" name="working-draft" checked={selectedDraft === draft.draft_id} onChange={() => setSelectedDraft(draft.draft_id)} />}<span>{draft.display_name} {uiText('beta3.d06ef8770435')}{draft.base_revision} · {draft.updated_at}</span></label>)}
       </Dialog>
     </Context.Provider>

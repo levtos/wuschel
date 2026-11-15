@@ -6,6 +6,11 @@ if TYPE_CHECKING:
     from .validation import ValidationIssue
 
 
+class LoadProtected(ValueError):
+    def __init__(self) -> None:
+        super().__init__("load_protected")
+
+
 class AuthoringError(ValueError):
     """A safe, structured conflict (never include document contents in logs)."""
 

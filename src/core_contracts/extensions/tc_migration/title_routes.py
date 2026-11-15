@@ -64,6 +64,7 @@ async def dispatch(self: Any, request: web.Request) -> Any:
     elif path in {"title-import/preview", "title-import/stage"} and method == "POST":
         from core_contracts.portable import strict_json
 
+        runtime.admit_operation("title_" + path.rsplit("/", 1)[1])
         # The nested v3 JSON string can double in size when JSON-escaped.
         # Only this bounded import envelope needs more than the normal 50 MiB;
         # the decoded source and generated package remain capped at 50 MiB.

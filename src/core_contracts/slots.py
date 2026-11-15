@@ -28,12 +28,14 @@ class Operation:
     drain: bool = True
     offline: bool = False
     after_prepare: Callable[[Runtime, Any, float], None] | None = None
+    heavy: bool = False
 
 
 @dataclass(frozen=True)
 class Hook:
     handler: Callable[..., Any]
     phase: str = ""
+    timing: str | None = None
 
 
 OPERATIONS: dict[str, Operation] = {}

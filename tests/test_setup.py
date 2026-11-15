@@ -24,7 +24,7 @@ def connection(**changes):
     )
 
 
-async def empty_probe(value):
+async def empty_probe(value, **kwargs):
     return {"server_version": 170000, "empty": True, "database_id": None}
 
 
@@ -141,7 +141,7 @@ async def test_setup_requires_confirmation_and_empty_database_gate(
 async def test_db_outage_does_not_replace_connection_or_leak_exception(
     runtime, tmp_path, aiohttp_client, monkeypatch
 ):
-    async def unavailable(value):
+    async def unavailable(value, **kwargs):
         raise OSError("password=must-not-appear")
 
     monkeypatch.setattr(setup_control, "probe", unavailable)
@@ -162,7 +162,7 @@ async def test_db_outage_does_not_replace_connection_or_leak_exception(
 async def test_identity_adoption_and_mismatch_and_staged_reconfiguration(tmp_path, monkeypatch):
     identity = str(uuid4())
 
-    async def existing(value):
+    async def existing(value, **kwargs):
         return {"server_version": 170000, "database_id": identity, "empty": False}
 
     monkeypatch.setattr(setup_control, "probe", existing)
@@ -202,7 +202,7 @@ async def test_wizard_completion_requires_database_and_bridge_and_survives_resta
         await setup.dispatch("finish", "POST", {"confirm": True})
     setup.completed = True
 
-    async def missing(token):
+    async def missing(token, **kwargs):
         return {"state": "missing_or_restart_pending"}
 
     monkeypatch.setattr(setup_control, "bridge_status", missing)
@@ -210,7 +210,7 @@ async def test_wizard_completion_requires_database_and_bridge_and_survives_resta
         await setup.dispatch("finish", "POST", {"confirm": True})
     assert not setup.status()["onboarding_complete"]
 
-    async def active(token):
+    async def active(token, **kwargs):
         return {"state": "active"}
 
     monkeypatch.setattr(setup_control, "bridge_status", active)

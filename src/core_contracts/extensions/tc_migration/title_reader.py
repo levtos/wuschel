@@ -12,6 +12,7 @@ from pydantic import Field, SecretStr
 
 from core_contracts.extensions.tc_migration.title_import import MAX_BYTES, MAX_ENTRIES
 from core_contracts.model import Model, canonical
+from core_contracts.operations import OperationsSettings
 from core_contracts.setup import Connection
 
 
@@ -56,7 +57,13 @@ def scalar(value: Any) -> Any:
     )
 
 
-def connection_settings(base: Connection | None, credentials: Credentials) -> dict[str, Any]:
+def connection_settings(
+    base: Connection | None,
+    credentials: Credentials,
+    *,
+    operations: OperationsSettings | None = None,
+) -> dict[str, Any]:
+    settings = operations or OperationsSettings()
     if (
         base is None
         or not credentials.database
@@ -78,8 +85,8 @@ def connection_settings(base: Connection | None, credentials: Credentials) -> di
         user=credentials.user,
         password=credentials.password.get_secret_value(),
         ssl=tls,
-        timeout=5,
-        command_timeout=5,
+        timeout=settings.title_connect_timeout_s,
+        command_timeout=settings.title_command_timeout_s,
     )
 
 
@@ -105,12 +112,18 @@ def snapshot(
     return {"version": 3, "entries": entries}
 
 
-async def read(base: Connection | None, credentials: Credentials) -> dict[str, Any]:
+async def read(
+    base: Connection | None,
+    credentials: Credentials,
+    *,
+    operations: OperationsSettings | None = None,
+) -> dict[str, Any]:
     """One snapshot, closed before preview. Never retry or write to TC."""
     connection = None
+    limits = operations or OperationsSettings()
     try:
-        settings = connection_settings(base, credentials)
-        async with asyncio.timeout(30):
+        settings = connection_settings(base, credentials, operations=limits)
+        async with asyncio.timeout(limits.title_read_timeout_s):
             connection = await asyncpg.connect(**settings)
             async with connection.transaction(isolation="repeatable_read", readonly=True):
                 if not await connection.fetchval(READER_SQL):
@@ -119,7 +132,7 @@ async def read(base: Connection | None, credentials: Credentials) -> dict[str, A
                 entries: list[dict[str, Any]] = []
                 contexts: dict[str, list[dict[str, Any]]] = defaultdict(list)
                 for sql, target in ((CATALOG_SQL, entries), (CONTEXT_SQL, None)):
-                    async for record in connection.cursor(sql, prefetch=100):
+                    async for record in connection.cursor(sql, prefetch=limits.title_prefetch_size):
                         row = {key: scalar(value) for key, value in dict(record).items()}
                         size += len(canonical(row).encode("utf-8"))
                         if size > MAX_BYTES:
@@ -149,6 +162,6 @@ async def read(base: Connection | None, credentials: Credentials) -> dict[str, A
     finally:
         if connection is not None:
             try:
-                await connection.close(timeout=5)
+                await connection.close(timeout=limits.title_close_timeout_s)
             except OSError, TimeoutError, asyncpg.PostgresError, asyncpg.InterfaceError:
                 connection.terminate()

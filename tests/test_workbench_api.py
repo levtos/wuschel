@@ -28,6 +28,49 @@ async def api_client(runtime, aiohttp_client, tmp_path):
     return api, client, headers
 
 
+async def test_catalog_list_batches_active_counts_without_publishing(
+    runtime, config, aiohttp_client, tmp_path
+):
+    from .test_managed_catalog import catalog, change, configured, request
+
+    document = configured(config)
+    document["catalogs"].append({**catalog(), "catalog_id": "example.empty"})
+    await activate(runtime, document)
+    await runtime.submit(
+        "catalog_write",
+        {"request": request(runtime, [change("Synthetic A"), change("Synthetic B")])},
+    )
+    await runtime.submit(
+        "catalog_write",
+        {"request": request(runtime, [change("Synthetic B", tombstone=True)], revision=1)},
+    )
+    before = runtime.state.model_dump()
+    server_api, client, headers = await api_client(runtime, aiohttp_client, tmp_path)
+    response = await client.get("/api/v1/catalogs", headers=headers)
+    assert response.status == 200
+    rows = await response.json()
+    assert {row["catalog_id"]: row["active_entry_count"] for row in rows} == {
+        "example.titles": 1,
+        "example.empty": 0,
+    }
+    assert runtime.state.model_dump() == before
+    all_page = await client.get(
+        "/api/v1/catalogs/care?catalog_id=all&grouped=true", headers=headers
+    )
+    assert all_page.status == 200
+    assert (await all_page.json())["items"][0]["catalog_id"] == "example.titles"
+    for endpoint in ("inspect", "export"):
+        response = await client.get(
+            f"/api/v1/catalogs/care/{endpoint}?catalog_id=all", headers=headers
+        )
+        assert response.status == 200
+        consumer = {"Authorization": "Bearer " + server_api.tokens.values["consumer"]}
+        assert (
+            await client.get(f"/api/v1/catalogs/care/{endpoint}", headers=consumer)
+        ).status == 403
+    assert runtime.state.model_dump() == before
+
+
 async def test_calendar_source_status_excludes_event_contents_and_requires_admin(
     runtime, config, aiohttp_client, tmp_path
 ):

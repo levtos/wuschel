@@ -25,7 +25,7 @@ Regeln:
 | **testing – Testhilfen** | `testing`, `testing.authoring`, `testing.contract_types`, `testing.contract_types.evaluate` |
 | **management – Entwürfe, Prüfung, Import/Export, Einrichtung** | `authoring`, `capabilities`, `editorial`, `management`, `manual_restart`, `portable`, `provision`, `reconfiguration`, `revision_plan`, `setup`, `validation` |
 | **adapters – HA, MQTT, Dienstkanal** | `adapters.ha`, `adapters.mqtt`, `ha_projection`, `mqtt_restore`, `service_jobs` |
-| **lane – die eine Schreibreihenfolge** | `observation_block`, `retention_ops`, `runtime` |
+| **lane – die eine Schreibreihenfolge** | `load_guard` (b26 #132), `observation_block`, `retention_ops`, `runtime` |
 | **rules – Konfigurationsmodell, Regelsprache, Steckplätze** | `adapters`, `calendar_cache`, `calendar_coverage`, `calendar_inputs`, `calendar_rules`, `dated_rules`, `declarative`, `engines`, `environment_formulas`, `instance_parameters`, `notifications`, `producer`, `refresh_plan`, `registry`, `slots`, `validation_cache` |
 | **store – Zustand und Speicher** | `history`, `persistence`, `retention` |
 | **kernel – Werte und reine Logik, keine Ein-/Ausgabe** | `clock`, `errors`, `declarative_models`, `evidence`, `field_since`, `freshness_templates`, `fusion`, `ha_context`, `identity`, `lifecycle`, `machine_events`, `manual_source`, `model`, `multibucket`, `numeric_equivalence`, `operation_timing`, `quality`, `resolver`, `schema`, `sensor_profile`, `state_tracking`, `statemachine`, `temporal`, `text_rules`, `user_text`, `value_origin` |

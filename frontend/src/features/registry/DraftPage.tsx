@@ -72,7 +72,7 @@ export default function DraftPage() {
 
   useEffect(() => {
     if (isOpen) autoOpened.current = draftId;
-    if (!isOpen && !doc.dirty && server.data && autoOpened.current !== draftId) { autoOpened.current = draftId; doc.open(server.data); }
+    if (!isOpen && !doc.dirty && server.data && (server.data.lifecycle ?? 'open') === 'open' && autoOpened.current !== draftId) { autoOpened.current = draftId; doc.open(server.data); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, doc.dirty, server.data]);
 
@@ -98,9 +98,11 @@ export default function DraftPage() {
       </>
     );
   }
-  if (!isOpen || !doc.draft || !doc.config) return <PageLoading title={uiText('alpha7.nav.drafts')} description={uiText('alpha9.pages.draft')} />;
+  const draft = doc.draft?.draft_id === draftId ? doc.draft : activationTarget ?? server.data;
+  const config = isOpen ? doc.config : draft?.config;
+  if ((!isOpen && !activationTarget && (server.data?.lifecycle ?? 'open') === 'open') || !draft || !config) return <PageLoading title={uiText('alpha7.nav.drafts')} description={uiText('alpha9.pages.draft')} />;
 
-  const { draft, config, validation } = doc;
+  const { validation } = doc;
   const closed = !!server.data?.lifecycle && server.data.lifecycle !== 'open';
   const current = currentDraft(server.data ?? draft, active.data?.revision ?? 0);
   if (closed && !activationTarget) return <><Back /><PageHeader title={draftLabel(draft)} description={uiText('beta3.88e34492c718')} actions={server.data?.completed_revision ? <Link to={`/changes/versions?revision=${server.data.completed_revision}`}><Button variant="primary" onClick={doc.close}>{uiText('beta3.838cb6772119')}</Button></Link> : <Link to={`/changes/drafts/${server.data?.continued_to_draft_id}`}><Button variant="primary">{uiText('beta3.533a922fbb99')}</Button></Link>} /><Notice tone="ok" title={draftState(server.data!, active.data?.revision)}>{server.data?.continued_to_draft_id && <Link to={`/changes/drafts/${server.data.continued_to_draft_id}`}>{uiText('beta3.533a922fbb99')}</Link>}</Notice></>;

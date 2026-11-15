@@ -1,12 +1,61 @@
 # Betrieb: Wuschel
 
-Alpha 8 erlaubt eigene Vorlagen und Verträge ohne Test-Namensraum. Die Beispiele
-bleiben synthetisch. Wuschel wird als neue App mit Slug `wuschel` installiert; Terra
-und die alte Bridge bleiben erhalten. Für jede Installation: eigene logische PostgreSQL-DB,
-eigene DB-Rolle und eigene Tokens. Keine Verbindung zur Legacy-DB herstellen.
-Die folgenden Installationsschritte sind eine Betriebsvorlage, keine Freigabe:
-Pre-Install-Remediation und unabhängiger Delta-Review müssen bewertet sein;
-reale Installation und Supervisor-Abnahme benötigen Bennis gesonderten Auftrag.
+Stand b26, vorbereitet in [#135](https://github.com/Levtos/wuschel/issues/135).
+Die Änderungen liegen auf dem Sammelzweig `b26`; Veröffentlichung und Installation
+folgen nach Claudes Nachprüfung und Bennis Go im Issue. Ein grüner Testlauf ist
+keine Live-Abnahme. Der letzte belegte Live-Stand ist b25, siehe
+[Masterplan #115](https://github.com/Levtos/wuschel/issues/115).
+
+Wuschel verwendet den Slug `wuschel`. Jede Installation braucht eine eigene
+logische PostgreSQL-DB, eigene DB-Rolle und eigene Tokens. Keine Verbindung zur
+Legacy-DB herstellen. Alle Beispiele bleiben synthetisch. Die folgenden Schritte
+sind eine Betriebsvorlage; ältere Alpha-Abnahmen belegen keinen aktuellen Live-Stand.
+
+## Betriebseinstellungen und Systemzustand ab b26
+
+**Einstellungen → Betrieb** verwaltet 55 Betriebswerte, getrennt von
+Konfigurationsentwürfen, Datenbank und Import/Export. `operations.json` im
+Datenverzeichnis wird atomar gespeichert. Änderungen gelten erst nach dem
+Prozessneustart; die Seite unterscheidet gespeicherten und wirksamen Wert.
+Fehlende oder ungültige Dateien verwenden vollständig die Standardwerte und
+melden den Grund, ohne Dateiinhalte auszugeben. Grenzen, Einheiten, Standards
+und Verwaltungsrouten stehen in [Betrieb und Systemzustand](operations/b26-betrieb.md)
+und [Selbstschutz](operations/b26-selbstschutz.md).
+
+**Diagnose → Systemzustand** zeigt alle fünf Sekunden Warteschlangen samt
+Überläufen, Ereignisschleifen-Verzögerung, Speicherzeiten, Startphasen,
+Verbindungen, Bereitschaft und Lastzustand. Ein fehlender Messwert heißt
+„Noch nicht gemessen“; ein nach Abfragefehler weiter angezeigter Stand ist veraltet.
+Die Diagnose bleibt ohne Datenbankabfrage lesbar. Sie enthält keine Zugangsdaten
+oder App-Optionen.
+
+Der Lastschutz kennt `normal`, `angespannt` und `geschützt`. Er berücksichtigt
+Ereignisschleife, Eingangstiefe, Überläufe und p95 der Ereignis-/Zeitpunkt-Commits.
+Commit-Proben verfallen nach `load_commit_window_s` (Standard 60 s, 10–600 s),
+auch ohne neue Commits. Unter fünf Proben ist der Wert nicht gemessen;
+Verwaltungs-Commits zählen nicht. Die Anzeige nennt die Probenzahl.
+Aufstieg und Erholung verwenden getrennte Haltezeiten (Standard 5 s und 30 s).
+
+Bei `geschützt` werden schwere Verwaltungsvorgänge mit HTTP 503 und
+`load_protected` abgewiesen; die Oberfläche erklärt den nächsten Schritt.
+Die HA-Projektion läuft höchstens alle 10 s (Standard). Verarbeitung,
+Speicherung und fachliche Fristen laufen weiter. **Projektion pausieren** hält
+nur die HA-Ausgabe einschließlich ihrer Lebenszeichen an. Fortsetzen sendet den
+neuesten Stand; nach einem Prozessneustart ist die Pause aufgehoben.
+Nach 120 s ohne Projektionspaket zeigt Traber bei offener Verbindung `unknown`
+mit `stale`, keinen frischen Ersatzwert. Wiederholmeldungen nennen nach drei
+Fehlschlägen (Standard) den betroffenen Dienst und verschwinden nach Erholung.
+Einzelheiten und Schleifeninventar: [Selbstschutz](operations/b26-selbstschutz.md),
+[Korrekturen aus der Abschlussprüfung](operations/b26-korrekturen.md).
+
+## Schnittstelle für Engines
+
+[HA-Schnittstellenversion 1](ha-interface.md) legt Entitätskennungen, Hauptwert,
+Felder, Qualität und Ausfallverhalten fest. b26 bereitet die Festschreibung mit
+1.0.0 vor; bis Version 2 sind nur Ergänzungen erlaubt. Der Vergleichstest im
+echten HA-Kern schützt den Vertrag. Eine absichtliche Neuaufzeichnung braucht
+die dort beschriebene Freigabe und volle CI. App-, Bridge-, Schnittstellen- und
+Schema-Version sind getrennte Nummern; b26 ändert keine fachliche Ausfallregel.
 
 ## Vorbereitung und Installation
 
@@ -27,9 +76,9 @@ Aufforderung, die bestehenden produktiven Optionen zu ändern.
 2. Traber aus `custom_components/traber` über HACS
    oder manuell installieren und einmal in HA hinzufügen. Keine Entities oder
    Services entstehen. Keine Registry-Konfiguration gehört in die Bridge.
-3. Für die Installation aus dem GitHub-App-Repository müssen beide in
-   `wuschel/config.yaml` referenzierten GHCR-Images öffentlich
-   verfügbar sein. Den aktuellen [Veröffentlichungs- und anonymen Pull-Nachweis](publishing.md)
+3. Für b26 wird ausschließlich amd64 angeboten. Das in `wuschel/config.yaml`
+   referenzierte GHCR-Image muss öffentlich verfügbar sein.
+   Den aktuellen [Veröffentlichungs- und anonymen Pull-Nachweis](publishing.md)
    prüfen; eine grüne Build-CI allein genügt nicht. Für einen separaten lokalen
    Supervisor-Build `uv run python dev/stage_app.py <neues-ziel>` ausführen.
    Das erzeugte lokale App-Repository enthält den vollständigen Build-Kontext;
@@ -45,8 +94,33 @@ Aufforderung, die bestehenden produktiven Optionen zu ändern.
    eigene synthetische Testquellen ändern, validieren und ausdrücklich aktivieren.
    Die Fixtures sind keine produktiven Fach-Contracts.
 
-App, API-Protokoll, Bridge-Protokoll, Client und Registry-/DB-Schema haben
-getrennte Versionsnummern. Dieser Build erzeugt keinen Release oder Tag.
+Die Erstinstallationsvorlage ersetzt keinen Release-Auftrag. Für b26 gelten
+die Review-, Go-, Release- und Live-Gates aus #135.
+
+## Startdauer und Katalogpflege
+
+`/health/ready` liefert unter `startup` die Phasen des letzten Startversuchs
+in gerundeten Millisekunden. `startup_attempts` zählt die Versuche seit
+Prozessbeginn, auch bei Fehlern beim Datenbankaufbau. Der Fehlergrund bleibt
+in `setup.error`. Ein neuer Versuch ersetzt die bisherigen Phasen.
+`startup_timing` protokolliert weiterhin die ungerundeten Messwerte.
+`restore_migration` bleibt die Gesamtdauer; `restore_clone`,
+`restore_catalog_baseline`, `restore_authoring` und `restore_contexts` zeigen
+die einzelnen Anteile. Diese Teilwerte nicht noch einmal zur Gesamtdauer addieren.
+
+Für #135 den ersten Live-Start von b26 mit allen `startup_timing`-Teilwerten
+belegen und `restore_migration` mit dem Ziel aus #130 vergleichen. Etwa zehn
+Minuten danach Warteschlangen, Schleifenverzögerung, Commit-Median/p95 samt
+Probenzahl und Lastzustand aus Systemzustand sowie HTTP-Status von
+`/health/ready` dokumentieren. Fehlende Proben bleiben „Noch nicht gemessen“.
+Keine App-Optionen oder Geheimnisse für diesen Nachweis lesen. #109 darf erst
+mit dem Live-Nachweis eines Starts unter 30 s geschlossen werden.
+
+Die Katalogpflege hat für Vorschau, Schreiben und Auflisten das Laufzeitziel
+500 ms mit dem synthetischen Bestand aus `tests/test_b22_p2.py` (Speicher und
+PostgreSQL). Alle Messwerte bleiben als `record_property` erhalten. Erst über
+2.500 ms schlägt die Stabilitätsprüfung fehl; das Laufzeitziel allein sperrt
+keinen Merge.
 
 ## Identität und Tokens
 
@@ -93,12 +167,14 @@ Kontinuitätsannahmen, entwerten HA-Messwerte aber nicht pauschal.
 Ein verlorenes Zwischenereignis darf keinen alten stable_for-
 Anker erhalten; Grace wird aus alter Evidence nicht neu gestartet.
 
-DB-, HA- und MQTT-Verbindungsfehler verwenden einen Backoff bis 30 s. Der Client
+Verbindungsfehler verwenden begrenzten Backoff: Datenbank/Start und
+MQTT standardmäßig bis 30 s, HA und HA-Projektion bis 5 s. Die Obergrenzen sind
+Betriebseinstellungen; Einzelheiten stehen im Schleifeninventar. Der Client
 ergänzt Jitter und resynchronisiert nach Transport-/Framefehlern. HTTP-/WS-401/403
 sind terminale Auth-Fehler; Credentials müssen korrigiert werden.
 
 Die dedizierte PostgreSQL-Writer-Verbindung konfiguriert Keepalive 15 s / 5 s / 3 Versuche,
-`tcp_user_timeout=30000`, `idle_session_timeout=60000` und
+`tcp_user_timeout=30000`, `idle_session_timeout=600000` und
 `idle_in_transaction_session_timeout=15000` (Millisekunden). Die dedizierte Rolle
 muss `tcp_keepalives_idle`, `tcp_keepalives_interval`, `tcp_keepalives_count`,
 `tcp_user_timeout`, `idle_session_timeout`, `idle_in_transaction_session_timeout`
@@ -106,7 +182,7 @@ und `application_name` als Session-Settings setzen dürfen. Diese Einstellungen
 benötigen bei Standard-PostgreSQL keine Superuser-Rolle; bei verwalteten Diensten
 muss deren Zulässigkeit für die App-Rolle geprüft werden. Version <14 oder
 abgewiesene Settings verhindern den Connect und lassen den Start im DB-Retry.
-Der reguläre 0,5-s-Probe hält den Writer unter dem 60-s-Idle-Limit aktiv;
+Der reguläre 0,5-s-Probe hält den Writer unter dem 600-s-Idle-Limit aktiv;
 Änderungen am Probe-Takt müssen dieses Verhältnis erhalten.
 Siehe PostgreSQL 14:
 [Session-Timeouts](https://www.postgresql.org/docs/14/runtime-config-client.html#GUC-IDLE-SESSION-TIMEOUT)
@@ -191,7 +267,10 @@ läuft im separaten CI-Environment mit gepinnter Home-Assistant-Version.
 `uv run python dev/resource_probe.py` reproduziert die isolierte Idle-Messung.
 Dev-Compose benötigt eine nicht eingecheckte Datei `dev/secrets/postgres_password`.
 
-## Alte Apps und Bifröst nach Abnahme
+## Historischer Alpha-10-Ablauf: alte Apps und Bifröst nach Abnahme
+
+Dieser Abschnitt beschreibt den damaligen Umstieg. Er ist kein b26-Auftrag
+zur erneuten Installation von Alpha 10 oder zur Entfernung anderer Komponenten.
 
 Erst nach Abnahme und Bennis gesondertem Go; Benni entfernt die alten Komponenten
 selbst. Vorher HA-Sicherung und externen DB-Rückweg prüfen. Legacy

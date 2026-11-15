@@ -23,6 +23,16 @@ class Projection:
         self.disconnected_at = None
         self.expiry = None
         self.grace_seconds = 120
+        self.received_at = None
+        self.freshness_expiry = None
+
+    @property
+    def fresh(self):
+        return (
+            self.connected
+            and self.received_at is not None
+            and self.now() - self.received_at < self.grace_seconds
+        )
 
     @property
     def available(self):
@@ -160,15 +170,26 @@ class Projection:
         self.owner = owner
         self.installation_id, self.epoch_id, self.sequence = installation_id, epoch, sequence
         self.rows, self.connected = checked, True
+        was_stale = (
+            self.received_at is not None and self.now() - self.received_at >= self.grace_seconds
+        )
+        self.received_at = self.now()
+        if self.freshness_expiry:
+            self.freshness_expiry.cancel()
+        if self.schedule:
+            self.freshness_expiry = self.schedule(self.grace_seconds, self.notify)
         self.disconnected_at = None
         if self.expiry:
             self.expiry.cancel()
             self.expiry = None
-        self.notify(changed)
+        self.notify(None if was_stale else changed)
         return True
 
     def disconnect(self, owner):
         if self.owner is owner:
+            if self.freshness_expiry:
+                self.freshness_expiry.cancel()
+                self.freshness_expiry = None
             self.connected = False
             self.owner = None
             if self.disconnected_at is None:

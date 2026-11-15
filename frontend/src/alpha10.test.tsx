@@ -35,7 +35,7 @@ it('keeps an unsent catalog assignment through a 409 and requires an explicit co
   fake.routes.push({ match: /^catalogs\/entry\?/, respond: () => reply(200, { content_revision: 2, active_revision: 0, effective_classification: 'other', entry }) });
   fake.routes.push({ match: /^catalogs\/entries$/, method: 'POST', respond: () => reply(200, { content_revision: 3 }) });
   app('/catalog-care');
-  await user.click(await screen.findByRole('button', { name: t('alpha10.catalog.edit') }));
+  await user.click(await screen.findByRole('button', { name: t('b22.object.edit') }));
   const dialog = screen.getByRole('dialog');
   await user.selectOptions(within(dialog).getByLabelText(t('alpha10.catalog.class')), 'example');
   await user.type(within(dialog).getByLabelText(t('alpha10.catalog.note')), 'Synthetic decision');
@@ -43,12 +43,14 @@ it('keeps an unsent catalog assignment through a 409 and requires an explicit co
   await user.click(within(dialog).getByRole('button', { name: t('alpha10.catalog.preview') }));
   await within(dialog).findByText(t('alpha10.catalog.impact', { keys: 1, contracts: 0 }));
   await user.click(within(dialog).getByRole('button', { name: t('alpha10.catalog.save') }));
+  await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: t('alpha10.catalog.save') }));
   await user.click(await within(dialog).findByRole('button', { name: t('alpha10.catalog.reload') }));
   await within(dialog).findByText(t('alpha10.catalog.comparison', { classification: 'other', master: t('alpha10.catalog.independent') }));
   expect(within(dialog).getByLabelText(t('alpha10.catalog.note'))).toHaveValue('Synthetic decision');
   await user.click(within(dialog).getByRole('button', { name: t('alpha10.catalog.preview') }));
   await within(dialog).findByText(t('alpha10.catalog.impact', { keys: 1, contracts: 0 }));
   await user.click(within(dialog).getByRole('button', { name: t('alpha10.catalog.save') }));
+  await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: t('alpha10.catalog.save') }));
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   const writes = fake.calls.filter(call => call.path === 'catalogs/entries' && call.method === 'POST');
   expect(writes).toHaveLength(2);
@@ -68,7 +70,7 @@ it('rejects a late preview after the assignment form changes', async () => {
   fake.routes.push({ match: /^catalogs\/(?:entries|care)\?/, respond: () => reply(200, { items: [{ identity: 'synthetic', key: 'Synthetic Title', scope: 'default', media_type: 'music', signal_type: 'title', classification: null, master_key: null, display_name: '', note: '', effective_classification: 'other', complete: false, semantic_digest: 'synthetic' }], content_revision: 1, next_cursor: null }) });
   fake.routes.push({ match: /^catalogs\/preview$/, method: 'POST', respond: () => pending });
   app('/catalog-care');
-  await user.click(await screen.findByRole('button', { name: t('alpha10.catalog.edit') }));
+  await user.click(await screen.findByRole('button', { name: t('b22.object.edit') }));
   const dialog = screen.getByRole('dialog');
   await user.click(within(dialog).getByRole('button', { name: t('alpha10.catalog.preview') }));
   await waitFor(() => expect(fake.calls.some(call => call.path === 'catalogs/preview')).toBe(true));
@@ -90,7 +92,7 @@ it('pages older catalog history and keeps the current head for a restore preview
   } });
   fake.routes.push({ match: /^catalogs\/revision\?/, respond: () => reply(200, { items: [], total: 0, next_cursor: null }) });
   fake.routes.push({ match: /^catalogs\/preview$/, method: 'POST', respond: () => reply(200, { affected_keys: 0, affected_contracts: 0 }) });
-  app('/catalog-care');
+  app('/catalog-care?catalog=example.titles%401');
   await user.selectOptions(await screen.findByRole('combobox', { name: t('alpha10.catalog.view') }), 'history');
   await user.click(await screen.findByRole('button', { name: t('alpha10.catalog.older') }));
   const row = (await screen.findByText(t('alpha10.catalog.revision', { n: 20 }), { exact: false })).closest('li')!;
