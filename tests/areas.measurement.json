@@ -1,8 +1,8 @@
 {
   "collector": "sys.monitoring LINE per test (CoverageData contexts)",
-  "runtime_tests": 979,
-  "observed_test_files": 132,
-  "noise_lines": 1474,
+  "runtime_tests": 1042,
+  "observed_test_files": 137,
+  "noise_lines": 1550,
   "minimum_function_lines": 5,
   "retained_unmeasured_or_environment_tests": {
     "traber": [
@@ -14,14 +14,10 @@
       "tests/test_beta3_postgres.py",
       "tests/test_beta4_postgres.py",
       "tests/test_beta_persistence.py",
+      "tests/test_operations.py",
       "tests/test_postgres.py",
       "tests/test_retention_postgres.py",
       "tests/test_setup_postgres.py"
-    ],
-    "load": [
-      "tests/test_b23_acceptance.py",
-      "tests/test_b23_p6.py",
-      "tests/test_b23_p7.py"
     ]
   }
 }
