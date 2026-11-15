@@ -129,7 +129,8 @@ def test_real_pytest_context_includes_async_fixture_setup_and_teardown(tmp_path,
     script = (
         "import coverage,pytest,json; from dev.area_map import TestContexts,LineCoverage; "
         f"c={constructor}; " + configure + "c.start(); "
-        f"code=pytest.main(['-q','--asyncio-mode=auto',{str(tmp_path / 'test_context.py')!r}],"
+        f"code=pytest.main(['-q','--asyncio-mode=auto','--rootdir',{str(tmp_path)!r},"
+        f"{str(tmp_path / 'test_context.py')!r}],"
         "plugins=[TestContexts(c)]); c.stop(); assert code==0; "
         f"print('CONTEXTS='+json.dumps(c.get_data().contexts_by_lineno({str(tmp_path / 'test_context.py')!r})))"
     )
