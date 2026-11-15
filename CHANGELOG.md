@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0b26 — Wiederanlauf, Systemzustand und Selbstschutz
+
+- Bereits migrierte Entwürfe erzeugen beim Wiederanlauf keine Vollkopie des Zustands. Startphasen und Startversuche sind in der Bereitschaft und der Oberfläche sichtbar.
+- 55 Betriebseinstellungen sind von Konfigurationsentwürfen getrennt. „Systemzustand“ zeigt Warteschlangen, Ereignisschleife, Speicherzeiten, Verbindungen und Lastzustand; fehlende Messwerte bleiben sichtbar unbekannt.
+- Der Lastschutz verwendet zeitlich begrenzte Ereignis-Commits und erholt sich ohne Neustart. Schwere Verwaltungsvorgänge werden unter Schutz abgewiesen; die HA-Projektion lässt sich getrennt pausieren.
+- HA-Schnittstellenversion 1 ist durch Vergleichstests vorbereitet. Traber zeigt ausbleibende Projektionspakete nach der Karenz als veraltet an.
+- Entwurfsdialoge schließen nach dem Übernehmen zuverlässig. Prüfmeldungen nennen Ursache und nächsten Schritt; Kataloglisten lesen ihre Zähler gebündelt.
+- Nur amd64. Auftrag [#135](https://github.com/Levtos/wuschel/issues/135), Sammelprüfung [#148](https://github.com/Levtos/wuschel/pull/148), Masterplan [#115](https://github.com/Levtos/wuschel/issues/115). Keine neue Datenbank-Schemamigration. Store-Promotion nach geprüftem Image; Installation und Live-Messung folgen dem erteilten Go.
+
 ## 1.0.0b25 — Paketgrenzen, Startmessung und Bereichsprüfungen
 
 - Traber schreibt nur geänderte Vertragszustände. Nach Verbindungs- oder Epochenwechsel und beim Ablauf bleibt die vollständige Aktualisierung erhalten.
