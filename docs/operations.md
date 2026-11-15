@@ -76,9 +76,9 @@ Aufforderung, die bestehenden produktiven Optionen zu ändern.
 2. Traber aus `custom_components/traber` über HACS
    oder manuell installieren und einmal in HA hinzufügen. Keine Entities oder
    Services entstehen. Keine Registry-Konfiguration gehört in die Bridge.
-3. Für die Installation aus dem GitHub-App-Repository müssen beide in
-   `wuschel/config.yaml` referenzierten GHCR-Images öffentlich
-   verfügbar sein. Den aktuellen [Veröffentlichungs- und anonymen Pull-Nachweis](publishing.md)
+3. Für b26 wird ausschließlich amd64 angeboten. Das in `wuschel/config.yaml`
+   referenzierte GHCR-Image muss öffentlich verfügbar sein.
+   Den aktuellen [Veröffentlichungs- und anonymen Pull-Nachweis](publishing.md)
    prüfen; eine grüne Build-CI allein genügt nicht. Für einen separaten lokalen
    Supervisor-Build `uv run python dev/stage_app.py <neues-ziel>` ausführen.
    Das erzeugte lokale App-Repository enthält den vollständigen Build-Kontext;
