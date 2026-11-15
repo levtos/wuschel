@@ -36,3 +36,10 @@ it('explains the source chain on the sources page', async () => {
   const { show } = mount('#/sources/devices', sampleConfig()); show();
   expect(await screen.findByText(/Engines lesen nur Verträge/)).toBeVisible();
 });
+
+it('uses the singular for a value list containing one entry', async () => {
+  const { show } = mount('#/sources/catalogs', sampleConfig({ catalogs: [{ catalog_id: 'synthetic', version: 1, kind: 'map', entries: { on: true } }] }));
+  show();
+  expect(await screen.findByText('v1 · 1 Eintrag')).toBeVisible();
+  expect(screen.queryByText('v1 · 1 Einträge')).toBeNull();
+});

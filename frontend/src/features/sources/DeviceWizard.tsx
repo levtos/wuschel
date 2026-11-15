@@ -64,7 +64,7 @@ export function DeviceWizard({ open, onOpenChange, title, contract, expectedSche
   };
   const liveness = asArray(doc.config?.sources).filter(isObject).filter(source => source.source_type === 'boolean' || asObject(source.value_schema).type === 'bool').map(source => ({ id: str(source.source_id), name: str(source.display_name) || str(source.source_id) }));
   const incompatible = selected && expectedSchema && (expectedSchema.type !== 'object' && fieldType !== expectedSchema.type || (expectedSchema.unit ?? '') !== (fieldType === 'number' ? selected.unit ?? '' : ''));
-  const disabledReason = busy ? t('alpha7.device.saving') : !selected ? t('alpha7.device.selectFirst') : incompatible ? t('alpha7.device.incompatible') : sourceId && (!validIdentifier(sourceId) || !sourceId.startsWith('source.')) || contractId && !validIdentifier(contractId) ? t('alpha7.device.badIdentifier') : freshness.mode !== 'event_stateful' && (!(Number(freshness.interval_s) > 0) || freshness.mode === 'liveness_source' && !freshness.liveness_source) ? t('alpha7.device.badFreshness') : '';
+  const disabledReason = busy ? t('alpha7.device.saving') : !selected ? t('alpha7.device.selectFirst') : incompatible ? t('alpha7.device.incompatible') : sourceId && (!validIdentifier(sourceId) || !sourceId.startsWith('source.')) || contractId && !validIdentifier(contractId) ? t('alpha7.device.badIdentifier') : !freshness.mode || invalidDurations.size ? t('alpha7.device.badFreshness') : freshness.mode !== 'event_stateful' && (!(Number(freshness.interval_s) > 0) || freshness.mode === 'liveness_source' && !freshness.liveness_source) ? t('alpha7.device.badFreshness') : '';
   const create = async () => {
     if (invalidDurations.size) { setError(t('b4.time.precision')); return; }
     if (!selected || disabledReason) return;
@@ -83,7 +83,7 @@ export function DeviceWizard({ open, onOpenChange, title, contract, expectedSche
     finally { setBusy(false); }
   };
   return <Dialog open={open} onOpenChange={value => !busy && onOpenChange(value)} size="xl" title={title || t('alpha7.device.title')} description={t('alpha7.device.explanation')} footer={<>
-    {manualOption}<Button onClick={() => onOpenChange(false)} disabled={busy}>{t('alpha7.device.cancel')}</Button><Button variant="primary" disabled={!!disabledReason} onClick={() => void create()}>{t(contract === 'new' ? 'alpha7.device.createContract' : 'alpha7.device.add')}</Button>
+    {disabledReason && <p role="status" className="w-full text-sm text-muted">{disabledReason}</p>}{manualOption}<Button onClick={() => onOpenChange(false)} disabled={busy}>{t('alpha7.device.cancel')}</Button><Button variant="primary" disabled={!!disabledReason} onClick={() => void create()}>{t(contract === 'new' ? 'alpha7.device.createContract' : 'alpha7.device.add')}</Button>
   </>}>
     <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
       <div className="space-y-3">
@@ -99,7 +99,7 @@ export function DeviceWizard({ open, onOpenChange, title, contract, expectedSche
           <Field label={t('alpha7.device.name')}>{props => <Input {...props} maxLength={128} value={name} onChange={event => setName(event.target.value)} />}</Field>
           {contract === 'new' && <CategorySelect value={category} onChange={value => setCategory(value || 'other')} />}
           <Field label={t('b4.confirmKind')}>{props => <Select {...props} value={preset} onChange={event => { const next = event.target.value as DevicePreset; setPreset(next); setSharedTemplate(''); setFreshness(freshnessPreset(next)); }}>{DEVICE_PRESETS.map(value => <option key={value} value={value}>{t(`alpha7.device.preset.${value}`)}</option>)}</Select>}</Field>
-          <Field label={t('b4.shared')}>{props => <Select {...props} value={sharedTemplate} onChange={event => { const id = event.target.value; setSharedTemplate(id); if (id) setFreshness(asObject(asArray(doc.config?.freshness_templates).filter(isObject).find(row => row.template_id === id)?.rule)); }}><option value="">{t('b4.own')}</option>{asArray(doc.config?.freshness_templates).filter(isObject).filter(row => row.sensor_kind === preset).map(row => <option key={str(row.template_id)} value={str(row.template_id)}>{str(row.display_name)}</option>)}</Select>}</Field>
+          <Field label={t('b26.freshness.selection')}>{props => <Select {...props} value={sharedTemplate} onChange={event => { const id = event.target.value; setSharedTemplate(id); if (id) setFreshness(asObject(asArray(doc.config?.freshness_templates).filter(isObject).find(row => row.template_id === id)?.rule)); }}><option value="">{t('b4.own')}</option>{asArray(doc.config?.freshness_templates).filter(isObject).filter(row => row.sensor_kind === preset).map(row => <option key={str(row.template_id)} value={str(row.template_id)}>{str(row.display_name)}</option>)}</Select>}</Field>
           {sharedTemplate ? <p>{t('b4.uses')} {sharedTemplate}</p> : <FreshnessSettings value={freshness} onChange={setFreshness} livenessSources={liveness} />}
           {sharedTemplate && freshness.mode === 'liveness_source' && <Field label={t('alpha7.freshness.liveness')}>{props => <Select {...props} value={str(freshness.liveness_source)} onChange={event => setFreshness(previous => ({ ...previous, liveness_source: event.target.value }))}><option value="">{t('alpha10.transfer.decide')}</option>{liveness.map(source => <option key={source.id} value={source.id}>{source.name}</option>)}</Select>}</Field>}
           {preset === 'contact' && <p className="text-sm text-muted">{t('alpha7.device.contactHelp')}</p>}
@@ -113,7 +113,7 @@ export function DeviceWizard({ open, onOpenChange, title, contract, expectedSche
             <p className="text-xs text-muted">{t('alpha7.device.idsAutomatic')}</p>
           </div></details>
         </>}
-        {selected && disabledReason && <p role="status" className="text-sm text-muted">{disabledReason}</p>}{error && <p role="alert" className="text-sm text-bad">{error}</p>}
+        {error && <p role="alert" className="text-sm text-bad">{error}</p>}
       </div>
     </div>
   </Dialog>;

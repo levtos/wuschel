@@ -19,16 +19,24 @@ Abstieg haben getrennte Haltezeiten. Direkte Wechsel zwischen `normal` und
 | Ereignisschleife, `load_lag_ms_*` | 100 ms | 500 ms | 1–10.000 / 1–30.000 ms |
 | Eingangstiefe, `load_queue_percent_*` | 50 % | 85 % | 1–100 %; geschützte Ereignisse dürfen die weiche Queuegrenze übersteigen |
 | Eingangsüberläufe je Minute, `load_overflows_per_minute_*` | 1 | 10 | 1–100.000; begrenzte Sekunden-Buckets über 60 s |
-| p95 der letzten bis zu 256 Commit-Zeiten, `load_commit_p95_ms_*` | 100 ms | 500 ms | 1–10.000 / 1–30.000 ms |
+| p95 der Ereignis-Commit-Zeiten im Zeitfenster, `load_commit_p95_ms_*` | 100 ms | 500 ms | 1–10.000 / 1–30.000 ms |
+| `load_commit_window_s` | 60 s | | 10–600 s |
 | `load_enter_hold_s` | 5 s | | 0,1–300 s |
 | `load_recover_hold_s` | 30 s | | 0,1–600 s |
 | `projection_protected_interval_s` | 10 s | | 1–60 s |
 | `retry_warning_after` | 3 Fehlschläge | | 1–100 |
 
+`load_commit_window_s` begrenzt diese Messungen auf die letzten 60 Sekunden
+(erlaubt: 10–600 s; wirkt nach Neustart). Verwaltungsoperationen zählen nicht.
+Unter fünf Messungen ist die Metrik nicht gemessen (`None`) und unauffällig.
+Messungen altern auch ohne neue Commits aus; danach gilt die normale
+Erholungshaltezeit `load_recover_hold_s`. Die Systemzustandsseite nennt die Zahl
+der Messungen im Fenster oder „Noch nicht gemessen“.
+
 `*` steht jeweils für `strained` oder `protected`. Die Schutzschwelle darf
 nicht unter der angespannten Schwelle liegen. Fehlende Zeitmessungen bleiben
 in der Diagnose ausdrücklich unbekannt. Wie alle Betriebswerte werden auch
-diese zwölf Werte atomar in `operations.json` gespeichert und erst beim
+  diese dreizehn Werte atomar in `operations.json` gespeichert und erst beim
 Neustart wirksam. Die bisherigen 42 Betriebswerte bleiben unverändert.
 
 `angespannt` meldet nur Zustand und Protokolleintrag. `geschützt` begrenzt

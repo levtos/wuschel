@@ -1,5 +1,5 @@
 import { validationLabel } from '@/i18n/codes';
-import { t as uiText } from '@/i18n';
+import { hasTranslation, t as uiText } from '@/i18n';
 import { createContext, useContext, useMemo } from 'react';
 import type { Issue } from '@/lib/api';
 
@@ -50,6 +50,7 @@ const TEXT: Record<string, string> = {
   'definition.unordered_comparison': uiText("features.authoring.issues.ordnungsvergleiche_gelten_nur_fur_zahl_text_und__d224d3"),
 };
 export function explain(issue: Issue): string {
+  if (hasTranslation(`validation.${issue.code}`)) return validationLabel(issue);
   if (['input_type_mismatch', 'binding_cast_required', 'binding_type_mismatch', 'source_type_mismatch', 'immutable_source_type', 'immutable_source_catalog', 'contract_cycle'].includes(issue.code)) return validationLabel(issue);
   return TEXT[issue.code] ?? validationLabel(issue);
 }

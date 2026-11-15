@@ -5,6 +5,7 @@ import copy
 import logging
 from collections import deque
 from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from datetime import datetime, timedelta
@@ -46,6 +47,7 @@ from .temporal import start_case
 from .validation_cache import ValidationCache
 
 LOGGER = logging.getLogger(__name__)
+_measure_commit_load: ContextVar[bool] = ContextVar("measure_commit_load", default=False)
 
 
 class CommandOrigin(Model):
@@ -162,7 +164,7 @@ class Runtime:
         self.pending_latches: dict[str, Bucket] | None = None
         self.stopping = False
         self.commit_duration = 0.0
-        self.commit_samples: deque[float] = deque(maxlen=256)
+        self.commit_samples: deque[tuple[float, float]] = deque()
         self.event_loop_lag_ms: float | None = None
         self.event_loop_lag_max_ms: float | None = None
         self.retries: dict[str, dict[str, Any]] = {
@@ -228,9 +230,18 @@ class Runtime:
         LOGGER.info("projection_pause_changed", extra={"paused": paused})
         self._broadcast(self.service_state())
 
+    def _expire_commit_samples(self) -> None:
+        cutoff = self.clock.monotonic() - self.operations.load_commit_window_s
+        while self.commit_samples and self.commit_samples[0][0] <= cutoff:
+            self.commit_samples.popleft()
+
+    def _commit_window(self) -> list[float]:
+        self._expire_commit_samples()
+        return sorted(duration for _, duration in self.commit_samples)
+
     def sample_load(self) -> None:
-        samples = sorted(self.commit_samples)
-        p95 = samples[max(0, (95 * len(samples) + 99) // 100 - 1)] if samples else None
+        samples = self._commit_window()
+        p95 = samples[(95 * len(samples) + 99) // 100 - 1] if len(samples) >= 5 else None
         if self.load_guard.sample(
             self.clock.monotonic(),
             lag_ms=self.event_loop_lag_ms,
@@ -267,7 +278,7 @@ class Runtime:
             self.sample_load()
 
     def system_state(self) -> dict[str, Any]:
-        samples = sorted(self.commit_samples)
+        samples = self._commit_window()
         return {
             **self.service_state(),
             "publication_seq": self.state.publication_seq,
@@ -294,10 +305,10 @@ class Runtime:
             },
             "commits": {
                 "count": len(samples),
-                "window": 256,
-                "median_ms": round(median(samples), 3) if samples else None,
+                "window_s": self.operations.load_commit_window_s,
+                "median_ms": round(median(samples), 3) if len(samples) >= 5 else None,
                 "p95_ms": round(samples[max(0, (95 * len(samples) + 99) // 100 - 1)], 3)
-                if samples
+                if len(samples) >= 5
                 else None,
             },
             "retries": copy.deepcopy(self.retries),
@@ -826,6 +837,13 @@ class Runtime:
             and (entry is None or entry.drain)
         ):
             await self._drain_overflow()
+        token = _measure_commit_load.set(entry is None)
+        try:
+            return await self._process(operation, payload, entry)
+        finally:
+            _measure_commit_load.reset(token)
+
+    async def _process(self, operation: str, payload: Any, entry: slots.Operation | None) -> Any:
         if entry is not None and entry.early:
             return await entry.handler(
                 self, self.state, operation, payload, self.clock.now_utc(), self.config
@@ -1248,7 +1266,7 @@ class Runtime:
             )
         if config:
             self._evaluate(state, config, origin="revision")
-        await self._commit(state, publication=True)
+        await self._commit(state, publication=True, measure_load=True)
         for key, value in buffered.items():
             if self.latest.get(key) is value:
                 self.latest.pop(key)
@@ -1870,7 +1888,12 @@ class Runtime:
         self._broadcast(self.service_state())
 
     async def _commit(
-        self, state: State, *, publication: bool = False, resync: bool = False
+        self,
+        state: State,
+        *,
+        publication: bool = False,
+        resync: bool = False,
+        measure_load: bool | None = None,
     ) -> None:
         started = self.clock.monotonic()
         measured_at = perf_counter()
@@ -1933,7 +1956,11 @@ class Runtime:
                 LOGGER.warning("refresh_queue_overflow")
         self.pending_refresh.clear()
         self.commit_duration = self.clock.monotonic() - started
-        self.commit_samples.append((perf_counter() - measured_at) * 1000)
+        if _measure_commit_load.get() if measure_load is None else measure_load:
+            self.commit_samples.append(
+                (self.clock.monotonic(), (perf_counter() - measured_at) * 1000)
+            )
+            self._expire_commit_samples()
         self._plan_evaluation()
         self.service_jobs_changed.set()
         if catalog_changed:

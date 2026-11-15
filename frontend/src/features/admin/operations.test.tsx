@@ -16,7 +16,7 @@ const state: SystemState = {
   ready: true, publication_confirmed: true, publication_seq: 42, version: '1.0.0b25', persistence: 'available', ha: 'not_needed', bridge: 'not_needed', mqtt: 'disabled', traber_version: null,
   operations_notice: 'operations_invalid', startup_attempts: 2, startup: { total: 500 },
   queues: { ingest: { depth: 3, capacity: 256, overflows: 2 }, refresh: { depth: 0, capacity: 256, overflows: 0 } },
-  event_loop: { lag_ms: null, max_lag_ms: null }, commits: { count: 2, window: 256, median_ms: 4, p95_ms: 7 },
+  event_loop: { lag_ms: null, max_lag_ms: null }, commits: { count: 5, window_s: 60, median_ms: 4, p95_ms: 7 },
   retries: { ha: { count: 3, consecutive: 0, last_error: 'TimeoutError', last_error_at: '2026-11-13T12:00:00Z', started_at: null, warning: false } }, reasons: [],
 };
 function mount(page: React.ReactNode) {
@@ -77,6 +77,7 @@ it('shows actual diagnostics, unknown measurements and a stale warning after ref
   await screen.findByText('Bereit');
   expect(screen.getByText('42')).toBeInTheDocument();
   expect(screen.getByText('3 / 256')).toBeInTheDocument();
+  expect(screen.getByText('5 Messungen in den letzten 60 s')).toBeInTheDocument();
   expect(screen.getByText(/Die Datei mit den Betriebswerten ist nicht lesbar/)).toBeInTheDocument();
   expect(screen.getAllByText('Noch nicht gemessen')).toHaveLength(2);
   expect(screen.getByText('TimeoutError')).toBeInTheDocument();

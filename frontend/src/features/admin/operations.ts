@@ -12,7 +12,7 @@ export interface SystemState {
   operations_notice: string | null; startup_attempts: number; startup: Record<string, number>;
   queues: Record<string, { depth: number | null; capacity: number; overflows: number }>;
   event_loop: { lag_ms: number | null; max_lag_ms: number | null };
-  commits: { count: number; window: number; median_ms: number | null; p95_ms: number | null };
+  commits: { count: number; window_s: number; median_ms: number | null; p95_ms: number | null };
   retries: Record<string, { count: number; consecutive: number; last_error: string | null; last_error_at: string | null; started_at: string | null; warning: boolean }>;
   reasons: string[];
 }

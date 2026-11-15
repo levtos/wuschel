@@ -120,6 +120,111 @@ def test_threshold_order_is_validated(metric):
         )
 
 
+@pytest.mark.parametrize("value", [9, 601, 10.5, True])
+def test_commit_window_setting_is_bounded(value):
+    with pytest.raises(ValidationError):
+        OperationsSettings(load_commit_window_s=value)
+
+
+def slow_commits(runtime, monkeypatch, durations):
+    """Measure real runtime commits with deterministic storage wall times."""
+    from core_contracts import runtime as module
+
+    elapsed = [0.0]
+    original = runtime.store.commit
+    durations = iter(durations)
+
+    async def commit(state):
+        await original(state)
+        duration = next(durations)
+        elapsed[0] += duration
+        runtime.clock.advance(duration)
+
+    monkeypatch.setattr(module, "perf_counter", lambda: elapsed[0])
+    monkeypatch.setattr(runtime.store, "commit", commit)
+
+
+async def test_single_slow_commit_never_enters_protection(runtime, monkeypatch):
+    with monkeypatch.context() as patch:
+        slow_commits(runtime, patch, [0.6])
+        await runtime._commit(runtime.state.clone(), measure_load=True)
+    for delay in (0, 6, 600):
+        runtime.clock.advance(delay)
+        runtime.sample_load()
+        assert runtime.load_guard.state == "normal"
+        assert runtime.load_guard.metrics["commit_p95_ms"] is None
+    assert runtime.system_state()["commits"]["count"] == 0
+
+
+@pytest.mark.parametrize("operation", ["audit", "continuation_probe"])
+async def test_management_commit_does_not_count(runtime, monkeypatch, operation):
+    from core_contracts import slots
+
+    async def handler(rt, state, *args):
+        await rt._commit(state)
+
+    with monkeypatch.context() as patch:
+        if operation.startswith("continuation_"):
+            patch.setitem(slots.OPERATION_PREFIXES, "continuation_", slots.Operation(handler))
+        else:
+            patch.setitem(slots.OPERATIONS, operation, slots.Operation(handler))
+        slow_commits(runtime, patch, [2] * 5)
+        for _ in range(5):
+            await runtime.process(operation, None)
+            runtime.sample_load()
+        runtime.clock.advance(runtime.operations.load_enter_hold_s)
+        runtime.sample_load()
+        assert runtime.commit_duration == 2
+        assert runtime.load_guard.state == "normal"
+        assert not runtime.commit_samples
+
+
+async def test_slow_event_commits_protect_then_expire_without_new_work(
+    runtime, config, monkeypatch
+):
+    from .test_runtime import obs
+
+    await activate(runtime, config)
+    with monkeypatch.context() as patch:
+        slow_commits(runtime, patch, [0.6] * 5)
+        for _ in range(5):
+            await runtime.process("observation", obs(runtime, True))
+    runtime.sample_load()
+    assert runtime.system_state()["commits"]["count"] == 5
+    assert runtime.load_guard.metrics["commit_p95_ms"] == pytest.approx(600)
+    runtime.clock.advance(runtime.operations.load_enter_hold_s)
+    runtime.sample_load()
+    assert runtime.load_guard.state == "geschützt"
+    runtime.clock.advance(runtime.operations.load_commit_window_s)
+    runtime.sample_load()
+    assert runtime.system_state()["commits"] == {
+        "count": 0,
+        "window_s": 60,
+        "median_ms": None,
+        "p95_ms": None,
+    }
+    runtime.clock.advance(runtime.operations.load_recover_hold_s)
+    runtime.sample_load()
+    assert runtime.load_guard.state == "normal"
+
+
+async def test_full_old_sample_batch_recovers_after_quiet(runtime, monkeypatch):
+    with monkeypatch.context() as patch:
+        slow_commits(runtime, patch, [0.001] * 243 + [0.6] * 13)
+        for _ in range(256):
+            await runtime._commit(runtime.state.clone(), measure_load=True)
+    runtime.sample_load()
+    runtime.clock.advance(runtime.operations.load_enter_hold_s)
+    runtime.sample_load()
+    assert runtime.load_guard.state == "geschützt"
+    # The production meter samples once a second, including during idle time.
+    for _ in range(120):
+        runtime.clock.advance(1)
+        runtime.sample_load()
+    assert runtime.load_guard.state == "normal"
+    assert runtime.system_state()["commits"]["count"] == 0
+
+
 async def test_runtime_state_retry_warning_and_pause_are_process_local(runtime):
     runtime.event_loop_lag_ms = 600
     runtime.sample_load()
@@ -304,7 +409,6 @@ async def test_protected_storm_keeps_every_event_and_ordered_durable_publication
     monkeypatch.setattr(Runtime, "_evaluate", record)
     monkeypatch.setattr(runtime.store, "commit", write)
     publications = runtime.subscribe(max_queue=1000)
-    runtime.commit_samples.clear()
     for index in range(500):
         runtime.ingest(obs(runtime, bool(index % 2)).model_copy(update={"ingest_seq": index + 1}))
     runtime.sample_load()
@@ -327,7 +431,7 @@ async def test_protected_storm_keeps_every_event_and_ordered_durable_publication
     assert deltas[-1]["publication_seq"] == runtime.state.publication_seq
     assert not runtime.latest and not runtime.resubscribe.is_set()
     assert not runtime.mqtt_revision_changed.is_set()
-    runtime.commit_samples.clear()
+    runtime.clock.advance(runtime.operations.load_commit_window_s)
     runtime.sample_load()
     runtime.clock.advance(runtime.operations.load_recover_hold_s)
     runtime.sample_load()

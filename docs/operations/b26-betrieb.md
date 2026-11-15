@@ -60,11 +60,15 @@ Messzeiten und Zähler haben keine erfundenen Gesundheitsschwellen.
 - Ereignisschleife: jede Sekunde gemessene zusätzliche Schlafverzögerung,
   aktuell und Maximum seit Prozessstart. Die Messaufgabe wird beim Beenden
   abgebrochen und abgewartet.
-- Speicherzeiten: die letzten höchstens 256 erfolgreichen `Runtime._commit`-
-  Vorgänge, gemessen mit `perf_counter`, einschließlich Vorbereitung und
+- Speicherzeiten: erfolgreiche Ereignis-/Zeitpunkt-Speicherungen im Zeitfenster
+  `load_commit_window_s` (Standard 60 s, erlaubt 10–600 s), gemessen mit
+  `perf_counter`, einschließlich Vorbereitung und
   Übergang zum sichtbaren Stand. Median ist der statistische Median; p95 ist
   der aufgerundete Rang 0,95 × Anzahl. Fehlgeschlagene Speichervorgänge liefern
-  keine erfolgreiche Stichprobe. Die alten Protokollmessungen bleiben erhalten.
+  keine erfolgreiche Stichprobe. Verwaltungsoperationen zählen nicht. Alte
+  Messungen verfallen auch ohne neue Speicherung; unter fünf Messungen bleiben
+  Median und p95 „Noch nicht gemessen“. Die Anzeige nennt die Zahl der Messungen
+  im Fenster. Die alten Protokollmessungen bleiben erhalten.
 - Startphasen/-versuche aus #130, Bereitschaftsgründe, Datenbank-, HA-, Traber-
   und MQTT-Status, Programm-/Traber-Version und Veröffentlichungszähler.
 - Start, Datenbank-Erholung, HA, MQTT und HA-Ausgabe: Fehler insgesamt,
@@ -135,7 +139,7 @@ Diese gefundenen Zahlen sind keine frei einstellbaren Betriebswerte:
 | `api.py`: WS-Begrüßungsfrist 10 s; HTTP-Ports 8787/8099; Protokollversionen, Größen-/Ratenlimits | Unverändert: Zugriffs-/Protokollgrenzen. |
 | HA-Projektion: Warteschlange 1 | Unverändert: absichtlicher „neuester Stand“-Kanal, kein Ereignispuffer. |
 | HA/MQTT/Start: erster Abstand 1 s, Projektion 0,25 s; Verdopplung, halber bis voller Zufallsabstand; HA-Stabilisierung 10 s | Unverändert: Wiederholalgorithmus; dessen Obergrenzen sind einstellbar. |
-| `clock.py`: Prüfung alle 0,1 s; neue Messung jede 1 s; Commit-Fenster 256 | Unverändert: Uhr-/Messdefinitionen, keine fachliche Frist und kein Speicherumbau. |
+| `clock.py`: Prüfung alle 0,1 s; neue Messung jede 1 s | Unverändert: Uhr-/Messdefinitionen, keine fachliche Frist und kein Speicherumbau. Das Commit-Zeitfenster ist seit #143 ein Betriebswert. |
 | `operation_timing.py`: Protokoll nach 4096 Einträgen oder 60 s; Modell-/Auswertungs-Caches (z. B. vier Pläne) | Unverändert: begrenzte interne Mess-/Memoisierungspuffer; kein Wiederhol- oder Eingangsgrenzwert. |
 | Konfigurations-/Importgrenzen: 50 MiB, 100000 Katalogeinträge, 64 Kontexte, 6400 Zuordnungen, 16 Übernahmepläne; Regelgrenzen 256 Knoten, Tiefe 16, 64 Eingänge, 32 Felder, 128 Vorlagen | Unverändert: Format-, Komplexitäts- und Sicherheitsgrenzen. |
 | Aufbewahrung, Quellenaktualität, Kalender-/Weck-/Öffnungs-/Formelwerte, semantische Zeitregeln | Unverändert: bereits fachlich konfigurierte Werte oder fachliche Regeln; gehören in die Konfiguration. |

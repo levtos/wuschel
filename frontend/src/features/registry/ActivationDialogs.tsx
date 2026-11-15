@@ -154,7 +154,7 @@ export function ActivateDialog({ draft, open, onOpenChange }: { draft: Draft; op
       description={uiText("features.registry.ActivationDialogs.gespeicherter_draft_v0_v_v1_wird_als_neue_revisi_1cd2fe", { v0: (draft.display_name || uiText('alpha7.draft.unnamed')), v1: (draft.draft_version) })}
       footer={
         result ? (
-          <Link to={`/changes/versions?revision=${result.revision}`}><Button variant="primary" onClick={() => { doc?.close(); onOpenChange(false); }}>{uiText('beta3.838cb6772119')}</Button></Link>
+          <><Button onClick={() => onOpenChange(false)}>{uiText('alpha7.draft.close')}</Button><Link to={`/changes/versions?revision=${result.revision}`}><Button variant="primary" onClick={() => { doc?.close(); onOpenChange(false); }}>{uiText('beta3.838cb6772119')}</Button></Link></>
         ) : (
           <>
             <div className="w-full space-y-2">
@@ -165,7 +165,7 @@ export function ActivateDialog({ draft, open, onOpenChange }: { draft: Draft; op
             <Button
               variant="primary"
               disabled={!ready || !confirmed || !!preview?.retention.shortening.length && !retentionConfirmed || activate.isPending || uncertain}
-              onClick={() => { if (preview) activate.mutate({ draft, expectedActiveRevision: expected, note, run: () => activateWithReceipt(draft, preview, requestId.current, note, preview.no_effect, () => setUncertain(true)) }, { onSuccess: revision => { setUncertain(false); setDone({ subject, revision }); } }); }}
+              onClick={() => { if (preview) activate.mutate({ draft, expectedActiveRevision: expected, note, run: () => activateWithReceipt(draft, preview, requestId.current, note, preview.no_effect, () => setUncertain(true)) }, { onSuccess: revision => { setUncertain(false); setDone({ subject, revision }); if (doc?.draft?.draft_id === draft.draft_id) doc.close(); } }); }}
             >
               {uncertain ? uiText('beta3.3f9ccef22d20') : preview?.no_effect ? uiText('beta3.6ca558c11114') : uiText("features.registry.ActivationDialogs.jetzt_aktivieren_957b0a")}</Button>
           </>
@@ -190,7 +190,7 @@ export function ActivateDialog({ draft, open, onOpenChange }: { draft: Draft; op
               <IssueList issues={check.issues} config={draft.config as JsonObject} />
             </>
           )}
-          {check.state === 'ok' && check.result.diff && <DiffView diff={check.result.diff} against={uiText("features.registry.ActivationDialogs.aktive_revision_v0_d363db", { v0: (expected || '–') })} />}
+          {check.state === 'ok' && check.result.diff && <DiffView diff={check.result.diff} config={draft.config} against={uiText("features.registry.ActivationDialogs.aktive_revision_v0_d363db", { v0: (expected || '–') })} />}
           {preview?.no_effect && <Notice tone="info">{uiText('beta3.32d735e08ded')}</Notice>}
           {preview?.retention.changed && <Notice tone={preview.retention.shortening.length ? 'warn' : 'info'} title={uiText('beta3.5c8fb977482e')}>
             {(['raw_days', 'rollup_days'] as const).filter(key => preview.retention.before?.[key] !== preview.retention.after?.[key]).map(key => <p key={key}>{key === 'raw_days' ? uiText('beta3.3a9f00a1ce0d') : uiText('beta3.7037f98da0fe')}: {preview.retention.before?.[key] ?? uiText('beta3.f711fa65f056')} → {preview.retention.after?.[key] ?? uiText('beta3.06c6cbc2bdef')} {uiText('beta3.6770c319ff7b')}</p>)}
@@ -268,7 +268,7 @@ export function RollbackDialog({ revision, open, onOpenChange }: { revision: Rev
               <IssueList issues={check.issues} config={revision.config as JsonObject} />
             </>
           )}
-          {check.state === 'ok' && check.result.diff && <DiffView diff={check.result.diff} against={uiText("features.registry.ActivationDialogs.aktive_revision_v0_d363db", { v0: (expected || '–') })} />}
+          {check.state === 'ok' && check.result.diff && <DiffView diff={check.result.diff} config={revision.config} against={uiText("features.registry.ActivationDialogs.aktive_revision_v0_d363db", { v0: (expected || '–') })} />}
           {check.state === 'ok' && !older && <p role="status" className="text-sm text-muted">{uiText('alpha7.versions.olderOnly')}</p>}
           <Field label={uiText('alpha7.versions.note')} hint={uiText('alpha7.versions.noteHelp')}>{(props) => <Input {...props} maxLength={256} value={note} disabled={rollback.isPending} onChange={(e) => { setNote(e.target.value); setConfirmedFor(null); }} />}</Field>
           <Outcome error={rollback.error} onRecheck={() => { rollback.reset(); setConfirmedFor(null); void restart(); }} />
