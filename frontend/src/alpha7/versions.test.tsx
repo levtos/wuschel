@@ -106,7 +106,7 @@ it('describes first activation without warning chips or invented loss of existin
   diff.added = ['new.contract']; diff.objects = { contracts: { added: ['new.contract'], removed: [], changed: [], fields: {}, field_paths: {}, field_paths_truncated: [] } };
   diff.fingerprint_version = { before: null, after: 2, context_migration: true };
   diff.possibly_invalidated_contexts = ['new.contract'];
-  const view = wrap(<DiffView diff={diff} />);
+  const view = wrap(<DiffView diff={diff} config={sampleConfig({ contracts: [{ contract_id: 'new.contract' }] })} />);
   expect(screen.getByText(/Ihre Aufzeichnung beginnt nach dem Übernehmen/)).toBeVisible();
   expect(screen.queryByText("Abläufe können neu beginnen")).toBeNull();
   expect(view.container.querySelector('[class*="text-warn"]')).toBeNull();
@@ -115,8 +115,21 @@ it('describes first activation without warning chips or invented loss of existin
 it('keeps the warning for an existing context affected by changed semantics', () => {
   const diff = structuredClone(valid.diff) as Diff;
   diff.added = ['new.contract']; diff.possibly_invalidated_contexts = ['new.contract', 'old.contract'];
-  wrap(<DiffView diff={diff} />);
+  wrap(<DiffView diff={diff} config={sampleConfig({ contracts: [{ contract_id: 'new.contract' }, { contract_id: 'old.contract' }] })} />);
   const row = screen.getByText("Abläufe können neu beginnen").closest('div')!;
   expect(within(row).getByText('old.contract')).toBeVisible();
   expect(within(row).queryByText('new.contract')).toBeNull();
+});
+
+it.each([
+  [0, 'Du übernimmst eine Konfiguration ohne Verträge.'],
+  [1, 'Keine Verträge geändert. Der vorhandene Vertrag bleibt erhalten.'],
+  [2, 'Keine Verträge geändert. Alle 2 Verträge bleiben erhalten.'],
+] as const)('shows the target contract count with zero affected contracts (%i)', (count, message) => {
+  installFakeApi();
+  const diff = structuredClone(valid.diff) as Diff;
+  diff.snapshot = { revision_changes: true, affected_contracts: [] };
+  const contracts = Array.from({ length: count }, (_, index) => ({ contract_id: `test.contract_${index}` }));
+  wrap(<DiffView diff={diff} config={sampleConfig({ contracts })} />);
+  expect(screen.getByText(message)).toBeVisible();
 });

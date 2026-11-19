@@ -1,10 +1,12 @@
-import { act, screen } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { ContractLiveState } from '@/components/ContractLiveState';
+import { StatusChips } from '@/components/Shell';
 import { useLive } from './live-context';
 import { LiveStore, type SocketLike } from './live';
 import { wrap } from '../../test/harness';
+import { installFakeApi, sampleConfig } from '../../test/fakeApi';
 
 it('keeps unknown visible and stale through a resync; only a full snapshot restores the view', async () => {
   const socket: SocketLike = { onopen: null, onmessage: null, onclose: null, onerror: null, send() {}, close() {} };
@@ -30,4 +32,49 @@ it('keeps unknown visible and stale through a resync; only a full snapshot resto
   expect(screen.queryByText('Stand möglicherweise veraltet')).toBeNull();
   expect(screen.getByTestId('confirmed')).toHaveTextContent('true');
   act(() => store.stop());
+});
+
+it('shows neutral connection status on tab return, with a deadline and immediate service faults', async () => {
+  installFakeApi({ revisions: [{ revision: 1, checksum: 'test', created_at: '2026-11-19T10:00:00Z', config: sampleConfig() }] });
+  const socket: SocketLike = { onopen: null, onmessage: null, onclose: null, onerror: null, send() {}, close() {} };
+  let releaseReconnect!: () => void;
+  const beforeConnect = vi.fn<() => Promise<void>>()
+    .mockResolvedValueOnce(undefined)
+    .mockImplementation(() => new Promise(resolve => { releaseReconnect = resolve; }));
+  const store = new LiveStore({ createSocket: () => socket, beforeConnect });
+  const showTab = (visible: boolean) => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: visible ? 'visible' : 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+  const ready = { type: 'service_state', ready: true, publication_confirmed: true, persistence: 'available', ha: 'not_needed', bridge: 'not_needed', mqtt: 'disabled', reasons: [] };
+  const send = (message: unknown) => act(() => socket.onmessage?.({ data: JSON.stringify(message) }));
+  const view = wrap(<StatusChips />, { live: store });
+  try {
+    await waitFor(() => expect(socket.onmessage).not.toBeNull());
+    send(ready);
+    send({ type: 'snapshot', epoch_id: 'test', registry_revision: 1, publication_seq: 1, contracts: {} });
+    await screen.findByRole('button', { name: 'Bereit' });
+
+    vi.useFakeTimers();
+    act(() => showTab(false));
+    act(() => showTab(true));
+    expect(screen.getByRole('button', { name: 'Verbinde …' })).toBeVisible();
+    expect(socket.onmessage).toBeNull();
+    await act(async () => releaseReconnect());
+    send({ ...ready, ready: false, persistence: 'persistence_unavailable' });
+    expect(screen.getByRole('button', { name: 'Nicht bereit · 1' })).toBeVisible();
+    send(ready);
+    send({ type: 'resync_required' });
+    act(() => vi.advanceTimersByTime(9_999));
+    expect(screen.getByRole('button', { name: 'Verbinde …' })).toBeVisible();
+    act(() => vi.advanceTimersByTime(1));
+    expect(screen.getByRole('button', { name: 'Nicht bereit · 1' })).toBeVisible();
+    send({ type: 'snapshot', epoch_id: 'test', registry_revision: 1, publication_seq: 2, contracts: {} });
+    expect(screen.getByRole('button', { name: 'Bereit' })).toBeVisible();
+  } finally {
+    view.unmount();
+    showTab(true);
+    Reflect.deleteProperty(document, 'visibilityState');
+    vi.useRealTimers();
+  }
 });

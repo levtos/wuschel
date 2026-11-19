@@ -19,6 +19,20 @@ const base = '/definitions/0';
 const root = `${base}/outputs/value`;
 const node = (p: string) => document.querySelector(`[data-pointer="${p}"]`) as HTMLElement;
 
+it('translates known string enums on any field and keeps raw values for saving', async () => {
+  const schema = { enum: ['phase', 'time', 'early_night', 'test_custom', 'constructor'] };
+  let saved: Json | undefined;
+  wrap(<SchemaForm root={schema} node={schema} pointer="/settings/start_choice" label="Beginn wählen" value="phase" onChange={value => { saved = value; }} />);
+  const field = screen.getByRole('combobox', { name: 'Beginn wählen' });
+  expect(within(field).getByRole('option', { name: 'Tagesphase' })).toHaveValue('phase');
+  expect(within(field).getByRole('option', { name: 'Uhrzeit' })).toHaveValue('time');
+  expect(within(field).getByRole('option', { name: 'frühe Nacht' })).toHaveValue('early_night');
+  expect(within(field).getByRole('option', { name: 'test_custom' })).toHaveValue('test_custom');
+  expect(within(field).getByRole('option', { name: 'constructor' })).toHaveValue('constructor');
+  await user.selectOptions(field, 'time');
+  expect(saved).toBe('time');
+});
+
 function variant(mutate: (c: Capabilities) => void): Capabilities {
   const next = clone(caps) as Capabilities;
   mutate(next);

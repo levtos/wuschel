@@ -13,7 +13,7 @@ import { delayedBody, installFakeApi, makeDraft, reply, sampleConfig } from '../
 const emptyVerdict = (): ValidationResult => ({ ...structuredClone(verdict), diff: { ...structuredClone(verdict.diff), analysis: 'static', predicts_values: false, added: [], affected_contracts: [], objects: {} } });
 function Editor() {
   const doc = useWorkingDocument();
-  return <><DraftBar /><button onClick={() => void doc.validateNow()}>Prüfen</button><button onClick={() => doc.open(makeDraft('comparison', sampleConfig({ normalized_defaults: true })))}>Open</button><button onClick={() => doc.edit(config => ({ ...config, edited: true }))}>Edit</button>{doc.validation.state === 'done' && !doc.validation.stale && doc.validation.result?.diff && <DiffView diff={doc.validation.result.diff} />}</>;
+  return <><DraftBar /><button onClick={() => void doc.validateNow()}>Prüfen</button><button onClick={() => doc.open(makeDraft('comparison', sampleConfig({ normalized_defaults: true })))}>Open</button><button onClick={() => doc.edit(config => ({ ...config, edited: true }))}>Edit</button>{doc.config && doc.validation.state === 'done' && !doc.validation.stale && doc.validation.result?.diff && <DiffView diff={doc.validation.result.diff} config={doc.config} />}</>;
 }
 function editor(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   render(<QueryClientProvider client={client}><MemoryRouter><WorkingDocumentProvider validateDebounceMs={5}><Editor /></WorkingDocumentProvider></MemoryRouter></QueryClientProvider>);

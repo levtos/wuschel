@@ -1,10 +1,11 @@
 import { codeLabel, fieldLabel } from '@/i18n/codes';
-import { t as uiText } from '@/i18n';
+import { hasTranslation, t as uiText } from '@/i18n';
 import { Trash2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/controls';
 import { Input, Select } from '@/components/ui/form';
 import { deref, type JsonSchema } from '@/lib/capabilities';
 import { deepEqual, isObject, join, type Json, type JsonObject } from '@/lib/json';
+import { PLATFORM_VALUES } from '@/lib/platform-values';
 import { AddButton, Fld, IconButton, NumberField, SectionTitle } from './common';
 import { ValueEditor } from './ValueEditor';
 
@@ -232,9 +233,15 @@ export function SchemaForm(props: SchemaFormProps) {
   if (Array.isArray(node.enum)) {
     const options = node.enum;
     const selected = options.findIndex((v) => deepEqual(v, value));
-    const platformField = pointer.includes('/wake_settings/') || ['kind', 'type', 'mode', 'source_type', 'source_origin', 'monitor', 'target', 'op', 'strategy', 'operation', 'comparison'].includes(pointer.split('/').pop() ?? '');
-    const labels = options.map((v) => typeof v === 'object' ? JSON.stringify(v) : typeof v === 'boolean' || platformField ? codeLabel(v) : String(v));
-    const unique = new Set(labels).size === options.length;
+    const labels = options.map((option) => {
+      if (typeof option === 'object') return JSON.stringify(option);
+      if (typeof option === 'boolean') return codeLabel(option);
+      if (typeof option === 'string') {
+        if (Object.hasOwn(PLATFORM_VALUES, option)) return PLATFORM_VALUES[option]!;
+        if (hasTranslation(`codes.${option}`)) return codeLabel(option);
+      }
+      return String(option);
+    });
     const rawIds = options.map((value) => typeof value === 'object' ? JSON.stringify(value) : String(value));
     const ids = new Set(rawIds).size === options.length ? rawIds : options.map((_, index) => String(index));
     return (
@@ -242,7 +249,10 @@ export function SchemaForm(props: SchemaFormProps) {
         {(p) => (
           <Select {...p} value={selected < 0 ? '' : ids[selected]} onChange={(e) => onChange(options[ids.indexOf(e.target.value)])}>
             {selected < 0 && <option value="" disabled>{uiText("editors.SchemaForm.wert_wahlen_c1328a")}</option>}
-            {options.map((v, i) => <option key={i} value={ids[i]}>{unique ? labels[i] : JSON.stringify(v)}</option>)}
+            {options.map((option, i) => {
+              const label = labels[i]!;
+              return <option key={i} value={ids[i]}>{labels.indexOf(label) === labels.lastIndexOf(label) ? label : uiText('editors.SchemaForm.enumLabelWithValue', { label, value: JSON.stringify(option) })}</option>;
+            })}
           </Select>
         )}
       </Fld>
