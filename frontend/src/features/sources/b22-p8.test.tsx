@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
@@ -53,5 +54,37 @@ describe('P8 address-free authoring and stable repair identities', () => {
     expect(validCalendarSettings({ ...calendarDefaults, coverageMonths: 0 })).toBe(false);
     expect(validCalendarSettings({ ...calendarDefaults, coverageMonths: 12 })).toBe(true);
     expect(validCalendarSettings({ ...calendarDefaults, coverageMonths: 25 })).toBe(false);
+  });
+
+  it('saves the optional gap limit and rejects values outside one to twelve months', async () => {
+    const user = userEvent.setup();
+    const saved: number[] = [];
+    function Editor() {
+      const [settings, setSettings] = useState(calendarDefaults);
+      return <>
+        <CalendarCoverageField value={settings.coverageMonths} maxGapMonths={settings.maxGapMonths} onChange={(coverageMonths, maxGapMonths) => setSettings({ ...settings, coverageMonths, maxGapMonths })} />
+        <button disabled={!validCalendarSettings(settings)} onClick={() => {
+          const { config } = planCalendar(empty(), 'calendar.synthetic_holidays', 'Synthetische Feiertage', settings);
+          saved.push(Number(config.sources[0]!.calendar_max_gap_months));
+        }}>Speichern</button>
+      </>;
+    }
+    render(<Editor />);
+    const label = 'Maximal erlaubte Lücke in Monaten';
+    expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Abdeckung des Feiertagskalenders prüfen'), 'on');
+    const input = screen.getByLabelText(label);
+    const save = screen.getByRole('button', { name: 'Speichern' });
+    expect(input).toHaveValue(null);
+    expect(save).toBeEnabled();
+    await user.type(input, '0');
+    expect(save).toBeDisabled();
+    await user.clear(input);
+    await user.type(input, '13');
+    expect(save).toBeDisabled();
+    await user.clear(input);
+    await user.type(input, '5');
+    await user.click(save);
+    expect(saved).toEqual([5]);
   });
 });

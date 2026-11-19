@@ -70,6 +70,15 @@ class Source(Model):
     calendar_coverage_months: int | None = Field(
         default=None, ge=1, le=24, strict=True, exclude_if=lambda value: value is None
     )
+    calendar_max_gap_months: int | None = Field(
+        default=None, ge=1, le=12, strict=True, exclude_if=lambda value: value is None
+    )
+
+    @model_validator(mode="after")
+    def calendar_coverage_declaration(self) -> Self:
+        if self.calendar_max_gap_months is not None and self.calendar_coverage_months is None:
+            raise ValueError("calendar_max_gap_requires_coverage")
+        return self
 
     @model_serializer(mode="wrap")
     def selection_document(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
@@ -555,6 +564,7 @@ def observation_fingerprints(config: RegistryConfig) -> dict[str, str]:
             "sensor_kind",
             "sensor_kind_origin",
             "calendar_coverage_months",
+            "calendar_max_gap_months",
             "display_name",
         ):
             document.pop(field, None)

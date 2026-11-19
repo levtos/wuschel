@@ -3516,6 +3516,8 @@
   "b22.calendar.coverage": "Abdeckung des Feiertagskalenders prüfen",
   "b22.calendar.coverageOff": "Aus",
   "b22.calendar.coverageOn": "Ein",
+  "b22.calendar.maxGapHelp": "Wie viele Monate dürfen zwischen zwei Feiertagen liegen? Leer lassen für 4 Monate. In NRW liegen im Sommer oft mehr als 4 Monate ohne Feiertag. Dann kannst du 5 eintragen.",
+  "b22.calendar.maxGapMonths": "Maximal erlaubte Lücke in Monaten",
   "b22.calendar.months": "Vorausschau in Monaten",
   "b22.calendar.coverageHelp": "Wenn im gewählten Zeitraum kein Termin mehr vorliegt, sind Quelle und Vertrag eingeschränkt. Für Feiertage sind 12 Monate vorgesehen.",
   "b22.fact.since": "Seit {time}",
