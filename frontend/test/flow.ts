@@ -29,6 +29,8 @@ export function flow(user: UserEvent) {
   };
 
   const saveButton = async () => {
+    const editor = screen.queryByRole('dialog', { name: 'Vertrag bearbeiten' });
+    if (editor) return within(editor).getByRole('button', { name: 'Speichern und schließen' });
     const menu = screen.getByLabelText('Weitere Entwurfsaktionen');
     if (!menu.closest('details')?.open) await user.click(menu);
     const button = await screen.findByRole('button', { name: 'Speichern' }, { timeout: 65_000 });
@@ -101,8 +103,8 @@ export function flow(user: UserEvent) {
       await waitFor(() => expect(create).toBeEnabled(), { timeout: 65_000 });
       await user.click(create);
       await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Neuer Vertrag' })).not.toBeInTheDocument(), { timeout: 65_000 });
-      await user.click(await screen.findByRole('tab', { name: 'Konfiguration' }));
-      const selects = await screen.findAllByLabelText("Verknüpfter Wert");
+      const editor = await screen.findByRole('dialog', { name: 'Vertrag bearbeiten' }, { timeout: 65_000 });
+      const selects = await within(editor).findAllByLabelText("Verknüpfter Wert");
       await waitFor(() => selects.forEach(select => expect(select).toBeEnabled()), { timeout: 65_000 });
       for (const [i, ref] of refs.entries()) await user.selectOptions(selects[i]!, ref);
     }
