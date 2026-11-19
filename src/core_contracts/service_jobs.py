@@ -64,7 +64,15 @@ def calendar_status(
             if row.get("failures")
             else None,
             **(
-                {"coverage": coverage_status(state, binding, source.calendar_coverage_months, now)}
+                {
+                    "coverage": coverage_status(
+                        state,
+                        binding,
+                        source.calendar_coverage_months,
+                        now,
+                        max_gap_months=source.calendar_max_gap_months,
+                    )
+                }
                 if now and source.calendar_coverage_months
                 else {}
             ),

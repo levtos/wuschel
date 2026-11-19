@@ -1384,7 +1384,12 @@ class Runtime:
                 from .calendar_coverage import assess as assess_coverage
 
                 value = assess_coverage(
-                    value, state, calendar_binding, source.calendar_coverage_months, now
+                    value,
+                    state,
+                    calendar_binding,
+                    source.calendar_coverage_months,
+                    now,
+                    max_gap_months=source.calendar_max_gap_months,
                 )
             if source.sensor_profile:
                 from .sensor_profile import assess_sensor

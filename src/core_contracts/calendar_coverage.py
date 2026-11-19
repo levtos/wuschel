@@ -15,6 +15,7 @@ from .model import checksum
 from .quality import FieldValue, Reason, ReasonCode, unknown
 
 PREFIX = "calendar_coverage:"
+DEFAULT_MAX_GAP_MONTHS = 4
 
 
 def add_months(value: datetime, months: int) -> datetime:
@@ -25,12 +26,13 @@ def add_months(value: datetime, months: int) -> datetime:
     )
 
 
-def identity(binding: Any, months: int) -> str:
+def identity(binding: Any, months: int, max_gap_months: int | None = None) -> str:
     return checksum(
         {
             "binding": binding.model_dump(mode="json", exclude={"display_name"}),
             "months": months,
             "check_version": 2,
+            **({"max_gap_months": max_gap_months} if max_gap_months is not None else {}),
         }
     )
 
@@ -57,7 +59,9 @@ def plan(state: Any, config: Any, now: datetime) -> None:
         )
         key = PREFIX + binding.binding_id
         active.add(key)
-        signature = identity(binding, source.calendar_coverage_months)
+        signature = identity(
+            binding, source.calendar_coverage_months, source.calendar_max_gap_months
+        )
         start, end = horizon(now, source.calendar_coverage_months)
         row = rows.get(key, {})
         if row.get("signature") != signature:
@@ -129,9 +133,10 @@ def complete(
     ):
         return
     source = next(s for s in config.sources if s.source_id == binding.source_id)
+    max_gap_months = source.calendar_max_gap_months
     if (
         not source.calendar_coverage_months
-        or identity(binding, source.calendar_coverage_months) != job["cache_key"]
+        or identity(binding, source.calendar_coverage_months, max_gap_months) != job["cache_key"]
         or horizon(now, source.calendar_coverage_months)[0].isoformat() != job["scan_day"]
     ):
         return
@@ -146,16 +151,21 @@ def complete(
         previous = (
             datetime.fromisoformat(row["scan_last_end"]) if row.get("scan_last_end") else None
         )
+        gap_limit = max_gap_months or DEFAULT_MAX_GAP_MONTHS
         for event in future:
             event_start, event_end = (
                 datetime.fromisoformat(event[key]) for key in ("start", "end")
             )
-            if previous and event_start > add_months(previous, 4) and row.get("gap") is None:
+            if (
+                previous
+                and event_start > add_months(previous, gap_limit)
+                and row.get("gap") is None
+            ):
                 row["gap"] = {"start": previous.isoformat(), "end": event_start.isoformat()}
             previous = max(previous, event_end) if previous else event_end
         row["scan_last_end"] = previous.isoformat() if previous else None
         if end >= datetime.fromisoformat(row["horizon"]):
-            if previous and end > add_months(previous, 4) and row.get("gap") is None:
+            if previous and end > add_months(previous, gap_limit) and row.get("gap") is None:
                 row["gap"] = {"start": previous.isoformat(), "end": end.isoformat()}
             row.update(
                 complete=True,
@@ -179,10 +189,13 @@ def complete(
         )
 
 
-def status(state: Any, binding: Any, months: int, now: datetime) -> dict[str, Any]:
+def status(
+    state: Any, binding: Any, months: int, now: datetime, *, max_gap_months: int | None = None
+) -> dict[str, Any]:
     row = state.tables["service_state"].get(PREFIX + binding.binding_id, {})
+    gap_limit = max_gap_months or DEFAULT_MAX_GAP_MONTHS
     valid = (
-        row.get("signature") == identity(binding, months)
+        row.get("signature") == identity(binding, months, max_gap_months)
         and row.get("complete")
         and row.get("expires_at")
         and datetime.fromisoformat(row["expires_at"]) > now
@@ -216,9 +229,11 @@ def status(state: Any, binding: Any, months: int, now: datetime) -> dict[str, An
             .strftime("%d.%m.%Y")
             for key in ("start", "end")
         ]
-        message = f"Feiertagskalender: Lücke vom {dates[0]} bis {dates[1]} (mehr als 4 Monate)."
+        limit = "ist höchstens 1 Monat" if gap_limit == 1 else f"sind höchstens {gap_limit} Monate"
+        message = f"Feiertagskalender: Lücke vom {dates[0]} bis {dates[1]} (erlaubt {limit})."
     return {
         "months": months,
+        "max_gap_months": gap_limit,
         "covered": covered,
         "complete": expired or covered,
         "last_event_end": last,
@@ -227,8 +242,16 @@ def status(state: Any, binding: Any, months: int, now: datetime) -> dict[str, An
     }
 
 
-def assess(value: FieldValue, state: Any, binding: Any, months: int, now: datetime) -> FieldValue:
-    coverage = status(state, binding, months, now)
+def assess(
+    value: FieldValue,
+    state: Any,
+    binding: Any,
+    months: int,
+    now: datetime,
+    *,
+    max_gap_months: int | None = None,
+) -> FieldValue:
+    coverage = status(state, binding, months, now, max_gap_months=max_gap_months)
     if coverage["covered"]:
         return value
     result = unknown(ReasonCode.CALENDAR_COVERAGE, binding.source_id, now)

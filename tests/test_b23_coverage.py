@@ -2,7 +2,9 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from core_contracts.calendar_coverage import add_months, status
+from core_contracts.calendar_coverage import add_months, identity, status
+from core_contracts.registry import RegistryConfig
+from core_contracts.service_jobs import calendar_status
 
 from .conftest import activate
 from .test_b22_p8 import holiday_config, regular_coverage, sweep
@@ -21,7 +23,10 @@ async def test_long_gaps_are_reported_despite_future_events(runtime, config, gap
     checked = status(runtime.state, runtime.config.bindings[0], 12, runtime.clock.now_utc())
     assert checked["complete"] and not checked["covered"]
     assert checked["gap"] is not None
-    assert "Lücke vom" in checked["message"] and "mehr als 4 Monate" in checked["message"]
+    assert (
+        "Lücke vom" in checked["message"]
+        and "erlaubt sind höchstens 4 Monate" in checked["message"]
+    )
     row = runtime.state.tables["service_state"]["calendar_coverage:binding.a"]
     assert "summary" not in str(row)  # Only date evidence survives the sweep.
 
@@ -56,3 +61,50 @@ async def test_exact_four_month_gap_is_allowed_but_one_day_more_is_not(
         status(runtime.state, runtime.config.bindings[0], 12, runtime.clock.now_utc())["covered"]
         is covered
     )
+
+
+@pytest.mark.parametrize("limit,covered", [(None, False), (4, False), (5, True), (3, False)])
+async def test_source_gap_limit_controls_coverage(runtime, config, limit, covered):
+    document = holiday_config(config)
+    if limit is not None:
+        document["sources"][0]["calendar_max_gap_months"] = limit
+    await activate(runtime, document)
+    now = runtime.clock.now_utc()
+    first = now + timedelta(days=1)
+    second = add_months(first + timedelta(hours=1), 4) + timedelta(days=6)
+    events = [
+        {"start": first.isoformat(), "end": (first + timedelta(hours=1)).isoformat()},
+        *regular_coverage(runtime, second),
+    ]
+    await sweep(runtime, events)
+    checked = calendar_status(runtime.state, runtime.config, now)[0]["coverage"]
+
+    assert checked["complete"] and checked["covered"] is covered
+    assert checked["max_gap_months"] == (limit or 4)
+    if covered:
+        assert checked["gap"] is None and checked["message"] is None
+    else:
+        assert checked["gap"] is not None
+        assert f"(erlaubt sind höchstens {limit or 4} Monate)." in checked["message"]
+
+
+def test_gap_limit_changes_coverage_identity(config):
+    binding = RegistryConfig.model_validate(holiday_config(config)).bindings[0]
+    assert len({identity(binding, 12, limit) for limit in (None, 4, 5)}) == 3
+
+
+@pytest.mark.parametrize("limit", [0, 13, "5", 5.0])
+def test_gap_limit_requires_an_integer_in_range(config, limit):
+    document = holiday_config(config)
+    document["sources"][0]["calendar_max_gap_months"] = limit
+    with pytest.raises(ValueError, match="calendar_max_gap_months"):
+        RegistryConfig.model_validate(document)
+
+
+def test_gap_limit_requires_coverage(config):
+    document = holiday_config(config)
+    source = document["sources"][0]
+    del source["calendar_coverage_months"]
+    source["calendar_max_gap_months"] = 5
+    with pytest.raises(ValueError, match="calendar_max_gap_requires_coverage"):
+        RegistryConfig.model_validate(document)

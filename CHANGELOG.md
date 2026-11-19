@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0b27 - Einstellbare Lücke im Feiertagskalender
+
+- Die maximal erlaubte Lücke lässt sich je Feiertagsquelle auf 1 bis 12 Monate einstellen. Ohne Angabe gelten 4 Monate. Die Meldung zeigt die gewählte Grenze.
+
 ## 1.0.0b26 — Wiederanlauf, Systemzustand und Selbstschutz
 
 - Bereits migrierte Entwürfe erzeugen beim Wiederanlauf keine Vollkopie des Zustands. Startphasen und Startversuche sind in der Bereitschaft und der Oberfläche sichtbar.

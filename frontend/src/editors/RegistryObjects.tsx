@@ -106,7 +106,13 @@ export function SourceEditor({ value, onChange, pointer, dependencyIds, sourceId
       <Fld label={uiText('alpha7.device.name')} pointer={join(pointer, 'display_name')}>
         {(p) => <Input {...p} value={str(value.display_name)} onChange={(e) => set({ display_name: e.target.value })} />}
       </Fld>
-      {(value.calendar_coverage_months !== undefined || asArray(freshnessConfig?.bindings).some(binding => asObject(binding).source_id === value.source_id && asObject(asObject(binding).adapter).kind === 'ha_calendar')) && <CalendarCoverageField value={value.calendar_coverage_months === undefined ? undefined : Number(value.calendar_coverage_months)} onChange={months => set({ calendar_coverage_months: months })} />}
+      {(value.calendar_coverage_months !== undefined || asArray(freshnessConfig?.bindings).some(binding => asObject(binding).source_id === value.source_id && asObject(asObject(binding).adapter).kind === 'ha_calendar')) && (
+        <CalendarCoverageField
+          value={value.calendar_coverage_months === undefined ? undefined : Number(value.calendar_coverage_months)}
+          maxGapMonths={typeof value.calendar_max_gap_months === 'number' ? value.calendar_max_gap_months : undefined}
+          onChange={(months, maxGapMonths) => set({ calendar_coverage_months: months, calendar_max_gap_months: maxGapMonths })}
+        />
+      )}
       <Collapsible title={uiText('alpha7.device.advanced')}>
       <div className="grid gap-3 sm:grid-cols-2">
         <Fld label={uiText("editors.RegistryObjects.source_id_a3a484")} pointer={join(pointer, 'source_id')} hint={uiText("editors.RegistryObjects.beginnt_mit_source_ea3ff7")}>
