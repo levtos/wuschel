@@ -9,6 +9,7 @@ from core_contracts.service_jobs import calendar_status
 from dev.build_media_templates import literal
 
 from .conftest import activate
+from .test_alpha9_calendar import fetch
 from .test_b22_p8 import holiday_config, regular_coverage, sweep
 from .test_beta_media import field
 
@@ -175,11 +176,15 @@ async def test_today_is_valid_when_tomorrow_is_in_gap_or_beyond_proof(
         events.extend(regular_coverage(runtime, add_months(now, 5)))
     await sweep(runtime, events)
 
-    checked = calendar_status(runtime.state, runtime.config, now)[0]["coverage"]
+    row = calendar_status(runtime.state, runtime.config, now)[0]
+    if row["fetched_at"] is None:
+        job = await fetch(runtime, {"calendar.example": {"events": events}})
+        assert not job.get("coverage")
+    checked = row["coverage"]
     assert checked["complete"]
     assert (checked["gap"] is not None) is internal_gap
     current, next_day = dated_results(runtime)
-    assert current["status"] == "valid" and current["value"] is True
+    assert current["status"] == "valid" and current["value"] is True, current
     assert next_day["status"] == "unknown" and next_day["value"] is None
     assert next_day["reasons"][0]["code"] == "calendar_coverage_missing"
 
@@ -193,9 +198,14 @@ async def test_expired_coverage_is_unknown_even_with_fresh_local_events(runtime,
 
     runtime.state = runtime.state.clone()
     rows = runtime.state.tables["service_state"]
-    rows["calendar_coverage:binding.a"]["expires_at"] = now.isoformat()
-    assert datetime.fromisoformat(rows["calendar:binding.a"]["expires_at"]) > now
+    expiry = now + timedelta(seconds=1)
+    rows["calendar_coverage:binding.a"]["expires_at"] = expiry.isoformat()
+    assert datetime.fromisoformat(rows["calendar:binding.a"]["expires_at"]) > expiry
+    runtime._plan_evaluation()
+    assert runtime.next_evaluation == expiry
+    runtime.clock.advance(1)
     await runtime.submit("tick")
+    assert runtime.state.tables["service_state"]["calendar_coverage:binding.a"]["complete"]
     for result in dated_results(runtime):
         assert result["status"] == "unknown" and result["value"] is None
         assert result["reasons"][0]["code"] == "calendar_coverage_missing"
