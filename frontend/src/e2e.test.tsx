@@ -222,12 +222,12 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await waitFor(() => expect(addContract).toBeEnabled());
     await user.click(addContract);
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Neuer Vertrag' })).not.toBeInTheDocument(), { timeout: 65_000 });
-    await user.click(await screen.findByRole('tab', { name: 'Konfiguration' }));
-    await f.type(screen.getByLabelText(/^(Anzeigename|Name)$/), 'Zusatzvertrag');
+    const editor = await screen.findByRole('dialog', { name: 'Vertrag bearbeiten' }, { timeout: 65_000 });
+    await f.type(within(editor).getByLabelText(/^(Anzeigename|Name)$/), 'Zusatzvertrag');
     const current = (await raw<{ draft_version: number; config: JsonObject }>(`registry/drafts/${working}`)).body;
     const other = await raw(`registry/drafts/${working}`, json('PUT', { config: { ...current.config, other_session: true }, draft_version: current.draft_version }));
     expect(other.status).toBe(200);
-    await user.click(await f.saveButton());
+    await user.click(within(editor).getByRole('button', { name: 'Speichern und schließen' }));
     await screen.findByRole('dialog', { name: /Versionskonflikt/ }, { timeout: 65_000 });
     expect(((await raw<{ config: JsonObject }>(`registry/drafts/${working}`)).body.config as JsonObject).other_session).toBe(true); // the other session's data is intact
     await user.click(screen.getByRole('button', { name: 'Änderungen zusammenführen' }));

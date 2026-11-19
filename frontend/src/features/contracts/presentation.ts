@@ -3,6 +3,7 @@ import { fieldLabel } from '@/i18n/codes';
 import { asArray, asObject, str, type FieldSchema } from '@/features/authoring/model';
 import type { TypeEntry } from '@/features/authoring/catalog';
 import { resolveRef } from '@/features/authoring/usage';
+import { contractHref, sourceHref } from '@/features/authoring/ObjectReadLinks';
 import { isObject, type JsonObject } from '@/lib/json';
 import { displayValue, FIELD_STATUS } from '@/lib/status';
 import type { Envelope, FieldValue, HaEntity, Reason, Registry } from '@/lib/types';
@@ -117,7 +118,7 @@ export function contractSources(contractId: string, config: Registry | null, ent
     if (target.kind === 'contract') {
       const parent = contracts.find(item => item.contract_id === target.id);
       return [{ id: target.id, name: contractTitle(parent, target.id), sourceIndex: -1, kind: 'contract' as const,
-        inputName, ref, role, href: `/contracts/view/${encodeURIComponent(target.id)}` }];
+        inputName, ref, role, href: contractHref(target.id) }];
     }
     if (target.kind !== 'source') return [];
     const sourceIndex = sources.findIndex(item => item.source_id === target.id); const source = sources[sourceIndex];
@@ -125,7 +126,7 @@ export function contractSources(contractId: string, config: Registry | null, ent
     const entityId = str(asObject(binding?.adapter).ha_entity_id) || undefined;
     const name = entities.find(item => item.entity_id === entityId)?.display_name || str(binding?.display_name) || str(source?.display_name) || entityId || target.id;
     return [{ id: target.id, name, entityId, sourceIndex, kind: 'source' as const, inputName, ref, role,
-      href: `/sources/devices?item=${sourceIndex}` }];
+      href: sourceHref(target.id) }];
   });
 }
 

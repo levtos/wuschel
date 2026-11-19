@@ -1,25 +1,26 @@
 import { PageLoading } from '@/components/PageLoading';
 import { t as uiText } from '@/i18n';
-import { ArrowLeft, Stethoscope, Trash2 } from 'lucide-react';
+import { Stethoscope, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import { LayoutPanel, PanelLayout } from '@/components/PanelLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs } from '@/components/ui/controls';
-import { ConfirmDialog } from '@/components/ui/dialog';
+import { ConfirmDialog, Dialog } from '@/components/ui/dialog';
 import { Empty, PageHeader, Panel, PanelHeader } from '@/components/ui/layout';
 import { ContractEditor } from '@/editors/RegistryObjects';
 import { ReadOnlyNotice } from '@/features/authoring/DraftBar';
-import { asArray, asObject, str } from '@/features/authoring/model';
+import { asArray, asObject, fieldCompatible, str } from '@/features/authoring/model';
 import { refOptions, typeCatalog, typeKey } from '@/features/authoring/catalog';
-import { consumersOfContract, resolveRef } from '@/features/authoring/usage';
+import { consumersOfContract } from '@/features/authoring/usage';
+import { contractHref, ObjectReadBack, ObjectReadLink } from '@/features/authoring/ObjectReadLinks';
 import { useAuthoringSource } from '@/features/authoring/useAuthoringSource';
 import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
 import { isObject, setAt, type JsonObject } from '@/lib/json';
 import { useLive } from '@/lib/live-context';
 import { useActiveRevision, useCapabilities } from '@/lib/queries';
-import { fieldsForContract } from './presentation';
+import { contractSources, contractTitle, fieldsForContract } from './presentation';
 import { ContractSummary } from './ContractSummary';
 import { DeviceWizard } from '@/features/sources/DeviceWizard';
 import { EditorialPanel } from '@/features/editorial/Editorial';
@@ -29,6 +30,9 @@ import { OpeningHeartbeatSettings } from './OpeningHeartbeatSettings';
 import { effectiveRule, ownRule } from '@/features/sources/freshness';
 import { ObjectActions } from '@/features/authoring/ObjectActions';
 import { WakePlanningDialog } from './WakePlanningDialog';
+import { ContractTemplateLink, InputReadLinks } from './ContractReadLinks';
+import { fieldLabel } from '@/i18n/codes';
+import { SchemaForm } from '@/editors/SchemaForm';
 
 export default function ContractDetailPage() {
   const { contractId = '' } = useParams();
@@ -38,6 +42,7 @@ export default function ContractDetailPage() {
   const active = useActiveRevision();
   const caps = useCapabilities();
   const navigate = useNavigate();
+  const location = useLocation();
   const [params, setParams] = useSearchParams();
   const [removing, setRemoving] = useState(false);
   const [deviceInput, setDeviceInput] = useState<string | null>(null);
@@ -61,7 +66,7 @@ export default function ContractDetailPage() {
       const current = await doc.ensureDraft();
       if (selectedContract.current !== contractId) return;
       if (!asArray(current.contracts).filter(isObject).some(row => row.contract_id === contractId)) { setActionError(uiText('b22.object.missing')); return; }
-      setEditing(true); setParams(previous => { const next = new URLSearchParams(previous); next.set('tab', 'config'); next.delete('edit'); return next; }, { replace: true });
+      setEditing(true); setParams(previous => { const next = new URLSearchParams(previous); next.set('tab', 'config'); next.delete('edit'); return next; }, { replace: true, state: location.state });
     } catch (failure) { setActionError(describeError(failure)); }
   };
   useEffect(() => {
@@ -84,10 +89,31 @@ export default function ContractDetailPage() {
     );
   }
   const pointer = `/contracts/${index}`;
-  const refs = refOptions(src.config, src.types, contractId);
+  const refs = editing ? refOptions(src.config, src.types, contractId) : [];
   const typeEntry = src.types.find((t) => t.key === typeKey(str(contract.type_id), Number(contract.type_version)));
   const consumers = consumersOfContract(src.config, contractId);
   const inputs = asArray(contract.inputs).filter(isObject);
+  const alternatives = !editing ? [] : src.types.filter(candidate => candidate.key === typeEntry?.key || inputs.every(input => {
+    const declared = candidate.inputs.find(slot => slot.name === input.name);
+    const schema = refs.find(ref => ref.value === input.ref)?.schema;
+    return declared && (!schema || !declared.schema || fieldCompatible(schema, declared.schema));
+  }));
+  const bound = contractSources(contractId, src.config, []);
+  const inputRows = [...new Set([...(typeEntry?.inputs.map(input => input.name) ?? []), ...inputs.map(input => str(input.name))])];
+  const readInputs = <ul className="divide-y divide-line">
+    {inputRows.length === 0 && <li className="px-4 py-3 text-sm text-muted">{uiText('features.contracts.ContractDetailPage.keine_eingange_gebunden_b03857')}</li>}
+    {inputRows.map(name => {
+      const declaration = typeEntry?.inputs.find(input => input.name === name);
+      const input = bound.find(item => item.inputName === name);
+      return <li key={name} className="space-y-1 px-4 py-3 text-sm">
+        <div className="flex flex-wrap items-center gap-x-2">
+          <span className="font-medium">{fieldLabel(name)}</span>
+          {declaration && <Badge tone={declaration.required ? 'accent' : 'neutral'}>{uiText(declaration.required ? 'editors.RegistryObjects.pflicht_6a047f' : 'editors.RegistryObjects.optional_ec91fd')}</Badge>}
+        </div>
+        {input ? <><p className="text-muted">{input.name}</p><InputReadLinks input={input} config={src.config} /></> : <p className="text-muted">{uiText('editors.RegistryObjects.nicht_gebunden_4105e9')}</p>}
+      </li>;
+    })}
+  </ul>;
   const refreshBindings = asArray(src.config?.bindings).filter(isObject);
   const refreshSources = asArray(src.config?.sources).filter(isObject).map(source => {
     const bindingIndex = refreshBindings.findIndex(binding => binding.source_id === source.source_id);
@@ -102,18 +128,17 @@ export default function ContractDetailPage() {
 
   return (
     <>
-      <BackLink />
+      <ObjectReadBack fallback={{ to: '/contracts/list/all', label: uiText('features.contracts.ContractDetailPage.alle_contracts_67b49f') }} />
       <PageHeader
         title={<span className="block truncate" title={contractId}>{str(contract.display_name) || contractId}</span>}
         description={uiText('alpha9.pages.contract')}
         actions={
           <>
-            <ObjectActions key={contractId} collection="contracts" idKey="contract_id" value={contract} editing={editing && src.editable} onEdit={beginEdit} onSaved={() => setEditing(false)} toggle primary />
+            {!editing && <ObjectActions key={contractId} collection="contracts" idKey="contract_id" value={contract} editing={false} onEdit={beginEdit} primary />}
             {asObject(typeEntry?.parameterSchema?.properties).wake_settings && <Button disabled={doc.starting || doc.saving} onClick={async () => { setActionError(''); try { const current = await doc.ensureDraft(); if (selectedContract.current !== contractId) return; if (!asArray(current.contracts).filter(isObject).some(row => row.contract_id === contractId)) throw new Error(uiText('b22.object.missing')); setWakeOpen(true); } catch (error) { setActionError(describeError(error)); } }}>{uiText('b22.wake.edit')}</Button>}
             {draftOnly ? <Badge tone="info">{uiText('alpha7.contract.state.draft')}</Badge> : <Badge>{enabled ? uiText("features.contracts.ContractDetailPage.aktiviert_acb27b") : uiText("features.contracts.ContractDetailPage.deaktiviert_10f33e")}</Badge>}
             <ContractExport contractId={contractId} source={src.source === 'draft' ? 'draft' : 'active'} />
             <Button size="sm" onClick={() => navigate(`/settings/diagnostics?contract=${encodeURIComponent(contractId)}`)}><Stethoscope size={14} /> {uiText("features.contracts.ContractDetailPage.diagnose_64dd65")}</Button>
-            {src.editable && editing && <Button size="sm" variant="danger" onClick={() => setRemoving(true)}><Trash2 size={14} /> {uiText("features.contracts.ContractDetailPage.entfernen_382837")}</Button>}
           </>
         }
       />
@@ -123,7 +148,12 @@ export default function ContractDetailPage() {
       <EditorialPanel object={{ kind: 'contract', id: contractId }} />
       <Tabs
         value={params.get('tab') ?? 'state'}
-        onValueChange={(tab) => setParams({ tab }, { replace: true })}
+        onValueChange={(tab) => setParams(previous => {
+          const next = new URLSearchParams(previous);
+          next.set('tab', tab);
+          next.delete('focus');
+          return next;
+        }, { replace: true, state: location.state })}
         items={[
           {
             value: 'state',
@@ -131,7 +161,7 @@ export default function ContractDetailPage() {
             content: draftOnly ? <Empty title={uiText('alpha7.contract.state.draft')}>{uiText('alpha7.contract.draftHelp')}</Empty> : !enabled ? (
               <Empty title={uiText("features.contracts.ContractDetailPage.contract_deaktiviert_f0d824")}>{uiText("features.contracts.ContractDetailPage.deaktivierte_contracts_liefern_keinen_zustand_de_a31528")}</Empty>
             ) : envelope ? (
-              <ContractSummary envelope={envelope} stale={live.stale || live.registryRevision !== active.data?.revision} fields={displayFields} config={active.data?.config ?? null} machine={activeType?.machine ?? false} />
+              <ContractSummary envelope={envelope} stale={live.stale || live.registryRevision !== active.data?.revision} fields={displayFields} config={active.data?.config ?? null} machine={activeType?.machine ?? false} contracts={live.contracts} />
             ) : (
               <Empty title={uiText("features.contracts.ContractDetailPage.kein_live_zustand_85efdc")}>
                 {live.contracts === null ? uiText("features.contracts.ContractDetailPage.es_wurde_noch_kein_snapshot_empfangen_e56b2e") : uiText("features.contracts.ContractDetailPage.der_aktive_stand_enthalt_diesen_contract_nicht_e_15aef3")}
@@ -142,12 +172,11 @@ export default function ContractDetailPage() {
             value: 'config',
             label: uiText("features.contracts.ContractDetailPage.konfiguration_8df29d"),
             content: (
-              <Panel className="max-w-4xl p-5">
-                <fieldset disabled={!src.editable || !editing} className="min-w-0">
-                  <ContractEditor value={contract} pointer={pointer} types={src.types} refs={refs} refreshSources={refreshSources} onChange={(next) => doc.edit((c) => ({ ...setAt(c, pointer, next), ...(next.refresh_plan !== undefined ? { config_schema_version: Math.max(2, Number(c.config_schema_version ?? 1)) } : {}) }))} onAddDevice={setDeviceInput} />
-                  <OpeningHeartbeatSettings config={src.config ?? {}} contract={contract} onChange={(sourceIndex, interval) => doc.edit(c => { const source = asObject(asArray(c.sources)[sourceIndex]); return setAt(c, `/sources/${sourceIndex}`, ownRule(source, { ...effectiveRule(c, source), interval_s: interval })); })} />
-                </fieldset>
-              </Panel>
+              <div className="max-w-4xl space-y-4">
+                <Panel><PanelHeader title={uiText('a2.read.template')} aside={<ContractTemplateLink contract={contract} config={src.config} showVersion />} /></Panel>
+                <Panel><PanelHeader title={uiText('features.contracts.ContractDetailPage.eingange_53fb39')} />{readInputs}</Panel>
+                {!editing && typeEntry?.parameterSchema && <Panel className="p-4"><h3 className="mb-3 font-medium">{uiText('alpha8.parameters.title')}</h3><fieldset disabled><SchemaForm root={typeEntry.parameterSchema} node={typeEntry.parameterSchema} value={asObject(contract.parameters)} pointer={`${pointer}/parameters`} onChange={() => undefined} /></fieldset></Panel>}
+              </div>
             ),
           },
           {
@@ -157,38 +186,21 @@ export default function ContractDetailPage() {
               <PanelLayout view="contract.dependencies"><LayoutPanel id="inputs" title={uiText("features.contracts.ContractDetailPage.eingange_53fb39")} span={2}>
                 <Panel>
                   <PanelHeader title={uiText("features.contracts.ContractDetailPage.eingange_hangt_ab_von_24b089")} />
-                  <ul className="divide-y divide-line">
-                    {inputs.length === 0 && <li className="px-4 py-3 text-sm text-muted">{uiText("features.contracts.ContractDetailPage.keine_eingange_gebunden_b03857")}</li>}
-                    {inputs.map((input, i) => {
-                      const target = resolveRef(str(input.ref), src.config);
-                      return (
-                        <li key={i} className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-sm">
-                          <code className="text-muted">{str(input.name)}</code>
-                          <span>→</span>
-                          {target?.kind === 'contract' ? <Link className="font-mono text-xs text-fg hover:underline" to={`/contracts/view/${encodeURIComponent(target.id)}`}>{str(input.ref)}</Link> : <code className="text-xs">{str(input.ref)}</code>}
-                          <Badge tone={target?.kind === 'source' ? 'info' : target ? 'accent' : 'bad'}>{target?.kind === 'source' ? uiText("features.contracts.ContractDetailPage.quelle_037889") : target ? uiText("features.contracts.ContractDetailPage.contract_a6f5b0") : uiText("features.contracts.ContractDetailPage.unbekannt_a418e6")}</Badge>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  {readInputs}
                 </Panel>
                 </LayoutPanel><LayoutPanel id="consumers" title={uiText("features.contracts.ContractDetailPage.verwendet_von_656221")} span={1}><Panel>
                   <PanelHeader title={uiText("features.contracts.ContractDetailPage.verwendet_von_656221")} description={uiText("features.contracts.ContractDetailPage.contracts_die_diesen_contract_als_eingang_nutzen_763bf2")} />
                   <ul className="divide-y divide-line">
                     {consumers.length === 0 && <li className="px-4 py-3 text-sm text-muted">{uiText("features.contracts.ContractDetailPage.kein_anderer_contract_nutzt_ihn_4582b8")}</li>}
                     {consumers.map((id) => (
-                      <li key={id} className="px-4 py-2.5 text-sm"><Link className="font-mono text-xs text-fg hover:underline" to={`/contracts/view/${encodeURIComponent(id)}`}>{id}</Link></li>
+                      <li key={id} className="px-4 py-2.5 text-sm"><ObjectReadLink to={contractHref(id)}>{contractTitle(list.find(row => row.contract_id === id), id)}</ObjectReadLink></li>
                     ))}
                   </ul>
                 </Panel>
                 </LayoutPanel><LayoutPanel id="type" title={uiText("features.contracts.ContractDetailPage.typ_1b0241")}><Panel>
-                  <PanelHeader title={uiText("features.contracts.ContractDetailPage.typ_1b0241")} />
+                  <PanelHeader title={uiText('a2.read.template')} />
                   <div className="p-4 text-sm">
-                    {typeEntry?.declarative ? (
-                      <>{uiText("features.contracts.ContractDetailPage.deklarative_definition_b0121f")}<Link className="font-mono text-fg hover:underline" to={`/templates/details/${encodeURIComponent(typeEntry.type_id)}/${typeEntry.type_version}`}>{typeEntry.key}</Link></>
-                    ) : (
-                      <>{uiText("features.contracts.ContractDetailPage.paket_typ_44867a")}<code>{str(contract.type_id)}@{String(contract.type_version)}</code> {uiText("features.contracts.ContractDetailPage.fest_im_code_nicht_uber_die_workbench_anderbar_ee4ae9")}</>
-                    )}
+                    <ContractTemplateLink contract={contract} config={src.config} showVersion />
                   </div>
                 </Panel>
                 </LayoutPanel></PanelLayout>
@@ -196,6 +208,13 @@ export default function ContractDetailPage() {
           },
         ]}
       />
+      <Dialog open={editing && src.editable} onOpenChange={setEditing} size="xl" title={uiText('a2.read.editContract')} footer={<>
+        <Button size="sm" variant="danger" onClick={() => setRemoving(true)}><Trash2 size={14} /> {uiText('features.contracts.ContractDetailPage.entfernen_382837')}</Button>
+        <ObjectActions key={contractId} collection="contracts" idKey="contract_id" value={contract} editing onEdit={beginEdit} onSaved={() => setEditing(false)} toggle primary />
+      </>}>
+        <ContractEditor value={contract} pointer={pointer} types={alternatives} refs={refs} refreshSources={refreshSources} onChange={(next) => doc.edit((c) => ({ ...setAt(c, pointer, next), ...(next.refresh_plan !== undefined ? { config_schema_version: Math.max(2, Number(c.config_schema_version ?? 1)) } : {}) }))} onAddDevice={setDeviceInput} />
+        <OpeningHeartbeatSettings config={src.config ?? {}} contract={contract} onChange={(sourceIndex, interval) => doc.edit(c => { const source = asObject(asArray(c.sources)[sourceIndex]); return setAt(c, `/sources/${sourceIndex}`, ownRule(source, { ...effectiveRule(c, source), interval_s: interval })); })} />
+      </Dialog>
       <DeviceWizard open={deviceInput !== null} onOpenChange={open => !open && setDeviceInput(null)} contract={deviceInput ? { id: contractId, input: deviceInput } : undefined} expectedSchema={typeEntry?.inputs.find(input => input.name === deviceInput)?.schema} />
       <ConfirmDialog
         open={removing}
@@ -211,13 +230,6 @@ export default function ContractDetailPage() {
         }}
       />
     </>
-  );
-}
-
-function BackLink() {
-  return (
-    <Link to="/contracts/list/all" className="mb-3 inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
-      <ArrowLeft size={13} /> {uiText("features.contracts.ContractDetailPage.alle_contracts_67b49f")}</Link>
   );
 }
 

@@ -29,6 +29,7 @@ import { codeLabel } from '@/i18n/codes';
 import { useSourceSelection } from './useSourceSelection';
 import { SourceMigrationDialog } from './SourceMigrationDialog';
 import { ObjectActions } from '@/features/authoring/ObjectActions';
+import { bindingHref, ObjectReadBack, ObjectReadLink, sourceHref } from '@/features/authoring/ObjectReadLinks';
 import { useRouteFilters } from '@/lib/route-filters';
 import { useHaCatalog } from './useHaCatalog';
 
@@ -108,6 +109,8 @@ function Collection({ name, idKey, singular, make, render, subtitle, usage, onMo
   const current = selected !== null ? list[selected] : undefined;
   const activeSource = name === 'sources' ? asArray(active.data?.config?.sources).filter(isObject).find(source => source.source_id === current?.source_id) : undefined;
   const activeBindings = asArray(active.data?.config?.bindings).filter(isObject);
+  const activeCalendar = activeSource && activeBindings.some(binding => binding.source_id === activeSource.source_id && asObject(binding.adapter).kind === 'ha_calendar');
+  const sourceBindings = name === 'sources' && current ? asArray(config.bindings).filter(isObject).filter(binding => binding.source_id === current.source_id) : [];
   useEffect(() => {
     if (filterParams.get('edit') !== '1' || !current || !src.editable) return;
     if (filterParams.has('item') && selected !== Number(filterParams.get('item'))) return;
@@ -153,7 +156,9 @@ function Collection({ name, idKey, singular, make, render, subtitle, usage, onMo
               )}
             </div>
             <div className="text-xs text-muted">{usage(current, config)}</div>
-            {activeSource && !editable && activeBindings.some(binding => binding.source_id === activeSource.source_id && asObject(binding.adapter).kind === 'ha_calendar') && <CalendarSourceStatus sourceId={str(activeSource.source_id)} />}
+            {activeSource && activeCalendar && !editable && <CalendarSourceStatus sourceId={str(activeSource.source_id)} config={active.data?.config} focus={filterParams.get('panel') === 'calendar'} onEdit={() => void beginEdit()} />}
+            {!activeCalendar && sourceBindings.length > 0 && <ul className="space-y-1">{sourceBindings.map(binding => <li key={str(binding.binding_id)}><ObjectReadLink to={bindingHref(str(binding.binding_id))}>{str(binding.display_name) || uiText('a2.read.viewBinding')}</ObjectReadLink></li>)}</ul>}
+            {name === 'bindings' && !!str(current.source_id) && <ObjectReadLink to={sourceHref(str(current.source_id))}>{uiText('a2.read.viewSource')}</ObjectReadLink>}
             {activeSource?.origin === 'manual' && !editable ? <>
               <ManualSourcePanel key={str(current.source_id)} sourceId={str(current.source_id)} />
               <Collapsible title={uiText('alpha9.manual.configuration')}><fieldset disabled={!editable} className="min-w-0">
@@ -240,6 +245,7 @@ export default function SourcesPage() {
       <CalendarSourceDialog open={addingCalendar} onOpenChange={setAddingCalendar} onAdded={index => setParams({ tab: 'sources', item: String(index), edit: '1' }, { replace: true })} />
       {changingEntity && <SourceMigrationDialog {...changingEntity} entityOnly onClose={() => setChangingEntity(null)} />}
       {movingSource && <SourceMigrationDialog key={movingSource} sourceId={movingSource} onClose={() => setMovingSource(null)} />}
+      <ObjectReadBack />
       {location.pathname === '/sources/devices' && <ReadOnlyNotice what={uiText("features.sources.SourcesPage.sources_bindings_613cff")} />}
       <SourceSection
         items={[

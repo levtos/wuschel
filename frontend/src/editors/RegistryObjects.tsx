@@ -548,7 +548,7 @@ export function ContractEditor({ value, onChange, pointer, types, refs, onAddDev
             >
               {!entry && <option value={key}>{key}</option>}
               {types.filter(t => t.lifecycle !== 'retired' || t.key === key).map((t) => (
-                <option key={t.key} value={t.key}>{t.type_id} {uiText("editors.RegistryObjects.v_0bb917")}{t.type_version}{t.origin === 'draft-definition' ? uiText("editors.RegistryObjects.draft_definition_fd7330") : t.declarative ? uiText("editors.RegistryObjects.definition_96ce96") : uiText("editors.RegistryObjects.paket_92cb87")}</option>
+                <option key={t.key} value={t.key}>{uiText('a2.read.templateChoice', { name: t.type_id, version: t.type_version, origin: uiText(t.declarative ? 'a2.read.ownTemplate' : 'a2.read.packageTemplate') })}</option>
               ))}
             </Select>
           )}
@@ -577,9 +577,11 @@ export function ContractEditor({ value, onChange, pointer, types, refs, onAddDev
           return (
             <div key={input.name} className="grid items-start gap-2 sm:grid-cols-[12rem_1fr]">
               <div className="pt-6 text-sm">
-                <code>{input.name}</code>{' '}
-                <Badge tone={input.required ? 'accent' : 'neutral'}>{input.required ? uiText("editors.RegistryObjects.pflicht_6a047f") : uiText("editors.RegistryObjects.optional_ec91fd")}</Badge>
-                {input.schema && <Badge className="ml-1">{codeLabel(input.schema.type)}{input.schema.unit ? uiText("editors.RegistryObjects.v0_8b43bb", { v0: (String(input.schema.unit)) }) : ''}</Badge>}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span>{fieldLabel(input.name)}</span>
+                  <Badge tone={input.required ? 'accent' : 'neutral'}>{input.required ? uiText("editors.RegistryObjects.pflicht_6a047f") : uiText("editors.RegistryObjects.optional_ec91fd")}</Badge>
+                  {input.schema && <Badge>{codeLabel(input.schema.type)}{input.schema.unit ? uiText("editors.RegistryObjects.v0_8b43bb", { v0: (String(input.schema.unit)) }) : ''}</Badge>}
+                </div>
               </div>
               <div className="space-y-2"><Fld label={uiText("editors.RegistryObjects.referenz_e13113")} pointer={join(ip, 'ref')}>
                 {(p) => (
