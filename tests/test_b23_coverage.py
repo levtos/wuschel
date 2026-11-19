@@ -3,11 +3,14 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from core_contracts.calendar_coverage import add_months, identity, status
+from core_contracts.clock import berlin_zone
 from core_contracts.registry import RegistryConfig
 from core_contracts.service_jobs import calendar_status
+from dev.build_media_templates import literal
 
 from .conftest import activate
 from .test_b22_p8 import holiday_config, regular_coverage, sweep
+from .test_beta_media import field
 
 
 @pytest.mark.parametrize("gap", ["internal", "tail"])
@@ -108,3 +111,91 @@ def test_gap_limit_requires_coverage(config):
     source["calendar_max_gap_months"] = 5
     with pytest.raises(ValueError, match="calendar_max_gap_requires_coverage"):
         RegistryConfig.model_validate(document)
+
+
+def dated_holiday_config(config, today):
+    document = holiday_config(config)
+    contract, template = document["contracts"][0], document["definitions"][0]
+    document["contracts"] = []
+    document["definitions"] = []
+    for offset in (0, 1):
+        type_id = f"fixture.holiday_{offset}"
+        on_date = {
+            "op": "calendar_at",
+            "at": literal(today.isoformat()),
+            "field": "date",
+            "offset_days": offset,
+        }
+        rule = {**template["outputs"]["value"], "on_date": on_date}
+        document["definitions"].append({**template, "type_id": type_id, "outputs": {"value": rule}})
+        document["contracts"].append(
+            {**contract, "type_id": type_id, "contract_id": f"fixture.day_{offset}"}
+        )
+    return document
+
+
+def dated_results(runtime):
+    return [field(runtime, contract=f"fixture.day_{offset}") for offset in (0, 1)]
+
+
+async def test_far_gap_warns_without_rejecting_today_or_tomorrow_after_restore(runtime, config):
+    now = runtime.clock.now_utc()
+    today = now.astimezone(berlin_zone()).date()
+    await activate(runtime, dated_holiday_config(config, today))
+    assert all(result["status"] == "unknown" for result in dated_results(runtime))
+    events = [
+        {"start": start.isoformat(), "end": (start + timedelta(hours=1)).isoformat()}
+        for start in (add_months(now, months) for months in (1, 3, 6, 11))
+    ]
+    await sweep(runtime, events)
+    checked = calendar_status(runtime.state, runtime.config, now)[0]["coverage"]
+    assert checked["complete"] and not checked["covered"]
+    assert datetime.fromisoformat(checked["gap"]["start"]) == add_months(now, 6) + timedelta(
+        hours=1
+    )
+    assert [result["value"] for result in dated_results(runtime)] == [False, False]
+    await runtime._restore("process_restart")
+    assert [result["status"] for result in dated_results(runtime)] == ["valid", "valid"]
+    assert [result["value"] for result in dated_results(runtime)] == [False, False]
+
+
+@pytest.mark.parametrize("internal_gap", [True, False])
+async def test_today_is_valid_when_tomorrow_is_in_gap_or_beyond_proof(
+    runtime, config, internal_gap
+):
+    now = runtime.clock.now_utc()
+    today = now.astimezone(berlin_zone()).date()
+    tomorrow = today + timedelta(days=1)
+    document = dated_holiday_config(config, today)
+    if not internal_gap:
+        document["sources"][0]["calendar_coverage_months"] = 1
+    await activate(runtime, document)
+    events = [{"start": today.isoformat(), "end": tomorrow.isoformat()}]
+    if internal_gap:
+        events.extend(regular_coverage(runtime, add_months(now, 5)))
+    await sweep(runtime, events)
+
+    checked = calendar_status(runtime.state, runtime.config, now)[0]["coverage"]
+    assert checked["complete"]
+    assert (checked["gap"] is not None) is internal_gap
+    current, next_day = dated_results(runtime)
+    assert current["status"] == "valid" and current["value"] is True
+    assert next_day["status"] == "unknown" and next_day["value"] is None
+    assert next_day["reasons"][0]["code"] == "calendar_coverage_missing"
+
+
+async def test_expired_coverage_is_unknown_even_with_fresh_local_events(runtime, config):
+    now = runtime.clock.now_utc()
+    today = now.astimezone(berlin_zone()).date()
+    await activate(runtime, dated_holiday_config(config, today))
+    await sweep(runtime, regular_coverage(runtime, now + timedelta(days=1)))
+    assert [result["status"] for result in dated_results(runtime)] == ["valid", "valid"]
+
+    runtime.state = runtime.state.clone()
+    rows = runtime.state.tables["service_state"]
+    rows["calendar_coverage:binding.a"]["expires_at"] = now.isoformat()
+    assert datetime.fromisoformat(rows["calendar:binding.a"]["expires_at"]) > now
+    await runtime.submit("tick")
+    for result in dated_results(runtime):
+        assert result["status"] == "unknown" and result["value"] is None
+        assert result["reasons"][0]["code"] == "calendar_coverage_missing"

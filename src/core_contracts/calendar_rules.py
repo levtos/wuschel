@@ -7,6 +7,7 @@ from fractions import Fraction
 from typing import Any
 
 from . import declarative_models as dm
+from .calendar_coverage import missing_coverage
 from .clock import berlin_utc
 from .model import canonical, utc
 from .quality import FieldValue, ReasonCode, derive, unknown
@@ -98,6 +99,18 @@ def calendar_active(
             day = date.fromisoformat(args[2].value)
             day_start = berlin_utc(datetime.combine(day, time()))
             day_end = berlin_utc(datetime.combine(day + timedelta(days=1), time()))
+        valid_until = min(end, expires)
+        coverage = args[0].calendar_coverage
+        if coverage:
+            if (day_start or now) >= coverage.before or now >= coverage.expires_at:
+                return missing_coverage(
+                    coverage.source_id,
+                    now,
+                    "Die Kalenderprüfung belegt den abgefragten Zeitpunkt nicht.",
+                )
+            valid_until = min(valid_until, coverage.expires_at)
+            if day_start is None:
+                valid_until = min(valid_until, coverage.before)
         intervals = []
         evidence = []
         for event in events:
@@ -125,6 +138,7 @@ def calendar_active(
         for deadline in (
             end,
             expires,
+            valid_until,
             *(a.valid_until for a in args),
             *(a.held_until for a in args),
         ):
@@ -142,7 +156,7 @@ def calendar_active(
             return result.model_copy(
                 update={
                     "evidence": tuple(dict.fromkeys((*result.evidence, *evidence))),
-                    "valid_until": min(end, expires, result.valid_until or expires),
+                    "valid_until": min(valid_until, result.valid_until or valid_until),
                 }
             )
         union: list[tuple[datetime, datetime]] = []
@@ -159,7 +173,7 @@ def calendar_active(
         return result.model_copy(
             update={
                 "evidence": tuple(dict.fromkeys((*result.evidence, *evidence))),
-                "valid_until": min(end, expires, result.valid_until or expires),
+                "valid_until": min(valid_until, result.valid_until or valid_until),
             }
         )
     except ValueError, TypeError, KeyError, OverflowError:
