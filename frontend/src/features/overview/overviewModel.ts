@@ -4,6 +4,7 @@ import { isObject, type JsonObject } from '@/lib/json';
 import type { BrowserConnectionEvent } from '@/lib/live';
 import type { Envelope, HistoryItem, Reason, Registry } from '@/lib/types';
 import { contractState, contractTitle } from '@/features/contracts/presentation';
+import { sourceHref } from '@/features/authoring/ObjectReadLinks';
 
 export function contractCounts(config: Registry | null | undefined, envelopes: Record<string, Envelope> | null) {
   const contracts = asArray(config?.contracts).filter(isObject);
@@ -23,9 +24,14 @@ export function contractName(config: Registry | null | undefined, id: string): s
 
 export function problemAdvice(reasons: Reason[], config: Registry | null | undefined, contractId: string) {
   const codes = new Set(reasons.map(reason => reason.code));
-  const source = reasons.find(reason => reason.source_id)?.source_id;
-  const index = asArray(config?.sources).filter(isObject).findIndex(item => item.source_id === source);
-  const sourceLink = index >= 0 ? `/sources/devices?tab=sources&item=${index}` : '/sources/devices';
+  const ids = new Set(asArray(config?.sources).filter(isObject).map(item => str(item.source_id)));
+  const source = reasons.flatMap(reason => [reason.source_id, reason.input]).find(id => id && ids.has(id));
+  const sourceLink = source ? sourceHref(source) : '/sources/devices';
+  const calendar = reasons.find(reason => reason.code === 'calendar_coverage_missing');
+  if (calendar) {
+    const calendarSource = [calendar.source_id, calendar.input].find(id => id && ids.has(id));
+    return { text: calendar.detail || t('codes.calendar_coverage_missing'), advice: t('a2.calendar.advice'), to: calendarSource ? sourceHref(calendarSource) : sourceLink, action: t('a2.read.openCalendar') };
+  }
   if (codes.has('evaluation_error') || codes.has('invalid_value')) return { text: t('alpha7.problem.invalid'), advice: t('alpha7.problem.invalidHelp'), to: `/contracts/view/${encodeURIComponent(contractId)}?tab=config`, action: t('alpha7.problem.inputs') };
   if (codes.has('manual_restart')) return { text: t('alpha7.restart.marker'), advice: t('alpha7.restart.markerHelp'), to: `/contracts/view/${encodeURIComponent(contractId)}`, action: t('alpha7.problem.contract') };
   if ([...codes].some(code => code.startsWith('restore_context_')) || codes.has('state_unknown')) return { text: t('alpha7.problem.machine'), advice: t('alpha7.problem.machineHelp'), to: `/contracts/view/${encodeURIComponent(contractId)}`, action: t('alpha7.problem.contract') };

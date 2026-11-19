@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { PageHeader, Panel, PanelHeader, Spinner } from '@/components/ui/layout';
 import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
 import { asArray, str } from '@/features/authoring/model';
+import { ObjectReadLink } from '@/features/authoring/ObjectReadLinks';
 import { CalendarCoverageWarnings } from '@/features/sources/CalendarSourceStatus';
 import { isObject } from '@/lib/json';
 import { useLive } from '@/lib/live-context';
@@ -65,7 +66,7 @@ export function OverviewPage() {
               return <li key={id} className="py-4 first:pt-0">
                 <Link to={`/contracts/view/${encodeURIComponent(id)}`} onClick={() => doc.setEditing(false)} className="font-medium hover:text-fg">{contractName(config, id)}</Link>
                 <p className="mt-1 text-sm text-muted">{advice.text}</p>
-                <details className="mt-2 text-sm"><summary className="cursor-pointer text-fg">{t('alpha7.overview.whatCanIDo')}</summary><div className="mt-2 space-y-2 border-l border-line pl-3"><p>{advice.advice}</p><Link to={advice.to} className="inline-block text-fg underline underline-offset-4">{advice.action}</Link></div></details>
+                <details className="mt-2 text-sm"><summary className="cursor-pointer text-fg">{t('alpha7.overview.whatCanIDo')}</summary><div className="mt-2 space-y-2 border-l border-line pl-3"><p>{advice.advice}</p><ObjectReadLink to={advice.to} className="inline-block text-fg underline underline-offset-4">{advice.action}</ObjectReadLink></div></details>
               </li>;
             })}
           </ul>}

@@ -6,13 +6,24 @@ import type { Envelope, FieldValue, Registry } from '@/lib/types';
 import { orderedFields } from './outputPresentation';
 import { contractFieldLabel, contractFieldValue, contractTypeId } from './presentation';
 import { notApplicableValue } from './inputPresentation';
+import { InlineHelp } from '@/components/ui/inline-help';
+import { FIELD_STATUS, QUALITY } from '@/lib/status';
+import { isObject } from '@/lib/json';
 
 export function CurrentValues({ envelope, fields, config, inputs = {}, names = {}, attribution }: { envelope: Envelope; fields: Record<string, FieldSchema>; config: Registry | null; inputs?: Record<string, FieldValue>; names?: Record<string, string>; attribution: boolean }) {
   const type = contractTypeId(envelope); const rows = orderedFields(fields, envelope.fields);
   const common = rows[0]?.field.attribution?.kind ?? 'unknown';
   const attributionText = (field?: FieldValue) => t(field?.attribution?.kind === 'known_user' ? 'b22.output.byHand' : field?.attribution?.kind === 'known_automatic' ? 'alpha9.context.automatic' : 'alpha9.context.unknown');
-  const value = (name: string, field: FieldValue, schema?: FieldSchema) => field.status === 'not_applicable' ? notApplicableValue(envelope, name, config, inputs, schema, names) : contractFieldValue(type, name, field, schema);
+  const present = (field: FieldValue) => field.status === 'valid' || field.status === 'held';
+  const empty = (field: FieldValue) => present(field) && (field.value === '' || (Array.isArray(field.value) && field.value.length === 0) || (isObject(field.value) && Object.keys(field.value).length === 0));
+  const value = (name: string, field: FieldValue, schema?: FieldSchema) => field.status === 'not_applicable' ? notApplicableValue(envelope, name, config, inputs, schema, names) : empty(field) ? t('a2.read.empty') : contractFieldValue(type, name, field, schema);
   const extra = (field: FieldValue, schema?: FieldSchema) => <>
+    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+      <span className="inline-flex items-center gap-1">{t('a2.read.fieldStatus', { status: (FIELD_STATUS[field.status] ?? FIELD_STATUS.unknown).label })}<InlineHelp text={(FIELD_STATUS[field.status] ?? FIELD_STATUS.unknown).hint} /></span>
+      <span>{t('a2.read.quality', { quality: (QUALITY[field.quality] ?? QUALITY.degraded).label })}</span>
+      <span>{t(field.status === 'not_applicable' ? 'a2.read.notApplicable' : present(field) ? 'a2.read.applicable' : 'a2.read.applicabilityUnknown')}</span>
+      {empty(field) && <InlineHelp text={t('a2.read.emptyHelp')} />}
+    </div>
     {str(asObject(asObject(schema?.legend)[String(field.value)]).description) && <p className="mt-1 text-sm text-muted">{str(asObject(asObject(schema?.legend)[String(field.value)]).description)}</p>}
     {field.attribution?.kind !== common && field.attribution && <p className="text-xs text-muted">{attributionText(field)}</p>}
     {field.value_origin && <p className="text-xs text-muted">{t('alpha9.valueOrigin.label')}: {t(`alpha9.valueOrigin.${field.value_origin.kind}`)}</p>}

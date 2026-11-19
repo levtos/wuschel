@@ -7,6 +7,7 @@ import { ContractLiveState } from '@/components/ContractLiveState';
 import { CommandsPanel } from '@/features/diagnostics/CommandsPanel';
 import { useHaCatalog } from '@/features/sources/useHaCatalog';
 import { asArray, asObject, str, type FieldSchema } from '@/features/authoring/model';
+import { contractHref, ObjectReadLink } from '@/features/authoring/ObjectReadLinks';
 import { isObject, type JsonObject } from '@/lib/json';
 import { formatDuration, formatTime } from '@/lib/format';
 import { api } from '@/lib/api';
@@ -35,7 +36,7 @@ import { InputOrigins } from './InputOrigins';
 import { contractDefinition } from './inputPresentation';
 import { consumersOfContract } from '@/features/authoring/usage';
 
-export function ContractSummary({ envelope, stale, fields, config, machine }: { envelope: Envelope; stale: boolean; fields: Record<string, FieldSchema>; config: Registry | null; machine: boolean }) {
+export function ContractSummary({ envelope, stale, fields, config, machine, contracts }: { envelope: Envelope; stale: boolean; fields: Record<string, FieldSchema>; config: Registry | null; machine: boolean; contracts?: Record<string, Envelope> | null }) {
   const [advanced, setAdvanced] = useState(false);
   const ha = useHaCatalog(asArray(config?.bindings).filter(isObject).some(binding => isObject(binding.adapter) && String(binding.adapter.kind).startsWith('ha_')));
   const sources = contractSources(envelope.contract_id, config, ha.entities);
@@ -55,17 +56,38 @@ export function ContractSummary({ envelope, stale, fields, config, machine }: { 
   const evidence = useQuery({ queryKey: ['evidence', 'source', affected?.id, envelope.registry_revision], queryFn: () => api<JsonObject[]>(`evidence/${encodeURIComponent(affected!.id)}`), enabled: !!affected, refetchInterval: POLL_MS, retry: false });
   const measured = (evidence.isPlaceholderData ? [] : evidence.data ?? []).map(observationTime).filter((at): at is string => !!at).sort().at(-1);
   const age = measured && Date.parse(measured) <= Date.now() ? formatDuration((Date.now() - Date.parse(measured)) / 1000) : null;
-  const why = stale ? t('alpha7.contract.state.oldConnectionHelp') : reasons.length ? problemAdvice(reasons, config, envelope.contract_id).text : contractState(envelope, true).hint;
+  const advice = !stale && reasons.length > 0 ? problemAdvice(reasons, config, envelope.contract_id) : undefined;
+  const why = stale ? t('alpha7.contract.state.oldConnectionHelp') : advice?.text ?? contractState(envelope, true).hint;
+  const calendarReasons = reasons.filter(reason => reason.code === 'calendar_coverage_missing');
+  const affectedIds = new Set((calendarReasons.length ? calendarReasons : reasons).flatMap(reason => [reason.input, reason.source_id]));
+  const cause = !stale ? paths.find(path => path.ids.slice(1).some(id => affectedIds.has(id))) : undefined;
+  const causeEnd = cause?.ids.findLastIndex(id => affectedIds.has(id)) ?? -1;
+  const calendar = calendarReasons.length > 0 && causeEnd === (cause?.ids.length ?? 0) - 1;
   return <div className="space-y-4">
-    {[...new Set(reasons.filter(reason => reason.code === 'calendar_coverage_missing').map(reason => reason.detail).filter(Boolean))].map(message => <p key={message} role="status" className="rounded-xl border border-warn p-4 text-sm">{message}</p>)}
     {Object.values(envelope.fields).some(field => field.configuration?.complete === false) && <Panel className="p-5"><h3 className="font-medium">{t('alpha8.configuration.title')}</h3><p className="text-sm text-muted">{t('alpha8.configuration.validHint')}</p><ul className="mt-2 text-sm">{Object.entries(envelope.fields).flatMap(([name, field]) => (field.configuration?.hints ?? []).map((hint, index) => <li key={`${name}:${index}`}>{hint.message || t('alpha8.configuration.unassigned')}</li>))}</ul></Panel>}
     <Panel><PanelHeader title={t('alpha7.contract.now')} aside={<ContractStateChip envelope={envelope} enabled={envelope.enabled} stale={stale} />} />
       <CurrentValues envelope={envelope} fields={fields} config={config} inputs={inputs} names={names} attribution={sources.some(source => !!source.entityId)} />
       <p className="px-6 pb-4 text-xs text-muted">{t('alpha7.contract.liveVersion', { version: envelope.registry_revision, time: formatTime(envelope.published_at) })}</p>
       <p className="px-6 pb-4 text-sm">{t('beta16.inputs.reliability', { state: contractState(envelope, true).label })}</p>
+      <div className="space-y-2 border-t border-line px-6 py-4 text-sm">
+        <p>{why}</p>
+        {advice && <ObjectReadLink to={advice.to}>{advice.action}</ObjectReadLink>}
+        {cause && <ol aria-label={t('a2.read.causeChain')} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {cause.ids.slice(0, causeEnd + 1).map((id, index) => {
+            const isSource = id === cause.source.id;
+            const health = (id === envelope.contract_id ? envelope : contracts?.[id])?.contract_health;
+            const tone = isSource || health === 'degraded' ? 'text-warn' : health === 'healthy' ? 'text-ok' : 'text-muted';
+            return <li key={id} className={`flex items-center gap-2 ${tone}`}>
+              {index > 0 && <span aria-hidden="true">→</span>}
+              <ObjectReadLink to={isSource ? cause.source.href : contractHref(id)}>{cause.path[index]}</ObjectReadLink>
+            </li>;
+          })}
+          {calendar && <li className="flex items-center gap-2 text-warn"><span aria-hidden="true">→</span><ObjectReadLink to={`${cause.source.href}&panel=calendar`}>{t('a2.calendar.check')}</ObjectReadLink></li>}
+        </ol>}
+      </div>
     </Panel>
     {internal(currentContract) && <Panel className="p-5"><p>{t('b22.output.internalFeeds')}</p>{consumers.length ? <ul>{consumers.map(contract => <li key={str(contract.contract_id)}><Link className="underline" to={`/contracts/view/${encodeURIComponent(str(contract.contract_id))}`}>{contractTitle(contract)}</Link></li>)}</ul> : <p>{t('b22.output.noConsumers')}</p>}</Panel>}
-    <InputOrigins envelope={envelope} config={config} sources={sources} inputs={inputs} why={why} rule={str(definition.description)}>
+    <InputOrigins envelope={envelope} config={config} sources={sources} inputs={inputs} rule={str(definition.description)}>
       {affected && <p className="text-sm">{t(age ? 'post1.why.inputAge' : 'post1.why.inputAgeUnknown', { name: affectedName, age })}</p>}
       {problems.length > 0 && <ul className="text-sm">{[...new Map(problems.map(input => [`${input.kind}:${input.id}`, input])).values()].map(input => <li key={`${input.kind}:${input.id}`}>{t('beta16.inputs.affected')} {input.name}: {[...new Set(problems.filter(row => row.kind === input.kind && row.id === input.id).flatMap(row => row.reasons.map(reason => reasonLabel(reason.code))))].join(' · ')}</li>)}</ul>}
       {ha.isError && <p className="text-xs text-muted">{t('alpha7.contract.namesUnavailable')}</p>}

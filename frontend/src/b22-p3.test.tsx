@@ -35,10 +35,14 @@ it('edits only the selected contract through its action and leaves active config
   app('#/contracts/view/synthetic.one');
   const user = userEvent.setup();
   await user.click(await screen.findByRole('tab', { name: 'Konfiguration' }));
-  const field = within(screen.getByRole('tabpanel')).getByLabelText('Anzeigename');
-  expect(field).toBeDisabled();
+  const read = screen.getByRole('tabpanel');
+  expect(within(read).getByRole('heading', { name: 'Vorlage und Version' })).toBeVisible();
+  expect(within(read).queryByLabelText('Anzeigename')).not.toBeInTheDocument();
+  expect(fake.drafts.size).toBe(0);
   await user.click(screen.getByRole('button', { name: t('b22.object.edit') }));
-  await waitFor(() => expect(field).toBeEnabled());
+  const editor = await screen.findByRole('dialog', { name: 'Vertrag bearbeiten' });
+  const field = within(editor).getByLabelText('Anzeigename');
+  expect(field).toBeEnabled();
   await user.clear(field); await user.type(field, 'Synthetic edited contract');
   await user.click(screen.getByRole('button', { name: t('b22.object.finish') }));
   await waitFor(() => expect(asArray([...fake.drafts.values()][0]?.config.contracts)[0]).toMatchObject({ contract_id: contract.contract_id, display_name: 'Synthetic edited contract' }));

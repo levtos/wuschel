@@ -1,6 +1,6 @@
 import { PageLoading } from '@/components/PageLoading';
 import { t as uiText } from '@/i18n';
-import { ArrowLeft, GitBranchPlus, Trash2 } from 'lucide-react';
+import { GitBranchPlus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +8,7 @@ import { LayoutPanel, PanelLayout } from '@/components/PanelLayout';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/controls';
 import { ConfirmDialog, Dialog } from '@/components/ui/dialog';
-import { Empty, Notice, PageHeader } from '@/components/ui/layout';
+import { Empty, Notice, PageHeader, Panel, PanelHeader } from '@/components/ui/layout';
 import { DefinitionEditor, LockBadge } from '@/editors/DefinitionEditor';
 import { ReadOnlyNotice } from '@/features/authoring/DraftBar';
 import { asArray, definitionKey, nextVersionOf, str } from '@/features/authoring/model';
@@ -20,6 +20,8 @@ import { useCapabilities } from '@/lib/queries';
 import { ContractsTabs } from './ContractsPage';
 import { describeError } from '@/lib/api';
 import { EditorialPanel } from '@/features/editorial/Editorial';
+import { ObjectReadBack } from '@/features/authoring/ObjectReadLinks';
+import { codeLabel, fieldLabel } from '@/i18n/codes';
 
 export default function DefinitionDetailPage() {
   const { typeId = '', version = '' } = useParams();
@@ -36,8 +38,19 @@ export default function DefinitionDetailPage() {
   const definitions = asArray(src.config?.definitions).filter(isObject);
   const index = definitions.findIndex((d) => str(d.type_id) === typeId && String(d.type_version) === version);
   const definition = index >= 0 ? definitions[index]! : null;
+  const packageType = caps.data?.types.find(type => type.type_id === typeId && String(type.type_version) === version && !type.definition);
 
-  if (src.loading && !definition) return <PageLoading title={uiText('alpha7.nav.templates')} description={uiText('alpha9.pages.template')} />;
+  if (!definition && !packageType && (src.loading || caps.isPending)) return <PageLoading title={uiText('alpha7.nav.templates')} description={uiText('alpha9.pages.template')} />;
+  if (!definition && packageType) return <>
+    <ObjectReadBack fallback={{ to: '/templates/built-in', label: uiText('alpha7.nav.builtinTemplates') }} />
+    <PageHeader title={typeId} description={uiText('a2.read.packageTemplate')} actions={<Badge>{uiText('a2.read.version', { version })}</Badge>} />
+    <Panel className="max-w-4xl">
+      <PanelHeader title={uiText('features.contracts.ContractDetailPage.eingange_53fb39')} />
+      <ul className="space-y-2 px-4 pb-4 text-sm">{packageType.inputs.map(input => <li key={input.name} className="flex items-center gap-2"><span>{fieldLabel(input.name)}</span><Badge>{uiText(input.required ? 'editors.RegistryObjects.pflicht_6a047f' : 'editors.RegistryObjects.optional_ec91fd')}</Badge></li>)}</ul>
+      <PanelHeader title={uiText('features.contracts.DefinitionsPage.ausgaben_44e52a')} />
+      <ul className="space-y-2 px-4 pb-4 text-sm">{Object.entries(packageType.schema.fields).map(([name, field]) => <li key={name} className="flex items-center gap-2"><span>{fieldLabel(name)}</span><Badge>{codeLabel(field.type)}</Badge></li>)}</ul>
+    </Panel>
+  </>;
   if (!definition) {
     return (
       <>
@@ -156,8 +169,7 @@ export default function DefinitionDetailPage() {
 function Back() {
   return (
     <>
-      <Link to="/templates/own" className="mb-3 inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
-        <ArrowLeft size={13} /> {uiText("features.contracts.DefinitionDetailPage.alle_definitionen_bd3333")}</Link>
+      <ObjectReadBack fallback={{ to: '/templates/own', label: uiText('features.contracts.DefinitionDetailPage.alle_definitionen_bd3333') }} />
       <ContractsTabs />
     </>
   );

@@ -1,4 +1,5 @@
 import { t as uiText } from '@/i18n';
+import { definitionHref, ObjectReadLink } from '@/features/authoring/ObjectReadLinks';
 import { createColumnHelper } from '@tanstack/react-table';
 import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -140,7 +141,7 @@ export default function DefinitionsPage() {
         <ul className="divide-y divide-line">
           {members.map((t) => (
             <li key={`${t.type_id}@${t.type_version}`} className="flex flex-wrap items-center gap-3 px-4 py-2 text-sm">
-              <code className="text-xs">{t.type_id}</code>
+              <ObjectReadLink to={definitionHref(t.type_id, t.type_version)}>{t.type_id}</ObjectReadLink>
               <Badge>{uiText("features.contracts.DefinitionsPage.v_4c9448")}{t.type_version}</Badge>
               <div className="w-full"><EditorialPanel object={{ kind: 'template', id: t.type_id }} /></div>
               <span className="text-xs text-muted">{codeLabel(t.producer)} · {uiText(Object.keys(t.schema.fields).length === 1 ? 'alpha7.template.oneField' : 'alpha7.template.fields', { count: Object.keys(t.schema.fields).length })}</span>
