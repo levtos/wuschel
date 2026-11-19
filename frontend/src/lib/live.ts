@@ -105,6 +105,9 @@ export class LiveStore {
     if (!this.stopped) return;
     this.stopped = false;
     this.generation++;
+    if (this.state.connection === 'stopped') {
+      this.patch({ connection: this.online() ? 'connecting' : 'offline' });
+    }
     this.connect();
   }
 

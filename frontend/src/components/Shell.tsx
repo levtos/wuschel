@@ -35,19 +35,31 @@ import { isObject } from '@/lib/json';
 import { catalogLabel, type NamedCatalog } from '@/features/catalog/catalogLabels';
 
 const MODULE_ICONS = { contracts: FileCode2, 'catalog-care': FileCode2, sources: Cable, changes: FlaskConical, settings: Settings2 };
+const CONNECTION_GRACE_MS = 10_000;
 
 /** Top-bar chips: readiness and connection are separate facts. */
 export function StatusChips({ extra }: { extra?: ReactNode }) {
   const live = useLive();
   const active = useActiveRevision();
   const info = useInfo();
+  const rebuilding = live.connection === 'connecting' || live.connection === 'reconnecting' || live.connection === 'resyncing';
+  const [connectionGraceExpired, setConnectionGraceExpired] = useState(false);
+  useEffect(() => {
+    if (!rebuilding) {
+      setConnectionGraceExpired(false);
+      return;
+    }
+    const timeout = setTimeout(() => setConnectionGraceExpired(true), CONNECTION_GRACE_MS);
+    return () => clearTimeout(timeout);
+  }, [rebuilding]);
+  const connecting = rebuilding && !connectionGraceExpired && live.service?.ready === true;
   const conditions = classifySystem({
     service: live.service,
-    connection: live.connection,
+    connection: connecting ? 'connecting' : live.connection,
     hasActiveRegistry: active.data === undefined ? undefined : active.data !== null,
     apiFailure: info.isError ? 'network' : null,
   });
-  return <ReadinessBadge conditions={conditions} ready={live.service?.ready === true && live.connection === 'open'} revision={active.data?.revision}>{extra}</ReadinessBadge>;
+  return <ReadinessBadge conditions={conditions} ready={live.service?.ready === true && live.connection === 'open'} connecting={connecting} revision={active.data?.revision}>{extra}</ReadinessBadge>;
 }
 
 export function Shell(_props: { onSetup: () => void }) {

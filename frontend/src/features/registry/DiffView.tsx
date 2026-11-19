@@ -46,7 +46,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
  * predicts values (`predicts_values: false`); it lists what an activation would
  * change and which contexts might be re-initialized.
  */
-export function DiffView({ diff, against, config }: { diff: Diff; against?: string; config?: JsonObject | null }) {
+export function DiffView({ diff, against, config }: { diff: Diff; against?: string; config: JsonObject }) {
   const doc = useOptionalWorkingDocument();
   const active = useActiveRevision();
   const label = (group: string, id: string) => {
@@ -62,6 +62,18 @@ export function DiffView({ diff, against, config }: { diff: Diff; against?: stri
   const added = new Set([...diff.added, ...Object.values(diff.objects).flatMap((group) => group.added)]);
   const restarted = diff.possibly_invalidated_contexts.filter((id) => !added.has(id));
   const migrating = diff.fingerprint_version.context_migration && diff.fingerprint_version.before !== null;
+  const targetContracts = asArray(config.contracts).length;
+  const affectedContracts = diff.snapshot.affected_contracts.length;
+  let snapshotText = uiText('features.registry.DiffView.unverandert_85e10f');
+  if (diff.snapshot.revision_changes) {
+    if (targetContracts === 0) {
+      snapshotText = uiText('alpha9.configuration.noContracts');
+    } else if (affectedContracts === 0) {
+      snapshotText = uiText(targetContracts === 1 ? 'alpha9.configuration.contractRetained' : 'alpha9.configuration.contractsRetained', { n: targetContracts });
+    } else {
+      snapshotText = uiText(affectedContracts === 1 ? 'alpha7.versions.affectedOne' : 'alpha7.versions.affected', { n: affectedContracts });
+    }
+  }
   return (
     <div className="flex flex-col gap-4">
       <p aria-label={uiText('alpha7.draft.changeCount')} className="text-sm font-medium">{countSentence(changedObjectCount(diff), 'changes')}</p>
@@ -80,7 +92,7 @@ export function DiffView({ diff, against, config }: { diff: Diff; against?: stri
         <Row label={uiText("features.registry.DiffView.direkt_betroffen_832e51")}><Chips items={diff.directly_affected_contracts} link label={contractName} /></Row>
         <Row label={uiText("features.registry.DiffView.transitiv_betroffen_ef01a8")}><Chips items={diff.transitively_affected_contracts} link label={contractName} /></Row>
         {restarted.length > 0 && <Row label={uiText("features.registry.DiffView.mogliche_neuinitialisierung_2361a0")}><Chips items={restarted} tone="warn" link label={contractName} /></Row>}
-        <Row label={uiText("features.registry.DiffView.snapshot_6ad27b")}>{diff.snapshot.revision_changes ? diff.snapshot.affected_contracts.length === 0 ? uiText('alpha9.configuration.noContracts') : uiText(diff.snapshot.affected_contracts.length === 1 ? 'alpha7.versions.affectedOne' : 'alpha7.versions.affected', { n: diff.snapshot.affected_contracts.length }) : uiText("features.registry.DiffView.unverandert_85e10f")}</Row>
+        <Row label={uiText('features.registry.DiffView.snapshot_6ad27b')}>{snapshotText}</Row>
       </dl>
       {groups.map(([name, group]) => (
         <Collapsible key={name} title={uiText("features.registry.DiffView.v0_v1_neu_v2_geandert_v3_entfernt_80a78f", { v0: (GROUP_LABELS[name] ?? name), v1: (group.added.length), v2: (group.changed.length), v3: (group.removed.length) })} defaultOpen={groups.length <= 2}>

@@ -30,7 +30,7 @@ export function ConditionRow({ condition }: { condition: Condition }) {
 }
 
 /** One accessible status entry point. Hover is temporary; clicking pins it open. */
-export function ReadinessBadge({ conditions, ready, revision, children }: { conditions: Condition[]; ready: boolean; revision?: number; children?: ReactNode }) {
+export function ReadinessBadge({ conditions, ready, connecting = false, revision, children }: { conditions: Condition[]; ready: boolean; connecting?: boolean; revision?: number; children?: ReactNode }) {
   const [hovered, setHovered] = useState(false);
   const [pinned, setPinned] = useState(false);
   const wrapper = useRef<HTMLDivElement>(null);
@@ -39,7 +39,11 @@ export function ReadinessBadge({ conditions, ready, revision, children }: { cond
   const open = hovered || pinned;
   const waiting = !ready && conditions.length === 0;
   const complete = ready && conditions.length === 0;
-  const label = complete ? t('alpha7.status.ready') : t('alpha7.status.notReady', { count: Math.max(1, conditions.length) });
+  const label = complete
+    ? t('alpha7.status.ready')
+    : waiting && connecting
+      ? t('alpha7.status.connecting')
+      : t('alpha7.status.notReady', { count: Math.max(1, conditions.length) });
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => { if (!wrapper.current?.contains(event.target as Node)) { setHovered(false); setPinned(false); } };
