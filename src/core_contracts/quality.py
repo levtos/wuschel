@@ -1,11 +1,12 @@
 """Field-level quality invariants and decisive-evidence propagation."""
 
+from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal, Self
 
 from pydantic import Field as PField
-from pydantic import field_validator, model_validator
+from pydantic import PrivateAttr, field_validator, model_validator
 
 from .ha_context import Attribution
 from .model import Model, utc
@@ -67,6 +68,13 @@ class ConfigurationStatus(Model):
         return self
 
 
+@dataclass(frozen=True, slots=True)
+class CalendarCoverage:
+    source_id: str
+    before: datetime
+    expires_at: datetime
+
+
 class FieldValue(Model):
     status: Literal["valid", "held", "unknown", "not_applicable", "unresolved"]
     value: Any = None
@@ -92,6 +100,16 @@ class FieldValue(Model):
     configuration: ConfigurationStatus = PField(
         default_factory=ConfigurationStatus, exclude_if=lambda value: value.complete
     )
+    _calendar_coverage: CalendarCoverage | None = PrivateAttr(default=None)
+
+    @property
+    def calendar_coverage(self) -> CalendarCoverage | None:
+        return self._calendar_coverage
+
+    def with_calendar_coverage(self, coverage: CalendarCoverage) -> Self:
+        value = self.model_copy()
+        value._calendar_coverage = coverage
+        return value
 
     @field_validator("held_until", "since_at", "measured_at", "valid_from", "valid_until")
     @classmethod

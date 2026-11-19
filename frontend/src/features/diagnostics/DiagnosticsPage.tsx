@@ -3,6 +3,7 @@ import { useAuthoringSource } from '@/features/authoring/useAuthoringSource';
 import { asArray, str } from '@/features/authoring/model';
 import { isObject } from '@/lib/json';
 import { contractTitle } from '@/features/contracts/presentation';
+import { CalendarCoverageWarnings } from '@/features/sources/CalendarSourceStatus';
 import { connectionLabel } from '@/lib/status';
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -139,6 +140,7 @@ export default function DiagnosticsPage() {
       <PageHeader title={uiText("features.diagnostics.DiagnosticsPage.diagnose_historie_63b2ee")} description={uiText("features.diagnostics.DiagnosticsPage.was_der_server_tatsachlich_wei_werte_quality_rea_24aab3")} actions={<Button variant="primary" disabled={!live.contracts || Object.keys(live.contracts).length === 0} disabledReason={uiText('features.diagnostics.DiagnosticsPage.die_aktive_registry_enthalt_keine_aktivierten_co_ee9568')} onClick={() => { setChosen(contract); setChoosing(true); }}>{uiText('alpha9.actions.chooseContract')}</Button>} />
       <Dialog open={choosing} onOpenChange={setChoosing} title={uiText('alpha9.actions.chooseContract')} footer={<Button variant="primary" disabled={!chosen} onClick={() => { set({ contract: chosen }); setChoosing(false); }}>{uiText('alpha9.actions.viewContract')}</Button>}><ContractPicker value={chosen} onChange={setChosen} allowNone /></Dialog>
       <Link to="/settings/diagnostics/system-state" className="mb-4 inline-flex min-h-11 items-center text-sm text-accent underline">{uiText('b26.system.title')}</Link>
+      <CalendarCoverageWarnings />
       <Tabs
         value={tab}
         onValueChange={(t) => set({ tab: t })}

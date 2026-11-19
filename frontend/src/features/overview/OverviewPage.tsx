@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { PageHeader, Panel, PanelHeader, Spinner } from '@/components/ui/layout';
 import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
 import { asArray, str } from '@/features/authoring/model';
+import { CalendarCoverageWarnings } from '@/features/sources/CalendarSourceStatus';
 import { isObject } from '@/lib/json';
 import { useLive } from '@/lib/live-context';
 import { useActiveRevision, useProblems } from '@/lib/queries';
@@ -39,6 +40,7 @@ export function OverviewPage() {
   ] as const;
   return <>
     <PageHeader title={t('alpha7.nav.overview')} description={t('alpha9.pages.overview')} actions={<Button variant="primary" onClick={() => navigate('/contracts/list/all?new=1')}><Plus size={16} />{t('alpha7.overview.newContract')}</Button>} />
+    <CalendarCoverageWarnings />
     {!live.stale && live.service?.ha_disconnected_since && <p role="status" className="mb-4 rounded-xl border border-warn/40 p-4 text-sm text-warn">{t(live.service.ha_unbounded_values === 1 ? 'alpha9.ha.disconnectedOne' : 'alpha8.ha.disconnected', { since: new Date(live.service.ha_disconnected_since).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' }), count: live.service.ha_unbounded_values ?? 0 })}</p>}
     <PanelLayout view="overview.alpha7">
       <LayoutPanel id="actions" title={t('alpha7.overview.actions')}><Panel>

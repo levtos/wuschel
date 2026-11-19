@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 
 from .calendar_cache import normalize_events
 from .model import checksum
-from .quality import FieldValue, Reason, ReasonCode, unknown
+from .quality import CalendarCoverage, FieldValue, Reason, ReasonCode, unknown
 
 PREFIX = "calendar_coverage:"
 DEFAULT_MAX_GAP_MONTHS = 4
@@ -189,24 +189,31 @@ def complete(
         )
 
 
-def status(
-    state: Any, binding: Any, months: int, now: datetime, *, max_gap_months: int | None = None
+def _completed_row(
+    state: Any, binding: Any, months: int, now: datetime, max_gap_months: int | None
 ) -> dict[str, Any]:
-    row = state.tables["service_state"].get(PREFIX + binding.binding_id, {})
-    gap_limit = max_gap_months or DEFAULT_MAX_GAP_MONTHS
-    valid = (
+    row: dict[str, Any] = state.tables["service_state"].get(PREFIX + binding.binding_id, {})
+    if (
         row.get("signature") == identity(binding, months, max_gap_months)
         and row.get("complete")
         and row.get("expires_at")
         and datetime.fromisoformat(row["expires_at"]) > now
-    )
+    ):
+        return row
+    return {}
+
+
+def status(
+    state: Any, binding: Any, months: int, now: datetime, *, max_gap_months: int | None = None
+) -> dict[str, Any]:
+    row = _completed_row(state, binding, months, now, max_gap_months)
+    gap_limit = max_gap_months or DEFAULT_MAX_GAP_MONTHS
     covered = bool(
-        valid
-        and row.get("covered")
+        row.get("covered")
         and row.get("evidence_end")
         and datetime.fromisoformat(row["evidence_end"]) > now
     )
-    expired = bool(valid and row.get("complete") and not row.get("covered"))
+    expired = bool(row and not row.get("covered"))
     cache = state.tables["service_state"].get("calendar:" + binding.binding_id, {})
     last = cache.get("last_event_end")
     date = (
@@ -222,7 +229,7 @@ def status(
         if expired
         else "Feiertagskalender: Abdeckung wird geprüft oder ist nicht mehr belegt."
     )
-    if valid and row.get("gap"):
+    if row.get("gap"):
         dates = [
             datetime.fromisoformat(row["gap"][key])
             .astimezone(ZoneInfo("Europe/Berlin"))
@@ -237,7 +244,7 @@ def status(
         "covered": covered,
         "complete": expired or covered,
         "last_event_end": last,
-        "gap": row.get("gap") if valid else None,
+        "gap": row.get("gap"),
         "message": None if covered else message,
     }
 
@@ -251,18 +258,33 @@ def assess(
     *,
     max_gap_months: int | None = None,
 ) -> FieldValue:
+    row = _completed_row(state, binding, months, now, max_gap_months)
+    if row.get("evidence_end"):
+        before = min(
+            datetime.fromisoformat(row["evidence_end"]), datetime.fromisoformat(row["horizon"])
+        )
+        if row.get("gap"):
+            before = min(before, datetime.fromisoformat(row["gap"]["start"]))
+        if now < before:
+            return value.with_calendar_coverage(
+                CalendarCoverage(
+                    binding.source_id, before, datetime.fromisoformat(row["expires_at"])
+                )
+            )
     coverage = status(state, binding, months, now, max_gap_months=max_gap_months)
-    if coverage["covered"]:
-        return value
-    result = unknown(ReasonCode.CALENDAR_COVERAGE, binding.source_id, now)
+    return missing_coverage(binding.source_id, now, coverage["message"])
+
+
+def missing_coverage(source_id: str, now: datetime, message: str | None) -> FieldValue:
+    result = unknown(ReasonCode.CALENDAR_COVERAGE, source_id, now)
     return result.model_copy(
         update={
             "reasons": (
                 Reason(
                     code=ReasonCode.CALENDAR_COVERAGE,
-                    input=binding.source_id,
+                    input=source_id,
                     since=now,
-                    detail=coverage["message"],
+                    detail=message,
                 ),
             )
         }
