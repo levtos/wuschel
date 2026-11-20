@@ -158,6 +158,6 @@ it('explains a problem without raw reason codes and opens new contract creation 
   expect(screen.getByRole('link', { name: 'Quelle prüfen' })).toHaveAttribute('href', '#/sources/devices');
   await user.click(screen.getByRole('button', { name: 'Neuer Vertrag' }));
   expect(await screen.findByRole('dialog', { name: 'Neuer Vertrag' })).toBeVisible();
-  expect(api.drafts.size).toBe(1);
+  expect(api.drafts.size).toBe(0);
   expect(window.location.hash).toBe('#/contracts/list/all');
 });

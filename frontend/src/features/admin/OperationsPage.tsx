@@ -59,11 +59,11 @@ export default function OperationsPage() {
     </div>}
     {saved && <Notice className="mt-4" tone="ok">{t('b26.operations.saved')}</Notice>}
     {error && <Notice className="mt-4" tone="bad">{error}</Notice>}
-    <div className="sticky bottom-0 mt-4 flex flex-wrap justify-end gap-2 border-t border-line bg-panel p-3">
+    <footer className="sticky bottom-0 mt-4 flex flex-wrap justify-end gap-2 border-t border-line bg-panel p-3">
       <Button disabled={busy || !dirty} onClick={() => guard.requestClose()}>{t('common.cancel')}</Button>
       <Button disabled={busy || !query.data} onClick={() => setChecked(true)}>{t('a2.edit.check')}</Button>
       <Button variant="primary" disabled={busy || !query.data || query.isError || invalid} onClick={() => void save()}>{t('b26.operations.save')}</Button>
-    </div>
+    </footer>
     {guard.confirmation}
   </>;
 }

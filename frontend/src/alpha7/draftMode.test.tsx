@@ -11,11 +11,19 @@ function app(hash = '#/sources/devices') {
   window.location.hash = hash;
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Workbench onSetup={() => {}} live={idleLive()} /></QueryClientProvider>);
 }
-// #97 P3 replaces the global mode switch with an action at an object.
-async function beginDraft(user: UserEvent) {
+async function openSource(user: UserEvent) {
   await user.click(await screen.findByRole('button', { name: 'Quelle hinzufügen' }));
-  const dialog = await screen.findByRole('dialog', { name: 'Gerät aus Home Assistant hinzufügen' });
-  await user.click(within(dialog).getByRole('button', { name: 'Abbrechen' }));
+  await user.click(await screen.findByRole('button', { name: 'Ohne Gerät anlegen' }));
+  return screen.findByRole('dialog', { name: 'Quelle bearbeiten' });
+}
+async function saveSource(user: UserEvent, dialog: HTMLElement) {
+  await user.click(within(dialog).getByRole('button', { name: 'In Entwurf speichern' }));
+  await waitFor(() => expect(dialog).not.toBeInTheDocument());
+}
+async function beginDraft(user: UserEvent) {
+  const dialog = await openSource(user);
+  await user.type(within(dialog).getByLabelText('Name'), 'Synthetic source');
+  await saveSource(user, dialog);
 }
 async function draftPage(user: UserEvent) {
   await user.click(await screen.findByRole('link', { name: 'Änderungen ansehen' }));
@@ -32,11 +40,12 @@ beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
 it.each([
   ['#/contracts/list/all', 'Neuer Vertrag'],
   ['#/templates/own', 'Neue Vorlage'],
-])('opens creation on %s with an automatic draft and no route change', async (hash, name) => {
+])('opens creation on %s without writing a draft or changing route', async (hash, name) => {
   const user = userEvent.setup(); const fake = installFakeApi(); app(hash);
   await user.click(await screen.findByRole('button', { name }, { timeout: 5000 }));
   expect(await screen.findByRole('dialog', { name })).toBeVisible();
-  expect(fake.drafts.size).toBe(1);
+  expect(fake.drafts.size).toBe(0);
+  expect(fake.calls.some(call => call.method !== 'GET')).toBe(false);
   expect(window.location.hash).toBe(hash);
 });
 
@@ -48,33 +57,38 @@ it('makes a successful explicit check visible', async () => {
   expect(await screen.findByText('Keine Fehler')).toBeVisible();
 });
 
-it('starts a named draft automatically from a creation action and stays on the source page', async () => {
+it('starts a named draft at explicit save and stays on the source page', async () => {
   const user = userEvent.setup(); const fake = installFakeApi(); app();
-  await user.click(await screen.findByRole('button', { name: 'Quelle hinzufügen' }));
-  await user.click(await screen.findByRole('button', { name: 'Ohne Gerät anlegen' }));
-  await screen.findByLabelText('Name');
+  const editor = await openSource(user);
+  expect(within(editor).getByLabelText('Name')).toBeEnabled();
+  expect(fake.drafts.size).toBe(0);
+  await saveSource(user, editor);
   expect(fake.drafts.size).toBe(1);
   expect([...fake.drafts.values()][0]?.display_name).toMatch(/^Änderungen vom /);
   expect(window.location.hash).toMatch(/^#\/sources\/devices(?:\?|$)/);
   expect(screen.queryByRole('group', { name: 'Ansicht' })).not.toBeInTheDocument();
-  expect(screen.getByLabelText('Name')).toBeEnabled();
+  expect(await screen.findByLabelText('Name')).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Änderungen übernehmen' })).toBeVisible();
   expect(screen.queryByText(/schreibgeschützte Ansicht/)).not.toBeInTheDocument();
 });
 
-it('returns to an object with unsaved edits retained and requires its own edit action', async () => {
+it('returns to a saved object in read-only mode and retains its local edits until discard is confirmed', async () => {
   const user = userEvent.setup(); const fake = installFakeApi(); app();
-  await user.click(await screen.findByRole('button', { name: 'Quelle hinzufügen' }));
-  await user.click(await screen.findByRole('button', { name: 'Ohne Gerät anlegen' }));
-  const name = await screen.findByLabelText('Name');
-  await user.type(name, 'Fenster im Zimmer');
+  await beginDraft(user);
   await user.click(screen.getByRole('link', { name: 'Verknüpfungen' }));
   await waitFor(() => expect(screen.queryByLabelText('Name')).not.toBeInTheDocument());
   await user.click(screen.getByRole('link', { name: 'Meine Quellen' }));
   expect(await screen.findByLabelText('Name')).toBeDisabled();
   await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
-  expect(await screen.findByLabelText('Name')).toHaveValue('Fenster im Zimmer');
-  expect(screen.getByLabelText('Name')).toBeEnabled();
+  const editor = within(await screen.findByRole('dialog', { name: 'Quelle bearbeiten' }));
+  const input = editor.getByLabelText('Name');
+  expect(input).toHaveValue('Synthetic source');
+  await user.type(input, ' edited');
+  await user.click(editor.getByRole('button', { name: 'Abbrechen' }));
+  const discard = within(await screen.findByRole('alertdialog', { name: /Ungespeicherte Änderungen/ }));
+  await user.click(discard.getByRole('button', { name: 'Abbrechen' }));
+  expect(input).toHaveValue('Synthetic source edited');
+  expect(JSON.stringify([...fake.drafts.values()][0]?.config)).not.toContain('Synthetic source edited');
   expect(screen.queryByRole('button', { name: 'Ansehen' })).not.toBeInTheDocument();
   expect(fake.drafts.size).toBe(1);
   expect(fake.revisions).toHaveLength(0);
@@ -94,10 +108,7 @@ it('opens the error list in place and gives visible feedback after an explicit c
 
 it('saves the candidate and opens confirmation from the single draft action without activating', async () => {
   const user = userEvent.setup(); const fake = installFakeApi(); app();
-  await user.click(await screen.findByRole('button', { name: 'Quelle hinzufügen' }));
-  await user.click(await screen.findByRole('button', { name: 'Ohne Gerät anlegen' }));
-  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Gerät aus Home Assistant hinzufügen' })).not.toBeInTheDocument());
-  await screen.findByLabelText('Name');
+  await beginDraft(user);
   await review(user);
   const dialog = await screen.findByRole('dialog', { name: 'Konfiguration übernehmen' });
   await within(dialog).findByRole('checkbox', { name: /Auswirkungen geprüft/ });

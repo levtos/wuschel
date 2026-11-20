@@ -142,8 +142,11 @@ export function flow(user: UserEvent) {
     expect(button.closest('[data-page-header]')).not.toBeNull();
     await clickReadyButton(user, button, 'Übernehmen');
     const dialog = await screen.findByRole('dialog', { name: "Konfiguration übernehmen" }, { timeout: 65_000 });
-    await user.click(await within(dialog).findByRole('checkbox', { name: /Auswirkungen geprüft/ }, { timeout: 65_000 }));
-    await user.click(within(dialog).getByRole('button', { name: "Jetzt übernehmen" }));
+    const consent = await within(dialog).findByRole('checkbox', { name: /Auswirkungen geprüft/ }, { timeout: 65_000 });
+    await waitFor(() => expect(consent).toBeEnabled(), { timeout: 65_000 });
+    await user.click(consent);
+    await waitFor(() => expect(consent).toBeChecked());
+    await clickReadyButton(user, within(dialog).getByRole('button', { name: 'Jetzt übernehmen' }), 'Jetzt übernehmen');
     return dialog;
   };
 

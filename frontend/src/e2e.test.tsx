@@ -146,7 +146,8 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     const verdict = await raw<{ valid: boolean; issues: unknown[] }>('registry/validate', json('POST', drafts[0]!.config));
     expect(verdict).toMatchObject({ status: 200, body: { valid: true, issues: [] } });
     const dialog = await f.activateOpenDraft(draftId);
-    await within(dialog).findByText("Konfiguration 1 ist übernommen.", {}, { timeout: 20_000 });
+    // The preceding explicit saves share the production request window with activation.
+    await within(dialog).findByText('Konfiguration 1 ist übernommen.', {}, { timeout: 65_000 });
     await user.click(within(dialog).getAllByRole('button', { name: /Konfiguration ansehen|Schließen/ }).at(-1)!);
     await expectSameAsActive(registry); // what the server activated is semantically the registry that was built
 
@@ -239,7 +240,7 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     expect(merged.status).toBe(200);
     expect(merged.body.config.other_session).toBe(true);
     expect(JSON.stringify(merged.body.config)).toContain('Zusatzvertrag');
-  }, 300_000);
+  }, 360_000);
 
   it('routes the untouched UX12 import through guided devices without manual transformations and verifies real engine values', async () => {
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Workbench onSetup={() => {}} live={store} /></QueryClientProvider>);
@@ -303,6 +304,7 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await user.type(within(adding).getByLabelText('Wie oft meldet sich der Sensor spätestens?'), '60');
     await f.type(within(adding).getByLabelText('Name'), 'P8 Temperatur');
     await user.click(within(adding).getByRole('button', { name: 'In Entwurf speichern' }));
+    await waitFor(() => expect(adding).not.toBeInTheDocument(), { timeout: 65_000 });
     // K.01: the guided objects use the same server comparison in the bar and page.
     await screen.findByText('Im Entwurf gespeichert');
     const drafts = await raw<{ draft_id: string; display_name: string; draft_version: number; config: JsonObject }[]>('registry/drafts');
@@ -353,6 +355,7 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await user.click(within(currentMove()).getByRole('button', { name: 'Prüfen' }));
     await within(currentMove()).findByText(/Direkt umgestellte Verträge: 1/, {}, { timeout: 65_000 });
     await user.click(within(currentMove()).getByRole('button', { name: 'In Entwurf speichern' }));
+    await waitFor(() => expect(moving).not.toBeInTheDocument(), { timeout: 65_000 });
     await takeover();
     const after = (await raw<JsonObject>('registry/active/export')).body;
     expect(objects(after.sources)).toHaveLength(2);

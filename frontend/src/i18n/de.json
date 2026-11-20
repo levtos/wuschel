@@ -17,6 +17,7 @@
   "a2.edit.migrateTitle": "Verträge auf Version {version} umstellen",
   "a2.edit.migrationWarning": "Bei der Übernahme können betroffene Verträge ihren Zustand neu bestimmen und laufende Timer neu starten. Die Prüfung zeigt die betroffenen Verträge.",
   "a2.edit.emptyParameter": "{name} (ohne Wert)",
+  "validation.parameter.parameter_relation_failed": "Prüfe die markierten Einstellungen. Ihre Werte passen nicht zusammen.",
   "a2.edit.relation.lt": "{left} muss kleiner als {right} sein.",
   "a2.edit.relation.le": "{left} muss kleiner oder gleich {right} sein.",
   "a2.edit.relation.eq": "{left} muss gleich {right} sein.",
