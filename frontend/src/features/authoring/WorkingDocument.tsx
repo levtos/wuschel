@@ -13,6 +13,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import type { EditorialEntry } from '@/features/editorial/model';
 import { UnsupportedOrigins, removeUnsupportedOrigins } from './UnsupportedOrigins';
+import { SavedDraftAccepted } from './editorChanges';
 
 /**
  * The single editable registry document ("Arbeits-Draft").
@@ -38,6 +39,14 @@ export interface ValidationView {
 export interface Conflict {
   server: Draft;
   comparison?: { conflicts: { path: string; base: unknown; draft: unknown; current: unknown; digests: string[] }[] };
+  candidate?: { config: Registry; name: string; editorial: EditorialEntry[]; resolve: (draft: Draft) => void; reject: (error: unknown) => void };
+}
+
+function compareDraft(server: Draft, draft: Draft, config: Registry, name: string, decisions?: Record<string, { digests: string[]; choice: string }>) {
+  return api<{ config: Registry; display_name: string; conflicts: NonNullable<Conflict['comparison']>['conflicts'] }>(
+    `registry/drafts/${encodeURIComponent(draft.draft_id)}/reconcile`,
+    { method: 'POST', body: { draft_version: draft.draft_version, expected_server_version: server.draft_version, config, display_name: name, ...(decisions ? { decisions } : {}) } },
+  );
 }
 
 export interface WorkingDocument {
@@ -123,6 +132,12 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
   const startingRef = useRef<Promise<Registry> | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<Conflict | null>(null);
+  const pendingEdit = useRef<Conflict['candidate']>(undefined);
+  const clearConflict = useCallback((error: unknown = new ActionCancelled()) => {
+    pendingEdit.current?.reject(error);
+    pendingEdit.current = undefined;
+    setConflict(null);
+  }, []);
   const [validation, setValidation] = useState<ValidationView>(IDLE);
   const [autoValidate, setAutoValidate] = useState(true);
   const autoValidateRef = useRef(autoValidate);
@@ -147,16 +162,17 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
     runId.current += 1;
     setValidation(IDLE);
     setSaveError(null);
-    setConflict(null);
+    clearConflict();
     setEditing((draft.lifecycle ?? 'open') === 'open');
     const opened = { draft, config: clone(draft.config), name: draft.display_name ?? '', past: [], future: [] };
     latest.current = opened;
     setSnap(opened);
-  }, []);
+  }, [clearConflict]);
 
   /** Creating a draft is shared by all pages and never navigates or activates. */
   const ensureDraft = useCallback((): Promise<Registry> => {
     if (startingRef.current) return startingRef.current;
+    if (savingRef.current || pendingEdit.current) return Promise.reject(new ActionCancelled());
     const owner = ++documentId.current;
     setStarting(true);
     setSaveError(null);
@@ -251,13 +267,13 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
     runId.current += 1;
     clearTimeout(retryTimer.current);
     setValidation(IDLE);
-    setConflict(null);
+    clearConflict();
     setSwitchRequest(null);
     setEditing(false);
     const closed = { draft: null, config: null, name: '', past: [], future: [] };
     latest.current = closed;
     setSnap(closed);
-  }, []);
+  }, [clearConflict]);
 
   // Restore the previously opened draft after a reload (id only; content is re-read from the server).
   useEffect(() => {
@@ -364,7 +380,7 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
   const save = useCallback(async () => {
     if (invalidDurations.size) { setSaveError(uiText('b4.time.precision')); return 'error' as const; }
     const { draft, config, name } = latest.current;
-    if (!draft || !config || savingRef.current) return 'error' as const;
+    if (!draft || !config || savingRef.current || pendingEdit.current) return 'error' as const;
     const owner = documentId.current;
     savingRef.current = true;
     setSaving(true);
@@ -379,7 +395,8 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
         try {
           const server = await api<Draft>(`registry/drafts/${encodeURIComponent(draft.draft_id)}`);
           if (owner !== documentId.current) return 'error' as const;
-          const comparison = await api<NonNullable<Conflict['comparison']>>(`registry/drafts/${encodeURIComponent(draft.draft_id)}/reconcile`, { method: 'POST', body: { draft_version: draft.draft_version, expected_server_version: server.draft_version, config, display_name: name } });
+          const comparison = await compareDraft(server, draft, config, name);
+          if (owner !== documentId.current) return 'error' as const;
           setConflict({ server, comparison });
           return 'conflict' as const;
         } catch {
@@ -398,7 +415,7 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
   const editAndSave = useCallback(async (updater: (config: Registry) => Registry, editorial: EditorialEntry[] = []) => {
     if (invalidDurations.size) throw new Error(uiText('b4.time.precision'));
     const current = latest.current;
-    if (!current.draft || !current.config || savingRef.current) throw new Error(uiText('alpha7.draft.saveBeforeReview'));
+    if (!current.draft || !current.config || savingRef.current || pendingEdit.current) throw new Error(uiText('alpha7.draft.saveBeforeReview'));
     const owner = documentId.current;
     const changed = updater(current.config);
     const next = current.config.config_schema_version === 4 ? upgradeFreshness(changed) : changed;
@@ -414,6 +431,21 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
       latest.current = { ...current, draft: saved, config: next, past: [...current.past, current.config].slice(-HISTORY_LIMIT), future: [] };
       return saved;
     } catch (failure) {
+      if (owner === documentId.current && failure instanceof ApiError && failure.code === 'draft_version_conflict') {
+        try {
+          const server = await api<Draft>(`registry/drafts/${encodeURIComponent(current.draft.draft_id)}`);
+          const comparison = await compareDraft(server, current.draft, next, current.name);
+          if (owner !== documentId.current) throw new ActionCancelled();
+          return new Promise<Draft>((resolve, reject) => {
+            const candidate = { config: next, name: current.name, editorial, resolve, reject };
+            pendingEdit.current = candidate;
+            setConflict({ server, comparison, candidate });
+          });
+        } catch (reconcileError) {
+          if (owner === documentId.current) setSaveError(describeError(reconcileError));
+          throw reconcileError;
+        }
+      }
       if (owner === documentId.current) setSaveError(describeError(failure));
       throw failure;
     } finally { savingRef.current = false; setSaving(false); }
@@ -441,25 +473,33 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
       const { config, draft } = latest.current;
       if (!current || !config || !draft || current.server.draft_id !== draft.draft_id || savingRef.current) return;
       const owner = documentId.current;
-      if (choice === 'cancel') return setConflict(null);
+      if (choice === 'cancel') return clearConflict();
       if (choice === 'take-server') {
-        setConflict(null);
+        pendingEdit.current?.reject(new SavedDraftAccepted());
+        pendingEdit.current = undefined;
         return open(current.server, { reload: true });
       }
+      savingRef.current = true;
+      setSaving(true);
       try {
-        const merged = await api<{ config: Registry; display_name: string; conflicts: NonNullable<Conflict['comparison']>['conflicts'] }>(`registry/drafts/${encodeURIComponent(draft.draft_id)}/reconcile`, { method: 'POST', body: { draft_version: draft.draft_version, expected_server_version: current.server.draft_version, config, display_name: latest.current.name, decisions } });
-        if (merged.conflicts.length) { setConflict({ ...current, comparison: merged }); return; }
-        const saved = await update.mutateAsync({ draft: current.server, config: merged.config, display_name: merged.display_name });
+        const merged = await compareDraft(current.server, draft, current.candidate?.config ?? config, current.candidate?.name ?? latest.current.name, decisions);
         if (owner !== documentId.current) return;
-        setConflict(null);
+        if (merged.conflicts.length) { setConflict({ ...current, comparison: merged }); return; }
+        const saved = await update.mutateAsync({ draft: current.server, config: merged.config, display_name: merged.display_name, editorial: current.candidate?.editorial });
+        if (owner !== documentId.current) return;
+        pendingEdit.current = undefined;
         open(saved, { reload: true });
+        current.candidate?.resolve(saved);
       } catch (error) {
         if (owner !== documentId.current) return;
         setSaveError(describeError(error));
-        setConflict(null);
+        clearConflict(error);
+      } finally {
+        savingRef.current = false;
+        setSaving(false);
       }
     },
-    [conflict, open, update],
+    [clearConflict, conflict, open, update],
   );
 
   const value = useMemo<WorkingDocument>(
@@ -503,7 +543,7 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
 
   return (
     <Context.Provider value={value}>
-      <IssuesProvider value={validation.issues}>
+      <IssuesProvider value={validation.issues} config={validatedFor.current}>
         <UnsupportedOrigins config={snap.draft && (snap.draft.lifecycle ?? 'open') === 'open' ? snap.config : active.data?.config ?? null} onCorrect={async () => { await ensureDraft(); return editAndSave(removeUnsupportedOrigins); }} />
         {children}
       </IssuesProvider>

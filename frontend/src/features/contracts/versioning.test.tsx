@@ -53,17 +53,27 @@ describe('definition versions are immutable once activated', () => {
     const operator = (await screen.findAllByRole('combobox', { name: /^Rechenschritt/ }))[0]!;
     expect(operator).toBeDisabled();
     // ... editorial text is not.
-    await user.click(screen.getByRole('tab', { name: 'Allgemein' }));
-    const name = screen.getByLabelText(/Anzeigename/);
+    await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
+    const edit = await screen.findByRole('dialog', { name: 'Vorlage bearbeiten' });
+    await user.click(within(edit).getByRole('tab', { name: 'Allgemein' }));
+    const name = within(edit).getByLabelText(/Anzeigename/);
     expect(name).toBeEnabled();
     await user.type(name, 'Wahrheit');
-    expect(config().definitions.find((d) => d.type_id === 'test.truth')).toMatchObject({ display_name: 'Wahrheit', type_version: 1 });
+    expect(config().definitions.find(d => d.type_id === 'test.truth')).not.toHaveProperty('display_name', 'Wahrheit');
+    await user.click(within(edit).getByRole('button', { name: 'In Entwurf speichern' }));
+    await waitFor(() => expect(config().definitions.find(d => d.type_id === 'test.truth')).toMatchObject({ display_name: 'Wahrheit', type_version: 1 }));
 
     // New version: copy with version 2, selected instances migrate, others stay on v1.
     await user.click(screen.getByRole('button', { name: /Neue Version/ }));
-    const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('checkbox', { name: 'fixture.right' })); // keep fixture.right on v1
-    await user.click(within(dialog).getByRole('button', { name: "Version anlegen" }));
+    const dialog = await screen.findByRole('dialog', { name: /Neue Version/ });
+    expect(within(dialog).queryByRole('checkbox')).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'In Entwurf speichern' }));
+    const migration = await screen.findByRole('dialog', { name: 'Verträge auf Version 2 umstellen' });
+    expect(config().contracts.filter(c => c.type_id === 'test.truth').map(c => c.type_version)).toEqual([1, 1]);
+    expect(within(migration).getAllByRole('checkbox').every(el => !(el as HTMLInputElement).checked)).toBe(true);
+    expect(within(migration).getByText(/laufende Timer/)).toBeVisible();
+    await user.click(within(migration).getByRole('checkbox', { name: 'fixture.left' }));
+    await user.click(within(migration).getByRole('button', { name: 'In Entwurf speichern' }));
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/templates/details/test.truth/2'));
     const next = config();
     const versions = next.definitions.filter((d) => d.type_id === 'test.truth').map((d) => d.type_version);
@@ -83,8 +93,10 @@ describe('definition versions are immutable once activated', () => {
     api.drafts.set('d2', makeDraft('d2', cfg, { base_revision: 1 }));
     render(<Harness draft={api.drafts.get('d2') as unknown as Draft} path="/templates/details/test.truth/2" />);
     await user.click(screen.getByText('open-draft'));
-    await user.click(await screen.findByRole('tab', { name: /Ausgaben/ }));
-    expect((await screen.findAllByRole('combobox', { name: /^Rechenschritt/ }))[0]).toBeEnabled();
+    await user.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
+    const editor = await screen.findByRole('dialog', { name: 'Vorlage bearbeiten' });
+    await user.click(within(editor).getByRole('tab', { name: /Ausgaben/ }));
+    expect(within(editor).getAllByRole('combobox', { name: /^Rechenschritt/ })[0]).toBeEnabled();
     expect(screen.queryByText(/Aktivierte Version/)).toBeNull();
   });
 });

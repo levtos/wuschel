@@ -111,24 +111,24 @@ it('moves through the real native drag adapter in StrictMode and keeps the edito
   expect(input).toHaveValue('keep');
 });
 
-it('keeps the actual source editor and dirty draft unchanged; layout actions send no writes', async () => {
+it('keeps the selected source and dirty draft unchanged; layout actions send no writes', async () => {
   const source = { source_id: 'source.a', source_type: 'boolean', source_origin: 'local', dependency_id: 'dep.test', physical_source_key: 'physical.a', freshness: { mode: 'event_stateful', future_tolerance_s: 1 } };
   const api = installFakeApi({ drafts: [makeDraft('a', sampleConfig({ sources: [source] }))] });
   function Open() {
     const doc = useWorkingDocument();
-    return <><button onClick={() => doc.open(api.drafts.get('a')!)}>Open</button><output data-testid="dirty">{String(doc.dirty)}</output><SourcesPage /></>;
+    return <><button onClick={() => doc.open(api.drafts.get('a')!)}>Open</button><button onClick={() => doc.setAt('/synthetic_note', 'unsaved')}>Edit working draft</button><output data-testid="dirty">{String(doc.dirty)}</output><SourcesPage /></>;
   }
   wrap(<LayoutPreferencesProvider value="one"><WorkingDocumentProvider validateDebounceMs={3_600_000}><Open /></WorkingDocumentProvider></LayoutPreferencesProvider>);
   await user.click(screen.getByText('Open'));
   await user.click(await screen.findByRole('button', { name: /source.a/ }));
-  await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
+  await user.click(screen.getByText('Edit working draft'));
   const input = screen.getByLabelText('Name');
-  await user.type(input, 'unsaved');
+  expect(input).toBeDisabled();
   await adjust();
   await user.click(screen.getByRole('button', { name: 'Quelle bearbeiten: nach vorne' }));
   await user.selectOptions(screen.getByLabelText("Quelle bearbeiten: Breite des Bereichs"), '3');
   await user.click(screen.getByRole('button', { name: "Anordnung zurücksetzen" }));
-  expect(input).toHaveValue('unsaved');
+  expect(input).toHaveValue('');
   expect(screen.getByLabelText('Name')).toBe(input);
   expect(screen.getByTestId('dirty')).toHaveTextContent('true');
   expect(api.calls.filter((c) => c.method !== 'GET')).toEqual([]);

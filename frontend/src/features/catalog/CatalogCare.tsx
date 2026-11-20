@@ -7,6 +7,8 @@ import { uuid } from '@/lib/uuid';
 import { Button } from '@/components/ui/button';
 import { Field, Input, Select } from '@/components/ui/form';
 import { Dialog } from '@/components/ui/dialog';
+import { EffectStrip } from '@/features/authoring/DraftEditor';
+import { useEditorGuard } from '@/features/authoring/EditorGuard';
 import { Notice, Spinner } from '@/components/ui/layout';
 import { Badge } from '@/components/ui/badge';
 import type { Catalog, Entry } from './CatalogPage';
@@ -49,6 +51,8 @@ export function CatalogCare({ catalog, rows, selected, setSelected, revision, ac
   const [members, setMembers] = useState<Entry[]>([]); const [impact, setImpact] = useState<{ value: Impact; body: string } | null>(null);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [changed, setChanged] = useState(false); const [saved, setSaved] = useState(false);
+  const guard = useEditorGuard(body !== null && changed, () => { setBody(null); setWork(null); setChanged(false); }, saving);
   const sequence = useRef(0); const latest = useRef('');
   const [timings, setTimings] = useState<Record<string, number>>({});
   latest.current = JSON.stringify(body);
@@ -56,12 +60,12 @@ export function CatalogCare({ catalog, rows, selected, setSelected, revision, ac
   const begin = (action: string, entries = Object.values(selected), queue: Queue | null = null) => {
     if (!entries.length) return;
     const group = queue?.groups[0]; const master = group?.master ?? [...entries].filter(row => !row.master_key).sort((a, b) => (a.master_order ?? Number.MAX_SAFE_INTEGER) - (b.master_order ?? Number.MAX_SAFE_INTEGER))[0]?.identity ?? entries[0]!.identity;
-    setMembers(entries); setError(''); setImpact(null);
+    setMembers(entries); setError(''); setImpact(null); setChanged(false);
     setBody({ catalog_id: catalog.catalog_id, definition_version: catalog.version, expected_active_revision: queue?.active_revision ?? activeRevision,
       expected_content_revision: queue?.content_revision ?? revision, request_id: uuid(), reason: t('b17.careReason'),
       action, identities: entries.map(row => row.identity), master, classification: entries.find(row => row.identity === master)?.classification ?? catalog.classification_schema.values[0] ?? '' });
   };
-  const edit = (patch: Partial<CareBody>) => { if (body) { const next = { ...body, ...patch, request_id: uuid() }; if (next.action !== 'group') delete next.new_master_name; setBody(next); setImpact(null); } };
+  const edit = (patch: Partial<CareBody>) => { if (body) { const next = { ...body, ...patch, request_id: uuid() }; if (next.action !== 'group') delete next.new_master_name; setBody(next); setImpact(null); setChanged(true); setSaved(false); } };
   const groupReady = !body || body.action !== 'group' || (body.new_master_name !== undefined ? !!body.new_master_name.trim() : !!body.master);
   const next = (updated: Queue) => {
     setWork(updated);
@@ -81,6 +85,7 @@ export function CatalogCare({ catalog, rows, selected, setSelected, revision, ac
     try {
       const started = performance.now();
       const result = await api<{ content_revision: number }>('catalogs/care/write', { method: 'POST', body });
+      setSaved(true); setChanged(false);
       const write = performance.now() - started; const refreshing = performance.now();
       setSelected({});
       await cache.invalidateQueries({ queryKey: ['catalog-entries'] });
@@ -111,13 +116,17 @@ export function CatalogCare({ catalog, rows, selected, setSelected, revision, ac
     </div>
     {Object.keys(selected).length > 100 && <Notice tone="warn">{t('b17.selectionLimit')}</Notice>}
     {error && !body && <Notice tone="bad">{error}</Notice>}
+    {saved && !body && <Notice tone="ok">{t('a2.edit.catalogSaved')}</Notice>}
     {!!Object.keys(timings).length && <details><summary>{t('b20.timing.title')}</summary><dl>{Object.entries(timings).map(([name, ms]) => <div key={name}><dt>{t(`b20.timing.${name}`)}</dt><dd>{t('b20.timing.value', { ms: Math.round(ms) })}</dd></div>)}</dl></details>}
-    <Dialog open={!!body} onOpenChange={open => { if (!open && !busy) { setBody(null); setWork(null); } }} title={t(work ? 'b17.variantsCheck' : 'b17.bulk')} footer={<>
-      {work && <><Button disabled={busy} onClick={() => next({ ...work, groups: work.groups.slice(1) })}>{t('b17.skip')}</Button>
+    <Dialog open={!!body} onOpenChange={open => !open && guard.requestClose()} title={t(work ? 'b17.variantsCheck' : 'b17.bulk')} footer={<>
+      {work && <><Button disabled={busy} onClick={() => guard.requestClose(() => next({ ...work, groups: work.groups.slice(1) }))}>{t('b17.skip')}</Button>
         <Button disabled={busy} onClick={() => edit({ action: 'standalone_review' })}>{t('b17.keepIndependent')}</Button></>}
+      <Button disabled={saving} onClick={() => guard.requestClose()}>{t('common.cancel')}</Button>
       <Button disabled={busy || !body || !groupReady || body.identities.length > 100} onClick={() => void check()}>{t('alpha10.catalog.preview')}</Button>
       <Button variant="primary" disabled={busy || !!error || !groupReady || !body || !impact || impact.body !== JSON.stringify(body)} onClick={() => void save()}>{t('alpha10.catalog.save')}</Button>
     </>}>
+      <EffectStrip effect="catalog" />
+      {saved && <Notice tone="ok">{t('a2.edit.catalogSaved')}</Notice>}
       <div className="space-y-4">
         <p>{t('b17.careDescription')}</p><Notice tone="warn">{t('b17.tcWins')}</Notice>
         {work && <p>{t('b17.groupsRemaining', { n: work.groups.length })}</p>}
@@ -133,6 +142,7 @@ export function CatalogCare({ catalog, rows, selected, setSelected, revision, ac
         </>}
       </div>
     </Dialog>
+    {guard.confirmation}
   </div>;
 }
 

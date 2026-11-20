@@ -30,6 +30,26 @@ function app(hash: string) {
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Workbench onSetup={() => {}} live={idleLive()} /></QueryClientProvider>);
 }
 
+it('marks both threshold inputs and explains the failed relation with labels and values', async () => {
+  const number = { type: 'number', unit: 'm', required: true, physical_state: true };
+  const fixture = sampleConfig({
+    contracts: [{ ...contract, type_id: 'test.threshold', type_version: 1, parameters: { lower_1: 1000, upper_1: 150 } }],
+    definitions: [{ type_id: 'test.threshold', type_version: 1, language_version: 2, inputs: [], schema: { fields: { value: number }, available_projection: ['value'] }, outputs: { value: { op: 'parameter', name: 'lower_1' } }, parameter_schema: { lower_1: { schema: number, label: 'Innere Grenze 1' }, upper_1: { schema: number, label: 'Äußere Grenze 1' } } }],
+  });
+  const fake = installFakeApi({ revisions: [revision(fixture)] });
+  fake.issuesFor = () => ['lower_1', 'upper_1'].map(field => ({ code: 'parameter.parameter_relation_failed', path: `/contracts/0/parameters/${field}`, message: 'invalid parameter relation', parameters: { left: 'lower_1', right: 'upper_1', comparison: 'le' } }));
+  app('#/contracts/view/synthetic.one');
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
+  const editor = within(await screen.findByRole('dialog', { name: 'Vertrag bearbeiten' }));
+  await user.click(editor.getByRole('button', { name: 'Prüfen' }));
+  const message = 'Innere Grenze 1 (1.000 m) muss kleiner oder gleich Äußere Grenze 1 (150 m) sein.';
+  expect((await editor.findAllByText(message)).length).toBeGreaterThanOrEqual(2);
+  expect(editor.getByLabelText(/Innere Grenze 1/)).toHaveAttribute('aria-invalid', 'true');
+  expect(editor.getByLabelText(/Äußere Grenze 1/)).toHaveAttribute('aria-invalid', 'true');
+  expect(fake.drafts.size).toBe(0);
+});
+
 it('edits only the selected contract through its action and leaves active configuration unchanged', async () => {
   const fake = installFakeApi({ revisions: [revision()] });
   app('#/contracts/view/synthetic.one');
@@ -44,7 +64,7 @@ it('edits only the selected contract through its action and leaves active config
   const field = within(editor).getByLabelText('Anzeigename');
   expect(field).toBeEnabled();
   await user.clear(field); await user.type(field, 'Synthetic edited contract');
-  await user.click(screen.getByRole('button', { name: t('b22.object.finish') }));
+  await user.click(screen.getByRole('button', { name: t('a2.edit.save') }));
   await waitFor(() => expect(asArray([...fake.drafts.values()][0]?.config.contracts)[0]).toMatchObject({ contract_id: contract.contract_id, display_name: 'Synthetic edited contract' }));
   expect(fake.revisions).toHaveLength(1);
   expect(fake.revisions[0]!.config).toEqual(config());
@@ -64,13 +84,15 @@ it.each(['rename', 'disable'] as const)('allows %s only after editing and confir
     const dialog = await screen.findByRole('dialog', { name: t('b22.object.rename') });
     await user.clear(within(dialog).getByLabelText(t('b22.object.name')));
     await user.type(within(dialog).getByLabelText(t('b22.object.name')), 'Synthetic renamed contract');
-    await user.click(within(dialog).getByRole('button', { name: t('b22.object.save') }));
+    await user.click(within(dialog).getByRole('button', { name: t('a2.edit.apply') }));
   }
   expect(fake.calls.some(call => call.method === 'PUT' && call.path.startsWith('registry/drafts/'))).toBe(false);
   const confirmation = await screen.findByRole('alertdialog', { name: t(`b22.object.${action}`) });
   expect(confirmation).toHaveTextContent('Synthetic contract');
   if (action === 'rename') expect(confirmation).toHaveTextContent('Synthetic renamed contract');
-  await user.click(within(confirmation).getByRole('button', { name: t('b22.object.save') }));
+  await user.click(within(confirmation).getByRole('button', { name: t('a2.edit.apply') }));
+  expect(fake.drafts.size).toBe(0);
+  await user.click(within(screen.getByRole('dialog', { name: 'Vertrag bearbeiten' })).getByRole('button', { name: t('a2.edit.save') }));
   await waitFor(() => expect(asArray([...fake.drafts.values()][0]?.config.contracts)[0]).toMatchObject(action === 'rename' ? { contract_id: contract.contract_id, display_name: 'Synthetic renamed contract' } : { contract_id: contract.contract_id, enabled: false }));
   expect(fake.revisions).toHaveLength(1);
   expect(fake.revisions[0]!.config).toEqual(config());
@@ -99,7 +121,7 @@ it('changes only wake_settings through the dedicated action', async () => {
   mountDraft(draft as Draft, <WakePlanningDialog contractId={contract.contract_id} parameterSchema={schema} onClose={() => {}} />);
   const fields = await screen.findAllByLabelText(/Weckzeit/);
   fireEvent.change(fields[0]!, { target: { value: '07:30' } });
-  await userEvent.click(screen.getByRole('button', { name: t('b22.object.save') }));
+  await userEvent.click(screen.getByRole('button', { name: t('a2.edit.save') }));
   await waitFor(() => expect(asObject(asObject(asObject(asObject(asArray(fake.drafts.get(draft.draft_id)!.config.contracts)[0]).parameters).wake_settings).profiles).weekday).toMatchObject({ wake_time: '07:30' }));
   const before = asObject(asArray(current.contracts)[0]); const after = asObject(asArray(fake.drafts.get(draft.draft_id)!.config.contracts)[0]);
   expect({ ...after, parameters: before.parameters }).toEqual(before);
@@ -115,16 +137,16 @@ it('previews an entity repair through EntityPicker without changing logical IDs 
   await userEvent.click(await screen.findByRole('button', { name: t('b22.entity.choose') }));
   await userEvent.type(await screen.findByLabelText(t('editors.RegistryObjects.entitaten_durchsuchen_4437b8')), 'Synthetic new');
   await userEvent.click(await screen.findByRole('button', { name: /Synthetic new device/ }));
-  await userEvent.click(screen.getByRole('button', { name: t('alpha7.move.check') }));
-  await waitFor(() => expect(screen.getByRole('button', { name: t('b22.entity.apply') })).toBeEnabled());
+  await userEvent.click(screen.getByRole('button', { name: t('a2.edit.check') }));
+  await waitFor(() => expect(screen.getByRole('button', { name: t('a2.edit.save') })).toBeEnabled());
   const request = fake.calls.find(call => call.path === 'registry/validate' && asArray(asObject(call.body as Json).bindings).some(row => asObject(asObject(row).adapter).ha_entity_id === 'sensor.synthetic_new'));
   expect(request).toBeDefined();
   const planned = planEntityChange(current, source.source_id, binding.binding_id, 'sensor.synthetic_new');
   expect(planned.contracts).toEqual(current.contracts); expect(planned.sources).toEqual(current.sources);
   expect(asArray(planned.bindings)[0]).toEqual({ ...binding, adapter: { ...binding.adapter, ha_entity_id: 'sensor.synthetic_new' } });
-  await userEvent.click(screen.getByRole('button', { name: t('b22.entity.apply') }));
+  await userEvent.click(screen.getByRole('button', { name: t('a2.edit.save') }));
   await waitFor(() => expect(JSON.parse(screen.getByLabelText('Synthetic working configuration').textContent!)).toEqual(planned));
-  expect(fake.drafts.get(draft.draft_id)!.config).toEqual(current);
+  expect(fake.drafts.get(draft.draft_id)!.config).toEqual(planned);
   expect(fake.revisions[0]!.config).toEqual(current);
   expect(current).toEqual(config());
   expect(fake.revisions).toHaveLength(1);
@@ -141,7 +163,7 @@ it('keeps a new manual source read-only until its local edit action and never sh
   expect(field).toBeDisabled();
   expect(fake.calls.some(call => /manual|calendar/.test(call.path))).toBe(false);
   await userEvent.click(screen.getByRole('button', { name: t('b22.object.edit') }));
-  await waitFor(() => expect(field).toBeEnabled());
+  expect(within(await screen.findByRole('dialog', { name: 'Quelle bearbeiten' })).getByLabelText('Name')).toBeEnabled();
   expect(fake.revisions[0]!.config).toEqual(active);
 });
 

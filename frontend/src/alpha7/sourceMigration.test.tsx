@@ -68,16 +68,14 @@ it('opens from live, checks the exact migration and applies only to the draft; c
   const dialog = await screen.findByRole('dialog', { name: 'Quelle umziehen' });
   await user.selectOptions(within(dialog).getByLabelText('Neue Werteart'), 'text');
   expect(within(dialog).getByRole('checkbox', { name: 'Zimmer' })).toBeChecked();
-  await user.click(within(dialog).getByRole('button', { name: 'Umzug prüfen' }));
+  await user.click(within(dialog).getByRole('button', { name: 'Prüfen' }));
   await within(dialog).findByText(/Direkt umgestellte Verträge: 1/);
-  expect(within(dialog).getByRole('button', { name: "Im Entwurf speichern" })).toBeEnabled();
+  expect(within(dialog).getByRole('button', { name: 'In Entwurf speichern' })).toBeEnabled();
   await user.type(within(dialog).getByLabelText('Name der neuen Quelle'), ' geändert');
-  expect(within(dialog).getByRole('button', { name: "Im Entwurf speichern" })).toBeDisabled();
-  await user.click(within(dialog).getByRole('button', { name: 'Umzug prüfen' }));
-  await waitFor(() => expect(within(dialog).getByRole('button', { name: "Im Entwurf speichern" })).toBeEnabled());
-  await user.click(within(dialog).getByRole('button', { name: "Im Entwurf speichern" }));
-  await user.click(screen.getByLabelText('Weitere Entwurfsaktionen'));
-  await user.click(screen.getByRole('button', { name: 'Speichern' }));
+  expect(within(dialog).getByRole('button', { name: 'In Entwurf speichern' })).toBeDisabled();
+  await user.click(within(dialog).getByRole('button', { name: 'Prüfen' }));
+  await waitFor(() => expect(within(dialog).getByRole('button', { name: 'In Entwurf speichern' })).toBeEnabled());
+  await user.click(within(dialog).getByRole('button', { name: 'In Entwurf speichern' }));
   await waitFor(() => expect(objects([...api.drafts.values()][0]!.config.sources)).toHaveLength(2));
   expect(api.revisions).toHaveLength(1); expect(api.revisions[0]!.config).toEqual(config);
 }, 15_000);
@@ -93,13 +91,13 @@ it('discards a delayed validation result after the working draft changes', async
   }
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><WorkingDocumentProvider validateDebounceMs={100_000}><Subject /></WorkingDocumentProvider></MemoryRouter></QueryClientProvider>);
   await user.click(screen.getByText('Open')); const dialog = await screen.findByRole('dialog');
-  await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Umzug prüfen' })).toBeEnabled());
-  await user.click(within(dialog).getByRole('button', { name: 'Umzug prüfen' }));
+  await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Prüfen' })).toBeEnabled());
+  await user.click(within(dialog).getByRole('button', { name: 'Prüfen' }));
   await waitFor(() => expect(release).toBeDefined());
   // Simulate another editor updating the shared document while the modal's request is pending.
   act(() => screen.getByText('Change').click()); release!();
   await within(dialog).findByText(/Der Entwurf oder die Auswahl hat sich geändert/);
-  expect(within(dialog).getByRole('button', { name: "Im Entwurf speichern" })).toBeDisabled();
+  expect(within(dialog).getByRole('button', { name: 'In Entwurf speichern' })).toBeDisabled();
 });
 
 it('follows the immutable-source error directly into a migration and shows server validation errors before any edit', async () => {
@@ -108,9 +106,9 @@ it('follows the immutable-source error directly into a migration and shows serve
   window.location.hash = `#/sources/devices?move=${encodeURIComponent(String(objects(config.sources)[0]!.source_id))}`;
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Workbench onSetup={() => {}} live={idleLive()} /></QueryClientProvider>);
   const dialog = await screen.findByRole('dialog', { name: 'Quelle umziehen' });
-  await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Umzug prüfen' })).toBeEnabled());
-  await user.click(within(dialog).getByRole('button', { name: 'Umzug prüfen' }));
+  await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Prüfen' })).toBeEnabled());
+  await user.click(within(dialog).getByRole('button', { name: 'Prüfen' }));
   await within(dialog).findByText(/Der Umzug passt noch nicht/);
-  expect(within(dialog).getByRole('button', { name: "Im Entwurf speichern" })).toBeDisabled();
-  expect(objects([...api.drafts.values()][0]!.config.sources)).toHaveLength(1);
+  expect(within(dialog).getByRole('button', { name: 'In Entwurf speichern' })).toBeDisabled();
+  expect(api.drafts.size).toBe(0);
 });

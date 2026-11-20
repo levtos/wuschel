@@ -50,8 +50,6 @@ describe('Alpha-4 example registry: complete manual-first flow', () => {
     await f.createDraft('GUI-Aufbau', "Leere Konfiguration");
     await screen.findAllByText('GUI-Aufbau');
     await f.buildExampleRegistry();
-
-    await user.click(await f.saveButton());
     await waitFor(() => expect([...api.drafts.values()][0]!.draft_version).toBeGreaterThan(1));
     expect(savedConfig()).toEqual(registry); // exact, including the object value, the machine and the nested rules
 
@@ -70,7 +68,8 @@ describe('Alpha-4 example registry: complete manual-first flow', () => {
     // Edit through the UI: a catalog with object / list / null values.
     await f.go('#/sources?tab=catalogs');
     await user.click(await screen.findByRole('button', { name: 'Werteliste hinzufügen' }));
-    await f.type(await screen.findByLabelText("Kennung der Werteliste"), 'catalog.struktur');
+    const catalog = await screen.findByRole('dialog');
+    await f.type(within(catalog).getByLabelText('Kennung der Werteliste'), 'catalog.struktur');
     await user.selectOptions(screen.getByLabelText('Wert für an: Typ'), 'object');
     await user.click(screen.getByRole('button', { name: 'Wert für an: Eigenschaft hinzufügen' }));
     await f.type(screen.getByLabelText('Wert für an: Schlüssel 1'), 'liste');

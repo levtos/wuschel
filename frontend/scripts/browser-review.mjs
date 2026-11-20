@@ -126,7 +126,7 @@ async function guidedContract(page, server, browser) {
   await radio.waitFor({ timeout: 70_000 });
   await click(radio);
   await capture(page, 'after', browser, 'device-guide', 'P6: echte Geräteauswahl vor dem Anlegen');
-  await click(dialog.getByRole('button', { name: 'Vertrag anlegen', exact: true }));
+  await click(dialog.getByRole('button', { name: 'In Entwurf speichern', exact: true }));
   await click(page.getByRole('button', { name: 'Übernehmen', exact: true }));
   const confirm = page.getByRole('dialog', { name: 'Konfiguration übernehmen', exact: true });
   await click(confirm.getByRole('checkbox', { name: /Auswirkungen geprüft/ }));
@@ -271,7 +271,7 @@ async function correctionPages(page, server, browser) {
   await wizard.getByRole('radio', { name: 'Bad Temperatur', exact: true }).click();
   await expect(wizard.getByText('= 15 Minuten', { exact: true })).toBeVisible();
   await photo('device-guide', 'K.05: Frist 900 Sekunden mit Hilfe = 15 Minuten');
-  await wizard.getByRole('button', { name: 'Vertrag anlegen', exact: true }).click();
+  await wizard.getByRole('button', { name: 'In Entwurf speichern', exact: true }).click();
   await page.getByRole('button', { name: 'Übernehmen', exact: true }).click();
   const confirmation = page.getByRole('dialog', { name: 'Konfiguration übernehmen', exact: true });
   const consent = confirmation.getByRole('checkbox', { name: /Auswirkungen geprüft/ });

@@ -3,11 +3,9 @@ import { createColumnHelper } from '@tanstack/react-table';
 import { Plus, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { describeError } from '@/lib/api';
 import { DataTable } from '@/components/DataTable';
 import { LayoutPanel, PanelLayout } from '@/components/PanelLayout';
 import { Button } from '@/components/ui/button';
-import { Dialog } from '@/components/ui/dialog';
 import { Field, Input, Select } from '@/components/ui/form';
 import { ID_HINT, ID_LIMIT, validIdentifier } from '@/lib/identifiers';
 import { Empty, PageHeader, Panel, Spinner } from '@/components/ui/layout';
@@ -16,6 +14,7 @@ import { asArray, str, uniqueName } from '@/features/authoring/model';
 import { typeCatalog, typeKey } from '@/features/authoring/catalog';
 import { useAuthoringSource } from '@/features/authoring/useAuthoringSource';
 import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
+import { DraftEditor, useEditorBase } from '@/features/authoring/DraftEditor';
 import { setAt, isObject } from '@/lib/json';
 import { useLive } from '@/lib/live-context';
 import type { Envelope } from '@/lib/types';
@@ -54,52 +53,37 @@ interface Row {
 
 const col = createColumnHelper<Row>();
 
-export function NewContractDialog({ open, onOpenChange, onCreated, initialManual = false }: { open: boolean; onOpenChange: (o: boolean) => void; onCreated: (id: string) => void; initialManual?: boolean }) {
+export function NewContractDialog({ open, onOpenChange, onCreated, initialManual = false }: { open: boolean; onOpenChange: (o: boolean) => void; onCreated: (id: string, needsInputs: boolean) => void; initialManual?: boolean }) {
   const [manual, setManual] = useState(initialManual);
   const change = (next: boolean) => { if (!next) setManual(initialManual); onOpenChange(next); };
-  return <><DeviceWizard open={open && !manual} onOpenChange={change} title={uiText('alpha7.overview.newContract')} contract="new" onAdded={result => result.contractId && onCreated(result.contractId)} manualOption={<Button onClick={() => setManual(true)}>{uiText('alpha7.device.withoutDevice')}</Button>} /><ManualNewContractDialog open={open && manual} onOpenChange={change} onCreated={onCreated} /></>;
+  return <><DeviceWizard open={open && !manual} onOpenChange={change} title={uiText('alpha7.overview.newContract')} contract="new" onAdded={result => result.contractId && onCreated(result.contractId, false)} manualOption={leave => <Button onClick={() => leave(() => setManual(true))}>{uiText('alpha7.device.withoutDevice')}</Button>} />{open && manual && <ManualNewContractDialog onOpenChange={change} onCreated={id => onCreated(id, true)} />}</>;
 }
 
-function ManualNewContractDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (o: boolean) => void; onCreated: (id: string) => void }) {
+function ManualNewContractDialog({ onOpenChange, onCreated }: { onOpenChange: (o: boolean) => void; onCreated: (id: string) => void }) {
   const src = useAuthoringSource();
-  const doc = useWorkingDocument();
-  const ids = asArray(src.config?.contracts).filter(isObject).map((c) => str(c.contract_id));
+  const base = useEditorBase();
+  const ids = asArray(base.contracts).filter(isObject).map((c) => str(c.contract_id));
   const [id, setId] = useState('');
   const [type, setType] = useState('');
   const metadata = useEditorial(); const [category, setCategory] = useState<Category | null>(null);
-  const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const availableTypes = src.types.filter(entry => entry.lifecycle !== 'retired');
   const chosen = availableTypes.find((t) => t.key === type) ?? availableTypes[0];
   const selectedCategory = category ?? metadata.item({ kind: 'template', id: chosen?.type_id ?? '' }).category;
   const taken = ids.includes(id.trim());
-  const valid = validIdentifier(id.trim()) && !taken && !!chosen;
+  const valid = validIdentifier(id.trim()) && !taken && !!chosen && !metadata.isPending && !metadata.isError;
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
+    <DraftEditor base={base} dirty={!!id || !!type || category !== null} input={[id, chosen?.key, selectedCategory]} ready={valid}
+      onClose={() => onOpenChange(false)} onSaved={() => onCreated(id.trim())}
       title={uiText("features.contracts.ContractsPage.neue_contract_instanz_a62401")}
       description={uiText("features.contracts.ContractsPage.eine_instanz_bindet_einen_typ_paket_typ_oder_dek_e77e04")}
-      footer={
-        <>
-          <Button onClick={() => onOpenChange(false)}>{uiText("features.contracts.ContractsPage.abbrechen_f7ff11")}</Button>
-          <Button
-            variant="primary"
-            disabled={!valid || busy || metadata.isPending || metadata.isError}
-            disabledReason={taken ? uiText('features.contracts.ContractsPage.diese_id_ist_bereits_vergeben_20f34e') : uiText('alpha7.copy.checkIdentifier')}
-            onClick={async () => {
-              if (!chosen) return;
-              setBusy(true); setError('');
-              try {
-                const contractId = id.trim(); const object = { kind: 'contract' as const, id: contractId };
-                await doc.editAndSave((c) => setAt(c, '/contracts', [...asArray(c.contracts), { contract_id: contractId, type_id: chosen.type_id, type_version: chosen.type_version, enabled: true, inputs: [], parameters: {} }]), [{ object, category: selectedCategory, room: NO_ROOM, expected_editorial_version: metadata.item(object).editorial_version }]);
-                onOpenChange(false); setId(''); setCategory(null); onCreated(contractId);
-              } catch (failure) { setError(describeError(failure)); }
-              finally { setBusy(false); }
-            }}
-          >
-            {uiText("features.contracts.ContractsPage.anlegen_d34c0e")}</Button>
-        </>
-      }
+      plan={() => {
+        const contractId = id.trim();
+        const object = { kind: 'contract' as const, id: contractId };
+        return {
+          config: setAt(base, '/contracts', [...asArray(base.contracts), { contract_id: contractId, type_id: chosen!.type_id, type_version: chosen!.type_version, enabled: true, inputs: [], parameters: {} }]),
+          editorial: [{ object, category: selectedCategory, room: NO_ROOM, expected_editorial_version: metadata.item(object).editorial_version }],
+        };
+      }}
     >
       <div className="flex flex-col gap-4">
         <Field label={uiText("features.contracts.ContractsPage.contract_id_f9f7ff")} hint={ID_HINT} errors={taken ? [{ code: 'duplicate_identity', message: uiText("features.contracts.ContractsPage.diese_id_ist_bereits_vergeben_20f34e") }] : id && !validIdentifier(id.trim()) ? [{ code: 'identity_invalid', message: ID_HINT }] : []}>
@@ -115,9 +99,8 @@ function ManualNewContractDialog({ open, onOpenChange, onCreated }: { open: bool
           )}
         </Field>
         <CategorySelect value={selectedCategory} onChange={value => setCategory(value || 'other')} />
-        {error && <p role="alert" className="text-sm text-bad">{error}</p>}
       </div>
-    </Dialog>
+    </DraftEditor>
   );
 }
 
@@ -140,22 +123,15 @@ export default function ContractsPage() {
   const [enabledFilter, setEnabledFilter] = route.field<'all' | 'on' | 'off'>('enabled', ['active', 'healthy', 'degraded'].includes(overviewFilter ?? '') ? 'on' : overviewFilter === 'off' ? 'off' : 'all');
   const [healthFilter, setHealthFilter] = route.field<'all' | ContractCategory>('health', CONTRACT_CATEGORIES.includes(overviewFilter as ContractCategory) ? overviewFilter as ContractCategory : 'all');
   const [creating, setCreating] = useState(false);
-  const [creationError, setCreationError] = useState('');
   const requested = useRef(false);
-  const start = async () => {
-    setCreationError('');
-    try { await doc.ensureDraft(); setCreating(true); }
-    catch (error) { setCreationError(describeError(error)); }
-  };
+  const start = () => setCreating(true);
   useEffect(() => {
     if (params.get('new') !== '1') { requested.current = false; return; }
-    if (requested.current) return;
+    if (requested.current || !active.isSuccess || src.loading) return;
     requested.current = true;
     const next = new URLSearchParams(params); next.delete('new'); setParams(next, { replace: true });
     void start();
-    // start reads the current provider; the query is consumed exactly once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params, setParams]);
+  }, [params, setParams, active.isSuccess, src.loading]);
 
   const configured = asArray(src.config?.contracts).filter(isObject);
   const activeContracts = asArray(active.data?.config?.contracts).filter(isObject);
@@ -209,11 +185,10 @@ export default function ContractsPage() {
         title={uiText("features.contracts.ContractsPage.contracts_definitionen_499616")}
         description={uiText('alpha9.pages.contracts')}
         actions={
-          <Button variant="primary" disabled={doc.starting} disabledReason={uiText('alpha7.copy.inProgress')} onClick={() => void start()}>
+          <Button variant="primary" disabled={doc.starting || src.loading || !active.isSuccess} disabledReason={uiText('alpha7.copy.inProgress')} onClick={start}>
             <Plus size={15} /> {uiText("features.contracts.ContractsPage.neue_instanz_e3e518")}</Button>
         }
       />
-      {creationError && <p role="alert" className="mb-3 text-sm text-bad">{creationError}</p>}
       {doc.starting && <p role="status" className="mb-3 text-sm text-muted">{uiText('alpha7.draft.preparing')}</p>}
       <ContractsTabs />
       <ReadOnlyNotice what={uiText("features.contracts.ContractsPage.contract_instanzen_1a0c12")} />
@@ -265,7 +240,7 @@ export default function ContractsPage() {
       </LayoutPanel></PanelLayout>
       <SourceProblems rows={filtered} config={src.config} />
       {live.stale && live.contracts && <p className="mt-2 text-xs text-warn">{uiText("features.contracts.ContractsPage.live_zustand_moglicherweise_veraltet_57c06a")}{live.connection}).</p>}
-      <NewContractDialog open={creating} onOpenChange={setCreating} onCreated={(id) => navigate(`/contracts/view/${encodeURIComponent(id)}?tab=config&edit=1`)} />
+      <NewContractDialog open={creating} onOpenChange={setCreating} onCreated={(id, needsInputs) => navigate(`/contracts/view/${encodeURIComponent(id)}?tab=config${needsInputs ? '&edit=1' : ''}`)} />
     </>
   );
 }

@@ -44,7 +44,9 @@ it.each(routes)('%s has a title, an everyday explanation and one primary page ac
   expect(description.textContent).toMatch(/^Hier kannst du /);
   const header = description.closest('[data-page-header]')!;
   expect(within(header as HTMLElement).getByRole('heading', { level: 1 }).textContent?.trim()).not.toBe('');
-  const primary = within(header as HTMLElement).getAllByRole('button').filter(button => button.dataset.variant === 'primary');
+  const actions = path === '/settings/operations' ? screen.getByRole('button', { name: t('b26.operations.save') }).closest('footer') : header;
+  expect(actions).toBeInTheDocument();
+  const primary = within(actions as HTMLElement).getAllByRole('button').filter(button => button.dataset.variant === 'primary');
   expect(primary).toHaveLength(1);
   expect(api.calls.filter(call => call.method !== 'GET')).toEqual([]);
 }, 15_000);

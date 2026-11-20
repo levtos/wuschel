@@ -20,12 +20,17 @@ export async function clickReadyButton(user: UserEvent, button: HTMLElement, nam
  * edits the document, pointers or JSON directly.
  */
 export const node = (pointer: string): HTMLElement => {
-  const el = document.querySelector(`[data-pointer="${pointer}"]`);
+  const editor = screen.queryByRole('dialog', { name: 'Vorlage bearbeiten' });
+  const el = (editor ?? document).querySelector(`[data-pointer="${pointer}"]`);
   if (!el) throw new Error(`Knoten ${pointer} nicht gefunden`);
   return el as HTMLElement;
 };
 
 export function gui(user: UserEvent) {
+  const controls = () => {
+    const editor = screen.queryByRole('dialog', { name: 'Vorlage bearbeiten' });
+    return editor ? within(editor) : screen;
+  };
   const setOp = async (pointer: string, op: string) => {
     await user.selectOptions(within(node(pointer)).getAllByRole('combobox', { name: /^Rechenschritt/ })[0]!, op);
   };
@@ -35,7 +40,7 @@ export function gui(user: UserEvent) {
     await user.clear(el);
     await user.type(el, text);
   };
-  const tab = (name: RegExp | string) => user.click(screen.getByRole('tab', { name }));
+  const tab = (name: RegExp | string) => user.click(controls().getByRole('tab', { name }));
 
   /** test.condition: AND(a, NOT(false), compare(sum(1, 2) > 2)). */
   const buildCondition = async (base: string) => {
@@ -61,8 +66,8 @@ export function gui(user: UserEvent) {
   /** test.either: a second input and a fusion with an explicit strategy. */
   const buildEither = async (base: string) => {
     await tab(/Eingänge/);
-    await user.click(screen.getByRole('button', { name: 'Eingang' }));
-    await type(screen.getAllByLabelText('Name')[1]!, 'b');
+    await user.click(controls().getByRole('button', { name: 'Eingang' }));
+    await type(controls().getAllByLabelText('Name')[1]!, 'b');
     await user.tab();
     await tab(/Ausgaben/);
     const root = `${base}/outputs/value`;
@@ -74,11 +79,11 @@ export function gui(user: UserEvent) {
   /** test.timed: named rules (Grace, stable_for) referenced by the output. */
   const buildTimed = async (base: string) => {
     await tab(/Benannte Regeln/);
-    await user.click(screen.getByRole('button', { name: 'Regel' }));
-    await type(screen.getAllByLabelText('Name')[0]!, 'grace');
+    await user.click(controls().getByRole('button', { name: 'Regel' }));
+    await type(controls().getAllByLabelText('Name')[0]!, 'grace');
     await user.tab();
-    await user.click(screen.getByRole('button', { name: 'Regel' }));
-    await type(screen.getAllByLabelText('Name')[1]!, 'stable');
+    await user.click(controls().getByRole('button', { name: 'Regel' }));
+    await type(controls().getAllByLabelText('Name')[1]!, 'stable');
     await user.tab();
     const grace = `${base}/rules/grace`;
     await setOp(grace, 'temporal');
@@ -102,16 +107,16 @@ export function gui(user: UserEvent) {
   const buildFlow = async (base: string) => {
     await tab(/Ausgaben/);
     await user.selectOptions(first(`${base}/schema/fields/value`, 'Typ'), 'enum');
-    const catalog = screen.getByLabelText(/Werteliste/);
+    const catalog = controls().getByLabelText(/Werteliste/);
     for (const entry of ['idle', 'active', 'done']) {
       await type(catalog, entry);
-      await user.click(screen.getByRole('button', { name: 'Hinzufügen' }));
+      await user.click(controls().getByRole('button', { name: 'Hinzufügen' }));
     }
     await setOp(`${base}/outputs/value`, 'machine');
 
     const addField = async (name: string, fieldType: string, rule: () => Promise<void>) => {
-      await user.click(screen.getByRole('button', { name: 'Ausgabefeld' }));
-      await type(screen.getAllByLabelText('Feldname').at(-1)!, name);
+      await user.click(controls().getByRole('button', { name: 'Ausgabefeld' }));
+      await type(controls().getAllByLabelText('Feldname').at(-1)!, name);
       await user.tab();
       if (fieldType !== 'bool') await user.selectOptions(first(`${base}/schema/fields/${name}`, 'Typ'), fieldType);
       await rule();
@@ -132,42 +137,42 @@ export function gui(user: UserEvent) {
       await setOp(path, 'literal');
       await user.click(within(node(path)).getByRole('button', { name: 'Technische Details: Werteart' }));
       await user.selectOptions(first(path, 'Typ'), 'object');
-      await user.click(screen.getByRole('button', { name: 'Wert: Eigenschaft hinzufügen' }));
-      await type(screen.getByLabelText('Wert: Schlüssel 1'), 'fixture');
+      await user.click(controls().getByRole('button', { name: 'Wert: Eigenschaft hinzufügen' }));
+      await type(controls().getByLabelText('Wert: Schlüssel 1'), 'fixture');
       await user.tab();
-      await user.selectOptions(screen.getByLabelText('Wert.fixture: Typ'), 'boolean');
-      await user.selectOptions(screen.getByLabelText('Wert.fixture'), 'true');
+      await user.selectOptions(controls().getByLabelText('Wert.fixture: Typ'), 'boolean');
+      await user.selectOptions(controls().getByLabelText('Wert.fixture'), 'true');
     });
 
     await tab(/Ablauf/);
-    await user.click(screen.getByRole('button', { name: "Ablauf hinzufügen" }));
+    await user.click(controls().getByRole('button', { name: "Ablauf hinzufügen" }));
     const m = `${base}/machine`;
-    await type(screen.getByLabelText("Kennung des Ablaufs"), 'lifecycle');
-    await user.click(screen.getByRole('button', { name: 'Zustand' }));
-    await type(screen.getByLabelText('Zustand zustand'), 'done');
+    await type(controls().getByLabelText("Kennung des Ablaufs"), 'lifecycle');
+    await user.click(controls().getByRole('button', { name: 'Zustand' }));
+    await type(controls().getByLabelText('Zustand zustand'), 'done');
     await user.tab();
-    await user.click(screen.getByRole('checkbox', { name: /Sitzungen/ }));
-    await user.click(screen.getByRole('checkbox', { name: /Frist verwenden/ }));
-    await type(screen.getByLabelText(/Frist \(s\)/), '10');
+    await user.click(controls().getByRole('checkbox', { name: /Sitzungen/ }));
+    await user.click(controls().getByRole('checkbox', { name: /Frist verwenden/ }));
+    await type(controls().getByLabelText(/Frist \(s\)/), '10');
     await setOp(`${m}/reinitialize_when`, 'input');
-    await user.click(screen.getByRole('button', { name: 'Befehl' }));
-    await type(screen.getByLabelText('Befehlsname'), 'start');
+    await user.click(controls().getByRole('button', { name: 'Befehl' }));
+    await type(controls().getByLabelText('Befehlsname'), 'start');
     await user.tab();
-    await user.click(screen.getByRole('button', { name: 'Argument' }));
-    await type(screen.getAllByLabelText('Argument').find((el) => (el as HTMLInputElement).value === 'arg')!, 'confirm');
+    await user.click(controls().getByRole('button', { name: 'Argument' }));
+    await type(controls().getAllByLabelText('Argument').find((el) => (el as HTMLInputElement).value === 'arg')!, 'confirm');
     await user.tab();
-    await user.click(screen.getByRole('button', { name: "Übergang" }));
-    await user.selectOptions(screen.getAllByLabelText('Nach')[0]!, 'active');
-    await user.selectOptions(screen.getAllByLabelText('Ereignis')[0]!, 'start');
-    await type(screen.getAllByLabelText('Grund')[0]!, 'requested');
-    await user.click(screen.getByRole('checkbox', { name: /confirm =/ }));
+    await user.click(controls().getByRole('button', { name: "Übergang" }));
+    await user.selectOptions(controls().getAllByLabelText('Nach')[0]!, 'active');
+    await user.selectOptions(controls().getAllByLabelText('Ereignis')[0]!, 'start');
+    await type(controls().getAllByLabelText('Grund')[0]!, 'requested');
+    await user.click(controls().getByRole('checkbox', { name: /confirm =/ }));
     await setOp(`${m}/transitions/0/guard`, 'input');
-    await user.click(screen.getByRole('button', { name: "Übergang" }));
-    await user.selectOptions(screen.getAllByLabelText('Von')[1]!, 'active');
-    await user.selectOptions(screen.getAllByLabelText('Nach')[1]!, 'done');
-    await user.selectOptions(screen.getAllByLabelText('Ereignis')[1]!, 'deadline');
-    await type(screen.getAllByLabelText('Grund')[1]!, 'elapsed');
-    await user.click(screen.getAllByRole('checkbox', { name: /Durchlauf beenden/ })[1]!);
+    await user.click(controls().getByRole('button', { name: "Übergang" }));
+    await user.selectOptions(controls().getAllByLabelText('Von')[1]!, 'active');
+    await user.selectOptions(controls().getAllByLabelText('Nach')[1]!, 'done');
+    await user.selectOptions(controls().getAllByLabelText('Ereignis')[1]!, 'deadline');
+    await type(controls().getAllByLabelText('Grund')[1]!, 'elapsed');
+    await user.click(controls().getAllByRole('checkbox', { name: /Durchlauf beenden/ })[1]!);
   };
 
   return { setOp, first, type, tab, buildCondition, buildEither, buildTimed, buildFlow };

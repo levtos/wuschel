@@ -13,15 +13,36 @@ import { CreateDraftDialog } from '@/features/authoring/CreateDraftDialog';
 import { draftLabel } from '@/features/authoring/DraftBar';
 import { downloadDraft, downloadText, exportRegistry } from '@/features/authoring/importExport';
 import { changedPaths } from '@/features/authoring/locate';
+import { registryIdentities } from '@/features/authoring/editorChanges';
 import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
 import { describeError } from '@/lib/api';
 import { formatTime } from '@/lib/format';
-import { canonicalJson } from '@/lib/json';
-import { asObject } from '@/features/authoring/model';
+import { canonicalJson, deepEqual, isObject, type JsonObject } from '@/lib/json';
+import { asArray, asObject, emptyRegistry, str } from '@/features/authoring/model';
+import { fieldLabel } from '@/i18n/codes';
 import { useLive } from '@/lib/live-context';
 import { useActiveRevision, useDraftMutations, useDrafts, useHistory, useRevisions } from '@/lib/queries';
 import type { Draft, RevisionRow } from '@/lib/types';
 import { RollbackDialog } from './ActivationDialogs';
+
+function DraftObjects({ before, after }: { before: JsonObject | undefined; after: JsonObject }) {
+  if (!before) return <p className="text-xs text-muted">{uiText('a2.edit.draftBaseUnavailable')}</p>;
+  const entries = [...new Set([...Object.keys(before), ...Object.keys(after)])].flatMap(collection => {
+    if (deepEqual(before[collection], after[collection]) || ['config_schema_version', 'fingerprint_version'].includes(collection)) return [];
+    const keys = registryIdentities[collection];
+    if (!keys) return [{ id: collection, label: fieldLabel(collection) }];
+    const rows = (config: JsonObject) => new Map(asArray(config[collection]).filter(isObject).map(row => [keys.map(key => String(row[key] ?? '')).join(' · '), row]));
+    const original = rows(before); const candidate = rows(after);
+    return [...new Set([...original.keys(), ...candidate.keys()])].flatMap(id => {
+      const old = original.get(id); const next = candidate.get(id);
+      return deepEqual(old, next) ? [] : [{ id: `${collection}/${id}`, label: str((next ?? old)?.display_name) || id }];
+    });
+  });
+  if (!entries.length) return <p className="mt-2 text-xs text-muted">{uiText('a2.edit.draftNoObjects')}</p>;
+  return <Collapsible title={uiText('a2.edit.draftObjects', { count: entries.length })} defaultOpen={entries.length <= 4}>
+    <ul className="flex flex-wrap gap-1">{entries.map(item => <li key={item.id}><Badge>{item.label}</Badge></li>)}</ul>
+  </Collapsible>;
+}
 
 function DraftsTab() {
   const drafts = useDrafts();
@@ -41,6 +62,9 @@ function DraftsTab() {
   }, [opening, doc.draft?.draft_id, doc.switchRequest, navigate]);
   const [error, setError] = useState('');
   const active = useActiveRevision();
+  const revisions = useRevisions();
+  const revisionConfigs = useMemo(() => new Map((revisions.data ?? []).map(row => [row.revision, row.config])), [revisions.data]);
+  const baseOf = (draft: Draft) => draft.base_status === 'needs_review' || draft.base_revision === undefined ? undefined : draft.base_revision === 0 ? emptyRegistry() : draft.base_revision === active.data?.revision ? active.data.config : revisionConfigs.get(draft.base_revision);
   const [completed, setCompleted] = useState(false);
   const [staleOnly, setStaleOnly] = useState(false);
   const [cleanup, setCleanup] = useState<Draft[] | null>(null);
@@ -89,12 +113,13 @@ function DraftsTab() {
                   </p>
                   <Collapsible title={uiText('alpha7.draft.advanced')}><p className="mono break-all text-xs text-muted">{draft.draft_id}</p></Collapsible>
                   <p className="text-sm">{draftState(draft, active.data?.revision ?? 0)}</p><p className="text-xs text-muted">{uiText("features.registry.RegistryPage.v_4c9448")}{draft.draft_version} {uiText("features.registry.RegistryPage.basis_revision_690542")}{draft.base_revision ?? '–'} {uiText("features.registry.RegistryPage.erstellt_555e13")}{formatTime(draft.created_at)} {uiText("features.registry.RegistryPage.geandert_4147a3")}{formatTime(draft.updated_at)}</p>
+                  {!completed && <DraftObjects before={baseOf(draft)} after={draft.config} />}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   <Button size="sm" onClick={() => open(draft)}><Pencil size={13} /> {completed ? uiText('beta3.8e31363947a6') : currentDraft(draft, active.data?.revision ?? 0) ? uiText('beta3.84e45ee73411') : uiText('beta3.98040289d15a')}</Button>
                   <Button size="sm" onClick={() => setCopyOf(draft)}><Copy size={13} /> {uiText("features.registry.RegistryPage.duplizieren_9d400c")}</Button>
                   <Button size="sm" disabled={doc.draft?.draft_id === draft.draft_id && doc.dirty} onClick={() => void downloadDraft(draft, active.data?.revision ?? 0, draftLabel(draft)).catch(failure => setError(describeError(failure)))}><Download size={13} /> {uiText("features.registry.RegistryPage.export_366489")}</Button>
-                  <Button size="sm" variant="danger" disabled={completed} onClick={() => setDeleting(draft)}><Trash2 size={13} /> {uiText("features.registry.RegistryPage.loschen_6c2d35")}</Button>
+                  {!completed && <Button size="sm" variant="danger" onClick={() => setDeleting(draft)}><Trash2 size={13} /> {uiText('a2.edit.draftDiscard')}</Button>}
                 </div>
               </li>
             ))}
@@ -106,9 +131,9 @@ function DraftsTab() {
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title={uiText("features.registry.RegistryPage.draft_loschen_4ca056")}
+        title={uiText('a2.edit.draftDiscardTitle')}
         description={<>„{deleting ? draftLabel(deleting) : ''}{uiText("features.registry.RegistryPage.wird_endgultig_geloscht_version_v_5065b7")}{deleting?.draft_version}{uiText("features.registry.RegistryPage.die_aktive_registry_bleibt_unberuhrt_cf60a6")}</>}
-        confirmLabel={uiText("features.registry.RegistryPage.endgultig_loschen_6c1fd3")}
+        confirmLabel={uiText('a2.edit.draftDiscard')}
         tone="danger"
         busy={remove.isPending}
         onConfirm={() => {

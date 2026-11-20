@@ -81,7 +81,7 @@ export function ConflictDialog() {
   const [choices, setChoices] = useState<Record<string, string>>({});
   useEffect(() => setChoices({}), [conflict]);
   if (!conflict) return null;
-  const same = canonicalJson(conflict.server.config) === canonicalJson(doc.config);
+  const same = canonicalJson(conflict.server.config) === canonicalJson(conflict.candidate?.config ?? doc.config);
   const valueText = (path: string, value: unknown) => path.endsWith('/freshness_selection') ? freshnessChoiceLabel(conflict.server.config, value) ?? JSON.stringify(value) : JSON.stringify(value);
   const run = async (choice: Parameters<typeof doc.resolveConflict>[0]) => {
     setBusy(true);
