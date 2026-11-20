@@ -40,12 +40,12 @@ it('names the rename consequence and saves the display name only after confirmat
   await user.click(screen.getByRole('button', { name: 'Umbenennen' }));
   const dialog = screen.getByRole('dialog', { name: 'Umbenennen' });
   const input = within(dialog).getByRole('textbox'); await user.clear(input); await user.type(input, 'Neuer Name');
-  await user.click(within(dialog).getByRole('button', { name: 'Im Entwurf speichern' }));
+  await user.click(within(dialog).getByRole('button', { name: 'In Entwurf speichern' }));
   const confirmation = screen.getByRole('alertdialog', { name: 'Umbenennen' });
   expect(confirmation).toHaveTextContent('„Wahrheit“ wird zu „Neuer Name“');
   expect(confirmation).toHaveTextContent('Nur der Anzeigename');
   expect(api.calls.some(call => call.method === 'PUT')).toBe(false);
-  await user.click(within(confirmation).getByRole('button', { name: 'Im Entwurf speichern' }));
+  await user.click(within(confirmation).getByRole('button', { name: 'In Entwurf speichern' }));
   await waitFor(() => expect(api.drafts.get('d')?.config.contracts).toMatchObject([{ contract_id: 'root', display_name: 'Neuer Name' }, {}]));
 });
 it('confirms disabling, names affected contracts and leaves cancellation unchanged', async () => {
@@ -60,6 +60,6 @@ it('confirms disabling, names affected contracts and leaves cancellation unchang
   expect(api.calls.some(call => call.method === 'PUT')).toBe(false);
   await user.click(screen.getByRole('button', { name: 'Deaktivieren' }));
   dialog = screen.getByRole('alertdialog', { name: 'Deaktivieren' });
-  await user.click(within(dialog).getByRole('button', { name: 'Im Entwurf speichern' }));
+  await user.click(within(dialog).getByRole('button', { name: 'In Entwurf speichern' }));
   await waitFor(() => expect(api.drafts.get('d')?.config.contracts).toMatchObject([{ enabled: false }, {}]));
 });

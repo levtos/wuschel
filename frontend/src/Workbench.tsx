@@ -5,6 +5,7 @@ import { RouteError } from '@/components/RouteError';
 import { Shell } from '@/components/Shell';
 import { PageLoading } from '@/components/PageLoading';
 import { WorkingDocumentProvider } from '@/features/authoring/WorkingDocument';
+import { EditorNavigationGuard } from '@/features/authoring/EditorGuard';
 import { RestartRecovery } from '@/features/authoring/RestartRecovery';
 import type { LiveStore } from '@/lib/live';
 import { LiveProvider } from '@/lib/live-context';
@@ -31,7 +32,7 @@ export function workbenchRoutes(onSetup: () => void): RouteObject[] {
   return [
     {
       path: '/',
-      element: <Shell onSetup={onSetup} />,
+      element: <EditorNavigationGuard><Shell onSetup={onSetup} /></EditorNavigationGuard>,
       errorElement: <RouteError />,
       children: [
         { index: true, element: <OverviewPage /> },

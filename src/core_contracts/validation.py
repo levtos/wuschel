@@ -635,6 +635,20 @@ def validate_document(
                 validate_slots(declared_definition, contract.parameters)
         except ValidationError as error:
             for finding in error.errors(include_input=False, include_url=False):
+                if finding["type"] == "parameter_relation_failed":
+                    context = finding.get("ctx", {})
+                    relation: dict[str, str | None] = {
+                        field: str(context[field]) for field in ("left", "right", "comparison")
+                    }
+                    for side in ("left", "right"):
+                        add(
+                            "parameter.parameter_relation_failed",
+                            path + "/parameters" + pointer((str(context[side]),)),
+                            "invalid parameter relation",
+                            key,
+                            relation,
+                        )
+                    continue
                 add(
                     "parameter." + finding["type"],
                     path + "/parameters" + (pointer(finding["loc"]) if finding["loc"] else ""),

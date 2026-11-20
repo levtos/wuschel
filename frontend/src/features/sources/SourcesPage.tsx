@@ -3,7 +3,7 @@ import { api } from '@/lib/api';
 import { Collapsible } from '@/components/ui/controls';
 import { t as uiText } from '@/i18n';
 import { Copy, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
 import { MasterDetail } from '@/components/MasterDetail';
 import { Badge } from '@/components/ui/badge';
@@ -16,10 +16,10 @@ import { asArray, asObject, str, uniqueName } from '@/features/authoring/model';
 import { bindingsUsingCatalog, consumersOfSource, sourcesUsingDependency } from '@/features/authoring/usage';
 import { useAuthoringSource } from '@/features/authoring/useAuthoringSource';
 import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
+import { DraftEditor } from '@/features/authoring/DraftEditor';
 import { BindingEditor, CatalogEditor, DependencyEditor, EntityPicker, SourceEditor, sourceCast } from '@/editors/RegistryObjects';
-import { clone, isObject, setAt, type JsonObject } from '@/lib/json';
+import { clone, deepEqual, isObject, setAt, type JsonObject } from '@/lib/json';
 import { useActiveRevision, useCapabilities } from '@/lib/queries';
-import { describeError } from '@/lib/api';
 import { DeviceWizard } from './DeviceWizard';
 import { CalendarSourceDialog } from './CalendarSourceDialog';
 import { CalendarSourceStatus } from './CalendarSourceStatus';
@@ -66,70 +66,72 @@ function Collection({ name, idKey, singular, make, render, subtitle, usage, onMo
   const config = src.config ?? {};
   const ha = useHaCatalog(name === 'sources');
   const list = useMemo(() => asArray(config[name]).filter(isObject), [config, name]);
-  const [selected, setSelected, selectIdentity] = useSourceSelection(name, list, idKey, src.editable);
-  const [pendingSelection, setPendingSelection] = useState<string | null>(null);
-  useEffect(() => {
-    if (pendingSelection && src.editable && list.some(item => item[idKey] === pendingSelection)) { selectIdentity(pendingSelection); setPendingSelection(null); }
-  }, [pendingSelection, src.editable, list]);
-  const [removing, setRemoving] = useState<number | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const previousDraft = useRef(doc.draft?.draft_id);
-  useEffect(() => { if (previousDraft.current && previousDraft.current !== doc.draft?.draft_id) setEditingId(null); previousDraft.current = doc.draft?.draft_id; }, [doc.draft?.draft_id]);
-  useEffect(() => setEditingId(null), [name]);
-  const [addError, setAddError] = useState('');
+  const [selected, setSelected] = useSourceSelection(name, list, idKey, src.editable);
+  const [editor, setEditor] = useState<{ base: JsonObject; config: JsonObject; index: number; original?: JsonObject } | null>(null);
+  const [removing, setRemoving] = useState(false);
   const [filterParams, setFilterParams] = useSearchParams();
   const templateFilter = filterParams.get('freshness');
   const route = useRouteFilters(); const [deviations, setDeviations] = route.field('deviations', 'false');
   const deviationsOnly = deviations === 'true'; const setDeviationsOnly = (value: boolean) => setDeviations(value ? 'true' : 'false');
   const [listSearch, setListSearch] = route.field('list_search', '');
 
-  const ids = list.map((item) => str(item[idKey]));
   const items = list.map((item, index) => ({
     key: String(index),
     label: name === 'sources' ? str(item.display_name) || ha.entities.find(entity => asArray(config.bindings).filter(isObject).some(binding => binding.source_id === item.source_id && isObject(binding.adapter) && binding.adapter.ha_entity_id === entity.entity_id))?.display_name || str(item[idKey]) : str(item[idKey]),
     sub: name === 'sources' ? `${str(item[idKey])} · ${freshnessLabel(config, item)}` : subtitle(item),
     errors: issues.filter((i) => i.path === `/${name}/${index}` || i.path.startsWith(`/${name}/${index}/`)).length,
   })).filter(item => { if (name !== 'sources') return true; const source = list[Number(item.key)]!; const selection = asObject(source.freshness_selection); return (!templateFilter || selection.template_id === templateFilter || selection.comparison_template_id === templateFilter) && (!deviationsOnly || freshnessLabel(config, source).includes(uiText('b4.differs'))); });
-  const add = async () => {
-    setAddError('');
-    try {
-      const current = await doc.ensureDraft();
-      const item = make(current, asArray(current[name]).filter(isObject).map(item => str(item[idKey])));
-      doc.edit((c) => setAt(c, `/${name}`, [...asArray(c[name]), item]));
-      setPendingSelection(str(item[idKey])); setEditingId(str(item[idKey]));
-    } catch (error) { setAddError(describeError(error)); }
+  const add = () => {
+    const rows = asArray(config[name]);
+    const item = make(config, rows.filter(isObject).map(row => str(row[idKey])));
+    setEditor({ base: config, config: setAt(config, `/${name}`, [...rows, item]), index: rows.length });
   };
-  const duplicate = (index: number) => {
-    const copy = clone(list[index]!);
-    copy[idKey] = uniqueName(`${str(copy[idKey])}_kopie`, ids);
-    doc.edit((c) => setAt(c, `/${name}`, [...asArray(c[name]), copy]));
-    selectIdentity(str(copy[idKey]));
-    setEditingId(str(copy[idKey]));
+  const duplicate = () => {
+    setEditor(session => {
+      if (!session) return session;
+      const rows = asArray(session.config[name]);
+      const copy = clone(asObject(rows[session.index]));
+      copy[idKey] = uniqueName(`${str(copy[idKey])}_kopie`, rows.filter(isObject).map(row => str(row[idKey])));
+      return { ...session, config: setAt(session.config, `/${name}`, [...rows, copy]), index: rows.length, original: undefined };
+    });
   };
   const current = selected !== null ? list[selected] : undefined;
   const activeSource = name === 'sources' ? asArray(active.data?.config?.sources).filter(isObject).find(source => source.source_id === current?.source_id) : undefined;
   const activeBindings = asArray(active.data?.config?.bindings).filter(isObject);
   const activeCalendar = activeSource && activeBindings.some(binding => binding.source_id === activeSource.source_id && asObject(binding.adapter).kind === 'ha_calendar');
   const sourceBindings = name === 'sources' && current ? asArray(config.bindings).filter(isObject).filter(binding => binding.source_id === current.source_id) : [];
+  const beginEdit = () => {
+    if (!current || selected === null) return;
+    setEditor({ base: config, config: clone(config), index: selected, original: current });
+  };
   useEffect(() => {
-    if (filterParams.get('edit') !== '1' || !current || !src.editable) return;
+    if (editor || src.loading) return;
+    if (name === 'sources' && filterParams.get('new') === '1') {
+      const next = new URLSearchParams(filterParams); next.delete('new'); setFilterParams(next, { replace: true });
+      add();
+      return;
+    }
+    if (filterParams.get('edit') !== '1' || !current) return;
     if (filterParams.has('item') && selected !== Number(filterParams.get('item'))) return;
     if (filterParams.has(idKey) && current[idKey] !== filterParams.get(idKey)) return;
-    setEditingId(str(current[idKey]));
     const next = new URLSearchParams(filterParams); next.delete('edit'); setFilterParams(next, { replace: true });
-  }, [filterParams, current, src.editable]);
-  const editable = src.editable && !!current && editingId === str(current[idKey]);
+    beginEdit();
+  }, [filterParams, current, src.loading, editor]);
+  const editPointer = `/${name}/${editor?.index}`;
+  const editValue = editor && editor.index >= 0 ? asObject(asArray(editor.config[name])[editor.index]) : null;
   const updateCurrent = (next: JsonObject) => {
-    if (editable) setEditingId(str(next[idKey]));
-    doc.edit(c => update ? update(c, next, `/${name}/${selected}`) : ({ ...setAt(c, `/${name}/${selected}`, next), ...(name === 'catalogs' && next.kind === 'managed' ? { config_schema_version: 3, fingerprint_version: 3 } : name === 'sources' && (next.sensor_profile || next.value_origin) ? { config_schema_version: Math.max(2, Number(c.config_schema_version ?? 1)) } : {}) }));
+    setEditor(session => {
+      if (!session) return session;
+      const c = session.config;
+      const nextConfig = update ? update(c, next, editPointer) : { ...setAt(c, editPointer, next), ...(name === 'catalogs' && next.kind === 'managed' ? { config_schema_version: 3, fingerprint_version: 3 } : name === 'sources' && (next.sensor_profile || next.value_origin) ? { config_schema_version: Math.max(2, Number(c.config_schema_version ?? 1)) } : {}) };
+      return { ...session, config: nextConfig };
+    });
   };
-  const beginEdit = async () => { setAddError(''); try { if (editable) { if (await doc.save() === 'saved') setEditingId(null); } else { const id = str(current?.[idKey]); const next = await doc.ensureDraft(); if (!asArray(next[name]).filter(isObject).some(row => row[idKey] === id)) throw new Error(uiText('b22.object.missing')); setPendingSelection(id); setEditingId(id); } } catch (error) { setAddError(describeError(error)); } };
 
   return (
     <>
-      {name !== 'sources' && <PageHeader title={uiText(`alpha7.nav.${name}`)} description={uiText(`alpha9.pages.${name}`)} actions={<Button variant="primary" disabled={doc.starting || doc.saving} disabledReason={uiText('alpha7.copy.inProgress')} onClick={() => void add()}>{uiText(`alpha9.actions.add${name === 'bindings' ? 'Binding' : name === 'catalogs' ? 'Catalog' : 'Dependency'}`)}</Button>} />}
+      {name !== 'sources' && <PageHeader title={uiText(`alpha7.nav.${name}`)} description={uiText(`alpha9.pages.${name}`)} actions={<Button variant="primary" disabled={doc.starting || doc.saving || src.loading || !active.isSuccess} disabledReason={uiText('alpha7.copy.inProgress')} onClick={add}>{uiText(`alpha9.actions.add${name === 'bindings' ? 'Binding' : name === 'catalogs' ? 'Catalog' : 'Dependency'}`)}</Button>} />}
       {name !== 'sources' && <ReadOnlyNotice what={singular} />}
-      {addError && <p role="alert" className="mb-3 text-sm text-bad">{addError}</p>}
       {name === 'sources' && <div className="mb-3 flex flex-wrap gap-3"><label className="inline-flex min-h-11 items-center gap-2"><input type="checkbox" checked={deviationsOnly} onChange={event => setDeviationsOnly(event.target.checked)} />{uiText('b4.differs')}</label>{templateFilter && <Button onClick={() => { const next = new URLSearchParams(filterParams); next.delete('freshness'); setFilterParams(next); }}>{uiText('b4.clearFilter')}</Button>}</div>}
       <MasterDetail
         title={singular}
@@ -145,42 +147,50 @@ function Collection({ name, idKey, singular, make, render, subtitle, usage, onMo
           <div className="flex flex-col gap-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-semibold">{str(current.display_name) || str(current[idKey]) || uiText("features.sources.SourcesPage.neu_391955")}</h2>
-              <ObjectActions key={`${name}:${str(current[idKey])}`} collection={name} idKey={idKey} value={current} editing={editable} onEdit={beginEdit} rename={name === 'sources' || name === 'bindings'} />
+              <ObjectActions key={`${name}:${str(current[idKey])}`} collection={name} idKey={idKey} value={current} editing={false} onEdit={beginEdit} />
               {onEntity && (name === 'bindings' ? str(asObject(current.adapter).kind).startsWith('ha_') : asArray(config.bindings).filter(isObject).some(row => row.source_id === current.source_id && str(asObject(row.adapter).kind).startsWith('ha_'))) && <Button onClick={() => onEntity(name === 'bindings' ? str(current.source_id) : str(current[idKey]), name === 'bindings' ? str(current.binding_id) : undefined)}>{uiText('b22.entity.change')}</Button>}
               {onMove && <Button size="sm" onClick={() => onMove(str(current[idKey]))}>{uiText('alpha7.move.action')}</Button>}
-              {editable && (
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => duplicate(selected)}><Copy size={13} /> {uiText("features.sources.SourcesPage.duplizieren_9d400c")}</Button>
-                  <Button size="sm" variant="danger" onClick={() => setRemoving(selected)}><Trash2 size={13} /> {uiText("features.sources.SourcesPage.entfernen_382837")}</Button>
-                </div>
-              )}
             </div>
             <div className="text-xs text-muted">{usage(current, config)}</div>
-            {activeSource && activeCalendar && !editable && <CalendarSourceStatus sourceId={str(activeSource.source_id)} config={active.data?.config} focus={filterParams.get('panel') === 'calendar'} onEdit={() => void beginEdit()} />}
+            {activeSource && activeCalendar && !editor && <CalendarSourceStatus sourceId={str(activeSource.source_id)} config={active.data?.config} focus={filterParams.get('panel') === 'calendar'} onEdit={beginEdit} />}
             {!activeCalendar && sourceBindings.length > 0 && <ul className="space-y-1">{sourceBindings.map(binding => <li key={str(binding.binding_id)}><ObjectReadLink to={bindingHref(str(binding.binding_id))}>{str(binding.display_name) || uiText('a2.read.viewBinding')}</ObjectReadLink></li>)}</ul>}
             {name === 'bindings' && !!str(current.source_id) && <ObjectReadLink to={sourceHref(str(current.source_id))}>{uiText('a2.read.viewSource')}</ObjectReadLink>}
-            {activeSource?.origin === 'manual' && !editable ? <>
+            {activeSource?.origin === 'manual' ? <>
               <ManualSourcePanel key={str(current.source_id)} sourceId={str(current.source_id)} />
-              <Collapsible title={uiText('alpha9.manual.configuration')}><fieldset disabled={!editable} className="min-w-0">
-              {render(current, `/${name}/${selected}`, updateCurrent, config)}
+              <Collapsible title={uiText('alpha9.manual.configuration')}><fieldset disabled className="min-w-0">
+              {render(current, `/${name}/${selected}`, () => undefined, config)}
             </fieldset></Collapsible>
-            </> : <><fieldset disabled={!editable} className="min-w-0">
-              {render(current, `/${name}/${selected}`, updateCurrent, config)}
+            </> : <><fieldset disabled className="min-w-0">
+              {render(current, `/${name}/${selected}`, () => undefined, config)}
             </fieldset></>}
           </div>
         )}
       </MasterDetail>
+      {editor && <DraftEditor title={uiText('a2.edit.object', { name: singular })} size="xl" base={editor.base} input={editor.config} dirty={!deepEqual(editor.config, editor.base)} plan={() => ({ config: editor.config })} onClose={() => setEditor(null)} onSaved={saved => {
+        const id = str(editValue?.[idKey]);
+        const index = asArray(saved.config[name]).findIndex(row => isObject(row) && row[idKey] === id);
+        const params = new URLSearchParams(filterParams);
+        params.delete(idKey);
+        if (index < 0) params.delete('item');
+        else params.set('item', String(index));
+        setFilterParams(params, { replace: true });
+      }} footer={editValue && editor.original && <>
+        <ObjectActions collection={name} idKey={idKey} value={editValue} config={editor.config} editing rename={name === 'sources' || name === 'bindings'} onLocalPatch={patch => updateCurrent({ ...editValue, ...patch })} />
+        <Button size="sm" onClick={duplicate}><Copy size={13} /> {uiText('features.sources.SourcesPage.duplizieren_9d400c')}</Button>
+        <Button size="sm" variant="danger" onClick={() => setRemoving(true)}><Trash2 size={13} /> {uiText('features.sources.SourcesPage.entfernen_382837')}</Button>
+      </>}>
+        {editValue ? render(editValue, editPointer, updateCurrent, editor.config) : <p>{uiText('a2.edit.removalPending')}</p>}
+      </DraftEditor>}
       <ConfirmDialog
-        open={removing !== null}
-        onOpenChange={(o) => !o && setRemoving(null)}
+        open={removing}
+        onOpenChange={setRemoving}
         title={uiText("features.sources.SourcesPage.v0_entfernen_f1cd8a", { v0: (singular) })}
-        description={<><p>„{removing !== null ? str(list[removing]?.display_name) || str(list[removing]?.[idKey]) : ''}{uiText("features.sources.SourcesPage.wird_aus_dem_draft_entfernt_verweise_darauf_werd_295ba2")}</p>{removing !== null && <div>{usage(list[removing]!, config)}</div>}<p>{uiText('b26.object.engineNotice')}</p></>}
+        description={<><p>"{str(editValue?.display_name) || str(editValue?.[idKey])}{uiText("features.sources.SourcesPage.wird_aus_dem_draft_entfernt_verweise_darauf_werd_295ba2")}</p>{editValue && editor && <div>{usage(editValue, editor.config)}</div>}<p>{uiText('b26.object.engineNotice')}</p></>}
         confirmLabel={uiText("features.sources.SourcesPage.entfernen_382837")}
         tone="danger"
         onConfirm={() => {
-          if (removing !== null) doc.edit((c) => setAt(c, `/${name}/${removing}`, undefined));
-          setRemoving(null);
-          setSelected(null);
+          setEditor(session => session && { ...session, config: setAt(session.config, editPointer, undefined), index: -1 });
+          setRemoving(false);
         }}
       />
     </>
@@ -211,38 +221,29 @@ export default function SourcesPage() {
   const [addingDevice, setAddingDevice] = useState(false);
   const [addingCalendar, setAddingCalendar] = useState(false);
   const [addingManual, setAddingManual] = useState(false);
-  const [deviceError, setDeviceError] = useState('');
   const [movingSource, setMovingSource] = useState<string | null>(null);
   const [changingEntity, setChangingEntity] = useState<{ sourceId: string; bindingId?: string } | null>(null);
   const doc = useWorkingDocument();
+  const active = useActiveRevision();
   const [params, setParams] = useSearchParams();
-  const addDevice = async () => { setDeviceError(''); try { await doc.ensureDraft(); setAddingDevice(true); } catch (error) { setDeviceError(describeError(error)); } };
-  const addWithoutDevice = async () => {
-    try {
-      const config = await doc.ensureDraft();
-      const sources = asArray(config.sources);
-      doc.edit(current => setAt(current, '/sources', [...sources, newSource(config, sources.filter(isObject).map(source => str(source.source_id)))]));
-      setAddingDevice(false);
-      setParams({ item: String(sources.length), edit: '1' }, { replace: true });
-    } catch (error) { setDeviceError(describeError(error)); }
+  const addWithoutDevice = () => {
+    setAddingDevice(false);
+    setParams({ new: '1' }, { replace: true });
   };
-  const beginMove = async (id: string) => { setDeviceError(''); try { await doc.ensureDraft(); setMovingSource(id); } catch (error) { setDeviceError(describeError(error)); } };
-  const beginEntity = async (sourceId: string, bindingId?: string) => { setDeviceError(''); try { await doc.ensureDraft(); setChangingEntity({ sourceId, bindingId }); } catch (error) { setDeviceError(describeError(error)); } };
   const requestedMove = params.get('move');
   useEffect(() => {
-    if (!requestedMove) return;
+    if (!requestedMove || !active.isSuccess) return;
     const next = new URLSearchParams(params); next.delete('move'); setParams(next, { replace: true });
-    void beginMove(requestedMove);
-  }, [requestedMove]);
+    setMovingSource(requestedMove);
+  }, [requestedMove, active.isSuccess]);
   const registrySchema = caps.data?.schemas.registry;
   return (
     <>
-      {location.pathname === '/sources/devices' && <PageHeader title={uiText('alpha7.nav.sources')} description={uiText('alpha9.pages.sources')} actions={<Button variant="primary" disabled={doc.starting || doc.saving} onClick={() => void addDevice()}>{uiText('alpha9.actions.addSource')}</Button>} />}
+      {location.pathname === '/sources/devices' && <PageHeader title={uiText('alpha7.nav.sources')} description={uiText('alpha9.pages.sources')} actions={<Button variant="primary" disabled={doc.starting || doc.saving || !active.isSuccess} onClick={() => setAddingDevice(true)}>{uiText('alpha9.actions.addSource')}</Button>} />}
       {location.pathname === '/sources/devices' && <p className="mb-4 text-sm text-muted">{uiText('b26.sources.chain')}</p>}
-      {deviceError && <p role="alert" className="mb-3 text-sm text-bad">{deviceError}</p>}
-      <DeviceWizard open={addingDevice} onOpenChange={setAddingDevice} manualOption={<><Button onClick={() => { setAddingDevice(false); setAddingManual(true); }}>{uiText('alpha9.manual.title')}</Button><Button onClick={() => { setAddingDevice(false); setAddingCalendar(true); }}>{uiText('alpha9.calendar.add')}</Button><Button onClick={() => void addWithoutDevice()}>{uiText('alpha7.device.withoutDevice')}</Button></>} onAdded={result => setParams({ tab: 'sources', item: String(result.sourceIndex), edit: '1' }, { replace: true })} />
-      <ManualSourceDialog open={addingManual} onOpenChange={setAddingManual} onAdded={index => setParams({ tab: 'sources', item: String(index), edit: '1' }, { replace: true })} />
-      <CalendarSourceDialog open={addingCalendar} onOpenChange={setAddingCalendar} onAdded={index => setParams({ tab: 'sources', item: String(index), edit: '1' }, { replace: true })} />
+      <DeviceWizard open={addingDevice} onOpenChange={setAddingDevice} manualOption={leave => <><Button onClick={() => leave(() => { setAddingDevice(false); setAddingManual(true); })}>{uiText('alpha9.manual.title')}</Button><Button onClick={() => leave(() => { setAddingDevice(false); setAddingCalendar(true); })}>{uiText('alpha9.calendar.add')}</Button><Button onClick={() => leave(addWithoutDevice)}>{uiText('alpha7.device.withoutDevice')}</Button></>} onAdded={result => setParams({ tab: 'sources', item: String(result.sourceIndex) }, { replace: true })} />
+      <ManualSourceDialog open={addingManual} onOpenChange={setAddingManual} onAdded={index => setParams({ tab: 'sources', item: String(index) }, { replace: true })} />
+      <CalendarSourceDialog open={addingCalendar} onOpenChange={setAddingCalendar} onAdded={index => setParams({ tab: 'sources', item: String(index) }, { replace: true })} />
       {changingEntity && <SourceMigrationDialog {...changingEntity} entityOnly onClose={() => setChangingEntity(null)} />}
       {movingSource && <SourceMigrationDialog key={movingSource} sourceId={movingSource} onClose={() => setMovingSource(null)} />}
       <ObjectReadBack />
@@ -257,8 +258,8 @@ export default function SourcesPage() {
                 name="sources"
                 idKey="source_id"
                 singular={uiText("features.sources.SourcesPage.source_0e570c")}
-                onMove={id => void beginMove(id)}
-                onEntity={(sourceId, bindingId) => void beginEntity(sourceId, bindingId)}
+                onMove={setMovingSource}
+                onEntity={(sourceId, bindingId) => setChangingEntity({ sourceId, bindingId })}
                 subtitle={(s) => `${codeLabel(s.source_type)} · ${codeLabel((isObject(s.freshness) ? s.freshness : {}).mode)}`}
                 make={newSource}
                 usage={(item, config) => {
@@ -294,7 +295,7 @@ export default function SourcesPage() {
                   if (adapter.kind !== 'ha_calendar') return next.refresh !== undefined ? { ...changed, config_schema_version: Math.max(2, Number(current.config_schema_version ?? 1)) } : changed;
                   return { ...changed, config_schema_version: Math.max(2, Number(current.config_schema_version ?? 1)), sources: asArray(current.sources).map(source => isObject(source) && source.source_id === next.source_id ? { ...source, freshness: { ...asObject(source.freshness), mode: 'periodic_ttl', interval_s: adapter.max_age_s ?? 3600 } } : source) };
                 }}
-                onEntity={(sourceId, bindingId) => void beginEntity(sourceId, bindingId)}
+                onEntity={(sourceId, bindingId) => setChangingEntity({ sourceId, bindingId })}
                 singular={uiText("features.sources.SourcesPage.binding_164c69")}
                 subtitle={(b) => `${codeLabel((isObject(b.adapter) ? b.adapter : {}).kind)} → ${str(b.source_id)}`}
                 make={(c, ids) => {

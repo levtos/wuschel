@@ -5,6 +5,8 @@ import { api, describeError } from '@/lib/api';
 import { uuid } from '@/lib/uuid';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { EffectStrip } from '@/features/authoring/DraftEditor';
+import { useEditorGuard } from '@/features/authoring/EditorGuard';
 import { Notice, Spinner } from '@/components/ui/layout';
 import { catalogLabel } from './catalogLabels';
 import { titleLabel } from './titleLabel';
@@ -16,6 +18,7 @@ export function CatalogScopeRepair({ activeRevision }: { activeRevision: number 
   const cache = useQueryClient();
   const [open, setOpen] = useState(false); const [clearPc, setClearPc] = useState(true);
   const [plan, setPlan] = useState<Plan | null>(null); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  const guard = useEditorGuard(open && !clearPc && !plan?.complete, () => { setOpen(false); setClearPc(true); ++sequence.current; }, busy);
   const requestId = useRef(uuid()); const sequence = useRef(0); const checkedRevision = useRef(0);
   const inspect = async (clear = clearPc) => {
     const serial = ++sequence.current; setBusy(true); setError(''); setPlan(null); checkedRevision.current = activeRevision;
@@ -34,10 +37,12 @@ export function CatalogScopeRepair({ activeRevision }: { activeRevision: number 
   };
   return <>
     <Button onClick={() => { setOpen(true); void inspect(); }}>{t('b21.repair.title')}</Button>
-    <Dialog open={open} onOpenChange={value => { if (!busy) { setOpen(value); ++sequence.current; } }} title={t('b21.repair.title')} footer={<>
+    <Dialog open={open} onOpenChange={value => !value && guard.requestClose()} title={t('b21.repair.title')} footer={<>
+      <Button disabled={busy} onClick={() => guard.requestClose()}>{t('common.cancel')}</Button>
       <Button disabled={busy || plan?.complete} onClick={() => void inspect()}>{t('alpha10.catalog.preview')}</Button>
       <Button variant="danger" disabled={busy || !plan || plan.complete || checkedRevision.current !== activeRevision} onClick={() => void apply()}>{t('b21.repair.confirm')}</Button>
     </>}>
+      <EffectStrip effect="catalog" />
       <div className="space-y-4">
         <Notice tone="warn">{t('b21.repair.explain')}</Notice>
         <label><input type="checkbox" checked={clearPc} disabled={busy || plan?.complete} onChange={event => { setClearPc(event.target.checked); void inspect(event.target.checked); }} /> {t('b21.repair.pc')}</label>
@@ -52,5 +57,6 @@ export function CatalogScopeRepair({ activeRevision }: { activeRevision: number 
         </li>)}</ul>}
       </div>
     </Dialog>
+    {guard.confirmation}
   </>;
 }

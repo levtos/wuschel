@@ -55,11 +55,14 @@ async function installRegistry(page: Page) {
 
 async function renameAndApply(page: Page, name: string, revision: number) {
   await page.getByRole('button', { name: 'Umbenennen', exact: true }).click();
+  const editor = page.getByRole('dialog', { name: 'Vertrag bearbeiten', exact: true });
   const rename = page.getByRole('dialog', { name: 'Umbenennen', exact: true });
   await rename.getByRole('textbox').fill(name);
-  await rename.getByRole('button', { name: 'Im Entwurf speichern' }).click();
-  await page.getByRole('alertdialog', { name: 'Umbenennen' }).getByRole('button', { name: 'Im Entwurf speichern' }).click();
+  await rename.getByRole('button', { name: 'Übernehmen' }).click();
+  await page.getByRole('alertdialog', { name: 'Umbenennen' }).getByRole('button', { name: 'Übernehmen' }).click();
   await expect(rename).not.toBeVisible();
+  await editor.getByRole('button', { name: 'In Entwurf speichern', exact: true }).click();
+  await expect(editor).not.toBeVisible();
   const apply = page.getByRole('button', { name: 'Änderungen übernehmen', exact: true });
   await expect(apply).toBeEnabled();
   await apply.click();
@@ -88,7 +91,7 @@ for (const next of ['Bearbeiten', 'Neuer Vertrag']) test(`after X, ${next} start
     await page.getByRole('button', { name: 'Ohne Gerät anlegen' }).click();
     const create = page.getByRole('dialog', { name: 'Neuer Vertrag' });
     await create.getByRole('textbox').fill('synthetic.new');
-    await create.getByRole('button', { name: 'Anlegen', exact: true }).click();
+    await create.getByRole('button', { name: 'In Entwurf speichern', exact: true }).click();
   }
   await expect(page.getByRole('button', { name: 'Umbenennen', exact: true })).toBeVisible();
   await renameAndApply(page, 'Zweiter neuer Name', 3);

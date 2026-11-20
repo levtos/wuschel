@@ -17,7 +17,7 @@ export function IssueList({ issues, config }: { issues: Issue[]; config: JsonObj
           <li key={`${issue.path}-${uiText("common.validationError")}-${i}`} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-3 py-2 text-sm">
             <Badge tone="bad">{uiText("common.validationError")}</Badge>
             <span className="min-w-0 flex-1">
-              <span className="block">{explain(issue)}</span>
+              <span className="block">{explain(issue, config)}</span>
               {issue.object_id && <span className="block truncate text-xs text-muted" title={issue.object_id}>{issue.object_id}</span>}
               <details className="mt-1 text-xs text-muted"><summary className="cursor-pointer">{uiText('alpha7.copy.advancedLocation')}</summary><code className="block break-all">{issue.path || '/'}</code></details>
             </span>

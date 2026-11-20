@@ -1,14 +1,11 @@
 import { useState } from 'react';
 import { t } from '@/i18n';
-import { Button } from '@/components/ui/button';
-import { Dialog } from '@/components/ui/dialog';
 import { Field, Input, Select } from '@/components/ui/form';
-import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
+import { DraftEditor, useEditorBase } from '@/features/authoring/DraftEditor';
 import { asArray, asObject, str, uniqueName } from '@/features/authoring/model';
-import { clone, isObject, type JsonObject } from '@/lib/json';
-import { describeError } from '@/lib/api';
+import { clone, deepEqual, isObject, type JsonObject } from '@/lib/json';
 import { useHaCatalog } from './useHaCatalog';
-import { DurationField, invalidDurations } from '@/components/SecondsField';
+import { DurationField } from '@/components/SecondsField';
 
 export interface CalendarSettings { past: number; future: number; refreshMinutes: number; validMinutes: number; coverageMonths?: number; maxGapMonths?: number }
 export const calendarDefaults: CalendarSettings = { past: 1, future: 14, refreshMinutes: 15, validMinutes: 60 };
@@ -75,28 +72,28 @@ export function CalendarFields({ value, onChange }: { value: CalendarSettings; o
   ] as const).map(([key, label, min, max]) => key === 'refreshMinutes' || key === 'validMinutes' ? <DurationField key={key} label={t(label)} value={value[key] * 60} min={min * 60} max={max * 60} integerSeconds onChange={seconds => onChange({ ...value, [key]: seconds / 60 })} /> : <Field key={key} label={t(label)}>{props => <Input {...props} type="number" min={min} max={max} step={1} value={Number.isFinite(value[key]) ? value[key] : ''} onChange={event => onChange({ ...value, [key]: event.target.valueAsNumber })} />}</Field>)}</div>;
 }
 
-export function CalendarSourceDialog({ open, onOpenChange, onAdded }: { open: boolean; onOpenChange: (open: boolean) => void; onAdded: (index: number) => void }) {
-  const doc = useWorkingDocument(); const ha = useHaCatalog(open, true);
+interface CalendarSourceProps { open: boolean; onOpenChange: (open: boolean) => void; onAdded: (index: number) => void }
+export function CalendarSourceDialog(props: CalendarSourceProps) {
+  return props.open ? <CalendarSourceEditor {...props} /> : null;
+}
+
+function CalendarSourceEditor({ onOpenChange, onAdded }: CalendarSourceProps) {
+  const base = useEditorBase();
+  const ha = useHaCatalog(true, true);
   const [entity, setEntity] = useState(''); const [name, setName] = useState(''); const [settings, setSettings] = useState(calendarDefaults);
-  const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const selected = ha.entities.find(item => item.entity_id === entity);
-  const add = async () => {
-    if (invalidDurations.size || busy || !selected || !validCalendarSettings(settings)) return;
-    setBusy(true); setError('');
-    try {
-      const current = await doc.ensureDraft(); const result = planCalendar(current, entity, name || selected.display_name, settings);
-      doc.replaceAll(result.config); onOpenChange(false); onAdded(result.sourceIndex);
-    } catch (failure) { setError(describeError(failure)); } finally { setBusy(false); }
-  };
-  return <Dialog open={open} onOpenChange={value => !busy && onOpenChange(value)} title={t('alpha9.calendar.add')} description={t('alpha7.device.explanation')} footer={<><Button disabled={busy} onClick={() => onOpenChange(false)}>{t('alpha7.device.cancel')}</Button><Button variant="primary" disabled={busy || !selected || !validCalendarSettings(settings)} onClick={() => void add()}>{t('alpha7.device.add')}</Button></>}>
+  const plan = () => planCalendar(base, entity, name || selected?.display_name || entity, settings);
+  return <DraftEditor base={base} dirty={!!entity || !!name || !deepEqual(settings, calendarDefaults)} input={[entity, name, settings]} ready={!!selected && validCalendarSettings(settings)} plan={plan} title={t('alpha9.calendar.add')} description={t('alpha7.device.explanation')} onClose={() => onOpenChange(false)} onSaved={saved => {
+    const result = plan();
+    const id = result.config.sources[result.sourceIndex]?.source_id;
+    onAdded(asArray(saved.config.sources).findIndex(row => isObject(row) && row.source_id === id));
+  }}>
     <div className="space-y-4">
       <Field label={t('alpha9.calendar.add')}>{props => <Select {...props} value={entity} onChange={event => { setEntity(event.target.value); setName(ha.entities.find(item => item.entity_id === event.target.value)?.display_name ?? ''); }}><option value="">{t('alpha7.device.selectFirst')}</option>{ha.entities.filter(item => item.entity_id.startsWith('calendar.')).map(item => <option key={item.entity_id} value={item.entity_id}>{item.display_name}</option>)}</Select>}</Field>
       {ha.isError && <p role="alert">{t('alpha7.device.unavailable')}</p>}
       <Field label={t('alpha7.device.name')}>{props => <Input {...props} value={name} maxLength={128} onChange={event => setName(event.target.value)} />}</Field>
       <CalendarFields value={settings} onChange={setSettings} />
       <CalendarCoverageField value={settings.coverageMonths} maxGapMonths={settings.maxGapMonths} onChange={(coverageMonths, maxGapMonths) => setSettings(current => ({ ...current, coverageMonths, maxGapMonths }))} />
-      <p className="text-sm text-muted">{t('alpha8.parameters.draftHint')}</p>
-      {error && <p role="alert">{error}</p>}
     </div>
-  </Dialog>;
+  </DraftEditor>;
 }

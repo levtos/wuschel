@@ -78,7 +78,7 @@ it('keeps metadata on a new draft contract and offers category and room filters 
   await user.selectOptions(within(wizard).getByLabelText('Wann gilt der Wert als aktuell?'), 'periodic_ttl');
   await user.type(within(wizard).getByLabelText('Wie oft meldet sich der Sensor spätestens?'), '60');
   await user.selectOptions(within(wizard).getByLabelText('Kategorie'), 'media');
-  await user.click(within(wizard).getByRole('button', { name: 'Vertrag anlegen' }));
+  await user.click(within(wizard).getByRole('button', { name: 'In Entwurf speichern' }));
   await waitFor(() => expect(fake.pendingEditorial.size).toBe(1));
   const pending = [...fake.pendingEditorial.values()][0]!;
   expect([...pending.values()][0]!.category).toBe('media');
@@ -93,7 +93,7 @@ it('chooses a category while creating a template and keeps it outside its defini
   const dialog = await screen.findByRole('dialog', { name: 'Neue Vorlage' });
   await user.type(within(dialog).getByLabelText(/^Name/), 'Schlafzeit');
   await user.selectOptions(within(dialog).getByLabelText('Kategorie'), 'sleep_wake');
-  await user.click(within(dialog).getByRole('button', { name: 'Anlegen' }));
+  await user.click(within(dialog).getByRole('button', { name: 'In Entwurf speichern' }));
   await waitFor(() => expect(fake.pendingEditorial.size).toBe(1));
   const pending = [...fake.pendingEditorial.values()][0]!;
   expect([...pending.values()]).toEqual([expect.objectContaining({ object: { kind: 'template', id: 'vertrag.schlafzeit' }, category: 'sleep_wake' })]);

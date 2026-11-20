@@ -5,6 +5,9 @@ import { api, ApiError, describeError, type ChangedEntry } from '@/lib/api';
 import { uuid } from '@/lib/uuid';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { EffectStrip } from '@/features/authoring/DraftEditor';
+import { useEditorGuard } from '@/features/authoring/EditorGuard';
+import { deepEqual } from '@/lib/json';
 import { Field, Input, Select } from '@/components/ui/form';
 import { Notice, Spinner } from '@/components/ui/layout';
 import { titleLabel } from './titleLabel';
@@ -13,15 +16,19 @@ import type { Catalog } from './CatalogPage';
 interface Row { identity: string; key: string; kind: string; protected: boolean; first_seen: string | null; seen_count: number; source: string }
 interface Plan { plan_id: string; plan_digest: string; counts: Record<string, number>; items: Row[]; total: number; filtered: number; selected: string[]; reset_counters: boolean; next_offset: number | null; counters_before: number; catalog_count: number; sources: string[] }
 interface Filters { kind: string; since: string; until: string; one: boolean; unmaintained: boolean; source: string }
+const initialFilters: Filters = { kind: '', since: '', until: '', one: false, unmaintained: true, source: '' };
 export function CatalogCleanup({ catalog }: { catalog: Catalog }) {
   const cache = useQueryClient();
   const [open, setOpen] = useState(false); const [plan, setPlan] = useState<Plan | null>(null);
-  const [filters, setFilters] = useState<Filters>({ kind: '', since: '', until: '', one: false, unmaintained: true, source: '' });
+  const [filters, setFilters] = useState(initialFilters);
   const [selected, setSelected] = useState<string[]>([]); const [reset, setReset] = useState(true);
   const [checked, setChecked] = useState(''); const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [result, setResult] = useState('');
   const [requestId, setRequestId] = useState(''); const sequence = useRef(0);
   const [changedEntries, setChangedEntries] = useState<ChangedEntry[]>([]);
+  const guard = useEditorGuard(open && !result && (selected.length > 0 || !reset || confirmed || !deepEqual(filters, initialFilters)), () => {
+    setOpen(false); setFilters(initialFilters); setSelected([]); setReset(true); setConfirmed(false); sequence.current++;
+  }, busy);
   const key = JSON.stringify([selected, reset]);
   const inspect = async (fresh = false, offset = 0, selectFiltered = false) => {
     const seq = ++sequence.current; setBusy(true); setError(''); setChangedEntries([]); setConfirmed(false); setChecked('');
@@ -49,11 +56,13 @@ export function CatalogCleanup({ catalog }: { catalog: Catalog }) {
   };
   return <>
     <Button onClick={() => { setOpen(true); setResult(''); setPlan(null); setSelected([]); void inspect(true); }}>{t('b20.cleanup.title')}</Button>
-    <Dialog open={open} onOpenChange={value => { if (!busy) { setOpen(value); sequence.current++; } }} title={t('b20.cleanup.title')} footer={<>
+    <Dialog open={open} onOpenChange={value => !value && guard.requestClose()} title={t('b20.cleanup.title')} footer={<>
+      <Button disabled={busy} onClick={() => guard.requestClose()}>{t('common.cancel')}</Button>
       <Button disabled={busy} onClick={() => void inspect(true)}>{t('b20.cleanup.reload')}</Button>
       <Button disabled={busy || !plan} onClick={() => void inspect()}>{t('b20.cleanup.preview')}</Button>
       <Button variant="danger" disabled={busy || !plan || !confirmed || checked !== key || !!error || (!selected.length && !reset)} onClick={() => void apply()}>{t('b20.cleanup.apply')}</Button>
     </>}>
+      <EffectStrip effect="catalog" />
       <div className="space-y-4">
         <Notice tone="warn">{t('b20.cleanup.explain')}</Notice>
         {busy && <Spinner />}{error && <Notice tone="bad">{error}</Notice>}{result && <Notice tone="info">{result}</Notice>}
@@ -80,5 +89,6 @@ export function CatalogCleanup({ catalog }: { catalog: Catalog }) {
         </>}
       </div>
     </Dialog>
+    {guard.confirmation}
   </>;
 }

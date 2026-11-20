@@ -29,12 +29,18 @@ export function flow(user: UserEvent) {
   };
 
   const saveButton = async () => {
-    const editor = screen.queryByRole('dialog', { name: 'Vertrag bearbeiten' });
-    if (editor) return within(editor).getByRole('button', { name: 'Speichern und schließen' });
+    const editor = screen.queryByRole('dialog');
+    const save = editor && within(editor).queryByRole('button', { name: 'In Entwurf speichern' });
+    if (save) return save;
     const menu = screen.getByLabelText('Weitere Entwurfsaktionen');
     if (!menu.closest('details')?.open) await user.click(menu);
     const button = await screen.findByRole('button', { name: 'Speichern' }, { timeout: 65_000 });
     return button;
+  };
+
+  const saveEditor = async (editor: HTMLElement) => {
+    await user.click(within(editor).getByRole('button', { name: 'In Entwurf speichern' }));
+    await waitFor(() => expect(editor).not.toBeInTheDocument(), { timeout: 65_000 });
   };
 
   /** Builds the complete Alpha-4 example registry in the open (empty) draft, by operating controls only. */
@@ -42,26 +48,32 @@ export function flow(user: UserEvent) {
     // Dependencies, sources, bindings
     await go('#/sources?tab=dependencies');
     await user.click(await screen.findByRole('button', { name: "Verbindung hinzufügen" }));
-    await steps.type(await screen.findByLabelText("Kennung der Verbindung"), 'dep.test');
+    const dependency = await screen.findByRole('dialog');
+    await steps.type(within(dependency).getByLabelText('Kennung der Verbindung'), 'dep.test');
+    await saveEditor(dependency);
     await go('#/sources/devices');
     for (const [id, key] of [['source.a', 'physical.a'], ['source.b', 'physical.b']] as const) {
       await user.click(await screen.findByRole('button', { name: "Quelle hinzufügen" }));
       await user.click(await screen.findByRole('button', { name: "Ohne Gerät anlegen" }));
-      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Gerät aus Home Assistant hinzufügen' })).not.toBeInTheDocument());
-      await screen.findByLabelText('Name');
-      const advanced = (await screen.findAllByRole('button', { name: 'Erweitert' }))[0]!;
+      const editor = await screen.findByRole('dialog', { name: 'Quelle bearbeiten' });
+      const form = within(editor);
+      const advanced = form.getAllByRole('button', { name: 'Erweitert' })[0]!;
       if (advanced.getAttribute('aria-expanded') !== 'true') await user.click(advanced);
-      await waitFor(() => expect(screen.getByLabelText("Quellenkennung")).toHaveValue('source.neu'));
-      await steps.type(await screen.findByLabelText("Quellenkennung"), id);
-      await steps.type(await screen.findByLabelText("Kennung der Messquelle"), key);
+      await waitFor(() => expect(form.getByLabelText('Quellenkennung')).toHaveValue('source.neu'));
+      await steps.type(form.getByLabelText('Quellenkennung'), id);
+      await steps.type(form.getByLabelText('Kennung der Messquelle'), key);
+      await saveEditor(editor);
     }
     await go('#/sources/bindings');
     for (const [id, source, entity] of [['binding.a', 'source.a', 'sensor.example_1'], ['binding.b', 'source.b', 'input_boolean.cc_alpha_test_b']] as const) {
       await user.click(await screen.findByRole('button', { name: "Verknüpfung hinzufügen" }));
-      await waitFor(() => expect(screen.getByLabelText('Kennung der Verknüpfung')).toHaveValue('binding.neu'));
-      await steps.type(await screen.findByLabelText("Kennung der Verknüpfung"), id);
-      await user.selectOptions(screen.getByLabelText('Quelle'), source);
-      await steps.type(await screen.findByLabelText(/^Gerät oder Wert in Home Assistant \*/), entity);
+      const editor = await screen.findByRole('dialog');
+      const form = within(editor);
+      await waitFor(() => expect(form.getByLabelText('Kennung der Verknüpfung')).toHaveValue('binding.neu'));
+      await steps.type(form.getByLabelText('Kennung der Verknüpfung'), id);
+      await user.selectOptions(form.getByLabelText('Quelle'), source);
+      await steps.type(form.getByLabelText(/^Gerät oder Wert in Home Assistant \*/), entity);
+      await saveEditor(editor);
     }
 
     // Definitions
@@ -78,9 +90,13 @@ export function flow(user: UserEvent) {
       const dialog = await screen.findByRole('dialog', { name: "Neue Vorlage" });
       await user.click(within(dialog).getByRole('button', { name: 'Erweitert' }));
       await steps.type(within(dialog).getByLabelText("Vorlagenkennung"), typeId);
-      await user.click(within(dialog).getByRole('button', { name: 'Anlegen' }));
-      await screen.findByRole('tab', { name: 'Allgemein' });
+      await saveEditor(dialog);
+      await screen.findByRole('tab', { name: 'Allgemein' }, { timeout: 65_000 });
+      if (index === 0) continue; // the default template already serves as the first fixture
+      await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
+      const editor = await screen.findByRole('dialog', { name: 'Vorlage bearbeiten' });
       await build(`/definitions/${index}`);
+      await saveEditor(editor);
     }
 
     // Contract instances
@@ -99,7 +115,7 @@ export function flow(user: UserEvent) {
       const dialog = await screen.findByRole('dialog', { name: "Neuer Vertrag" });
       await steps.type(within(dialog).getByLabelText("Vertragskennung"), id);
       await user.selectOptions(within(dialog).getByLabelText("Vorlage und Version"), type);
-      const create = within(dialog).getByRole('button', { name: 'Anlegen' });
+      const create = within(dialog).getByRole('button', { name: 'In Entwurf speichern' });
       await waitFor(() => expect(create).toBeEnabled(), { timeout: 65_000 });
       await user.click(create);
       await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Neuer Vertrag' })).not.toBeInTheDocument(), { timeout: 65_000 });
@@ -107,6 +123,7 @@ export function flow(user: UserEvent) {
       const selects = await within(editor).findAllByLabelText("Verknüpfter Wert");
       await waitFor(() => selects.forEach(select => expect(select).toBeEnabled()), { timeout: 65_000 });
       for (const [i, ref] of refs.entries()) await user.selectOptions(selects[i]!, ref);
+      await saveEditor(editor);
     }
   };
 

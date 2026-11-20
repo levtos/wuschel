@@ -47,6 +47,25 @@ def test_parameter_errors_block_activation_with_pointer(config, parameters):
     assert any(issue.path.startswith("/contracts/0/parameters") for issue in error.value.issues)
 
 
+def test_parameter_relation_marks_both_fields_without_reflecting_input_values(config):
+    doc = parameterized(config)
+    doc["contracts"][0]["parameters"] = {"near": 1000, "far": 150}
+
+    with pytest.raises(RegistryValidationError) as error:
+        validate(doc, type_registry())
+
+    issues = [
+        issue for issue in error.value.issues if issue.code == "parameter.parameter_relation_failed"
+    ]
+    assert {issue.path for issue in issues} == {
+        "/contracts/0/parameters/near",
+        "/contracts/0/parameters/far",
+    }
+    assert all(
+        issue.parameters == {"left": "near", "right": "far", "comparison": "lt"} for issue in issues
+    )
+
+
 async def test_instances_do_not_share_parameters_and_revision_resets_baseline(runtime, config):
     doc = parameterized(config)
     second = copy.deepcopy(doc["contracts"][0])

@@ -358,7 +358,7 @@ export function DefinitionEditor({
   return (
     <RuleEnvProvider value={{ ctx, caps, locked }}>
       <div className="flex flex-col gap-4">
-        {locked && (
+        {semanticLocked && (
           <Notice tone="warn" title={<span className="flex items-center gap-2"><Lock size={14} /> {uiText("editors.DefinitionEditor.aktivierte_version_semantisch_unveranderlich_8bfc17")}</span>}>
             {lockReason ?? uiText("editors.DefinitionEditor.diese_version_war_bereits_aktiv_faa77f")} {uiText("editors.DefinitionEditor.redaktionelle_felder_name_beschreibung_bleiben_a_a99fa7")}</Notice>
         )}

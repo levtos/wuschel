@@ -138,7 +138,7 @@ it('maintains one page primary action and saves a proposed contact template only
   const dialog = await screen.findByRole('dialog', { name: 'Kontaktsensoren' });
   expect(within(dialog).getByLabelText('Wie oft meldet sich der Sensor spätestens?')).toHaveValue('3');
   expect(within(dialog).getAllByLabelText('Einheit')[0]).toHaveValue('hours');
-  await user.click(within(dialog).getByRole('button', { name: 'Im Entwurf speichern' }));
+  await user.click(within(dialog).getByRole('button', { name: 'In Entwurf speichern' }));
   await waitFor(() => expect([...api.drafts.values()][0]!.config.freshness_templates).toHaveLength(1));
   expect(api.revisions).toHaveLength(1); expect(activeConfig.config_schema_version).toBe(3);
   expect((api.drafts.values().next().value!.config.sources as JsonObject[]).every(row => isObject(row.freshness_selection) && row.freshness_selection.kind === 'own')).toBe(true);
@@ -157,7 +157,7 @@ it('shows and edits every imported template even when two templates have the sam
   const dialog = await screen.findByRole('dialog', { name: 'Kontaktsensoren' });
   const interval = within(dialog).getByLabelText('Wie oft meldet sich der Sensor spätestens?');
   expect(interval).toHaveValue('4'); await user.clear(interval); await user.type(interval, '5');
-  await user.click(within(dialog).getByRole('button', { name: 'Im Entwurf speichern' }));
+  await user.click(within(dialog).getByRole('button', { name: 'In Entwurf speichern' }));
   await waitFor(() => {
     const rows = [...api.drafts.values()][0]!.config.freshness_templates as JsonObject[];
     expect(rows.find(row => row.template_id === 'freshness.contact')!.rule).toEqual(rule(10800));

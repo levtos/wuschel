@@ -60,7 +60,7 @@ export function IssueCount({ pointer }: { pointer: string }) {
   const issues = useIssuesUnder(pointer);
   if (issues.length === 0) return null;
   return (
-    <Tip label={issues.map(explain).join('\n')}>
+    <Tip label={issues.map(issue => explain(issue)).join('\n')}>
       <span tabIndex={0}>
         <Badge tone="bad">{issues.length} {issues.length === 1 ? uiText("editors.common.fehler_f6cc01") : uiText("editors.common.fehler_f6cc01")}</Badge>
       </span>

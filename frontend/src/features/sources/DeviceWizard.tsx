@@ -1,17 +1,15 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { hasTranslation, t } from '@/i18n';
 import { codeLabel } from '@/i18n/codes';
-import { Button } from '@/components/ui/button';
-import { Dialog } from '@/components/ui/dialog';
 import { Field, Input, Select } from '@/components/ui/form';
 import { Spinner } from '@/components/ui/layout';
-import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
+import { DraftEditor, useEditorBase } from '@/features/authoring/DraftEditor';
+import { EditorInputError } from '@/features/authoring/editorChanges';
 import { asArray, asObject, str, type FieldSchema } from '@/features/authoring/model';
-import { describeError } from '@/lib/api';
 import { isObject, type JsonObject } from '@/lib/json';
 import { validIdentifier } from '@/lib/identifiers';
 import { formatNumber } from '@/lib/format';
-import type { HaEntity } from '@/lib/types';
+import type { HaEntity, Registry } from '@/lib/types';
 import { DEVICE_PRESETS, DevicePlanError, fieldTypeFor, freshnessPreset, planDevice, presetFor, type DeviceOptions, type DevicePreset } from './devicePlan';
 import { FreshnessSettings } from './FreshnessSettings';
 import { effectiveRule } from './freshness';
@@ -30,61 +28,67 @@ export function deviceValue(entity: HaEntity): string {
   return value;
 }
 
-export function DeviceWizard({ open, onOpenChange, title, contract, expectedSchema, onAdded, manualOption }: {
+interface DeviceWizardProps {
   open: boolean; onOpenChange: (open: boolean) => void; title?: string; contract?: DeviceOptions['contract']; expectedSchema?: FieldSchema;
-  onAdded?: (result: ReturnType<typeof planDevice>) => void; manualOption?: ReactNode;
-}) {
-  const doc = useWorkingDocument(); const ha = useHaCatalog(open, true);
+  onAdded?: (result: ReturnType<typeof planDevice>) => void;
+  manualOption?: (leave: (next: () => void) => void) => ReactNode;
+  local?: { config: Registry; onChange: (config: Registry) => void };
+}
+
+export function DeviceWizard(props: DeviceWizardProps) {
+  return props.open ? <DeviceEditor {...props} /> : null;
+}
+
+function DeviceEditor({ onOpenChange, title, contract, expectedSchema, onAdded, manualOption, local }: DeviceWizardProps) {
+  const base = useEditorBase(local?.config);
+  const ha = useHaCatalog(true, true);
   const metadata = useEditorial(); const [category, setCategory] = useState<Category>('other');
   const [search, setSearch] = useState(''); const [area, setArea] = useState(''); const [domain, setDomain] = useState('');
   const [selected, setSelected] = useState<HaEntity | null>(null);
   const [name, setName] = useState(''); const [preset, setPreset] = useState<DevicePreset>('other'); const [freshness, setFreshness] = useState<JsonObject>(freshnessPreset('other'));
   const [fieldType, setFieldType] = useState<'number' | 'bool' | 'text'>('text'); const [sourceId, setSourceId] = useState(''); const [contractId, setContractId] = useState('');
-  const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [sharedTemplate, setSharedTemplate] = useState('');
   const areas = [...new Map(ha.entities.filter(entity => entity.area_id).map(entity => [entity.area_id!, entity.area_name || entity.area_id!])).entries()];
   const domains = [...new Set(ha.entities.map(entity => entity.entity_id.split('.')[0]!))].sort();
   const shown = ha.entities.filter(entity => (!search || `${entity.display_name} ${entity.entity_id}`.toLowerCase().includes(search.toLowerCase())) && (!area || (area === '__none__' ? !entity.area_id : entity.area_id === area)) && (!domain || entity.entity_id.startsWith(`${domain}.`))).slice(0, 300);
-  const existingBinding = selected ? asArray(doc.config?.bindings).filter(isObject).find(binding => asObject(binding.adapter).kind === 'ha_state' && asObject(binding.adapter).ha_entity_id === selected.entity_id) : undefined;
-  const existingSource = asArray(doc.config?.sources).filter(isObject).find(source => source.source_id === existingBinding?.source_id);
+  const existingBinding = selected ? asArray(base.bindings).filter(isObject).find(binding => asObject(binding.adapter).kind === 'ha_state' && asObject(binding.adapter).ha_entity_id === selected.entity_id) : undefined;
+  const existingSource = asArray(base.sources).filter(isObject).find(source => source.source_id === existingBinding?.source_id);
   const suggestions = useMemo(() => {
-    if (!selected || !doc.config) return null;
-    try { return planDevice(doc.config, selected, { contract, name, freshness }); } catch { return null; }
-  }, [selected, doc.config, contract, name, freshness]);
+    if (!selected) return null;
+    try { return planDevice(base, selected, { contract, name, freshness }); } catch { return null; }
+  }, [selected, base, contract, name, freshness]);
   const pick = (entity: HaEntity) => {
     setSelected(entity); setName(entity.display_name); const next = presetFor(entity); setPreset(next);
-    const binding = asArray(doc.config?.bindings).filter(isObject).find(binding => asObject(binding.adapter).kind === 'ha_state' && asObject(binding.adapter).ha_entity_id === entity.entity_id);
-    const source = asArray(doc.config?.sources).filter(isObject).find(source => source.source_id === binding?.source_id);
+    const binding = asArray(base.bindings).filter(isObject).find(binding => asObject(binding.adapter).kind === 'ha_state' && asObject(binding.adapter).ha_entity_id === entity.entity_id);
+    const source = asArray(base.sources).filter(isObject).find(source => source.source_id === binding?.source_id);
     if (source) setName(str(source.display_name) || entity.display_name);
-    setFreshness(source ? effectiveRule(doc.config ?? {}, source) : freshnessPreset(next));
+    setFreshness(source ? effectiveRule(base, source) : freshnessPreset(next));
     setSharedTemplate(source && asObject(source.freshness_selection).kind === 'shared' ? String(asObject(source.freshness_selection).template_id) : '');
     const sourceType = asObject(source?.value_schema).type || (source?.source_type === 'numeric' ? 'number' : source?.source_type === 'boolean' ? 'bool' : source?.source_type === 'text' ? 'text' : null);
     setFieldType(['number', 'bool', 'text'].includes(String(sourceType)) ? sourceType as 'number' | 'bool' | 'text' : fieldTypeFor(entity));
-    setSourceId(''); setContractId(''); setError('');
+    setSourceId(''); setContractId('');
   };
-  const liveness = asArray(doc.config?.sources).filter(isObject).filter(source => source.source_type === 'boolean' || asObject(source.value_schema).type === 'bool').map(source => ({ id: str(source.source_id), name: str(source.display_name) || str(source.source_id) }));
+  const liveness = asArray(base.sources).filter(isObject).filter(source => source.source_type === 'boolean' || asObject(source.value_schema).type === 'bool').map(source => ({ id: str(source.source_id), name: str(source.display_name) || str(source.source_id) }));
   const incompatible = selected && expectedSchema && (expectedSchema.type !== 'object' && fieldType !== expectedSchema.type || (expectedSchema.unit ?? '') !== (fieldType === 'number' ? selected.unit ?? '' : ''));
-  const disabledReason = busy ? t('alpha7.device.saving') : !selected ? t('alpha7.device.selectFirst') : incompatible ? t('alpha7.device.incompatible') : sourceId && (!validIdentifier(sourceId) || !sourceId.startsWith('source.')) || contractId && !validIdentifier(contractId) ? t('alpha7.device.badIdentifier') : !freshness.mode || invalidDurations.size ? t('alpha7.device.badFreshness') : freshness.mode !== 'event_stateful' && (!(Number(freshness.interval_s) > 0) || freshness.mode === 'liveness_source' && !freshness.liveness_source) ? t('alpha7.device.badFreshness') : '';
-  const create = async () => {
-    if (invalidDurations.size) { setError(t('b4.time.precision')); return; }
-    if (!selected || disabledReason) return;
-    setBusy(true); setError('');
+  const disabledReason = !selected ? t('alpha7.device.selectFirst') : incompatible ? t('alpha7.device.incompatible') : sourceId && (!validIdentifier(sourceId) || !sourceId.startsWith('source.')) || contractId && !validIdentifier(contractId) ? t('alpha7.device.badIdentifier') : !freshness.mode || invalidDurations.size ? t('alpha7.device.badFreshness') : freshness.mode !== 'event_stateful' && (!(Number(freshness.interval_s) > 0) || freshness.mode === 'liveness_source' && !freshness.liveness_source) ? t('alpha7.device.badFreshness') : '';
+  const plannedDevice = () => {
+    if (!selected) throw new EditorInputError(t('alpha7.device.selectFirst'));
     try {
-      const current = await doc.ensureDraft();
-      const result = planDevice(current, selected, { contract, name, preset, freshness, freshnessSelection: sharedTemplate ? { kind: 'shared', template_id: sharedTemplate, ...(freshness.mode === 'liveness_source' ? { liveness_source: freshness.liveness_source } : {}) } : undefined, fieldType, sourceId: sourceId || undefined, contractId: contractId || undefined });
-      if (contract === 'new' && result.contractId) {
-        const object = { kind: 'contract' as const, id: result.contractId };
-        const created = asArray(result.config.contracts).filter(isObject).find(item => item.contract_id === result.contractId)!;
-        const template = { kind: 'template' as const, id: str(created.type_id) };
-        await doc.editAndSave(() => result.config, [object, template].map(ref => ({ object: ref, expected_editorial_version: metadata.item(ref).editorial_version, category, room: NO_ROOM })));
-      } else doc.replaceAll(result.config);
-      onOpenChange(false); onAdded?.(result);
-    } catch (failure) { setError(failure instanceof DevicePlanError ? failure.message : describeError(failure)); }
-    finally { setBusy(false); }
+      return planDevice(base, selected, { contract, name, preset, freshness, freshnessSelection: sharedTemplate ? { kind: 'shared', template_id: sharedTemplate, ...(freshness.mode === 'liveness_source' ? { liveness_source: freshness.liveness_source } : {}) } : undefined, fieldType, sourceId: sourceId || undefined, contractId: contractId || undefined });
+    } catch (failure) { if (failure instanceof DevicePlanError) throw new EditorInputError(failure.message); throw failure; }
   };
-  return <Dialog open={open} onOpenChange={value => !busy && onOpenChange(value)} size="xl" title={title || t('alpha7.device.title')} description={t('alpha7.device.explanation')} footer={<>
-    {disabledReason && <p role="status" className="w-full text-sm text-muted">{disabledReason}</p>}{manualOption}<Button onClick={() => onOpenChange(false)} disabled={busy}>{t('alpha7.device.cancel')}</Button><Button variant="primary" disabled={!!disabledReason} onClick={() => void create()}>{t(contract === 'new' ? 'alpha7.device.createContract' : 'alpha7.device.add')}</Button>
-  </>}>
+  const plan = () => {
+    const result = plannedDevice();
+    if (contract !== 'new' || !result.contractId) return { config: result.config };
+    const created = asArray(result.config.contracts).filter(isObject).find(item => item.contract_id === result.contractId)!;
+    const refs = [{ kind: 'contract' as const, id: result.contractId }, { kind: 'template' as const, id: str(created.type_id) }];
+    return { config: result.config, editorial: refs.map(object => ({ object, expected_editorial_version: metadata.item(object).editorial_version, category, room: NO_ROOM })) };
+  };
+  return <DraftEditor base={base} input={[selected?.entity_id, name, preset, freshness, sharedTemplate, fieldType, sourceId, contractId, category]} dirty={selected !== null} ready={!disabledReason} plan={plan} onClose={() => onOpenChange(false)} onApply={local?.onChange} onSaved={saved => {
+    if (!onAdded) return;
+    const result = plannedDevice();
+    onAdded({ ...result, config: saved.config, sourceIndex: asArray(saved.config.sources).findIndex(row => isObject(row) && row.source_id === result.sourceId) });
+  }} size="xl" title={title || t('alpha7.device.title')} description={t('alpha7.device.explanation')} otherEditors={manualOption} footer={disabledReason && <p role="status" className="w-full text-sm text-muted">{disabledReason}</p>}>
     <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
       <div className="space-y-3">
         <Input aria-label={t('alpha7.device.search')} placeholder={t('alpha7.device.search')} value={search} onChange={event => setSearch(event.target.value)} />
@@ -99,7 +103,7 @@ export function DeviceWizard({ open, onOpenChange, title, contract, expectedSche
           <Field label={t('alpha7.device.name')}>{props => <Input {...props} maxLength={128} value={name} onChange={event => setName(event.target.value)} />}</Field>
           {contract === 'new' && <CategorySelect value={category} onChange={value => setCategory(value || 'other')} />}
           <Field label={t('b4.confirmKind')}>{props => <Select {...props} value={preset} onChange={event => { const next = event.target.value as DevicePreset; setPreset(next); setSharedTemplate(''); setFreshness(freshnessPreset(next)); }}>{DEVICE_PRESETS.map(value => <option key={value} value={value}>{t(`alpha7.device.preset.${value}`)}</option>)}</Select>}</Field>
-          <Field label={t('b26.freshness.selection')}>{props => <Select {...props} value={sharedTemplate} onChange={event => { const id = event.target.value; setSharedTemplate(id); if (id) setFreshness(asObject(asArray(doc.config?.freshness_templates).filter(isObject).find(row => row.template_id === id)?.rule)); }}><option value="">{t('b4.own')}</option>{asArray(doc.config?.freshness_templates).filter(isObject).filter(row => row.sensor_kind === preset).map(row => <option key={str(row.template_id)} value={str(row.template_id)}>{str(row.display_name)}</option>)}</Select>}</Field>
+          <Field label={t('b26.freshness.selection')}>{props => <Select {...props} value={sharedTemplate} onChange={event => { const id = event.target.value; setSharedTemplate(id); if (id) setFreshness(asObject(asArray(base.freshness_templates).filter(isObject).find(row => row.template_id === id)?.rule)); }}><option value="">{t('b4.own')}</option>{asArray(base.freshness_templates).filter(isObject).filter(row => row.sensor_kind === preset).map(row => <option key={str(row.template_id)} value={str(row.template_id)}>{str(row.display_name)}</option>)}</Select>}</Field>
           {sharedTemplate ? <p>{t('b4.uses')} {sharedTemplate}</p> : <FreshnessSettings value={freshness} onChange={setFreshness} livenessSources={liveness} />}
           {sharedTemplate && freshness.mode === 'liveness_source' && <Field label={t('alpha7.freshness.liveness')}>{props => <Select {...props} value={str(freshness.liveness_source)} onChange={event => setFreshness(previous => ({ ...previous, liveness_source: event.target.value }))}><option value="">{t('alpha10.transfer.decide')}</option>{liveness.map(source => <option key={source.id} value={source.id}>{source.name}</option>)}</Select>}</Field>}
           {preset === 'contact' && <p className="text-sm text-muted">{t('alpha7.device.contactHelp')}</p>}
@@ -113,8 +117,7 @@ export function DeviceWizard({ open, onOpenChange, title, contract, expectedSche
             <p className="text-xs text-muted">{t('alpha7.device.idsAutomatic')}</p>
           </div></details>
         </>}
-        {error && <p role="alert" className="text-sm text-bad">{error}</p>}
       </div>
     </div>
-  </Dialog>;
+  </DraftEditor>;
 }

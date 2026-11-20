@@ -130,7 +130,6 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     // 1. Build from an empty draft — controls only — and save.
     await f.createDraft('E2E', "Leere Konfiguration");
     await f.buildExampleRegistry();
-    await user.click(await f.saveButton());
     // The UI acknowledges the completed PUT. Read back once afterwards: an
     // async waitFor callback can still be queued in the real 61s budget when its
     // 15s deadline fires, hiding both the response and the actual assertion.
@@ -176,9 +175,13 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await screen.findByText(/Übernommene Vorlagenversion/);
     await user.click(screen.getByRole('button', { name: /Neue Version/ }));
     const versioning = await screen.findByRole('dialog', { name: /Neue Version von test.truth/ });
-    await user.click(within(versioning).getByRole('checkbox', { name: 'fixture.right' })); // only fixture.left migrates
-    await user.click(within(versioning).getByRole('button', { name: "Version anlegen" }));
-    await screen.findByRole('tab', { name: 'Allgemein' });
+    await user.click(within(versioning).getByRole('button', { name: 'In Entwurf speichern' }));
+    const migration = await screen.findByRole('dialog', { name: 'Verträge auf Version 2 umstellen' }, { timeout: 65_000 });
+    await user.click(within(migration).getByRole('checkbox', { name: 'fixture.left' }));
+    await user.click(within(migration).getByRole('button', { name: 'In Entwurf speichern' }));
+    await waitFor(() => expect(migration).not.toBeInTheDocument(), { timeout: 65_000 });
+    await user.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
+    await screen.findByRole('dialog', { name: 'Vorlage bearbeiten' });
     await f.tab(/Ausgaben/);
     await f.setOp('/definitions/5/outputs/value', 'not'); // v2 negates its input (unlocked, never activated)
     await user.click(await f.saveButton());
@@ -218,7 +221,7 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     const create = await screen.findByRole('dialog', { name: "Neuer Vertrag" });
     await f.type(within(create).getByLabelText("Vertragskennung"), 'fixture.extra');
     await user.selectOptions(within(create).getByLabelText('Vorlage und Version'), 'test.truth@1');
-    const addContract = within(create).getByRole('button', { name: 'Anlegen' });
+    const addContract = within(create).getByRole('button', { name: 'In Entwurf speichern' });
     await waitFor(() => expect(addContract).toBeEnabled());
     await user.click(addContract);
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Neuer Vertrag' })).not.toBeInTheDocument(), { timeout: 65_000 });
@@ -227,7 +230,7 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     const current = (await raw<{ draft_version: number; config: JsonObject }>(`registry/drafts/${working}`)).body;
     const other = await raw(`registry/drafts/${working}`, json('PUT', { config: { ...current.config, other_session: true }, draft_version: current.draft_version }));
     expect(other.status).toBe(200);
-    await user.click(within(editor).getByRole('button', { name: 'Speichern und schließen' }));
+    await user.click(within(editor).getByRole('button', { name: 'In Entwurf speichern' }));
     await screen.findByRole('dialog', { name: /Versionskonflikt/ }, { timeout: 65_000 });
     expect(((await raw<{ config: JsonObject }>(`registry/drafts/${working}`)).body.config as JsonObject).other_session).toBe(true); // the other session's data is intact
     await user.click(screen.getByRole('button', { name: 'Änderungen zusammenführen' }));
@@ -248,13 +251,12 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
       const wizard = await screen.findByRole('dialog', { name: 'Gerät aus Home Assistant hinzufügen' });
       const source = ux12.sources.find(source => source.source_id === binding.source_id)!;
       await user.click(await within(wizard).findByRole('radio', { name: source.display_name }, { timeout: 65_000 }));
-      await user.click(within(wizard).getByRole('button', { name: 'Gerät hinzufügen' }));
+      await user.click(within(wizard).getByRole('button', { name: 'In Entwurf speichern' }));
       await waitFor(() => {
         const remaining = screen.queryByRole('dialog');
         if (remaining) throw new Error(`Device picker did not close: ${remaining.textContent}`);
       }, { timeout: 65_000 });
     }
-    await user.click(await f.saveButton());
     await screen.findByText('Im Entwurf gespeichert');
     const readback = await raw<{ config: JsonObject; draft_version: number }>(`registry/drafts/${imported.draft_id}`);
     expect(readback.status).toBe(200);
@@ -300,9 +302,8 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await user.selectOptions(within(adding).getByLabelText('Wann gilt der Wert als aktuell?'), 'periodic_ttl');
     await user.type(within(adding).getByLabelText('Wie oft meldet sich der Sensor spätestens?'), '60');
     await f.type(within(adding).getByLabelText('Name'), 'P8 Temperatur');
-    await user.click(within(adding).getByRole('button', { name: 'Vertrag anlegen' }));
+    await user.click(within(adding).getByRole('button', { name: 'In Entwurf speichern' }));
     // K.01: the guided objects use the same server comparison in the bar and page.
-    await user.click(await f.saveButton());
     await screen.findByText('Im Entwurf gespeichert');
     const drafts = await raw<{ draft_id: string; display_name: string; draft_version: number; config: JsonObject }[]>('registry/drafts');
     expect(drafts.status).toBe(200);
@@ -347,11 +348,11 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await waitFor(() => {
       const current = currentMove();
       expect(within(current).getByLabelText('Neue Werteart')).toHaveValue('text');
-      expect(within(current).getByRole('button', { name: 'Umzug prüfen' }), current.textContent ?? '').toBeEnabled();
+      expect(within(current).getByRole('button', { name: 'Prüfen' }), current.textContent ?? '').toBeEnabled();
     }, { timeout: 65_000 });
-    await user.click(within(currentMove()).getByRole('button', { name: 'Umzug prüfen' }));
+    await user.click(within(currentMove()).getByRole('button', { name: 'Prüfen' }));
     await within(currentMove()).findByText(/Direkt umgestellte Verträge: 1/, {}, { timeout: 65_000 });
-    await user.click(within(currentMove()).getByRole('button', { name: "Im Entwurf speichern" }));
+    await user.click(within(currentMove()).getByRole('button', { name: 'In Entwurf speichern' }));
     await takeover();
     const after = (await raw<JsonObject>('registry/active/export')).body;
     expect(objects(after.sources)).toHaveLength(2);
@@ -511,7 +512,7 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     expect(within(dialog).getByLabelText(label)).toHaveValue('180');
     await user.selectOptions(within(dialog).getByLabelText('Einheit'), 'hours');
     await user.clear(within(dialog).getByLabelText(label)); await user.type(within(dialog).getByLabelText(label), '1,5');
-    await user.click(within(dialog).getByRole('button', { name: 'Im Entwurf speichern' }));
+    await user.click(within(dialog).getByRole('button', { name: 'In Entwurf speichern' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Kontaktsensoren' })).not.toBeInTheDocument());
     expect((await raw<RevisionRow>('registry/active')).body.checksum).toBe(baseline.checksum);
     await user.click(within(heading.closest('[data-page-header]') as HTMLElement).getByRole('button', { name: 'Bearbeiten' }));
@@ -520,14 +521,14 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await user.selectOptions(within(dialog).getByLabelText('Einheit'), 'hours');
     expect(within(dialog).getByLabelText(label)).toHaveValue('1,5');
     await user.clear(within(dialog).getByLabelText(label)); await user.type(within(dialog).getByLabelText(label), '3');
-    await user.click(within(dialog).getByRole('button', { name: 'Im Entwurf speichern' }));
+    await user.click(within(dialog).getByRole('button', { name: 'In Entwurf speichern' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Kontaktsensoren' })).not.toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Vorhandene Quellen zuordnen' }));
     dialog = await screen.findByRole('dialog', { name: 'Vorhandene Quellen zuordnen' });
     expect(within(dialog).getByLabelText('Sensortyp bestätigen')).toHaveValue('');
     await user.selectOptions(within(dialog).getByLabelText('Sensortyp bestätigen'), 'contact');
     await user.selectOptions(within(dialog).getByLabelText('Aktualität zuordnen'), 'freshness.contact');
-    await user.click(within(dialog).getByRole('button', { name: 'Zuordnung im Entwurf bestätigen' }));
+    await user.click(within(dialog).getByRole('button', { name: 'In Entwurf speichern' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Vorhandene Quellen zuordnen' })).not.toBeInTheDocument());
     await screen.findByText(/7 Quellen · 4 Verträge · 0 eigene Abweichungen/);
     const drafts = (await raw<Draft[]>('registry/drafts')).body;

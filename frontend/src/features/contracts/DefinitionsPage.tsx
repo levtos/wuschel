@@ -8,7 +8,6 @@ import { DataTable } from '@/components/DataTable';
 import { LayoutPanel, PanelLayout } from '@/components/PanelLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog } from '@/components/ui/dialog';
 import { Collapsible } from '@/components/ui/controls';
 import { codeLabel } from '@/i18n/codes';
 import { Field, Input, Select } from '@/components/ui/form';
@@ -17,14 +16,15 @@ import { Empty, PageHeader, Panel, PanelHeader } from '@/components/ui/layout';
 import { LockBadge } from '@/editors/DefinitionEditor';
 import { ReadOnlyNotice } from '@/features/authoring/DraftBar';
 import { useAllIssues } from '@/features/authoring/issues';
-import { asArray, asObject, definitionKey, newDefinition, str, uniqueName } from '@/features/authoring/model';
+import { asArray, asObject, definitionKey, emptyRegistry, newDefinition, str, uniqueName } from '@/features/authoring/model';
 import { contractsUsingDefinition } from '@/features/authoring/usage';
 import { useAuthoringSource } from '@/features/authoring/useAuthoringSource';
 import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
+import { DraftEditor } from '@/features/authoring/DraftEditor';
 import { isObject } from '@/lib/json';
-import { useCapabilities } from '@/lib/queries';
+import { useActiveRevision, useCapabilities } from '@/lib/queries';
+import type { Registry } from '@/lib/types';
 import { ContractsTabs, NewContractDialog } from './ContractsPage';
-import { describeError } from '@/lib/api';
 import { CategoryBadge, CategorySelect, EditorialPanel, useEditorial } from '@/features/editorial/Editorial';
 import { useRouteFilters } from '@/lib/route-filters';
 import { NO_ROOM, groupItems, type Category } from '@/features/editorial/model';
@@ -48,21 +48,20 @@ export default function DefinitionsPage() {
   const builtin = useLocation().pathname === '/templates/built-in';
   const src = useAuthoringSource();
   const doc = useWorkingDocument();
+  const active = useActiveRevision();
   const caps = useCapabilities();
   const issues = useAllIssues();
   const navigate = useNavigate();
   const metadata = useEditorial();
-  const [category, setCategory] = useState<Category>('other'); const [busy, setBusy] = useState(false);
+  const [category, setCategory] = useState<Category>('other');
   const route = useRouteFilters(); const [categoryFilter, setCategoryFilter] = route.field<Category | ''>('category', ''); const [groupValue, setGroupValue] = route.field('group', 'none'); const group = groupValue === 'category'; const setGroup = (value: boolean) => setGroupValue(value ? 'category' : 'none');
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<Registry | null>(null);
   const [creatingContract, setCreatingContract] = useState(false);
   const [typeId, setTypeId] = useState('');
   const [name, setName] = useState('');
-  const [creationError, setCreationError] = useState('');
-  const start = async () => {
-    setCreationError('');
-    try { await doc.ensureDraft(); setTypeId(''); setName(''); setCreating(true); }
-    catch (error) { setCreationError(describeError(error)); }
+  const start = () => {
+    setTypeId(''); setName(''); setCategory('other');
+    setCreating(src.config ?? emptyRegistry());
   };
 
   const definitions = asArray(src.config?.definitions).filter(isObject);
@@ -99,7 +98,7 @@ export default function DefinitionsPage() {
     [rows],
   );
 
-  const usedIds = [...definitions.map(definition => str(definition.type_id)), ...(caps.data?.types.map(type => type.type_id) ?? [])];
+  const usedIds = [...asArray((creating ?? src.config)?.definitions).filter(isObject).map(definition => str(definition.type_id)), ...(caps.data?.types.map(type => type.type_id) ?? [])];
   const suggested = name.trim().toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 96) || 'vorlage';
   const fullId = typeId.trim() ? (typeId.includes('.') ? typeId.trim() : `vertrag.${typeId.trim()}`) : uniqueName(`vertrag.${suggested}`, usedIds);
   const exists = usedIds.includes(fullId);
@@ -111,11 +110,10 @@ export default function DefinitionsPage() {
         title={uiText(builtin ? 'alpha7.nav.builtinTemplates' : 'alpha7.nav.ownTemplates')}
         description={uiText(builtin ? 'alpha9.pages.templatesBuiltin' : 'alpha9.pages.templatesOwn')}
         actions={
-          builtin ? <Button variant="primary" disabled={doc.starting} disabledReason={uiText('alpha7.copy.inProgress')} onClick={async () => { setCreationError(''); try { await doc.ensureDraft(); setCreatingContract(true); } catch (error) { setCreationError(describeError(error)); } }}>{uiText('alpha9.actions.createContract')}</Button> : <Button variant="primary" disabled={doc.starting} disabledReason={uiText('alpha7.copy.inProgress')} onClick={() => void start()}>
+          builtin ? <Button variant="primary" disabled={doc.starting || !active.isSuccess || src.loading} onClick={() => setCreatingContract(true)}>{uiText('alpha9.actions.createContract')}</Button> : <Button variant="primary" disabled={doc.starting || !active.isSuccess || src.loading} onClick={start}>
             <Plus size={15} /> {uiText("features.contracts.DefinitionsPage.neue_definition_fcff16")}</Button>
         }
       />
-      {creationError && <p role="alert" className="mb-3 text-sm text-bad">{creationError}</p>}
       {doc.starting && <p role="status" className="mb-3 text-sm text-muted">{uiText('alpha7.draft.preparing')}</p>}
       <div className="mb-4 flex flex-wrap items-end gap-3"><div className="w-56"><CategorySelect value={categoryFilter} onChange={setCategoryFilter} all /></div><Field label={uiText('alpha9.editorial.group')}>{props => <Select {...props} value={group ? 'category' : 'none'} onChange={event => setGroup(event.target.value === 'category')}><option value="none">{uiText('alpha9.editorial.noGrouping')}</option><option value="category">{uiText('alpha9.category.group')}</option></Select>}</Field></div>
       <ContractsTabs />
@@ -152,35 +150,21 @@ export default function DefinitionsPage() {
         {packageTypes.length === 0 && <p className="p-4 text-sm text-muted">{uiText('alpha9.editorial.noMatches')}</p>}
       </Panel>
       </LayoutPanel>}</PanelLayout>
-      <Dialog
-        open={creating}
-        onOpenChange={setCreating}
+      {creating && <DraftEditor base={creating} dirty input={[fullId, name, category]} ready={validId && !exists && !metadata.isPending && !metadata.isError}
+        onClose={() => setCreating(null)} onSaved={() => navigate(`/templates/details/${encodeURIComponent(fullId)}/1`)}
         title={uiText("features.contracts.DefinitionsPage.neue_definition_fcff16")}
         description={uiText("features.contracts.DefinitionsPage.beginnt_mit_einem_eingang_und_einem_ausgabefeld__b84536")}
-        footer={
-          <>
-            <Button onClick={() => setCreating(false)}>{uiText("features.contracts.DefinitionsPage.abbrechen_f7ff11")}</Button>
-            <Button
-              variant="primary"
-              disabled={!validId || exists || busy || metadata.isPending || metadata.isError} disabledReason={exists ? uiText('features.contracts.DefinitionsPage.diese_typ_id_existiert_bereits_fur_anderungen_ei_01c137') : uiText('alpha7.copy.checkIdentifier')}
-              onClick={async () => {
-                setBusy(true); setCreationError('');
-                try {
-                  const id = fullId; const object = { kind: 'template' as const, id };
-                  await doc.editAndSave((c) => ({ ...c, fingerprint_version: Math.max(2, Number(c.fingerprint_version ?? 1)), definitions: [...asArray(c.definitions), { ...newDefinition(id, 1), ...(name.trim() ? { display_name: name.trim() } : {}) }] }), [{ object, category, room: NO_ROOM, expected_editorial_version: metadata.item(object).editorial_version }]);
-                  setCreating(false); navigate(`/templates/details/${encodeURIComponent(id)}/1`);
-                } catch (failure) { setCreationError(describeError(failure)); }
-                finally { setBusy(false); }
-              }}
-            >
-              {uiText("features.contracts.DefinitionsPage.anlegen_d34c0e")}</Button>
-          </>
-        }
+        plan={() => {
+          const object = { kind: 'template' as const, id: fullId };
+          return {
+            config: { ...creating, fingerprint_version: Math.max(2, Number(creating.fingerprint_version ?? 1)), definitions: [...asArray(creating.definitions), { ...newDefinition(fullId, 1), ...(name.trim() ? { display_name: name.trim() } : {}) }] },
+            editorial: [{ object, category, room: NO_ROOM, expected_editorial_version: metadata.item(object).editorial_version }],
+          };
+        }}
       >
         <div className="space-y-4">
           <Field label={uiText('alpha7.template.name')}>{props => <Input {...props} autoFocus maxLength={128} value={name} placeholder={uiText('alpha7.template.nameExample')} onChange={event => setName(event.target.value)} />}</Field>
           <CategorySelect value={category} onChange={value => setCategory(value || 'other')} />
-          {creationError && <p role="alert" className="text-sm text-bad">{creationError}</p>}
           <p className="text-sm text-muted">{uiText('alpha7.template.initial')}</p>
           <Collapsible title={uiText('alpha7.device.advanced')}>
             <Field label={uiText("features.contracts.DefinitionsPage.typ_id_b7db41")} hint={uiText('alpha7.template.prefix')} errors={typeId && exists ? [{ code: 'duplicate_identity', message: uiText("features.contracts.DefinitionsPage.diese_typ_id_existiert_bereits_fur_anderungen_ei_01c137") }] : typeId && !validId ? [{ code: 'schema.pattern', message: ID_HINT }] : []}>
@@ -188,7 +172,7 @@ export default function DefinitionsPage() {
             </Field>
           </Collapsible>
         </div>
-      </Dialog>
+      </DraftEditor>}
     </>
   );
 }
