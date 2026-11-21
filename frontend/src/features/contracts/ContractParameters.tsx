@@ -46,7 +46,7 @@ function parameters(root: JsonObject): Parameter[] {
         : numeric && (unit === 's' || name.endsWith('_s')) ? 'duration' : 'plain';
     return {
       name, spec, display, type, unit,
-      label: str(spec.title) || fieldLabel(name),
+      label: fieldLabel(str(spec.title) || name),
       description: str(spec.description),
       group: str(spec.group),
       required: required.has(name),
@@ -124,7 +124,8 @@ function ParameterControl({ parameter, root, value, pointer, change }: {
   if (parameter.type === 'boolean' && !spec.enum) {
     return <Fld label={label} pointer={pointer}>{props => <input {...props} type="checkbox" className="h-5 w-5 accent-accent" checked={value === true} onChange={event => change(event.target.checked)} />}</Fld>;
   }
-  return <SchemaForm root={root} node={spec} label={label} required={required} value={value} pointer={pointer} onChange={change} />;
+  const caption = parameter.unit && display === 'plain' ? t('alpha8.parameters.unitHint', { description: label, unit: parameter.unit }) : label;
+  return <SchemaForm root={root} node={spec} label={caption} required={required} value={value} pointer={pointer} onChange={change} />;
 }
 
 export function ContractParameters({ entry, value, pointer, onChange }: {
@@ -143,13 +144,14 @@ export function ContractParameters({ entry, value, pointer, onChange }: {
   const groups = new Map<string, Parameter[]>();
   for (const item of items) groups.set(item.group, [...(groups.get(item.group) ?? []), item]);
   return <div className="space-y-4">
+    {onChange && <p className="text-xs text-muted">{t('alpha8.parameters.draftHint')}</p>}
     {[...groups].map(([group, rows]) => <section key={group}>
       {group && <h4 className="mb-2 font-medium">{group}</h4>}
       <ul className="divide-y divide-line rounded-md border border-line">
         {rows.map(row => {
           const fieldPointer = join(pointer, row.name);
           const stored = value[row.name];
-          const current = stored ?? row.standard;
+          const current = stored === undefined ? row.standard : stored;
           const change = onChange ? (next: Json | undefined) => onChange(setAt(value, join('', row.name), next)) : undefined;
           const unit = row.unit === 'minute_of_day' ? t('a2.parameters.clockUnit') : row.unit;
           return <li key={row.name} className="space-y-2 p-3">
