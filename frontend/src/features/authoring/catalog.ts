@@ -16,6 +16,7 @@ export interface TypeEntry {
   inputs: { name: string; required: boolean; schema?: FieldSchema }[];
   fields: Record<string, FieldSchema>;
   parameterSchema?: JsonObject;
+  displayName?: string;
   declarative: boolean;
   machine: boolean;
   lifecycle?: string;
@@ -44,6 +45,7 @@ export function typeCatalog(caps: Capabilities | undefined, config: JsonObject |
       lifecycle: str(raw.lifecycle) || 'active',
       fields,
       parameterSchema: declarativeParameterSchema(raw, caps?.structured_parameter_schemas),
+      displayName: str(raw.display_name),
       inputs: asArray(raw.inputs)
         .filter(isObject)
         .map((i) => {
@@ -68,6 +70,7 @@ function fromDescription(t: TypeDescription): TypeEntry {
     fields: t.schema.fields as Record<string, FieldSchema>,
     inputs: t.inputs.map((i) => ({ name: i.name, required: i.required })),
     parameterSchema: t.parameter_schema,
+    displayName: str(t.definition?.display_name),
   };
 }
 
@@ -79,17 +82,24 @@ export function declarativeParameterSchema(definition: JsonObject, structured?: 
     if (!isObject(declaration)) continue;
     const schema = asObject(declaration.schema);
     if (schema.required === true) required.push(name);
+    const metadata = {
+      title: str(declaration.label) || name,
+      ...(declaration.description ? { description: declaration.description } : {}),
+      ...(schema.unit ? { unit: schema.unit } : {}),
+      ...(declaration.default !== undefined ? { default: declaration.default } : {}),
+      ...(declaration.group ? { group: declaration.group } : {}),
+      ...(declaration.display ? { display: declaration.display } : {}),
+    };
     const model = structured?.[str(declaration.structured_schema)];
     if (model) {
       const { $defs, ...body } = model;
       Object.assign(definitions, asObject($defs));
-      properties[name] = { ...body, title: str(declaration.label) || name };
+      properties[name] = { ...body, ...metadata };
       continue;
     }
     properties[name] = {
       type: schema.type === 'bool' ? 'boolean' : schema.type === 'number' ? 'number' : 'string',
-      title: schema.unit ? uiText('alpha8.parameters.unitHint', { description: str(declaration.label) || name, unit: str(schema.unit) }) : str(declaration.label) || name,
-      ...(schema.unit ? { description: uiText('alpha8.parameters.unitHint', { description: str(declaration.description), unit: str(schema.unit) }) } : declaration.description ? { description: declaration.description } : {}),
+      ...metadata,
       ...(Array.isArray(schema.value_catalog) && schema.value_catalog.length ? { enum: schema.value_catalog } : {}),
       ...(schema.type === 'timestamp' ? { format: 'date-time' } : {}),
       ...(typeof declaration.minimum === 'number' ? { minimum: declaration.minimum } : {}),

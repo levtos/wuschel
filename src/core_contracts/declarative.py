@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field, create_model, model_validator
 from . import declarative_models as dm
 from . import slots
 from .engines import FORMULA_SCHEMAS, FORMULAS, FUSION, FUSION_INPUTS
-from .instance_parameters import number_slot, parameter_model
+from .instance_parameters import effective_parameters, number_slot, parameter_model
 from .model import Model
 from .multibucket import MultiBucket
 from .producer import Context, Producer, TemporalParameters, next_machine_due, next_temporal_due
@@ -113,7 +113,13 @@ def rule_children(rule: dm.Rule) -> list[tuple[str, dm.Rule]]:
         return [("at", rule.at)]
     if isinstance(rule, dm.CompareRule):
         return [("left", rule.left), ("right", rule.right)]
-    if isinstance(rule, (dm.MapRule, dm.BucketRule, dm.NotApplicableRule, dm.KnownAutomaticRule)):
+    if isinstance(rule, dm.MapRule):
+        return [("arg", rule.arg)] + [
+            ("entries/" + key.replace("~", "~0").replace("/", "~1"), value)
+            for key, value in rule.entries.items()
+            if isinstance(value, dm.ParameterRule)
+        ]
+    if isinstance(rule, (dm.BucketRule, dm.NotApplicableRule, dm.KnownAutomaticRule)):
         return [("arg", rule.arg)]
     if isinstance(rule, dm.FirstMatchRule):
         return [
@@ -203,7 +209,7 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
             if (
                 not declaration
                 or declaration.field_schema.type != "number"
-                or not declaration.field_schema.required
+                or (not declaration.field_schema.required and declaration.default is None)
             ):
                 raise ValueError("invalid_parameter_slot")
     paths: dict[int, str] = {}
@@ -313,7 +319,10 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
             if (
                 definition.language_version < 2
                 or not parameter_declaration
-                or not parameter_declaration.field_schema.required
+                or (
+                    not parameter_declaration.field_schema.required
+                    and parameter_declaration.default is None
+                )
             ):
                 raise ValueError("unknown_or_optional_parameter")
             return parameter_declaration.field_schema
@@ -415,16 +424,20 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
         if isinstance(rule, dm.MapRule):
             if args[0].type == "object":
                 raise ValueError("map_requires_scalar")
-            for entry_key in rule.entries:
+            mapped_parameters = iter(args[1:])
+            for entry_key, entry in rule.entries.items():
+                escaped = entry_key.replace("~", "~0").replace("/", "~1")
+                path = paths[id(rule)] + "/entries/" + escaped
                 try:
                     value = json.loads(entry_key)
                     if not args[0].accepts(value) or map_key(value) != entry_key:
                         raise ValueError("invalid_map_key")
                 except ValueError, TypeError, OverflowError:
-                    escaped = entry_key.replace("~", "~0").replace("/", "~1")
-                    raise RuleValidationError(
-                        "invalid_map_key", paths[id(rule)] + "/entries/" + escaped
-                    ) from None
+                    raise RuleValidationError("invalid_map_key", path) from None
+                if isinstance(entry, dm.ParameterRule) and not compatible(
+                    next(mapped_parameters), rule.field_schema
+                ):
+                    raise RuleValidationError("map_type_mismatch", path)
             return rule.field_schema
         if isinstance(rule, dm.FirstMatchRule):
             for arg in args[::2]:
@@ -589,9 +602,10 @@ class Evaluation:
         parameters: dict[str, Any] | None = None,
     ) -> None:
         self.definition, self.inputs, self.now, self.context = definition, inputs, now, context
-        self.parameters = (
+        supplied = (
             parameters if parameters is not None else context.contract.parameters if context else {}
         )
+        self.parameters = effective_parameters(definition, supplied)
         self.inputs = dict(inputs)
         for declaration in definition.inputs:
             value = self.inputs.get(declaration.name)
@@ -804,6 +818,16 @@ class Evaluation:
                     update={"evidence": tuple(dict.fromkeys((*value.evidence, *refs)))}
                 )
             return self.memo["$machine"]
+        if isinstance(rule, dm.MapRule):
+            map_input = self.evaluate(rule.arg)
+            if not map_input.usable(now):
+                return map_input
+            key = map_key(map_input.value)
+            if key not in rule.entries:
+                return unknown(ReasonCode.UNMAPPED_VALUE, "map", now)
+            entry = rule.entries[key]
+            mapped = self.evaluate(entry).value if isinstance(entry, dm.ParameterRule) else entry
+            return derive(mapped, [map_input], now)
         args = [self.evaluate(child) for child in children(rule)]
         if isinstance(rule, (dm.CalendarAtRule, dm.DailyWindowRule)):
             from .dated_rules import dated_rule
@@ -865,14 +889,6 @@ class Evaluation:
             )
         if isinstance(rule, dm.CompareRule):
             return compare(args[0], args[1], rule.comparison, now)
-        if isinstance(rule, dm.MapRule):
-            value = args[0]
-            if not value.usable(now):
-                return value
-            key = map_key(value.value)
-            if key not in rule.entries:
-                return unknown(ReasonCode.UNMAPPED_VALUE, "map", now)
-            return derive(rule.entries[key], [value], now)
         if isinstance(rule, dm.FirstMatchRule):
             return first_match(list(zip(args[::2], args[1::2], strict=True)), now)
         if isinstance(rule, dm.FormulaRule):
@@ -982,6 +998,9 @@ def compile_machine(
 ) -> Machine:
     machine = definition.machine
     assert machine is not None
+    parameters = (
+        evaluation.parameters if evaluation else effective_parameters(definition, parameters or {})
+    )
 
     def absolute_value(state: MachineState) -> tuple[FieldValue, str | None]:
         assert evaluation is not None and machine.absolute_transition is not None
@@ -1046,17 +1065,13 @@ def compile_machine(
             states=machine.states,
             initial=machine.initial,
             commands=tuple(machine.commands),
-            deadline_seconds=number_slot(
-                machine.deadline_s, evaluation.parameters if evaluation else parameters or {}
-            )
+            deadline_seconds=number_slot(machine.deadline_s, parameters)
             if machine.deadline_s is not None
             else None,
             sessions=machine.sessions,
             allow_manual_restart=machine.allow_manual_restart,
             deadline_by_state={
-                name: number_slot(
-                    item.duration, evaluation.parameters if evaluation else parameters or {}
-                )
+                name: number_slot(item.duration, parameters)
                 for name, item in machine.deadline_by_state.items()
             },
             absolute_transition=machine.absolute_transition.model_dump()
@@ -1199,6 +1214,7 @@ def compile_definition(definition: dm.DeclarativeDefinition) -> ContractType:
     def next_due(
         parameters: dict[str, Any], node: dict[str, Any], now: datetime
     ) -> datetime | None:
+        parameters = effective_parameters(definition, parameters)
         due = [
             next_temporal_due(
                 temporal_parameters(rule, parameters).model_dump(),

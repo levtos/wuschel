@@ -21,11 +21,22 @@ COMPARISONS = {
 }
 
 
+def effective_parameters(
+    definition: dm.DeclarativeDefinition, parameters: dict[str, Any]
+) -> dict[str, Any]:
+    defaults = {
+        name: declaration.default
+        for name, declaration in definition.parameter_schema.items()
+        if declaration.default is not None and name not in parameters
+    }
+    return {**defaults, **parameters} if defaults else parameters
+
+
 def parameter_model(definition: dm.DeclarativeDefinition) -> type[BaseModel]:
     class Parameters(Model):
         @model_validator(mode="after")
         def values_and_relations(self) -> Parameters:
-            values = self.model_dump(exclude_unset=True)
+            values = self.model_dump(exclude_none=True)
             for key, value in values.items():
                 if not definition.parameter_schema[key].field_schema.accepts(value):
                     raise ValueError("parameter_type_mismatch")
@@ -66,10 +77,18 @@ def parameter_model(definition: dm.DeclarativeDefinition) -> type[BaseModel]:
             annotation = slots.PARAMETER_MODELS[declaration.structured_schema]
         if schema.value_catalog:
             annotation = Literal[tuple(schema.value_catalog)]
+        default: Any = (
+            declaration.default
+            if declaration.default is not None
+            else ...
+            if schema.required
+            else None
+        )
         fields[name] = (
             annotation,
             Field(
-                default=... if schema.required else None,
+                default=default,
+                validate_default=declaration.default is not None,
                 strict=None if schema.value_catalog else True,
                 title=declaration.label or name,
                 description=declaration.description,
@@ -95,6 +114,7 @@ def validate_slots(definition: dm.DeclarativeDefinition, parameters: dict[str, A
     # Import only at validation time: the compiler itself uses parameter_model.
     from .declarative import all_rules
 
+    parameters = effective_parameters(definition, parameters)
     for rule in all_rules(definition):
         if isinstance(rule, dm.TemporalRule):
             seconds = number_slot(rule.duration_s, parameters)

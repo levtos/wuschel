@@ -22,7 +22,7 @@ function parameterRelation(issue: Issue, config?: JsonObject | null): Issue {
   const labelValue = (field: string) => {
     const declaration = asObject(parameterSchema[field]);
     const name = str(declaration.label) || fieldLabel(field);
-    const value = getAt(contract, join('/parameters', field));
+    const value = getAt(contract, join('/parameters', field)) ?? declaration.default;
     if (value === undefined || value === null) return uiText('a2.edit.emptyParameter', { name });
     const unit = str(asObject(declaration.schema).unit);
     const shown = typeof value === 'number' ? formatNumber(value) : typeof value === 'boolean' ? uiText(value ? 'alpha7.device.yes' : 'alpha7.device.no') : String(value);
