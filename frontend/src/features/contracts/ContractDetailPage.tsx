@@ -17,7 +17,7 @@ import { consumersOfContract } from '@/features/authoring/usage';
 import { contractHref, ObjectReadBack, ObjectReadLink } from '@/features/authoring/ObjectReadLinks';
 import { useAuthoringSource } from '@/features/authoring/useAuthoringSource';
 import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
-import { DraftEditor } from '@/features/authoring/DraftEditor';
+import { DraftEditor, EffectStrip } from '@/features/authoring/DraftEditor';
 import { clone, deepEqual, isObject, setAt, type JsonObject } from '@/lib/json';
 import type { Registry } from '@/lib/types';
 import { useLive } from '@/lib/live-context';
@@ -33,7 +33,7 @@ import { ObjectActions } from '@/features/authoring/ObjectActions';
 import { WakePlanningDialog } from './WakePlanningDialog';
 import { ContractTemplateLink, InputReadLinks } from './ContractReadLinks';
 import { fieldLabel } from '@/i18n/codes';
-import { SchemaForm } from '@/editors/SchemaForm';
+import { ContractParameters } from './ContractParameters';
 
 export default function ContractDetailPage() {
   const { contractId = '' } = useParams();
@@ -175,7 +175,7 @@ export default function ContractDetailPage() {
               <div className="max-w-4xl space-y-4">
                 <Panel><PanelHeader title={uiText('a2.read.template')} aside={<ContractTemplateLink contract={contract} config={src.config} showVersion />} /></Panel>
                 <Panel><PanelHeader title={uiText('features.contracts.ContractDetailPage.eingange_53fb39')} />{readInputs}</Panel>
-                {!editor && typeEntry?.parameterSchema && <Panel className="p-4"><h3 className="mb-3 font-medium">{uiText('alpha8.parameters.title')}</h3><fieldset disabled><SchemaForm root={typeEntry.parameterSchema} node={typeEntry.parameterSchema} value={asObject(contract.parameters)} pointer={`${pointer}/parameters`} onChange={() => undefined} /></fieldset></Panel>}
+                <Panel className="p-4"><h3 className="mb-3 font-medium">{uiText('a2.parameters.contractTitle')}</h3>{src.source === 'draft' && Object.keys(asObject(typeEntry?.parameterSchema?.properties)).length > 0 && <EffectStrip effect="draft" />}<ContractParameters entry={typeEntry} value={asObject(contract.parameters)} pointer={`${pointer}/parameters`} /></Panel>
               </div>
             ),
           },

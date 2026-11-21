@@ -162,8 +162,19 @@ def definition():
     )
 
 
-async def test_runtime_clock_restore_and_commit_keep_original_deadline(runtime, config):
+@pytest.mark.parametrize("with_parameter", [False, True])
+async def test_runtime_clock_restore_and_commit_keep_original_deadline(
+    runtime, config, with_parameter
+):
     data = definition()
+    if with_parameter:
+        data["parameter_schema"] = {
+            "waiting": {"schema": schema("number", unit="s"), "default": 120}
+        }
+        data["machine"]["deadline_by_state"]["a"]["duration"] = {
+            "op": "parameter",
+            "name": "waiting",
+        }
     document = registry(copy.deepcopy(config), data)
     document["config_schema_version"] = 2
     await activate(runtime, document)

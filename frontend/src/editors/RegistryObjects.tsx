@@ -1,6 +1,7 @@
 import { SourceQualityEditor } from './SourceQualityEditor';
 import { codeLabel, fieldLabel } from '@/i18n/codes';
 import { t as uiText } from '@/i18n';
+import { ContractParameters } from '@/features/contracts/ContractParameters';
 import { Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +24,6 @@ import { RefreshPlanEditor, type RefreshSource } from './RefreshPlanEditor';
 import { AddButton, Fld, IconButton, IssuesAt, NumberField, SectionTitle } from './common';
 import { FieldSchemaEditor } from './FieldSchemaEditor';
 import { ValueEditor } from './ValueEditor';
-import { SchemaForm } from './SchemaForm';
 import { Extras } from './Extras';
 import { SourceFreshnessEditor } from '@/features/sources/SourceFreshnessEditor';
 
@@ -612,13 +612,8 @@ export function ContractEditor({ value, onChange, pointer, types, refs, onAddDev
       </section>
 
       <section className="flex flex-col gap-3">
-        <SectionTitle>{uiText('alpha8.parameters.title')}</SectionTitle>
-        <p className="text-xs text-muted">{uiText('alpha8.parameters.draftHint')}</p>
-        {entry?.parameterSchema ? (
-          <SchemaForm root={entry.parameterSchema} node={entry.parameterSchema} value={asObject(value.parameters)} pointer={join(pointer, 'parameters')} onChange={(next) => set({ parameters: (next ?? {}) as JsonObject })} />
-        ) : (
-          <p className="text-xs text-faint">{uiText("editors.RegistryObjects.keine_parameter_bekannt_272f5e")}</p>
-        )}
+        <SectionTitle>{uiText('a2.parameters.contractTitle')}</SectionTitle>
+        <ContractParameters entry={entry} value={asObject(value.parameters)} pointer={join(pointer, 'parameters')} onChange={parameters => set({ parameters })} />
         <IssuesAt pointer={join(pointer, 'parameters')} />
       </section>
       <RefreshPlanEditor value={value.refresh_plan && typeof value.refresh_plan === 'object' ? asObject(value.refresh_plan) : null} onChange={refresh_plan => set({ refresh_plan })} sources={refreshSources} references={[...refs, ...Object.entries(entry?.fields ?? {}).map(([name, schema]) => ({ value: `${str(value.contract_id)}.${name}`, label: uiText('alpha9.refresh.reference', { name: str(value.display_name) || str(value.contract_id), field: fieldLabel(name) }), kind: 'contract' as const, schema }))]} />
