@@ -195,6 +195,10 @@ def all_rules(definition: dm.DeclarativeDefinition) -> list[dm.Rule]:
 
 
 def check_definition(definition: dm.DeclarativeDefinition) -> None:
+    for parameter in definition.parameter_schema.values():
+        if parameter.default is not None and parameter.structured_schema:
+            if model := slots.PARAMETER_MODELS.get(parameter.structured_schema):
+                model.model_validate(parameter.default)
     rules = all_rules(definition)
     parameter_slots = [r.duration_s for r in rules if isinstance(r, dm.TemporalRule)]
     if definition.machine and definition.machine.deadline_s is not None:

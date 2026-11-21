@@ -87,13 +87,8 @@ class ParameterDefinition(DeclarativeModel):
                 and self.default > self.maximum
             ):
                 raise ValueError("parameter_default_bounds")
-            if self.structured_schema:
-                from .slots import PARAMETER_MODELS
-
-                if not isinstance(self.default, dict):
-                    raise ValueError("parameter_default_type_mismatch")
-                if model := PARAMETER_MODELS.get(self.structured_schema):
-                    model.model_validate(self.default)
+            if self.structured_schema and not isinstance(self.default, dict):
+                raise ValueError("parameter_default_type_mismatch")
         return self
 
 
