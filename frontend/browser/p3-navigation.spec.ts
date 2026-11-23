@@ -2,9 +2,11 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 
 test('Back restores filters and the main scroll position in Firefox', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const longName = 'Synthetic entry 000 with a long display name that stays readable in the Home Assistant panel';
   const capabilities = JSON.parse(readFileSync('test/fixtures/capabilities.json', 'utf8'));
   const boolean = { type: 'bool', required: true, physical_state: false };
-  const contracts = Array.from({ length: 100 }, (_, index) => ({ contract_id: `synthetic.${String(index).padStart(3, '0')}`, display_name: `Synthetic entry ${String(index).padStart(3, '0')}`, type_id: 'synthetic.echo', type_version: 1, enabled: true, inputs: [], parameters: {} }));
+  const contracts = Array.from({ length: 100 }, (_, index) => ({ contract_id: `synthetic.${String(index).padStart(3, '0')}`, display_name: index === 0 ? longName : `Synthetic entry ${String(index).padStart(3, '0')}`, type_id: 'synthetic.echo', type_version: 1, enabled: true, inputs: [], parameters: {} }));
   const config = { config_schema_version: 1, dependencies: [], sources: [], bindings: [], catalogs: [], contracts, definitions: [{ type_id: 'synthetic.echo', type_version: 1, language_version: 1, inputs: [], schema: { fields: { value: boolean }, available_projection: ['value'] }, outputs: { value: { op: 'literal', value: true, schema: boolean } } }] };
   const active = { revision: 1, checksum: 'synthetic', config, created_at: '2032-04-05T12:00:00Z' };
   await page.route('**/api/v1/**', async route => {
@@ -31,6 +33,15 @@ test('Back restores filters and the main scroll position in Firefox', async ({ p
   });
   await page.goto('/#/contracts/list/all');
   const main = page.locator('#main');
+  const name = page.getByRole('link', { name: longName, exact: true });
+  await expect(name).toHaveCSS('white-space', 'normal');
+  await expect(name).toHaveCSS('overflow-wrap', 'anywhere');
+  const expand = page.getByRole('button', { name: 'Navigation ausklappen' });
+  await expect(expand).toBeVisible();
+  await expand.click();
+  const collapse = page.getByRole('button', { name: 'Navigation einklappen' });
+  await expect(collapse).toBeVisible();
+  await collapse.click();
   await expect(page.getByRole('link', { name: 'Synthetic entry 030', exact: true })).toBeAttached();
   await page.getByLabel('Kategorie', { exact: true }).selectOption('media');
   await page.getByLabel('Verträge suchen', { exact: true }).fill('Synthetic entry');

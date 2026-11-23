@@ -1,6 +1,7 @@
 import { t as uiText } from '@/i18n';
 import { Checkbox, Collapsible } from '@/components/ui/controls';
 import { Input } from '@/components/ui/form';
+import { InlineHelp } from '@/components/ui/inline-help';
 import { AddButton, Fld, IconButton, IssueCount, IssuesAt, SectionTitle } from './common';
 import { FieldSchemaEditor } from './FieldSchemaEditor';
 import { asArray, asObject, newFieldSchema, renameKey, type FieldSchema } from '@/features/authoring/model';
@@ -73,11 +74,11 @@ export function SchemaEditor({
                 pointer={fp}
                 onChange={(next) => onChange({ ...value, fields: { ...fields, [name]: next as unknown as Json } as JsonObject })}
               />
-              <Checkbox
+              <div className="flex items-center gap-2"><Checkbox
                 checked={projection.includes(name)}
                 onCheckedChange={(on) => setProjection(on ? [...projection, name] : projection.filter((p) => p !== name))}
                 label={uiText("editors.SchemaEditor.zahlt_zur_verfugbarkeit_available_projection_0fd998")}
-              />
+              /><InlineHelp text={uiText('a2.help.availability')} /></div>
               {extra?.(name)}
             </div>
           </Collapsible>

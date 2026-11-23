@@ -10,7 +10,7 @@ import { explain, useIssues } from '@/features/authoring/issues';
 import { asArray, asObject, str } from '@/features/authoring/model';
 import { definitionHref, ObjectReadLink } from '@/features/authoring/ObjectReadLinks';
 import { codeLabel, fieldLabel } from '@/i18n/codes';
-import { t } from '@/i18n';
+import { hasTranslation, t } from '@/i18n';
 import { deref } from '@/lib/capabilities';
 import { durationText } from '@/lib/duration';
 import { formatNumber } from '@/lib/format';
@@ -47,7 +47,7 @@ function parameters(root: JsonObject): Parameter[] {
     return {
       name, spec, display, type, unit,
       label: fieldLabel(str(spec.title) || name),
-      description: str(spec.description),
+      description: str(spec.description) || (name === 'grace_s' ? t('a2.help.grace') : ''),
       group: str(spec.group),
       required: required.has(name),
       minimum: typeof spec.minimum === 'number' ? spec.minimum : undefined,
@@ -75,7 +75,7 @@ function parameterValue(parameter: Parameter, value: Json | undefined): string {
     return formatNumber(value);
   }
   if (typeof value === 'string' && parameter.name === 'calendar_conflict_behavior' && value === 'ignore') return t('a2.calendar.ignoreConflict');
-  return typeof value === 'string' ? value : t('a2.parameters.configured');
+  return typeof value === 'string' ? (Array.isArray(parameter.spec.enum) && hasTranslation('codes.' + value) ? codeLabel(value) : value) : t('a2.parameters.configured');
 }
 
 function parameterRange(parameter: Parameter): string {

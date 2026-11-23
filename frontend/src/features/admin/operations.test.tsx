@@ -112,8 +112,8 @@ it('pauses and resumes projection with a visible warning and reports failed chan
     } },
   );
   mount(<SystemStatePage />);
-  await user.click(await screen.findByRole('button', { name: 'Projektion pausieren' }));
-  const resume = await screen.findByRole('button', { name: 'Projektion fortsetzen' });
+  await user.click(await screen.findByRole('button', { name: 'Ausgabe an Home Assistant pausieren' }));
+  const resume = await screen.findByRole('button', { name: 'Ausgabe an Home Assistant fortsetzen' });
   expect(resume).toHaveAttribute('aria-pressed', 'true');
   expect(screen.getByText(/Nach 120 Sekunden zeigt Traber/)).toBeInTheDocument();
   expect(screen.getByText('Geschützt')).toBeInTheDocument();
@@ -121,10 +121,10 @@ it('pauses and resumes projection with a visible warning and reports failed chan
   fail = true;
   await user.click(resume);
   await screen.findByRole('alert');
-  expect(screen.getByRole('button', { name: 'Projektion fortsetzen' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Ausgabe an Home Assistant fortsetzen' })).toBeEnabled();
   fail = false;
-  await user.click(screen.getByRole('button', { name: 'Projektion fortsetzen' }));
-  await screen.findByRole('button', { name: 'Projektion pausieren' });
+  await user.click(screen.getByRole('button', { name: 'Ausgabe an Home Assistant fortsetzen' }));
+  await screen.findByRole('button', { name: 'Ausgabe an Home Assistant pausieren' });
   expect(server.calls.filter(call => call.method === 'PUT').map(call => call.body)).toEqual([{ paused: true }, { paused: false }, { paused: false }]);
 });
 

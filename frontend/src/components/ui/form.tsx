@@ -2,6 +2,7 @@ import { useId, useRef, useState, type InputHTMLAttributes, type ReactNode, type
 import { t } from '@/i18n';
 import { Button } from './button';
 import { cn } from '@/lib/utils';
+import { InlineHelp } from './inline-help';
 
 const control = 'w-full rounded-[var(--radius-sm)] border border-line-strong bg-sunken px-2.5 text-sm text-fg placeholder:text-faint transition-colors hover:border-faint focus-visible:border-fg disabled:opacity-50 disabled:cursor-not-allowed aria-[invalid=true]:border-bad';
 
@@ -36,6 +37,7 @@ export function Select({ className, children, ref, ...props }: SelectHTMLAttribu
 interface FieldProps {
   label: ReactNode;
   hint?: ReactNode;
+  help?: string;
   /** Server findings addressed to exactly this field. */
   errors?: { code: string; message: string }[];
   children: (props: { id: string; 'aria-invalid': boolean; 'aria-describedby': string | undefined }) => ReactNode;
@@ -44,14 +46,15 @@ interface FieldProps {
 }
 
 /** Label + control + hint + structured server errors at the affected input. */
-export function Field({ label, hint, errors = [], children, className, pointer }: FieldProps) {
+export function Field({ label, hint, help, errors = [], children, className, pointer }: FieldProps) {
   const id = useId();
   const describedBy = errors.length || hint ? `${id}-d` : undefined;
   return (
     <div data-field-pointer={pointer} className={cn('flex min-w-0 flex-col gap-1', className)}>
-      <label htmlFor={id} className="text-xs font-medium text-muted">
-        {label}
-      </label>
+      <div className="flex items-center gap-1">
+        <label htmlFor={id} className="text-xs font-medium text-muted">{label}</label>
+        {help && <InlineHelp text={help} />}
+      </div>
       {children({ id, 'aria-invalid': errors.length > 0, 'aria-describedby': describedBy })}
       {(errors.length > 0 || hint) && (
         <div id={`${id}-d`} className="flex flex-col gap-0.5">

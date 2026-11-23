@@ -11,7 +11,7 @@ export default function ContractChooser() {
   return <>
     <PageHeader title={t('alpha7.nav.contract')} description={t('alpha7.contract.choose')} />
     <Panel><ul className="divide-y divide-line">{contracts.map(contract => <li key={str(contract.contract_id)}>
-      <Link className="block truncate px-5 py-4 hover:bg-raised" to={`/contracts/view/${encodeURIComponent(str(contract.contract_id))}`}>{str(contract.display_name) || str(contract.contract_id)}</Link>
+      <Link className="block whitespace-normal px-5 py-4 hover:bg-raised [overflow-wrap:anywhere]" to={`/contracts/view/${encodeURIComponent(str(contract.contract_id))}`}>{str(contract.display_name) || str(contract.contract_id)}</Link>
     </li>)}</ul>{!contracts.length && <Empty title={t('alpha7.contract.empty')}><Link to="/contracts/list/all" className="text-fg underline">{t('alpha7.nav.mine')}</Link></Empty>}</Panel>
   </>;
 }

@@ -131,7 +131,7 @@ export default function ContractDetailPage() {
     <>
       <ObjectReadBack fallback={{ to: '/contracts/list/all', label: uiText('features.contracts.ContractDetailPage.alle_contracts_67b49f') }} />
       <PageHeader
-        title={<span className="block truncate" title={contractId}>{str(contract.display_name) || contractId}</span>}
+        title={<span className="block whitespace-normal [overflow-wrap:anywhere]" title={contractId}>{str(contract.display_name) || contractId}</span>}
         description={uiText('alpha9.pages.contract')}
         actions={
           <>
