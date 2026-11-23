@@ -85,6 +85,7 @@ class ContractType:
     refresh_inputs: tuple[str, ...] = ()
     definition: dict[str, Any] | None = None
     grace_outputs: tuple[str, ...] = ()
+    editable_copy: dict[str, Any] | None = None
 
     def description(self) -> dict[str, Any]:
         return {
@@ -106,6 +107,7 @@ class ContractType:
             ),
             **({"refresh_inputs": self.refresh_inputs} if self.refresh_inputs else {}),
             **({"grace_outputs": self.grace_outputs} if self.grace_outputs else {}),
+            **({"editable_copy": self.editable_copy} if self.editable_copy is not None else {}),
             **(
                 {
                     "definition": self.definition,

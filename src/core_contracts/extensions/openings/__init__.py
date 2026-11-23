@@ -1,26 +1,37 @@
 """Opening facts; actuation and consumer safety choices remain outside Wuschel."""
 
+from collections.abc import Callable
+from dataclasses import replace
 from datetime import datetime, timedelta
-from typing import Any
+from math import nextafter
+from typing import TYPE_CHECKING, Any
 
 from pydantic import Field
 
+from core_contracts import declarative_models as dm
+from core_contracts import slots
 from core_contracts.fusion import Fusion
+from core_contracts.instance_parameters import number_slot
 from core_contracts.model import Model
 from core_contracts.producer import Context, Producer
 from core_contracts.quality import FieldValue, Reason, ReasonCode, derive, unknown
 from core_contracts.schema import ContractType, FieldSchema, InputDeclaration, Schema, TypeRegistry
 from core_contracts.temporal import Temporal, TemporalState
 
+if TYPE_CHECKING:
+    from core_contracts.declarative import Evaluation
+
 OPENING_TYPES = {"opening.dual_contact", "opening.single_contact"}
 STATES = ("closed", "tilted", "open")
+ZONE_FIELDS = ("any_open", "any_tilted", "unclear", "any_held", "all_closed")
+MAX_GRACE = 31_536_000
 
 
 class OpeningParameters(Model):
     grace_s: float = Field(
         strict=True,
         gt=0,
-        le=31_536_000,
+        le=MAX_GRACE,
         allow_inf_nan=False,
         title="grace_s",
     )
@@ -74,13 +85,20 @@ FUSION.register("opening_dual_contact_v1", dual_contact)
 
 
 def opening(ctx: Context) -> dict[str, FieldValue]:
-    now, node = ctx.now, ctx.node
-    if ctx.contract.type_id == "opening.dual_contact":
-        value = FUSION.evaluate(
-            "opening_dual_contact_v1", [ctx.input("open"), ctx.input("tilt")], now
+    names = ("open", "tilt") if ctx.contract.type_id == "opening.dual_contact" else ("contact",)
+    return {
+        "value": opening_value(
+            ctx, [ctx.input(name) for name in names], float(ctx.contract.parameters["grace_s"])
         )
+    }
+
+
+def opening_value(ctx: Context, contacts: list[FieldValue], grace_s: float) -> FieldValue:
+    now, node = ctx.now, ctx.node
+    if len(contacts) == 2:
+        value = FUSION.evaluate("opening_dual_contact_v1", contacts, now)
     else:
-        contact = ctx.input("contact")
+        contact = contacts[0]
         value = (
             derive("open" if contact.value else "closed", [contact], now).model_copy(
                 update={"freshness": "fresh"}
@@ -100,9 +118,7 @@ def opening(ctx: Context) -> dict[str, FieldValue]:
     if conflict:
         temporal.state = TemporalState(fingerprint=node["fingerprint"])
     elif value.status == "valid":
-        value = temporal.grace(
-            value, float(ctx.contract.parameters["grace_s"]), now, trigger=ctx.origin == "input"
-        )
+        value = temporal.grace(value, grace_s, now, trigger=ctx.origin == "input")
     else:
         if ctx.reassessment and temporal.state.grace_until is None:
             temporal.state = temporal.state.model_copy(update={"grace_armed": False})
@@ -118,13 +134,12 @@ def opening(ctx: Context) -> dict[str, FieldValue]:
             )
             temporal.state = temporal.state.model_copy(
                 update={
-                    "grace_until": min(now, loss_at)
-                    + timedelta(seconds=float(ctx.contract.parameters["grace_s"])),
+                    "grace_until": min(now, loss_at) + timedelta(seconds=grace_s),
                     "grace_armed": False,
                 }
             )
         missing = value
-        value = temporal.grace(value, float(ctx.contract.parameters["grace_s"]), now, trigger=False)
+        value = temporal.grace(value, grace_s, now, trigger=False)
         if value.status == "held":
             value = value.model_copy(
                 update={
@@ -138,9 +153,7 @@ def opening(ctx: Context) -> dict[str, FieldValue]:
     if ctx.origin == "restore" or tuple(node.get("identity", ())) != identity:
         node["since_at"] = now.isoformat()
     node["identity"] = list(identity)
-    return {
-        "value": value.model_copy(update={"since_at": datetime.fromisoformat(node["since_at"])})
-    }
+    return value.model_copy(update={"since_at": datetime.fromisoformat(node["since_at"])})
 
 
 def opening_due(parameters: dict[str, Any], node: dict[str, Any], now: datetime) -> datetime | None:
@@ -201,51 +214,193 @@ def zone_due(parameters: dict[str, Any], node: dict[str, Any], now: datetime) ->
     return min((datetime.fromisoformat(s) for s in node.get("held_deadlines", [])), default=None)
 
 
+def contact_schema() -> FieldSchema:
+    return FieldSchema(type="enum", required=True, physical_state=True, value_catalog=STATES)
+
+
+def check_contact(
+    rule: dm.OpeningContactRule,
+    definition: dm.DeclarativeDefinition,
+    inputs: dict[str, FieldSchema],
+    args: list[FieldSchema],
+    require: Callable[[FieldSchema, FieldSchema], FieldSchema],
+    scalar: Callable[[str], FieldSchema],
+) -> FieldSchema:
+    for arg in args[: len(rule.args)]:
+        require(arg, scalar("bool"))
+    return contact_schema()
+
+
+def check_zone(
+    rule: dm.OpeningZoneRule,
+    definition: dm.DeclarativeDefinition,
+    inputs: dict[str, FieldSchema],
+    args: list[FieldSchema],
+    require: Callable[[FieldSchema, FieldSchema], FieldSchema],
+    scalar: Callable[[str], FieldSchema],
+) -> FieldSchema:
+    for arg in args:
+        require(arg, contact_schema())
+    return scalar("bool")
+
+
+def contact_children(rule: dm.OpeningContactRule) -> list[tuple[str, dm.Rule]]:
+    children: list[tuple[str, dm.Rule]] = [
+        (f"args/{index}", arg) for index, arg in enumerate(rule.args)
+    ]
+    if isinstance(rule.duration_s, dm.ParameterRule):
+        children.append(("duration_s", rule.duration_s))
+    return children
+
+
+def zone_children(rule: dm.OpeningZoneRule) -> list[tuple[str, dm.Rule]]:
+    return [(f"args/{index}", arg) for index, arg in enumerate(rule.args)]
+
+
+def copy_state(ctx: Context, key: str) -> dict[str, Any]:
+    nodes: dict[str, dict[str, Any]] = ctx.node.setdefault("rules", {})
+    return nodes.setdefault(key, {"fingerprint": ctx.node["fingerprint"]})
+
+
+def copy_due(ctx: Context, due: datetime | None) -> None:
+    if due and due > ctx.now:
+        ctx.node.setdefault("clock_due", []).append(due.isoformat())
+
+
+def evaluate_contact(evaluation: Evaluation, rule: dm.OpeningContactRule) -> FieldValue:
+    ctx = evaluation.context
+    assert ctx is not None
+    node = copy_state(ctx, rule.id)
+    inputs = {arg.name: ctx.input(arg.name) for arg in rule.args}
+    value = opening_value(
+        replace(ctx, node=node, inputs=inputs),
+        list(inputs.values()),
+        number_slot(rule.duration_s, evaluation.parameters),
+    )
+    copy_due(ctx, opening_due({}, node, ctx.now))
+    return value
+
+
+def evaluate_zone(evaluation: Evaluation, rule: dm.OpeningZoneRule) -> FieldValue:
+    ctx = evaluation.context
+    assert ctx is not None
+    names = tuple(arg.name for arg in rule.args)
+    key = "opening_zone:" + ",".join(names)
+    node = copy_state(ctx, key)
+    if key + ":unclear" not in evaluation.memo:
+        inputs = {name: ctx.inputs[name] for name in names if name in ctx.inputs}
+        for field, value in zone(replace(ctx, node=node, inputs=inputs)).items():
+            evaluation.memo[key + ":" + field] = value
+        for at in node["held_deadlines"]:
+            copy_due(ctx, datetime.fromisoformat(at))
+    return evaluation.memo[key + ":" + rule.field]
+
+
+slots.RULES[dm.OpeningContactRule] = slots.Rule(
+    check=check_contact, children=contact_children, evaluate=evaluate_contact, due=copy_due
+)
+slots.RULES[dm.OpeningZoneRule] = slots.Rule(
+    check=check_zone, children=zone_children, evaluate=evaluate_zone, due=copy_due
+)
+
+
+def editable_copy(
+    type_id: str, schema: Schema, inputs: tuple[InputDeclaration, ...]
+) -> dict[str, Any]:
+    is_zone = type_id == "opening_zone.facts"
+    args = [dm.InputRule(op="input", name=input.name) for input in inputs]
+    outputs = (
+        {name: {"op": "opening_zone", "field": name, "args": args} for name in schema.fields}
+        if is_zone
+        else {
+            "value": dm.OpeningContactRule(
+                op="opening_contact",
+                id="contact",
+                args=tuple(args),
+                duration_s=dm.ParameterRule(op="parameter", name="grace_s"),
+            )
+        }
+    )
+    return dm.DeclarativeDefinition.model_validate(
+        {
+            "type_id": type_id,
+            "type_version": 1,
+            "language_version": 2,
+            "inputs": [
+                {
+                    "name": input.name,
+                    "schema": (
+                        contact_schema().model_copy(update={"required": input.required})
+                        if is_zone
+                        else FieldSchema(type="bool", required=True, physical_state=False)
+                    ),
+                }
+                for input in inputs
+            ],
+            "schema": schema.model_copy(update={"grace_capable": False, "grace_parameter": None}),
+            "outputs": outputs,
+            "parameter_schema": {}
+            if is_zone
+            else {
+                "grace_s": dm.ParameterDefinition.model_validate(
+                    {
+                        "schema": FieldSchema(
+                            type="number", required=True, physical_state=False, unit="s"
+                        ),
+                        "minimum": nextafter(0, 1),
+                        "maximum": MAX_GRACE,
+                        "display": "duration",
+                    }
+                )
+            },
+        }
+    ).model_dump(mode="json")
+
+
 def register(registry: TypeRegistry) -> None:
     for type_id in sorted(OPENING_TYPES):
         names = ("open", "tilt") if type_id == "opening.dual_contact" else ("contact",)
+        inputs = tuple(InputDeclaration(name=n, required=True) for n in names)
+        schema = Schema(
+            fields={"value": contact_schema()},
+            available_projection=("value",),
+            grace_capable=True,
+            grace_parameter="grace_s",
+            fixture=False,
+        )
         registry.register(
             ContractType(
                 type_id=type_id,
                 type_version=1,
                 producer="fusion",
                 parameters=OpeningParameters,
-                schema=Schema(
-                    fields={
-                        "value": FieldSchema(
-                            type="enum", required=True, physical_state=True, value_catalog=STATES
-                        )
-                    },
-                    available_projection=("value",),
-                    grace_capable=True,
-                    grace_parameter="grace_s",
-                    fixture=False,
-                ),
-                inputs=tuple(InputDeclaration(name=n, required=True) for n in names),
+                schema=schema,
+                inputs=inputs,
                 restore=("temporal",),
                 evaluate=Producer(opening),
                 next_due=opening_due,
+                editable_copy=editable_copy(type_id, schema, inputs),
             )
         )
+    inputs = tuple(InputDeclaration(name=f"member_{i}", required=i == 1) for i in range(1, 5))
+    schema = Schema(
+        fields={
+            n: FieldSchema(type="bool", required=True, physical_state=False) for n in ZONE_FIELDS
+        },
+        available_projection=("unclear",),
+        fixture=False,
+    )
     registry.register(
         ContractType(
             type_id="opening_zone.facts",
             type_version=1,
             producer="resolver",
             parameters=ZoneParameters,
-            schema=Schema(
-                fields={
-                    n: FieldSchema(type="bool", required=True, physical_state=False)
-                    for n in ("any_open", "any_tilted", "unclear", "any_held", "all_closed")
-                },
-                available_projection=("unclear",),
-                fixture=False,
-            ),
-            inputs=tuple(
-                InputDeclaration(name=f"member_{i}", required=i == 1) for i in range(1, 5)
-            ),
+            schema=schema,
+            inputs=inputs,
             restore=("facts",),
             evaluate=Producer(zone),
             next_due=zone_due,
+            editable_copy=editable_copy("opening_zone.facts", schema, inputs),
         )
     )

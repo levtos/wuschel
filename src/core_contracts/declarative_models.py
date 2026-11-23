@@ -475,6 +475,31 @@ class TextRule(Model):
         return self
 
 
+class OpeningContactRule(Model):
+    op: Literal["opening_contact"]
+    id: Identifier
+    args: tuple[InputRule, ...] = Field(min_length=1, max_length=2)
+    duration_s: Duration
+
+    @model_validator(mode="after")
+    def distinct_contacts(self) -> Self:
+        if len({arg.name for arg in self.args}) != len(self.args):
+            raise ValueError("duplicate_input")
+        return self
+
+
+class OpeningZoneRule(Model):
+    op: Literal["opening_zone"]
+    field: Literal["any_open", "any_tilted", "unclear", "any_held", "all_closed"]
+    args: tuple[InputRule, ...] = Field(min_length=1, max_length=4)
+
+    @model_validator(mode="after")
+    def distinct_members(self) -> Self:
+        if len({arg.name for arg in self.args}) != len(self.args):
+            raise ValueError("duplicate_input")
+        return self
+
+
 Rule = Annotated[
     InputRule
     | ParameterRule
@@ -501,6 +526,8 @@ Rule = Annotated[
     | CalendarActiveRule
     | KnownAutomaticRule
     | TextRule
+    | OpeningContactRule
+    | OpeningZoneRule
     | ConfigurationHintRule
     | ManagedCatalogRule,
     Field(discriminator="op"),

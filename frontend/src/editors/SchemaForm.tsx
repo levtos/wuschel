@@ -237,6 +237,7 @@ export function SchemaForm(props: SchemaFormProps) {
       if (typeof option === 'object') return JSON.stringify(option);
       if (typeof option === 'boolean') return codeLabel(option);
       if (typeof option === 'string') {
+        if (pointer.endsWith('/calendar_conflict_behavior') && option === 'ignore') return uiText('a2.calendar.ignoreConflict');
         if (Object.hasOwn(PLATFORM_VALUES, option)) return PLATFORM_VALUES[option]!;
         if (hasTranslation(`codes.${option}`)) return codeLabel(option);
       }

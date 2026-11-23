@@ -28,6 +28,8 @@ import { join, type Json, type JsonObject } from '@/lib/json';
 import { AddButton, Fld, IconButton, IssueCount, IssuesAt, JsonValueEditor, RowActions, SectionTitle } from './common';
 import { FieldSchemaEditor } from './FieldSchemaEditor';
 import { MachineEditor } from './MachineEditor';
+import { MachineReading } from './MachineReading';
+import { RuleReading } from './RuleReading';
 import { operatorDefaults, RuleEditor, RuleEnvProvider } from './RuleEditor';
 import { SchemaEditor } from './SchemaEditor';
 import { Extras } from './Extras';
@@ -107,6 +109,7 @@ export function DefinitionEditor({
       extra={(name) => (
         <div className="flex flex-col gap-2 border-t border-line pt-3">
           <SectionTitle>{uiText("editors.DefinitionEditor.regel_fur_69dffb")}{name}“</SectionTitle>
+          <RuleReading value={outputs[name]} definition={value} output={name} />
           <RuleEditor
             value={(outputs[name] ?? newRule('input', ctx, defaults)) as Rule}
             pointer={join(pointer, 'outputs', name)}
@@ -288,6 +291,7 @@ export function DefinitionEditor({
                       />
                     )}
                   </Fld>
+                  <RuleReading value={rule} definition={value} />
                   <RuleEditor value={rule as Rule} pointer={join(pointer, 'rules', name)} onChange={(next) => set({ rules: { ...rules, [name]: next } })} />
                 </div>
               </Collapsible>
@@ -306,6 +310,7 @@ export function DefinitionEditor({
       ),
       content: value.machine ? (
         <div className="flex max-w-4xl flex-col gap-4">
+          {value.type_id === 'sleep.flow' && <MachineReading definition={value} />}
           <MachineEditor value={asObject(value.machine)} pointer={join(pointer, 'machine')} definition={value} caps={caps} locked={locked} onChange={(machine) => set({ machine })} />
           {!locked && (
             <div>
