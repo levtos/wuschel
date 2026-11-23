@@ -48,6 +48,7 @@ it('sends app live and sender filters to the grouped catalog API and clears them
   const user = userEvent.setup();
   await waitFor(() => expect(screen.getByLabelText(t('alpha10.catalog.catalog')).querySelector('option[value="media.appletv_titles@1"]')).not.toBeNull());
   await user.selectOptions(screen.getByLabelText(t('alpha10.catalog.catalog')), 'media.appletv_titles@1');
+  await user.click(screen.getByText(t('a2.care.advancedFilters')));
   await screen.findByRole('option', { name: 'Synthetic app' });
   await user.selectOptions(screen.getByLabelText(t('b22.apple.app')), 'synthetic.app');
   await user.selectOptions(screen.getByLabelText(t('b22.apple.kind')), 'true');

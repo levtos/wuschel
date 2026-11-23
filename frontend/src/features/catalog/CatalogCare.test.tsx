@@ -19,8 +19,7 @@ it('discards a late automatic preview after a content revision change', async ()
   const fake = installFakeApi();
   const pending: ((response: Response) => void)[] = [];
   fake.routes.push({ match: /^catalogs\/care\/preview$/, respond: () => {
-    const status = pending.length ? 200 : 400;
-    return delayedBody(new Promise(resolve => pending.push(resolve)), status);
+    return delayedBody(new Promise(resolve => pending.push(resolve)), 200);
   } });
   let changeRevision!: () => void;
   function Fixture() {
@@ -33,11 +32,16 @@ it('discards a late automatic preview after a content revision change', async ()
   await user.click(screen.getByRole('button', { name: t('b17.action.group') }));
   await waitFor(() => expect(pending).toHaveLength(1));
   act(() => changeRevision());
+  await act(async () => pending[0]!(reply(200, impact)));
+  expect(screen.getByRole('button', { name: t('alpha10.catalog.save') })).toBeDisabled();
+  expect(screen.getByText(t('a2.care.selectionChanged'))).toBeVisible();
+  expect(fake.calls.filter(call => call.path === 'catalogs/care/preview')).toHaveLength(1);
+  await user.click(screen.getByRole('button', { name: t('a2.care.reload') }));
+  await user.click(await screen.findByRole('button', { name: t('b17.action.group') }));
   await waitFor(() => expect(pending).toHaveLength(2));
   await act(async () => pending[1]!(reply(200, impact)));
   await waitFor(() => expect(screen.getByRole('button', { name: t('alpha10.catalog.save') })).toBeEnabled());
-  await act(async () => pending[0]!(reply(400, { error: 'invalid_request' })));
-  expect(screen.getByRole('button', { name: t('alpha10.catalog.save') })).toBeEnabled();
+  expect(fake.calls.filter(call => call.path === 'catalogs/care/preview')[1]?.body).toMatchObject({ expected_content_revision: 6 });
   expect(fake.calls.some(call => call.path === 'catalogs/care/write')).toBe(false);
 });
 
@@ -145,7 +149,7 @@ it('distinguishes the Master selection from the class inherited by its variants'
   mount();
   await userEvent.click(screen.getByRole('button', { name: t('b17.action.group') }));
   expect(screen.getByLabelText('Master')).toHaveValue('one');
-  expect(screen.getByLabelText('Klasse des Masters')).toHaveValue('normal');
+  expect(screen.getByLabelText('Klasse des Masters')).toHaveDisplayValue(t('a2.care.keepMasterClass'));
   expect(screen.queryByLabelText('Klasse', { exact: true })).not.toBeInTheDocument();
 });
 

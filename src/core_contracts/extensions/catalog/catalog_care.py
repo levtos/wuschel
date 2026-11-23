@@ -47,10 +47,11 @@ class CareRequest(Model):
         default=None, min_length=1, max_length=1024, exclude_if=lambda value: value is None
     )
     classification: str | None = None
+    confirm_class_change: bool = Field(default=False, exclude_if=lambda value: not value)
 
 
 class CareWrite(CatalogWrite):
-    changes: tuple[EntryChange, ...] = Field(min_length=1, max_length=1000)
+    changes: tuple[EntryChange, ...] = Field(max_length=1000)
 
 
 def fields(row: dict[str, Any]) -> dict[str, Any]:
@@ -511,6 +512,11 @@ def queue(
                             "scope",
                             "media_type",
                             "signal_type",
+                            "master_identity",
+                            "master_key",
+                            "variant_count",
+                            "effective_classification",
+                            "complete",
                         )
                     }
                     for row in members
@@ -558,6 +564,11 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
             if request.classification is not None
             else family[old_root]["effective_classification"]
         )
+        if (
+            value != family[old_root]["effective_classification"]
+            and not request.confirm_class_change
+        ):
+            raise ValueError("catalog_confirm_class_change")
         for key, row in selected.items():
             row.update(
                 master_key=None if key == child["identity"] else child["key"],
@@ -599,16 +610,48 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
             if target_master not in selected:
                 raise ValueError("catalog_master_not_selected")
             master_row = rows[target_master]
-            if master_row.get("master_identity"):
-                raise ValueError("catalog_master_is_variant")
         for key in selected:
             if any(
                 rows[key][field] != master_row[field]
                 for field in ("scope", "media_type", "signal_type")
             ):
                 raise ValueError("catalog_master_scope_mismatch")
-            if key != target_master and rows[key]["variant_count"]:
-                raise ValueError("catalog_master_has_variants")
+        value = request.classification
+        if value is None and target_master in rows:
+            master = rows[target_master]
+            if master["complete"]:
+                value = master["effective_classification"]
+        roots = {key for key in selected if key != target_master and rows[key]["variant_count"]}
+        if previous_master := master_row.get("master_identity"):
+            roots.add(previous_master)
+        if roots:
+            family = all_rows(state, catalog)
+            rows.update(
+                {
+                    key: row
+                    for key, row in family.items()
+                    if key in roots or row.get("master_identity") in roots
+                }
+            )
+            selected.update({key: fields(rows[key]) for key in rows})
+        effective_class = value if value is not None else catalog.unassigned_value
+        if not request.confirm_class_change and any(
+            rows[key]["complete"] and rows[key]["effective_classification"] != effective_class
+            for key in selected
+        ):
+            raise ValueError("catalog_confirm_class_change")
+        # Re-selecting an existing family is a no-op, including its review timestamps.
+        selected = {
+            key: row
+            for key, row in selected.items()
+            if (
+                row.get("master_key") is not None or row.get("classification") != value
+                if key == target_master
+                else rows[key].get("master_identity") != target_master
+            )
+        }
+        if selected and target_master in rows and target_master not in current["entries"]:
+            selected[target_master] = fields(rows[target_master])
         if request.new_master_name is not None:
             assert target_master is not None
             selected[target_master] = master_row
@@ -623,8 +666,7 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
             row.update(classification=request.classification, master_key=None)
         if action == "group":
             if key == target_master:
-                if request.classification is not None:
-                    row["classification"] = request.classification
+                row.update(classification=value, master_key=None)
             else:
                 row.update(classification=None, master_key=master_row["key"])
         if action in {"review", "standalone_review", "group", "classify", "ungroup"}:
