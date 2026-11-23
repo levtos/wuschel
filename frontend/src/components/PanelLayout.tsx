@@ -22,14 +22,7 @@ function write(key: string | null, value: unknown) {
 /** Also used by the fixed sidebar; no global preference is inherited by another installation. */
 export function useCollapsedNavigation(installation: string | null) {
   const key = layoutKey(installation, 'navigation');
-  const preference = useMemo(() => read(key), [key]);
-  const [compact, setCompact] = useState(() => window.innerWidth <= 1280);
-  useEffect(() => {
-    const resize = () => setCompact(window.innerWidth <= 1280);
-    window.addEventListener('resize', resize);
-    return () => window.removeEventListener('resize', resize);
-  }, []);
-  const initial = typeof preference === 'boolean' ? preference : compact;
+  const initial = useMemo(() => { const value = read(key); return typeof value === 'boolean' ? value : window.innerWidth < 900; }, [key]);
   const [state, set] = useState<{ key: string | null; value: boolean } | null>(null);
   const value = state?.key === key ? state.value : initial;
   return [value, (next: boolean) => { set({ key, value: next }); write(key, next); }] as const;

@@ -36,12 +36,13 @@ test('Back restores filters and the main scroll position in Firefox', async ({ p
   const name = page.getByRole('link', { name: longName, exact: true });
   await expect(name).toHaveCSS('white-space', 'normal');
   await expect(name).toHaveCSS('overflow-wrap', 'anywhere');
-  const expand = page.getByRole('button', { name: 'Navigation ausklappen' });
-  await expect(expand).toBeVisible();
-  await expand.click();
   const collapse = page.getByRole('button', { name: 'Navigation einklappen' });
   await expect(collapse).toBeVisible();
   await collapse.click();
+  const expand = page.getByRole('button', { name: 'Navigation ausklappen' });
+  await expect(expand).toBeVisible();
+  await expand.click();
+  await expect(collapse).toBeVisible();
   await expect(page.getByRole('link', { name: 'Synthetic entry 030', exact: true })).toBeAttached();
   await page.getByLabel('Kategorie', { exact: true }).selectOption('media');
   await page.getByLabel('Verträge suchen', { exact: true }).fill('Synthetic entry');
