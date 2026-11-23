@@ -74,6 +74,7 @@ function parameterValue(parameter: Parameter, value: Json | undefined): string {
     }
     return formatNumber(value);
   }
+  if (typeof value === 'string' && parameter.name === 'calendar_conflict_behavior' && value === 'ignore') return t('a2.calendar.ignoreConflict');
   return typeof value === 'string' ? value : t('a2.parameters.configured');
 }
 

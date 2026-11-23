@@ -217,6 +217,74 @@ async def test_B1_01_02_initial_and_single_contact():
         await rt.stop()
 
 
+async def test_editable_template_copies_keep_opening_and_zone_semantics():
+    types = type_registry()
+    config = configuration()
+    definitions = []
+    for type_id in ("opening.dual_contact", "opening.single_contact", "opening_zone.facts"):
+        original = types.get(type_id, 1)
+        assert original.editable_copy is not None
+        template = copy.deepcopy(original.editable_copy)
+        template["type_id"] = "copy." + type_id
+        definitions.append(template)
+    config["definitions"] = definitions
+    original_contracts = list(config["contracts"])
+    for contract in original_contracts:
+        replica = copy.deepcopy(contract)
+        replica["contract_id"] = "copy." + replica["contract_id"]
+        replica["type_id"] = "copy." + replica["type_id"]
+        if replica["type_id"] == "copy.opening_zone.facts":
+            for item in replica["inputs"]:
+                item["ref"] = "copy." + item["ref"]
+        config["contracts"].append(replica)
+    store, clock = MemoryStore(), FakeClock(NOW)
+    runtime = Runtime(store, clock, types)
+
+    def assert_equivalent(rt):
+        for contract in original_contracts:
+            contract_id = contract["contract_id"]
+            original = rt.snapshot()["contracts"][contract_id]["fields"]
+            replica = rt.snapshot()["contracts"]["copy." + contract_id]["fields"]
+            assert original.keys() == replica.keys()
+            for name in original:
+                for key in ("status", "value", "quality", "freshness", "held_until", "since_at"):
+                    assert original[name].get(key) == replica[name].get(key), (name, key)
+                assert [reason["code"] for reason in original[name]["reasons"]] == [
+                    reason["code"] for reason in replica[name]["reasons"]
+                ]
+
+    await runtime.start()
+    try:
+        await activate(runtime, config)
+        for index in range(4):
+            await closed(runtime, index)
+        assert_equivalent(runtime)
+        clock.advance(1)
+        await report(runtime, value=True)
+        assert field(runtime)["status"] == "unknown"  # Contradicting contact values.
+        assert_equivalent(runtime)
+        clock.advance(1)
+        await report(runtime, name="tilt", value=True)
+        assert field(runtime)["value"] == "open"
+        assert_equivalent(runtime)
+        clock.advance(8401)
+        await runtime.submit("tick")
+        assert field(runtime)["status"] == "held"
+        assert_equivalent(runtime)
+    finally:
+        await runtime.stop()
+    restored = Runtime(store, clock, types)
+    await restored.start()
+    try:
+        assert_equivalent(restored)
+        clock.advance(600)
+        await restored.submit("tick")
+        assert field(restored)["status"] == "unknown"
+        assert_equivalent(restored)
+    finally:
+        await restored.stop()
+
+
 async def test_B1_05_06_11_12_heartbeat_and_grace_deadlines():
     rt = await make_runtime()
     try:

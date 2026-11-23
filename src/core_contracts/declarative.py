@@ -200,7 +200,9 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
             if model := slots.PARAMETER_MODELS.get(parameter.structured_schema):
                 model.model_validate(parameter.default)
     rules = all_rules(definition)
-    parameter_slots = [r.duration_s for r in rules if isinstance(r, dm.TemporalRule)]
+    parameter_slots = [
+        r.duration_s for r in rules if isinstance(r, (dm.TemporalRule, dm.OpeningContactRule))
+    ]
     if definition.machine and definition.machine.deadline_s is not None:
         parameter_slots.append(definition.machine.deadline_s)
     if definition.machine:
@@ -238,7 +240,11 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
             )
         for index, transition in enumerate(definition.machine.transitions):
             locate(transition.guard, f"/machine/transitions/{index}/guard")
-    identifiers = [r.id for r in rules if isinstance(r, (dm.BucketRule, dm.TemporalRule))]
+    identifiers = [
+        r.id
+        for r in rules
+        if isinstance(r, (dm.BucketRule, dm.TemporalRule, dm.OpeningContactRule))
+    ]
     if definition.machine:
         identifiers.append(definition.machine.id)
     if len(identifiers) != len(set(identifiers)):
@@ -285,7 +291,15 @@ def check_definition(definition: dm.DeclarativeDefinition) -> None:
         ) and definition.language_version < extension.minimum_language:
             raise ValueError(f"language_version_{extension.minimum_language}_required")
         if guard and isinstance(
-            rule, (dm.MachineRule, dm.MachineFieldRule, dm.TemporalRule, dm.BucketRule)
+            rule,
+            (
+                dm.MachineRule,
+                dm.MachineFieldRule,
+                dm.TemporalRule,
+                dm.BucketRule,
+                dm.OpeningContactRule,
+                dm.OpeningZoneRule,
+            ),
         ):
             raise ValueError("stateful_guard_requires_contract_input")
         if isinstance(
@@ -1149,7 +1163,8 @@ def command_model(name: str, command: dm.CommandDefinition) -> type[BaseModel]:
 
 def compile_definition(definition: dm.DeclarativeDefinition) -> ContractType:
     check_definition(definition)
-    temporal_rules = [r for r in all_rules(definition) if isinstance(r, dm.TemporalRule)]
+    rules = all_rules(definition)
+    temporal_rules = [r for r in rules if isinstance(r, dm.TemporalRule)]
 
     def evaluate(ctx: Context) -> dict[str, FieldValue]:
         if any(
@@ -1163,7 +1178,7 @@ def compile_definition(definition: dm.DeclarativeDefinition) -> ContractType:
                 ),
             )
             or bool((extension := slots.RULES.get(type(r))) and extension.due)
-            for r in all_rules(definition)
+            for r in rules
         ):
             ctx.node["clock_due"] = []
         for name in definition.refresh_inputs:
@@ -1257,5 +1272,6 @@ def compile_definition(definition: dm.DeclarativeDefinition) -> ContractType:
         refresh_inputs=definition.refresh_inputs,
         grace_outputs=tuple(definition.outputs)
         if any(r.operation == "grace" for r in temporal_rules)
+        or any(isinstance(r, dm.OpeningContactRule) for r in rules)
         else (),
     )

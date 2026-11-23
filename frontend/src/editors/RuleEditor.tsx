@@ -1,4 +1,4 @@
-import { codeLabel } from '@/i18n/codes';
+import { codeLabel, fieldLabel } from '@/i18n/codes';
 import { formatNumber } from '@/lib/format';
 import { t as uiText } from '@/i18n';
 import { ChevronRight, Copy, Trash2 } from 'lucide-react';
@@ -62,6 +62,9 @@ export function operatorDefaults(caps: Capabilities | undefined): OperatorDefaul
 const OP_LABELS: Record<string, string> = {
   annual_curve: uiText('beta3.annualCurve'),
   calendar_active: uiText('beta3.calendarActive'),
+  calendar_at: uiText('a2.calendar.at'),
+  opening_contact: uiText('a2.opening.contactRule'),
+  opening_zone: uiText('a2.opening.zoneRule'),
   input: uiText("editors.RuleEditor.eingang_d8af5e"),
   known_automatic: uiText('alpha9.context.automatic'),
   ref: uiText('editors.RuleEditor.interne_regel_verweis'),
@@ -307,7 +310,45 @@ function Body({ value, onChange, pointer, depth }: { value: Rule; onChange: (nex
       <Child parent={value} pointer={pointer} depth={depth} keyPath={['pattern']} label={uiText('beta3.pattern')} onChange={onChange} />
       <p className="text-sm text-muted">{uiText('beta3.patternHelp')}</p>
       <Checkbox checked={value.all_day_only === true} onCheckedChange={checked => set({ all_day_only: checked })} label={uiText('beta3.allDayOnly')} />
+      {value.on_date ? <Child parent={value} pointer={pointer} depth={depth} keyPath={['on_date']} label={uiText('beta3.date')} onChange={onChange} onRemove={() => set({ on_date: undefined })} />
+        : <AddButton onClick={() => set({ on_date: newRule('input', ctx, defaults) })}>{uiText('a2.calendar.addDate')}</AddButton>}
     </>;
+    case 'calendar_at': return <>
+      <Child parent={value} pointer={pointer} depth={depth} keyPath={['at']} label={uiText('beta3.date')} onChange={onChange} />
+      <Fld label={uiText('a2.calendar.fieldTitle')} pointer={join(pointer, 'field')}>{props => <Select {...props} value={str(value.field)} onChange={event => set({ field: event.target.value })}>
+        {['date', 'weekday', 'start', 'end'].map(name => <option key={name} value={name}>{uiText('a2.calendar.field.' + name)}</option>)}
+      </Select>}</Fld>
+      <NumberField label={uiText('a2.calendar.offset')} pointer={join(pointer, 'offset_days')} value={Number(value.offset_days ?? 0)} min={-1} max={30} step={1} onChange={offset_days => set({ offset_days })} />
+    </>;
+    case 'opening_contact':
+    case 'opening_zone': {
+      const contact = value.op === 'opening_contact';
+      const args = asArray(value.args).map(asObject);
+      const names = ctx.inputs.filter(input => input.schema.type === (contact ? 'bool' : 'enum')).map(input => input.name);
+      const unused = names.find(name => !args.some(arg => arg.name === name));
+      const duration = asObject(value.duration_s);
+      const parameters = (ctx.parameters ?? []).filter(parameter => parameter.schema.type === 'number');
+      return <>
+        {contact && <Fld label={uiText('a2.opening.ruleId')} pointer={join(pointer, 'id')}>{props => <Input {...props} value={str(value.id)} onChange={event => set({ id: event.target.value })} />}</Fld>}
+        {args.map((arg, index) => <div key={index} className="flex items-end gap-2">
+          <Fld label={uiText(contact ? args.length === 1 ? 'a2.opening.contact' : index === 0 ? 'a2.opening.openInput' : 'a2.opening.tiltInput' : 'a2.opening.member', { number: index + 1 })} pointer={join(pointer, 'args', index, 'name')}>{props => <Select {...props} value={str(arg.name)} onChange={event => set({ args: args.map((item, i) => i === index ? { op: 'input', name: event.target.value } : item) })}>
+            {!names.includes(str(arg.name)) && <option value={str(arg.name)}>{str(arg.name) || '–'}</option>}
+            {names.filter(name => name === arg.name || !args.some(item => item.name === name)).map(name => <option key={name} value={name}>{fieldLabel(name)}</option>)}
+          </Select>}</Fld>
+          {args.length > 1 && <IconButton label={uiText('a2.opening.removeInput')} onClick={() => set({ args: args.filter((_, i) => i !== index) })}><Trash2 size={14} /></IconButton>}
+        </div>)}
+        {unused && args.length < (contact ? 2 : 4) && <AddButton onClick={() => set({ args: [...args, { op: 'input', name: unused }] })}>{uiText('a2.opening.addInput')}</AddButton>}
+        {contact ? <>
+          <Fld label={uiText('a2.opening.holdSetting')} pointer={join(pointer, 'duration_s')}>{props => <Select {...props} value={str(duration.name)} onChange={event => set({ duration_s: event.target.value ? { op: 'parameter', name: event.target.value } : 1 })}>
+            <option value="">{uiText('a2.parameters.mapLiteral')}</option>
+            {parameters.map(parameter => <option key={parameter.name} value={parameter.name}>{parameter.label}</option>)}
+          </Select>}</Fld>
+          {!value.duration_s || typeof value.duration_s === 'number' ? <NumberField label={uiText('editors.RuleEditor.dauer_s_e59ef1')} pointer={join(pointer, 'duration_s')} value={Number(value.duration_s ?? 1)} min={0} max={31536000} onChange={duration_s => set({ duration_s })} /> : null}
+        </> : <Fld label={uiText('a2.opening.result')} pointer={join(pointer, 'field')}>{props => <Select {...props} value={str(value.field)} onChange={event => set({ field: event.target.value })}>
+          {['any_open', 'any_tilted', 'unclear', 'any_held', 'all_closed'].map(name => <option key={name} value={name}>{uiText('a2.opening.zone.' + name)}</option>)}
+        </Select>}</Fld>}
+      </>;
+    }
     case 'managed_catalog_lookup': return <>
       <Fld label={uiText('alpha10.catalog.catalog')} pointer={join(pointer, 'catalog_id')}>{p => <Input {...p} value={str(value.catalog_id)} onChange={e => set({ catalog_id: e.target.value })} />}</Fld>
       <NumberField label={uiText('editors.RegistryObjects.version_dd1679')} pointer={join(pointer, 'definition_version')} value={Number(value.definition_version ?? 1)} min={1} step={1} onChange={n => set({ definition_version: Math.max(1, Math.trunc(n)) })} />

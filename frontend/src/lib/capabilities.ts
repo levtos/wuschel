@@ -27,6 +27,7 @@ export interface TypeDescription {
   grace_outputs?: string[];
   definition?: JsonObject;
   definition_fingerprint?: string;
+  editable_copy?: JsonObject;
 }
 
 export interface Operator {

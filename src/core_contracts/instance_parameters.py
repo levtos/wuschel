@@ -116,7 +116,7 @@ def validate_slots(definition: dm.DeclarativeDefinition, parameters: dict[str, A
 
     parameters = effective_parameters(definition, parameters)
     for rule in all_rules(definition):
-        if isinstance(rule, dm.TemporalRule):
+        if isinstance(rule, (dm.TemporalRule, dm.OpeningContactRule)):
             seconds = number_slot(rule.duration_s, parameters)
             if not 0 < seconds <= 31_536_000:
                 raise ValueError("duration_out_of_bounds")

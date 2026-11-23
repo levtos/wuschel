@@ -12,7 +12,7 @@ import { EditButton } from '@/components/EditButton';
 import { Empty, Notice, PageHeader, Panel, PanelHeader } from '@/components/ui/layout';
 import { DefinitionEditor, LockBadge } from '@/editors/DefinitionEditor';
 import { ReadOnlyNotice } from '@/features/authoring/DraftBar';
-import { asArray, asObject, definitionKey, nextVersionOf, str } from '@/features/authoring/model';
+import { asArray, asObject, definitionKey, emptyRegistry, nextVersionOf, str, uniqueName } from '@/features/authoring/model';
 import { declarativeParameterSchema } from '@/features/authoring/catalog';
 import { TemplateParameters } from './ContractParameters';
 import { contractsUsingDefinition } from '@/features/authoring/usage';
@@ -26,6 +26,8 @@ import { ContractsTabs } from './ContractsPage';
 import { EditorialPanel } from '@/features/editorial/Editorial';
 import { ObjectReadBack } from '@/features/authoring/ObjectReadLinks';
 import { codeLabel, fieldLabel } from '@/i18n/codes';
+import { BuiltInTemplateReading } from './BuiltInTemplateReading';
+import type { JsonObject } from '@/lib/json';
 
 export default function DefinitionDetailPage() {
   const { typeId = '', version = '' } = useParams();
@@ -39,7 +41,8 @@ export default function DefinitionDetailPage() {
   const [migration, setMigration] = useState<{ base: Registry; version: number } | null>(null);
   const [removing, setRemoving] = useState(false);
   const [migrate, setMigrate] = useState<string[]>([]);
-  useEffect(() => { setEditing(null); setVersioning(null); setMigration(null); setRemoving(false); setMigrate([]); }, [typeId, version]);
+  const [packageCopy, setPackageCopy] = useState<{ base: Registry; definition: JsonObject } | null>(null);
+  useEffect(() => { setEditing(null); setVersioning(null); setMigration(null); setRemoving(false); setMigrate([]); setPackageCopy(null); }, [typeId, version]);
 
   const config = editing?.base ?? versioning?.base ?? migration?.base ?? src.config;
   const definitions = asArray(config?.definitions).filter(isObject);
@@ -50,14 +53,30 @@ export default function DefinitionDetailPage() {
   if (!definition && !packageType && (src.loading || caps.isPending)) return <PageLoading title={uiText('alpha7.nav.templates')} description={uiText('alpha9.pages.template')} />;
   if (!definition && packageType) return <>
     <ObjectReadBack fallback={{ to: '/templates/built-in', label: uiText('alpha7.nav.builtinTemplates') }} />
-    <PageHeader title={typeId} description={uiText('a2.read.packageTemplate')} actions={<Badge>{uiText('a2.read.version', { version })}</Badge>} />
+    <PageHeader title={fieldLabel(typeId)} description={uiText('a2.read.packageTemplate')} actions={<>
+      <Badge>{uiText('a2.read.version', { version })}</Badge>
+      {packageType.editable_copy && <Button variant="primary" disabled={src.loading || doc.starting || doc.saving} onClick={() => {
+        if (!packageType.editable_copy) return;
+        const base = src.config ?? emptyRegistry();
+        const ids = [...asArray(base.definitions).map(raw => str(asObject(raw).type_id)), ...(caps.data?.types ?? []).map(type => type.type_id)];
+        const id = uniqueName('vertrag.' + typeId.replaceAll('.', '_'), ids);
+        setPackageCopy({ base, definition: { ...clone(packageType.editable_copy), type_id: id, type_version: 1, display_name: fieldLabel(typeId) } });
+      }}><GitBranchPlus size={14} />{uiText('a2.rules.takeCopy')}</Button>}
+    </>} />
     <Panel className="max-w-4xl">
       <PanelHeader title={uiText('features.contracts.ContractDetailPage.eingange_53fb39')} />
       <ul className="space-y-2 px-4 pb-4 text-sm">{packageType.inputs.map(input => <li key={input.name} className="flex items-center gap-2"><span>{fieldLabel(input.name)}</span><Badge>{uiText(input.required ? 'editors.RegistryObjects.pflicht_6a047f' : 'editors.RegistryObjects.optional_ec91fd')}</Badge></li>)}</ul>
       <PanelHeader title={uiText('features.contracts.DefinitionsPage.ausgaben_44e52a')} />
-      <ul className="space-y-2 px-4 pb-4 text-sm">{Object.entries(packageType.schema.fields).map(([name, field]) => <li key={name} className="flex items-center gap-2"><span>{fieldLabel(name)}</span><Badge>{codeLabel(field.type)}</Badge></li>)}</ul>
+      <ul className="space-y-2 px-4 pb-4 text-sm">{Object.entries(packageType.schema.fields).map(([name, field]) => <li key={name} className="flex flex-wrap items-center gap-2"><span>{fieldLabel(name)}</span><Badge>{codeLabel(field.type)}</Badge>{typeId.startsWith('opening.') && asArray(field.value_catalog).map(value => <span key={String(value)}>{['open', 'closed', 'tilted'].includes(String(value)) ? uiText('a2.opening.state.' + String(value)) : codeLabel(value)}</span>)}</li>)}</ul>
     </Panel>
+    <BuiltInTemplateReading typeId={typeId} />
     {packageType.parameter_schema && Object.keys(asObject(packageType.parameter_schema.properties)).length > 0 && <Panel className="mt-4 space-y-3 p-4"><h2 className="font-medium">{uiText('a2.parameters.templateTitle')}</h2><TemplateParameters root={packageType.parameter_schema} /></Panel>}
+    {packageCopy && <DraftEditor base={packageCopy.base} input={packageCopy.definition} dirty
+      plan={() => ({ config: setAt(packageCopy.base, '/definitions', [...asArray(packageCopy.base.definitions), packageCopy.definition]) })}
+      title={uiText('a2.rules.takeCopy')} onClose={() => setPackageCopy(null)}
+      onSaved={() => navigate('/templates/details/' + encodeURIComponent(str(packageCopy.definition.type_id)) + '/1')}>
+      <p>{uiText('a2.rules.takeCopyHelp', { name: fieldLabel(typeId) })}</p>
+    </DraftEditor>}
   </>;
   if (!definition) {
     return (

@@ -12,6 +12,7 @@ import { api, ApiError, describeError } from '@/lib/api';
 import { formatNumber, formatTime } from '@/lib/format';
 import { isObject, type JsonObject } from '@/lib/json';
 import { useActiveRevision } from '@/lib/queries';
+import { CalendarReading, isCalendarCache } from '@/components/CalendarReading';
 
 const ENUM_FIELDS = new Set(['adapter', 'observation_kind', 'availability', 'transform_error', 'source_origin']);
 function cell(key: string, value: unknown): string {
@@ -25,12 +26,13 @@ function cell(key: string, value: unknown): string {
 function rows(value: JsonObject, prefix = ''): { key: string; label: string; value: unknown }[] {
   return Object.entries(value).flatMap(([key, item]) => {
     const label = `${prefix}${fieldLabel(key)}`;
+    if (isCalendarCache(item)) return [{ key, label, value: item }];
     return isObject(item) ? rows(item, `${label} · `) : Array.isArray(item) ? item.flatMap((entry, index) => isObject(entry) ? rows(entry, `${t('alpha7.evidence.indexed', { label, n: index + 1 })} · `) : [{ key, label: t('alpha7.evidence.indexed', { label, n: index + 1 }), value: entry }]) : [{ key, label, value: item }];
   });
 }
 /** Stored facts only: receipt is never relabelled as measurement, no reconstruction. */
 export function EvidenceTable({ observation }: { observation: JsonObject }) {
-  return <div className="overflow-x-auto"><table className="w-full text-left text-sm"><caption className="sr-only">{t('alpha7.evidence.table')}</caption><thead><tr className="border-b border-line"><th scope="col" className="px-3 py-2">{t('alpha7.evidence.field')}</th><th scope="col" className="px-3 py-2">{t('alpha7.evidence.value')}</th></tr></thead><tbody>{rows(observation).map((row, index) => <tr key={`${row.label}:${index}`} className="border-b border-line/60"><th scope="row" className="w-64 px-3 py-2 font-medium text-muted">{row.label}</th><td className="break-all px-3 py-2">{cell(row.key, row.value)}</td></tr>)}</tbody></table></div>;
+  return <div className="overflow-x-auto"><table className="w-full text-left text-sm"><caption className="sr-only">{t('alpha7.evidence.table')}</caption><thead><tr className="border-b border-line"><th scope="col" className="px-3 py-2">{t('alpha7.evidence.field')}</th><th scope="col" className="px-3 py-2">{t('alpha7.evidence.value')}</th></tr></thead><tbody>{rows(observation).map((row, index) => <tr key={`${row.label}:${index}`} className="border-b border-line/60"><th scope="row" className="w-64 px-3 py-2 font-medium text-muted">{row.label}</th><td className="break-words px-3 py-2">{isCalendarCache(row.value) ? <CalendarReading cache={row.value} /> : cell(row.key, row.value)}</td></tr>)}</tbody></table></div>;
 }
 function useEvidence(reference: string | null) {
   return useQuery({ queryKey: ['evidence', 'reference', reference], queryFn: () => api<JsonObject>(`evidence/reference/${encodeURIComponent(reference!)}`), enabled: !!reference, retry: false });

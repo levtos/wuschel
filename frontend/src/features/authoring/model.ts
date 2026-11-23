@@ -97,7 +97,7 @@ export interface OperatorDefaults {
   temporal: { operation: string; arguments: number }[];
 }
 
-export const STATEFUL_OPS = new Set(['bucket', 'temporal', 'machine']);
+export const STATEFUL_OPS = new Set(['bucket', 'temporal', 'machine', 'opening_contact', 'opening_zone']);
 
 export function newRule(op: string, ctx: RuleContext, defaults: OperatorDefaults): Rule {
   const firstInput = ctx.inputs[0]?.name ?? '';
@@ -117,6 +117,8 @@ export function newRule(op: string, ctx: RuleContext, defaults: OperatorDefaults
       return { op, at: inputRule(), points: [{ day: '01-01', value: 0 }, { day: '07-01', value: 1 }] };
     case 'calendar_active':
       return { op, arg: inputRule(), pattern: literal('text', '*'), all_day_only: false };
+    case 'calendar_at':
+      return { op, at: inputRule(), field: 'date', offset_days: 0 };
     case 'and':
     case 'or':
       return { op, args: [inputRule(), inputRule()] };
@@ -140,6 +142,10 @@ export function newRule(op: string, ctx: RuleContext, defaults: OperatorDefaults
       return { op, strategy: defaults.fusion[0] ?? '', args: [inputRule(), inputRule()] };
     case 'temporal':
       return { op, id: uniqueName('temporal', ctx.usedIds), operation: 'stable_for', duration_s: 1, args: [inputRule()] };
+    case 'opening_contact':
+      return { op, id: uniqueName('contact', ctx.usedIds), duration_s: 1, args: [{ op: 'input', name: ctx.inputs.find(input => input.schema.type === 'bool')?.name ?? '' }] };
+    case 'opening_zone':
+      return { op, field: 'unclear', args: [{ op: 'input', name: ctx.inputs.find(input => input.schema.type === 'enum')?.name ?? '' }] };
     case 'machine':
       return { op };
     case 'not_applicable':
@@ -157,7 +163,7 @@ export function convertRule(old: Rule, op: string, ctx: RuleContext, defaults: O
     const args = op === 'not' ? old.args.slice(0, 1) : old.args.length >= 1 ? old.args : newRule(op, ctx, defaults).args!;
     return { ...old, op, args };
   }
-  const known = new Set(['op', 'name', 'schema', 'value', 'args', 'comparison', 'left', 'right', 'arg', 'entries', 'cases', 'id', 'initial', 'lower', 'upper', 'version', 'strategy', 'operation', 'duration_s', 'accepts_held', 'at', 'points', 'leap_day', 'pattern', 'all_day_only']);
+  const known = new Set(['op', 'name', 'schema', 'value', 'args', 'comparison', 'left', 'right', 'arg', 'entries', 'cases', 'id', 'initial', 'lower', 'upper', 'version', 'strategy', 'operation', 'duration_s', 'accepts_held', 'at', 'points', 'leap_day', 'pattern', 'all_day_only', ...(old.op === 'opening_zone' ? ['field'] : [])]);
   const extra = Object.fromEntries(Object.entries(old).filter(([key]) => !known.has(key)));
   const next = newRule(op, ctx, defaults);
   return { ...extra, ...next, ...(next.id !== undefined && old.id !== undefined ? { id: old.id } : {}) };
@@ -231,7 +237,7 @@ export function collectStatefulIds(definition: JsonObject): Set<string> {
   const ids = new Set<string>();
   for (const { rule } of definitionRoots(definition)) {
     walkRule(rule, (node) => {
-      if ((node.op === 'bucket' || node.op === 'temporal') && typeof node.id === 'string') ids.add(node.id);
+      if ((node.op === 'bucket' || node.op === 'temporal' || node.op === 'opening_contact') && typeof node.id === 'string') ids.add(node.id);
     });
   }
   return ids;

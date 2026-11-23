@@ -422,7 +422,8 @@ def capabilities(config: RegistryConfig | None, base: TypeRegistry) -> dict[str,
         "operators": [
             {
                 "op": name,
-                "stateful": name in {"bucket", "temporal", "machine"},
+                "stateful": name
+                in {"bucket", "temporal", "machine", "opening_contact", "opening_zone"},
                 "schema_ref": f"#/$defs/{model}",
             }
             for name, model in (
@@ -462,6 +463,8 @@ def capabilities(config: RegistryConfig | None, base: TypeRegistry) -> dict[str,
                 ("formula", "FormulaRule"),
                 ("fusion", "FusionRule"),
                 ("temporal", "TemporalRule"),
+                ("opening_contact", "OpeningContactRule"),
+                ("opening_zone", "OpeningZoneRule"),
                 ("machine", "MachineRule"),
                 ("not_applicable", "NotApplicableRule"),
             )
