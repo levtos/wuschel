@@ -56,6 +56,47 @@ async def test_promote_swaps_the_whole_family_and_preserves_class(runtime, confi
     assert all(row["effective_classification"] == "boost" for row in family.values())
 
 
+async def test_group_reselects_master_and_merges_families_with_class_confirmation(runtime, config):
+    catalog = await seeded(
+        runtime,
+        config,
+        [observed(f"Synthetic {name}") for name in ("A", "B", "C", "D")],
+    )
+    a, b, c, d = list(all_rows(runtime.state, catalog))
+    for root, child, value in ((a, b, "boost"), (c, d, "stumm")):
+        payload = care(
+            runtime,
+            [root, child],
+            "group",
+            master=root,
+            classification=value,
+            confirm_class_change=True,
+        )
+        await runtime.submit("catalog_care_write", {"request": payload})
+    unchanged = care(runtime, [a, b], "group", master=a)
+    before = head(runtime.state, catalog)["revision"]
+    preview = await runtime.submit("catalog_care_preview", {"request": unchanged})
+    assert not preview["changes"] and preview["affected_keys"] == 0
+    saved = await runtime.submit("catalog_care_write", {"request": unchanged})
+    assert saved["content_revision"] == before == head(runtime.state, catalog)["revision"]
+
+    # Choosing a current variant promotes it, keeping both former families together.
+    selected = care(runtime, [a, d], "group", master=d)
+    with pytest.raises(ValueError, match="catalog_confirm_class_change"):
+        await runtime.submit("catalog_care_preview", {"request": selected})
+    assert head(runtime.state, catalog)["revision"] == before
+    selected["confirm_class_change"] = True
+    preview = await runtime.submit("catalog_care_preview", {"request": selected})
+    assert {row["key"] for row in preview["changes"]} >= {
+        row["key"] for row in all_rows(runtime.state, catalog).values()
+    }
+    await runtime.submit("catalog_care_write", {"request": selected})
+    entries = all_rows(runtime.state, catalog)
+    assert entries[d]["master_identity"] is None and entries[d]["classification"] == "stumm"
+    assert all(entries[key]["master_identity"] == d for key in (a, b, c))
+    assert all(row["effective_classification"] == "stumm" for row in entries.values())
+
+
 async def test_class_filter_keeps_family_and_master_view_omits_singles(runtime, config):
     catalog = await seeded(
         runtime,

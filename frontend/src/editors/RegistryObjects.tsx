@@ -433,7 +433,7 @@ export function EntityPicker({ open, onOpenChange, onPick }: { open: boolean; on
 
 /* ─────────────────────────────── Catalog ────────────────────────────── */
 
-export function CatalogEditor({ value, onChange, pointer }: { value: JsonObject; onChange: (n: JsonObject) => void; pointer: string }) {
+export function CatalogEditor({ value, onChange, pointer, identityLocked = false }: { value: JsonObject; onChange: (n: JsonObject) => void; pointer: string; identityLocked?: boolean }) {
   const editingLegend = useRef<JsonObject | null>(null);
   const set = patcher(value, onChange);
   const entries = Object.entries(asObject(value.entries));
@@ -444,9 +444,11 @@ export function CatalogEditor({ value, onChange, pointer }: { value: JsonObject;
     else onChange({ catalog_id: value.catalog_id ?? '', version: value.version ?? 1, kind: 'map', entries: {} });
   }}><option value="map">{uiText('alpha10.catalog.inline')}</option><option value="managed">{uiText('alpha10.catalog.managed')}</option></Select>}</Fld>;
   if (value.kind === 'managed') return <div className="space-y-4">
-    <Fld label={uiText('editors.RegistryObjects.katalog_id_e6aea3')} pointer={join(pointer, 'catalog_id')}>{p => <Input {...p} value={str(value.catalog_id)} onChange={e => set({ catalog_id: e.target.value })} />}</Fld>
-    {kindField}
-    <NumberField label={uiText('editors.RegistryObjects.version_dd1679')} pointer={join(pointer, 'version')} min={1} step={1} value={Number(value.version ?? 1)} onChange={n => set({ version: Math.max(1, Math.trunc(n)) })} />
+    {!identityLocked && <>
+      <Fld label={uiText('editors.RegistryObjects.katalog_id_e6aea3')} pointer={join(pointer, 'catalog_id')}>{p => <Input {...p} value={str(value.catalog_id)} onChange={e => set({ catalog_id: e.target.value })} />}</Fld>
+      {kindField}
+      <NumberField label={uiText('editors.RegistryObjects.version_dd1679')} pointer={join(pointer, 'version')} min={1} step={1} value={Number(value.version ?? 1)} onChange={n => set({ version: Math.max(1, Math.trunc(n)) })} />
+    </>}
     <Fld label={uiText('alpha10.catalog.classes')} pointer={join(pointer, 'classification_schema')}>{p => <Textarea {...p} value={asArray(asObject(value.classification_schema).values).map(str).join('\n')} onFocus={() => { editingLegend.current = asObject(asObject(value.classification_schema).legend); }} onBlur={() => { editingLegend.current = null; }} onChange={e => {
       const schema = asObject(value.classification_schema); const values = e.target.value.split('\n');
       set({ classification_schema: { ...schema, type: 'enum', values, ...(schema.legend ? { legend: Object.fromEntries(Object.entries(editingLegend.current ?? asObject(schema.legend)).filter(([key]) => values.includes(key))) } : {}) } });

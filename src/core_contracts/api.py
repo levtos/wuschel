@@ -154,6 +154,7 @@ class API:
                         "catalog_master_is_variant",
                         "catalog_master_scope_mismatch",
                         "catalog_master_has_variants",
+                        "catalog_confirm_class_change",
                         "catalog_master_name_invalid",
                         "catalog_master_name_conflict",
                         "catalog_variant_override",
