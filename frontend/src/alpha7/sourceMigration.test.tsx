@@ -37,16 +37,16 @@ it('moves a whole physical path atomically, restores an attempted locked edit, v
 it('supports a selected-contract move to another device and rejects duplicate physical evidence, liveness and dependency uses', () => {
   const config = original(); const contract = clone(objects(config.contracts)[0]!); contract.contract_id = 'weiterer_vertrag'; config.contracts = [...objects(config.contracts), contract];
   const id = String(objects(config.sources)[0]!.source_id); const opts = options(config); opts.contracts = [String(objects(config.contracts)[0]!.contract_id)];
-  expect(() => planSourceMigration(config, [], id, opts)).toThrow(/Das bisherige Gerät wird noch gebraucht/);
+  expect(() => planSourceMigration(config, [], id, opts)).toThrow(/Das bisherige Gerät wird noch verwendet/);
   opts.adapter = { kind: 'ha_state', ha_entity_id: 'sensor.anderes_zimmer' };
   const moved = planSourceMigration(config, [], id, opts);
   expect(objects(moved.config.bindings)).toHaveLength(2);
   expect(objects(moved.config.contracts)[1]!.inputs).toEqual(contract.inputs);
   opts.adapter = { kind: 'ha_state', ha_entity_id: device.entity_id }; opts.contracts = options(config).contracts;
   config.dependencies = [{ dependency_id: 'dep.monitor', source_id: id, kind: 'other', monitor: 'source' }];
-  expect(() => planSourceMigration(config, [], id, opts)).toThrow(/Das bisherige Gerät wird noch gebraucht/);
+  expect(() => planSourceMigration(config, [], id, opts)).toThrow(/Das bisherige Gerät wird noch verwendet/);
   config.dependencies = []; config.sources = [...objects(config.sources), { source_id: 'source.monitor', freshness: { liveness_source: id } }];
-  expect(() => planSourceMigration(config, [], id, opts)).toThrow(/Das bisherige Gerät wird noch gebraucht/);
+  expect(() => planSourceMigration(config, [], id, opts)).toThrow(/Das bisherige Gerät wird noch verwendet/);
 });
 
 it('reserves all historical identities and never rewrites a calculation as a passthrough', () => {
