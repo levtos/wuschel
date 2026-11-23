@@ -22,13 +22,13 @@ export function CurrentValues({ envelope, fields, config, inputs = {}, names = {
   const extra = (field: FieldValue, schema?: FieldSchema) => <>
     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
       <span className="inline-flex items-center gap-1">{t('a2.read.fieldStatus', { status: (FIELD_STATUS[field.status] ?? FIELD_STATUS.unknown).label })}<InlineHelp text={(FIELD_STATUS[field.status] ?? FIELD_STATUS.unknown).hint} /></span>
-      <span>{t('a2.read.quality', { quality: (QUALITY[field.quality] ?? QUALITY.degraded).label })}</span>
+      <span className="inline-flex items-center gap-1">{t('a2.read.quality', { quality: (QUALITY[field.quality] ?? QUALITY.degraded).label })}<InlineHelp text={t('a2.help.quality')} /></span>
       <span>{t(field.status === 'not_applicable' ? 'a2.read.notApplicable' : present(field) ? 'a2.read.applicable' : 'a2.read.applicabilityUnknown')}</span>
       {empty(field) && <InlineHelp text={t('a2.read.emptyHelp')} />}
     </div>
     {str(asObject(asObject(schema?.legend)[String(field.value)]).description) && <p className="mt-1 text-sm text-muted">{str(asObject(asObject(schema?.legend)[String(field.value)]).description)}</p>}
     {field.attribution?.kind !== common && field.attribution && <p className="text-xs text-muted">{attributionText(field)}</p>}
-    {field.value_origin && <p className="text-xs text-muted">{t('alpha9.valueOrigin.label')}: {t(`alpha9.valueOrigin.${field.value_origin.kind}`)}</p>}
+    {field.value_origin && <p className="flex items-center gap-1 text-xs text-muted">{t('alpha9.valueOrigin.label')} {t(`alpha9.valueOrigin.${field.value_origin.kind}`)}<InlineHelp text={t('a2.help.valueOrigin')} /></p>}
     {!!field.input_origins?.length && <p className="text-xs text-muted">{t('alpha9.valueOrigin.inputs', { kinds: [...new Set(field.input_origins.map(origin => t(`alpha9.valueOrigin.${origin.kind}`)))].join(', ') })}</p>}
     {field.plausibility === 'suspicious' && <p className="text-sm text-warn">{t('alpha9.sensor.suspicious')}</p>}
     {field.valid_until && <p className="text-xs text-muted">{t('alpha9.manual.validUntil')}: {formatTime(field.valid_until)}</p>}

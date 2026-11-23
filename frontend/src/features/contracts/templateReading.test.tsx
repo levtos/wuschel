@@ -84,7 +84,7 @@ it('shows state deadlines, ordered guards and restart information before the sle
   const transitions = within(await screen.findByRole('table', { name: 'Übergänge zwischen Zuständen' }));
   expect(transitions.getByText(/Wert von „signal“/)).toBeVisible();
   expect(transitions.getByText('45 min')).toBeVisible();
-  expect(transitions.getByText('Beendet die Schlafepisode.')).toBeVisible();
+  expect(transitions.getByText('Beendet den Schlafdurchlauf.')).toBeVisible();
   expect(screen.getByRole('heading', { name: 'Was passiert nach einem Neustart?' })).toBeVisible();
   expect(screen.getByRole('heading', { name: 'Was passiert bei unbekannten Werten?' })).toBeVisible();
 });

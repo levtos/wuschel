@@ -15,7 +15,7 @@ it('B1-14 changes the bound source slot in the draft without a shadow parameter'
   let result: JsonObject = initial;
   wrap(<Stateful initial={initial} onValue={next => { result = next; }}>{(config, set) => <OpeningHeartbeatSettings config={config} contract={contract} onChange={(index, interval) => set(setAt(config, `/sources/${index}/freshness/interval_s`, interval))} />}</Stateful>);
   expect(screen.getByText(/erst, wenn du den Entwurf übernimmst/)).toBeVisible();
-  const input = screen.getByLabelText('Lebenszeichen-Grenze für Testkontakt');
+  const input = screen.getByLabelText('Zeit bis zur nächsten Meldung von Testkontakt');
   await userEvent.clear(input);
   expect(screen.getByRole('alert')).toBeVisible();
   await userEvent.type(input, '150');

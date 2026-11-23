@@ -9,6 +9,7 @@ import { formatNumber, formatTime } from '@/lib/format';
 import { connectionLabel } from '@/lib/status';
 import type { SystemState } from '@/features/admin/operations';
 import { ProjectionControl } from '@/features/admin/ProjectionControl';
+import { InlineHelp } from '@/components/ui/inline-help';
 
 const measurement = (value: number | null | undefined) => value == null ? t('b26.system.unmeasured') : `${formatNumber(value)} ms`;
 const name = (kind: string, key: string) => hasTranslation(`b26.system.${kind}.${key}`) ? t(`b26.system.${kind}.${key}`) : key;
@@ -23,7 +24,7 @@ export default function SystemStatePage() {
     {state && <div className="space-y-4">
       <p className="text-sm text-muted">{t('b26.system.updated', { at: formatTime(new Date(query.dataUpdatedAt).toISOString()) })}</p>
       {state.operations_notice && <Notice tone="warn">{t(state.operations_notice === 'operations_missing' ? 'b26.operations.missing' : 'b26.operations.invalid')}</Notice>}
-      <Panel><PanelHeader title={t('b26.load.title')} /><div className="space-y-3 p-4">
+      <Panel><PanelHeader title={t('b26.load.title')} aside={<InlineHelp text={t('a2.help.load')} />} /><div className="space-y-3 p-4">
         <Badge tone={state.load.state === 'normal' ? 'ok' : 'warn'}>{t(`b26.load.${state.load.state}`)}</Badge>
         {state.load.state !== 'normal' && <p>{t(state.load.state === 'geschützt' ? 'b26.load.protectedHelp' : 'b26.load.strainedHelp')}</p>}
         {state.load.reasons.map(reason => <p key={reason} className="text-sm text-muted">{t(`b26.load.metric.${reason}`)}</p>)}

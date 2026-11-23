@@ -11,10 +11,10 @@ it('keeps the pause visible across pages and clears it only after the service re
   act(() => store.start());
   const send = (paused: boolean) => act(() => socket.onmessage?.({ data: JSON.stringify({ type: 'service_state', projection_paused: paused, load: { state: 'geschützt' } }) }));
   send(true);
-  expect(screen.getByText(/Die Projektion nach Home Assistant ist pausiert/)).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'HA-Ausgabe im Systemzustand verwalten' })).toHaveAttribute('href', '/settings/diagnostics/system-state');
-  expect(screen.getByText(/Wuschel schützt sich bei hoher Last/)).toBeInTheDocument();
+  expect(screen.getByText(/Die Ausgabe an Home Assistant ist pausiert/)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Ausgabe an Home Assistant verwalten' })).toHaveAttribute('href', '/settings/diagnostics/system-state');
+  expect(screen.getByText(/Bei hoher Auslastung liefert Wuschel seltener Werte/)).toBeInTheDocument();
   send(false);
-  expect(screen.queryByText(/Die Projektion nach Home Assistant ist pausiert/)).toBeNull();
+  expect(screen.queryByText(/Die Ausgabe an Home Assistant ist pausiert/)).toBeNull();
   act(() => store.stop());
 });

@@ -110,7 +110,7 @@ export function Shell(_props: { onSetup: () => void }) {
                 const [itemPath, itemSearch = ''] = item.to.split('?');
                 const expected = new URLSearchParams(itemSearch); const current = new URLSearchParams(search);
                 const selected = pathname === itemPath && [...expected].every(([key, value]) => current.get(key) === value) && (expected.size > 0 || !current.get(itemPath === '/catalog-care' ? 'catalog' : 'category')) || (item.to === '/contracts/list/all' && pathname.startsWith('/contracts/view/')) || (item.to === '/templates/own' && pathname.startsWith('/templates/details/'));
-                return <li key={item.to}><Link to={item.to} aria-current={selected ? 'page' : undefined} className={cn('block rounded-md px-3 py-2 text-sm leading-snug', selected ? 'bg-accent/10 font-medium text-accent' : 'text-muted hover:bg-raised hover:text-fg')}>{item.label}</Link></li>;
+                return <li key={item.to}><Link to={item.to} aria-current={selected ? 'page' : undefined} className={cn('block rounded-md px-3 py-2 text-sm leading-snug [overflow-wrap:anywhere]', selected ? 'bg-accent/10 font-medium text-accent' : 'text-muted hover:bg-raised hover:text-fg')}>{item.label}</Link></li>;
               })}</ul>}
             </div>;
           })}

@@ -26,7 +26,7 @@ export function PageHeader({ title, description, actions }: { title: ReactNode; 
       <div className="flex min-w-0 items-center gap-4">
         <HerdFigure />
         <div>
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-xl font-semibold tracking-tight [overflow-wrap:anywhere]">{title}</h1>
         {description && <p className="mt-1 max-w-3xl text-sm text-muted">{description}</p>}
         </div>
       </div>

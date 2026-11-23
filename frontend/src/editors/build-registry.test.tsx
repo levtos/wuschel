@@ -48,7 +48,7 @@ describe('registry objects are fully editable without JSON', () => {
     expect(screen.queryByLabelText(/Intervall/)).toBeNull();
     await user.selectOptions(screen.getByLabelText('Modus'), 'liveness_source');
     expect(screen.getByLabelText(/Intervall/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Quelle für das Lebenszeichen/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Quelle für die Erreichbarkeit/)).toBeInTheDocument();
   });
 
   it('binding with HA entity and optional transform', async () => {

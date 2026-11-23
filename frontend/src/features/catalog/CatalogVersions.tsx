@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/controls';
 import { Field, Select } from '@/components/ui/form';
 import { Notice } from '@/components/ui/layout';
+import { InlineHelp } from '@/components/ui/inline-help';
 import { CatalogEditor } from '@/editors/RegistryObjects';
 import { DraftEditor } from '@/features/authoring/DraftEditor';
 import { contractHref, definitionHref, ObjectReadLink } from '@/features/authoring/ObjectReadLinks';
@@ -17,7 +18,7 @@ import { catalogUsage, catalogVersionName, indirectConsumers, nextCatalogVersion
 export function CatalogUsage({ config, id, version }: { config: Registry; id: string; version: number }) {
   const { definitions, direct, indirect } = catalogUsage(config, id, version);
   return <section className="space-y-2">
-    <h3 className="font-medium">{t('a2.care.usedBy')}</h3>
+    <div className="flex items-center gap-1"><h3 className="font-medium">{t('a2.care.usedBy')}</h3><InlineHelp text={t('a2.help.consumers')} /></div>
     {definitions.length + direct.length + indirect.length === 0 ? <p>{t('a2.care.noConsumers')}</p> : <>
       <h4>{t('a2.care.templates')}</h4>
       <ul>{definitions.map(template => <li key={str(template.type_id) + '@' + Number(template.type_version)}><ObjectReadLink to={definitionHref(str(template.type_id), Number(template.type_version)) + '?tab=rules'}>{t('a2.care.versionName', { name: str(template.display_name) || str(template.type_id), version: Number(template.type_version) })}</ObjectReadLink></li>)}</ul>

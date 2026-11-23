@@ -43,7 +43,7 @@ export async function exerciseCoverage(validate: (document: JsonObject) => Promi
     let value: JsonObject = { ...heartbeat, source_id: 'source.sample', source_type: 'numeric', physical_source_key: 'sample' };
     wrap(<Stateful initial={value} onValue={(next) => { value = next; }}>{(v, set) => <SourceEditor value={v} onChange={set} pointer="/sources/0" dependencyIds={['dep.test']} sourceIds={['source.heartbeat', 'source.sample']} schema={capabilities.schemas.registry} />}</Stateful>);
     await user.selectOptions(screen.getByLabelText('Modus'), mode);
-    if (mode === 'liveness_source') await user.selectOptions(screen.getByLabelText("Quelle für das Lebenszeichen *"), 'source.heartbeat');
+    if (mode === 'liveness_source') await user.selectOptions(screen.getByLabelText("Quelle für die Erreichbarkeit *"), 'source.heartbeat');
     await validate({ ...emptyRegistry(), dependencies: [{ dependency_id: 'dep.test', kind: 'ha', monitor: 'internal' }], sources: [value, heartbeat] });
     cleanup();
   }
