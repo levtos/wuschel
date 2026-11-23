@@ -9,6 +9,7 @@ import {
   asArray,
   asObject,
   convertRule,
+  fieldCompatible,
   newFieldSchema,
   newRule,
   str,
@@ -595,6 +596,7 @@ function MapBody({ value, onChange, pointer, depth }: { value: Rule; onChange: (
   const { ctx } = useEnv();
   const schema = asObject(value.schema) as FieldSchema;
   const entries = Object.entries(asObject(value.entries));
+  const parameters = (ctx.parameters ?? []).filter(item => fieldCompatible(item.schema, schema));
   const arg = asObject(value.arg);
   const argSchema = arg.op === 'input' ? ctx.inputs.find((i) => i.name === arg.name)?.schema : undefined;
   const mode: 'bool' | 'number' | 'enum' | 'string' | 'raw' = !argSchema ? 'raw' : argSchema.type === 'bool' ? 'bool' : argSchema.type === 'number' ? 'number' : argSchema.type === 'enum' ? 'enum' : argSchema.type === 'object' ? 'raw' : 'string';
@@ -635,6 +637,8 @@ function MapBody({ value, onChange, pointer, depth }: { value: Rule; onChange: (
         {mode === 'raw' && <p className="text-xs text-muted">{uiText("editors.RuleEditor.schlussel_sind_kanonische_json_skalare_2c69e1")}<code>{uiText("editors.RuleEditor.true_b5bea4")}</code>, <code>42</code> {uiText("editors.RuleEditor.oder_7e3b22")}<code>{uiText("editors.RuleEditor.quot_text_quot_dc8483")}</code> {uiText("editors.RuleEditor.in_anfuhrungszeichen_ab3cf1")}</p>}
         {entries.map(([key, entryValue], i) => {
           const decoded = decodeKey(key);
+          const reference = isObject(entryValue) && entryValue.op === 'parameter' && Object.keys(entryValue).length === 2 ? str(entryValue.name) : '';
+          const setValue = (next: Json) => setEntries(entries.map(([k, v], j) => j === i ? [k, next] : [k, v]));
           const rename = (nextKey: string) => {
             if (nextKey !== key && keysUsed.has(nextKey)) return;
             setEntries(entries.map(([k, v], j) => (j === i ? [nextKey, v] : [k, v])));
@@ -662,13 +666,19 @@ function MapBody({ value, onChange, pointer, depth }: { value: Rule; onChange: (
                   )
                 }
               </Fld>
-              <TypedValueEditor
-                label={uiText("editors.RuleEditor.dann_06cb6c")}
-                schema={schema}
-                value={entryValue}
-                pointer={join(pointer, 'entries', key)}
-                onChange={(next) => setEntries(entries.map(([k, v], j) => (j === i ? [k, next] : [k, v])))}
-              />
+              <div className="space-y-2">
+                {(parameters.length > 0 || reference) && <Fld label={uiText('a2.parameters.mapValueKind')} pointer={join(pointer, 'entries', key)}>
+                  {props => <Select {...props} value={reference} onChange={event => {
+                    const name = event.target.value;
+                    setValue(name ? { op: 'parameter', name } : defaultLiteralValue(schema));
+                  }}>
+                    <option value="">{uiText('a2.parameters.mapLiteral')}</option>
+                    {reference && !parameters.some(item => item.name === reference) && <option value={reference}>{reference}</option>}
+                    {parameters.map(item => <option key={item.name} value={item.name}>{uiText('a2.parameters.mapParameterOption', { name: item.label })}</option>)}
+                  </Select>}
+                </Fld>}
+                {!reference && <TypedValueEditor label={uiText("editors.RuleEditor.dann_06cb6c")} schema={schema} value={entryValue} pointer={join(pointer, 'entries', key)} onChange={setValue} />}
+              </div>
               <div className="pt-5">
                 <IconButton label={uiText("editors.RuleEditor.eintrag_entfernen_706a15")} tone="danger" disabled={entries.length <= 1} onClick={() => setEntries(entries.filter((_, j) => j !== i))}>
                   <Trash2 size={14} />

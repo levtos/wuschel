@@ -7,7 +7,7 @@ public editor schema; runtime and import use precisely the same models.
 from datetime import date
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, JsonValue, field_validator, model_validator
 
 from .lifecycle import Lifecycle
 from .model import Model
@@ -56,6 +56,11 @@ class ParameterDefinition(DeclarativeModel):
     maximum: float | None = None
     label: str = ""
     description: str = ""
+    default: JsonValue = Field(default=None, exclude_if=lambda value: value is None)
+    group: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    display: Literal["plain", "time_of_day", "duration", "weekday"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     structured_schema: Literal["wake_planning_v1"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -72,6 +77,18 @@ class ParameterDefinition(DeclarativeModel):
             self.minimum is not None or self.maximum is not None
         ):
             raise ValueError("numeric_parameter_bounds_required")
+        if "default" in self.model_fields_set:
+            if not self.field_schema.accepts(self.default):
+                raise ValueError("parameter_default_type_mismatch")
+            if isinstance(self.default, (int, float)) and (
+                self.minimum is not None
+                and self.default < self.minimum
+                or self.maximum is not None
+                and self.default > self.maximum
+            ):
+                raise ValueError("parameter_default_bounds")
+            if self.structured_schema and not isinstance(self.default, dict):
+                raise ValueError("parameter_default_type_mismatch")
         return self
 
 
@@ -120,11 +137,28 @@ class MapRule(DeclarativeModel):
     op: Literal["map"]
     arg: Rule
     field_schema: FieldSchema = Field(alias="schema")
-    entries: dict[str, Any] = Field(min_length=1, max_length=256)
+    entries: dict[str, ParameterRule | JsonValue] = Field(min_length=1, max_length=256)
+
+    @field_validator("entries", mode="before")
+    @classmethod
+    def parameter_references(cls, entries: Any) -> Any:
+        if not isinstance(entries, dict):
+            return entries
+        return {
+            key: ParameterRule.model_validate(value)
+            if isinstance(value, dict)
+            and value.get("op") == "parameter"
+            and value.keys() == {"op", "name"}
+            else value
+            for key, value in entries.items()
+        }
 
     @model_validator(mode="after")
     def typed(self) -> Self:
-        if any(not self.field_schema.accepts(value) for value in self.entries.values()):
+        if any(
+            not isinstance(value, ParameterRule) and not self.field_schema.accepts(value)
+            for value in self.entries.values()
+        ):
             raise ValueError("map_type_mismatch")
         return self
 

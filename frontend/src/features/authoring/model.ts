@@ -78,6 +78,7 @@ export function defaultLiteralValue(schema: FieldSchema): Json {
 export interface RuleContext {
   inputs: { name: string; schema: FieldSchema }[];
   ruleNames: string[];
+  parameters?: { name: string; label: string; schema: FieldSchema }[];
   /** Stateless mode (guards, reinitialization): no bucket/temporal/machine. */
   stateless: boolean;
   hasMachine: boolean;
@@ -169,6 +170,9 @@ export function ruleChildren(rule: Rule): { key: (string | number)[]; rule: Rule
     if (isObject(value) && typeof value.op === 'string') out.push({ key, rule: value as Rule });
   };
   for (const name of ['arg', 'left', 'right', 'at', 'when', 'duration_s', 'pattern', 'on_date', 'sleep_since', 'before_workday', 'current_workday', 'start_kind', 'start_phase', 'start_time', 'otherwise_kind', 'otherwise_phase', 'otherwise_time']) add([name], rule[name]);
+  if (rule.op === 'map') for (const [key, value] of Object.entries(asObject(rule.entries))) {
+    if (isObject(value) && value.op === 'parameter' && Object.keys(value).length === 2 && typeof value.name === 'string') add(['entries', key], value);
+  }
   if (Array.isArray(rule.points)) rule.points.forEach((point, i) => { if (isObject(point)) add(['points', i, 'value'], point.value); });
   if (Array.isArray(rule.args)) rule.args.forEach((arg, i) => add(['args', i], arg));
   else if (isObject(rule.args)) Object.entries(rule.args).forEach(([name, arg]) => add(['args', name], arg));
@@ -239,6 +243,11 @@ export function ruleContext(definition: JsonObject, stateless: boolean, defaults
       .filter(isObject)
       .map((input) => ({ name: str(input.name), schema: asObject(input.schema) as FieldSchema })),
     ruleNames: Object.keys(asObject(definition.rules)),
+    parameters: Object.entries(asObject(definition.parameter_schema)).flatMap(([name, value]) => {
+      const declaration = asObject(value);
+      const schema = asObject(declaration.schema) as FieldSchema;
+      return schema.required || declaration.default != null ? [{ name, schema, label: str(declaration.label) || name }] : [];
+    }),
     stateless,
     hasMachine: isObject(definition.machine),
     usedIds: defaults?.usedIds ?? collectStatefulIds(definition),

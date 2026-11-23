@@ -12,7 +12,9 @@ import { EditButton } from '@/components/EditButton';
 import { Empty, Notice, PageHeader, Panel, PanelHeader } from '@/components/ui/layout';
 import { DefinitionEditor, LockBadge } from '@/editors/DefinitionEditor';
 import { ReadOnlyNotice } from '@/features/authoring/DraftBar';
-import { asArray, definitionKey, nextVersionOf, str } from '@/features/authoring/model';
+import { asArray, asObject, definitionKey, nextVersionOf, str } from '@/features/authoring/model';
+import { declarativeParameterSchema } from '@/features/authoring/catalog';
+import { TemplateParameters } from './ContractParameters';
 import { contractsUsingDefinition } from '@/features/authoring/usage';
 import { useAuthoringSource } from '@/features/authoring/useAuthoringSource';
 import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
@@ -55,6 +57,7 @@ export default function DefinitionDetailPage() {
       <PanelHeader title={uiText('features.contracts.DefinitionsPage.ausgaben_44e52a')} />
       <ul className="space-y-2 px-4 pb-4 text-sm">{Object.entries(packageType.schema.fields).map(([name, field]) => <li key={name} className="flex items-center gap-2"><span>{fieldLabel(name)}</span><Badge>{codeLabel(field.type)}</Badge></li>)}</ul>
     </Panel>
+    {packageType.parameter_schema && Object.keys(asObject(packageType.parameter_schema.properties)).length > 0 && <Panel className="mt-4 space-y-3 p-4"><h2 className="font-medium">{uiText('a2.parameters.templateTitle')}</h2><TemplateParameters root={packageType.parameter_schema} /></Panel>}
   </>;
   if (!definition) {
     return (
@@ -68,6 +71,7 @@ export default function DefinitionDetailPage() {
   const key = definitionKey(definition);
   const lockedSince = src.activatedVersions.get(key) ?? null;
   const pointer = `/definitions/${index}`;
+  const parameterSchema = declarativeParameterSchema(definition, caps.data?.structured_parameter_schemas);
   const users = contractsUsingDefinition(config, typeId, Number(version));
   const editingPointer = `/definitions/${editing?.index}`;
   const openVersion = () => { if (config) setVersioning({ base: config, copy: nextVersionOf(definition, definitions) }); };
@@ -109,7 +113,7 @@ export default function DefinitionDetailPage() {
       </LayoutPanel><LayoutPanel id="usage" title={uiText("features.contracts.DefinitionDetailPage.verwendung_947c0a")}><section className="text-sm text-muted">
         {uiText("features.contracts.DefinitionDetailPage.verwendet_von_f83bfe")}{users.length === 0 ? uiText("features.contracts.DefinitionDetailPage.keiner_instanz_86ff43") : users.map((id) => <Link key={id} to={`/contracts/view/${encodeURIComponent(id)}`} className="mr-2 font-mono text-xs text-fg hover:underline">{id}</Link>)}
       </section>
-      </LayoutPanel></PanelLayout>
+      </LayoutPanel>{Object.keys(asObject(parameterSchema.properties)).length > 0 && <LayoutPanel id="parameters" title={uiText('a2.parameters.templateTitle')}><TemplateParameters root={parameterSchema} /></LayoutPanel>}</PanelLayout>
 
       {editing && <DraftEditor base={editing.base} input={editing.config} dirty={!deepEqual(editing.base, editing.config)} plan={() => ({ config: editing.config })} title={uiText('a2.edit.template')} size="xl" onClose={() => setEditing(null)} onSaved={() => {
         const row = asArray(editing.config.definitions)[editing.index];
