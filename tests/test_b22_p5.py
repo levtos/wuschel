@@ -119,7 +119,7 @@ async def test_named_master_group_moves_tc_aliases_and_keeps_metadata_and_counts
 
 @pytest.mark.parametrize(
     "case",
-    ["name_collision", "both_targets", "blank", "missing_class", "mixed_scope", "nested_master"],
+    ["name_collision", "both_targets", "blank", "missing_class", "mixed_scope"],
 )
 async def test_invalid_new_master_requests_leave_no_partial_master(runtime, config, case):
     catalog = await seed_catalog(runtime, config, CATALOGS[0])
@@ -157,18 +157,6 @@ async def test_invalid_new_master_requests_leave_no_partial_master(runtime, conf
             },
         )
         ids = list(all_rows(runtime.state, catalog))
-    else:
-        await runtime.submit(
-            "catalog_care_write",
-            {
-                "request": {
-                    **request(runtime, catalog, ids),
-                    "new_master_name": None,
-                    "master": ids[0],
-                }
-            },
-        )
-        ids = [ids[0]]
     before = copy.deepcopy(runtime.state.tables)
     with pytest.raises(ValueError):
         await runtime.submit(
@@ -233,7 +221,7 @@ async def test_group_paging_search_and_variant_filter_never_promote_a_child(runt
         listing(runtime.state, catalog, grouped=True, limit=1, after=flat_page["next_cursor"])
 
 
-async def test_targeted_care_keeps_unselected_children_in_master_validation(runtime, config):
+async def test_targeted_care_moves_unselected_children_along_with_the_master(runtime, config):
     catalog = await seed_catalog(runtime, config, CATALOGS[0])
     ids = list(all_rows(runtime.state, catalog))
     await runtime.submit(
@@ -252,11 +240,17 @@ async def test_targeted_care_keeps_unselected_children_in_master_validation(runt
     assert set(selected) == {ids[0]}
     assert selected[ids[0]]["variant_count"] == 1
     before = copy.deepcopy(head(runtime.state, catalog))
-    with pytest.raises(ValueError, match="catalog_master_has_variants"):
-        await runtime.submit(
-            "catalog_care_preview", {"request": request(runtime, catalog, [ids[0]])}
-        )
+    payload = request(runtime, catalog, [ids[0]])
+    preview = await runtime.submit("catalog_care_preview", {"request": payload})
+    assert {row["key"] for row in preview["changes"]} == {
+        before["entries"][ids[0]]["key"],
+        before["entries"][ids[1]]["key"],
+        payload["new_master_name"],
+    }
     assert head(runtime.state, catalog) == before
+    await runtime.submit("catalog_care_write", {"request": payload})
+    entries = head(runtime.state, catalog)["entries"]
+    assert all(entries[key]["master_key"] == payload["new_master_name"] for key in ids)
 
 
 def test_existing_care_request_digests_do_not_gain_an_optional_field():

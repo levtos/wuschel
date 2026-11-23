@@ -243,8 +243,6 @@ async def test_app_names_survive_switch_late_name_and_restart_without_extra_play
         ("missing", "catalog_master_missing"),
         ("not_selected", "catalog_master_not_selected"),
         ("scope", "catalog_master_scope_mismatch"),
-        ("variant", "catalog_master_is_variant"),
-        ("children", "catalog_master_has_variants"),
     ],
 )
 async def test_grouping_explains_each_invalid_master_and_keeps_state(
@@ -256,10 +254,6 @@ async def test_grouping_explains_each_invalid_master_and_keeps_state(
         [observed("Synthetic One"), observed("Synthetic Two"), observed("Synthetic Three")],
     )
     ids = list(all_rows(runtime.state, catalog))
-    if case in {"variant", "children"}:
-        await runtime.submit(
-            "catalog_care_write", {"request": care(runtime, ids[:2], "group", master=ids[0])}
-        )
     if case == "scope":
         # Separate signal kinds are legitimate entries, but cannot be grouped.
         entry = head(runtime.state, catalog)["entries"][ids[1]]
@@ -288,17 +282,7 @@ async def test_grouping_explains_each_invalid_master_and_keeps_state(
         ids[1] = next(
             key for key, row in all_rows(runtime.state, catalog).items() if row["scope"] == "other"
         )
-    master = (
-        None
-        if case == "missing"
-        else "absent"
-        if case == "not_selected"
-        else ids[1]
-        if case == "variant"
-        else ids[2]
-        if case == "children"
-        else ids[0]
-    )
+    master = None if case == "missing" else "absent" if case == "not_selected" else ids[0]
     payload = care(runtime, ids, "group", master=master)
     original = runtime.state.clone()
     client = await aiohttp_client(

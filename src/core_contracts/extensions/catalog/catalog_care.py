@@ -636,7 +636,14 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
             selected.update({key: fields(rows[key]) for key in rows})
         effective_class = value if value is not None else catalog.unassigned_value
         if not request.confirm_class_change and any(
-            rows[key]["complete"] and rows[key]["effective_classification"] != effective_class
+            (
+                key in roots
+                or rows[key].get("master_identity") not in (None, target_master)
+                or request.classification is None
+                and key != target_master
+            )
+            and rows[key]["complete"]
+            and rows[key]["effective_classification"] != effective_class
             for key in selected
         ):
             raise ValueError("catalog_confirm_class_change")
