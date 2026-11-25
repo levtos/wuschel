@@ -2,6 +2,7 @@ import { hasTranslation, t as uiText } from '@/i18n';
 import type { Json } from './json';
 import { coolDownRequests, reserveRequest } from './request-budget';
 import { assertIngressResponse, browserSession, SessionExpired } from './browser-session';
+import { loadWait, type LoadMeasurement } from './load-wait';
 
 /** One structured server finding; paths are JSON Pointers into the submitted document. */
 export interface Issue {
@@ -31,6 +32,9 @@ export class ApiError extends Error {
   readonly issues: Issue[];
   readonly kind: ErrorKind;
   readonly changedEntries: ChangedEntry[];
+  measurements?: LoadMeasurement[];
+  waitSeconds?: number;
+  beforeExecution = false;
   constructor(status: number, code: string, issues: Issue[], detail: string, changedEntries: ChangedEntry[] = []) {
     super(detail);
     this.name = 'ApiError';
@@ -60,6 +64,8 @@ function classify(status: number, code: string, issues: Issue[]): ErrorKind {
 interface ErrorBody {
   error?: string;
   issues?: Issue[];
+  measurements?: LoadMeasurement[];
+  wait_seconds?: number;
   details?: { location?: (string | number)[]; type?: string }[] | { changed_entries?: ChangedEntry[] };
 }
 
@@ -82,6 +88,7 @@ export interface RequestOptions {
   method?: string;
   body?: unknown;
   signal?: AbortSignal;
+  interactive?: boolean;
 }
 
 /** Same-origin call below the (relative) Ingress prefix. No credentials are kept in the browser. */
@@ -90,19 +97,25 @@ async function request(path: string, options: RequestOptions, reserved = false):
   let response: Response;
   const sessionDocument = browserSession.getDocumentVersion();
   try {
-    response = await browserSession.run(async () => {
+    const send = async () => {
       if (!reserved) await reserveRequest(options.signal);
       await browserSession.waitReady(options.signal);
       options.signal?.throwIfAborted();
       const result = await fetch(`./api/v1/${path}`, {
-      method,
-      headers: options.body === undefined ? { 'X-Authoring-Protocol': '2' } : { 'Content-Type': 'application/json', 'X-Authoring-Protocol': '2' },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      signal: options.signal,
+        method,
+        headers: {
+          'X-Authoring-Protocol': '2',
+          ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+          ...(options.interactive ? { 'X-Wuschel-Interactive': '1' } : {}),
+        },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: options.signal,
       });
       assertIngressResponse(result, sessionDocument);
       return result;
-    }, options.signal);
+    };
+    // Long-polling admission is read-only and must leave the session queue free.
+    response = path.startsWith('operations/wait?') ? await send() : await browserSession.run(send, options.signal);
   } catch (error) {
     if (error instanceof SessionExpired) throw new ApiError(error.status, 'ingress_session_expired', [], uiText('b22.connection.reload'));
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
@@ -112,14 +125,55 @@ async function request(path: string, options: RequestOptions, reserved = false):
     if (response.status === 429) await coolDownRequests(response.headers.get('Retry-After'));
     const body = (await response.json().catch(() => null)) as ErrorBody | null;
     const code = body?.error ?? 'invalid_response';
-    throw new ApiError(response.status, code, issuesFromBody(body), `${code} (${response.status})`,
+    const error = new ApiError(response.status, code, issuesFromBody(body), `${code} (${response.status})`,
       body?.details && !Array.isArray(body.details) ? body.details.changed_entries ?? [] : []);
+    error.measurements = body?.measurements;
+    error.waitSeconds = body?.wait_seconds;
+    throw error;
   }
   return response;
 }
 
+function protectedError(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 503 && error.code === 'load_protected';
+}
+
+async function requestInteractive(path: string, options: RequestOptions): Promise<Response> {
+  let deadline: number | undefined;
+  for (;;) {
+    let remaining: number;
+    try {
+      return await request(path, options);
+    } catch (error) {
+      if (!protectedError(error)) throw error;
+      const now = performance.now();
+      deadline ??= now + Math.min(60, error.waitSeconds ?? 30) * 1000;
+      remaining = Math.ceil(deadline - now);
+      if (remaining <= 0) {
+        loadWait.reject(error.measurements ?? []);
+        throw error;
+      }
+    }
+    if (loadWait.snapshot()?.kind === 'waiting') throw new ActionCancelled();
+    const controller = new AbortController();
+    const signal = options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal;
+    loadWait.start(() => controller.abort());
+    try {
+      await request(`operations/wait?budget_ms=${remaining}`, { signal });
+      signal.throwIfAborted();
+    } catch (error) {
+      if (signal.aborted) { loadWait.finish(); throw new ActionCancelled(); }
+      if (error instanceof ApiError) error.beforeExecution = true;
+      if (protectedError(error)) loadWait.reject(error.measurements ?? []);
+      else loadWait.finish();
+      throw error;
+    }
+    loadWait.finish();
+  }
+}
+
 export async function api<T = Json>(path: string, options: RequestOptions = {}): Promise<T> {
-  const response = await request(path, options);
+  const response = await (options.interactive ? requestInteractive(path, options) : request(path, options));
   if (response.status === 204) return null as T;
   return (await response.json()) as T;
 }

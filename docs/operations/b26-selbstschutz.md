@@ -23,6 +23,7 @@ Abstieg haben getrennte Haltezeiten. Direkte Wechsel zwischen `normal` und
 | `load_commit_window_s` | 60 s | | 10–600 s |
 | `load_enter_hold_s` | 5 s | | 0,1–300 s |
 | `load_recover_hold_s` | 30 s | | 0,1–600 s |
+| `load_interactive_wait_s` | 30 s | | 1–60 s |
 | `projection_protected_interval_s` | 10 s | | 1–60 s |
 | `retry_warning_after` | 3 Fehlschläge | | 1–100 |
 
@@ -36,7 +37,7 @@ der Messungen im Fenster oder „Noch nicht gemessen“.
 `*` steht jeweils für `strained` oder `protected`. Die Schutzschwelle darf
 nicht unter der angespannten Schwelle liegen. Fehlende Zeitmessungen bleiben
 in der Diagnose ausdrücklich unbekannt. Wie alle Betriebswerte werden auch
-  diese dreizehn Werte atomar in `operations.json` gespeichert und erst beim
+  diese Werte atomar in `operations.json` gespeichert und erst beim
 Neustart wirksam. Die bisherigen 42 Betriebswerte bleiben unverändert.
 
 `angespannt` meldet nur Zustand und Protokolleintrag. `geschützt` begrenzt
@@ -54,10 +55,25 @@ Katalogbereinigung und -umfang, Aufbewahrung, Titelabgleich und Import.
 `Runtime.submit()` weist diese Vorgänge im Schutz mit `load_protected` ab,
 bevor ein Einreichungshelfer oder eine Warteschlange erreicht wird. Der
 Verwaltungsarbeiter prüft nach dem Warten auf seinen Platz erneut. Bereits
-begonnene Arbeit wird nicht abgebrochen. Die API antwortet mit 503; die
-Oberfläche erklärt auf Deutsch, dass Du es gleich noch einmal versuchen kannst.
-Leichte Verwaltung, Betriebsdiagnose, Pause/Fortsetzen und Wahrheitsverarbeitung
-bleiben zugänglich. Große Importe werden schon vor dem Lesen/Entpacken abgewiesen.
+begonnene Arbeit wird zu Ende geführt. Die API antwortet mit 503. Bei bewusst
+ausgelöstem Prüfen, Vorschau, Speichern oder Übernehmen sieht der Nutzer eine
+Warteanzeige mit Abbruch. Der Leseaufruf `GET /api/v1/operations/wait` wartet
+außerhalb der Laufzeitwarteschlange. Nach dem Ende des Schutzes kann der Browser
+die abgewiesene Aktion mit denselben Daten erneut einreichen. Bei weiter aktivem
+Schutz zeigt die Oberfläche Messgröße, aktuellen Wert, Schwelle und den Link zu
+Einstellungen → Betrieb. Die Lastanzeige in der Kopfzeile führt ebenfalls dorthin.
+Betriebsdiagnose, Pause/Fortsetzen und Wahrheitsverarbeitung bleiben zugänglich.
+Große Importe werden schon vor dem Lesen/Entpacken abgewiesen.
+
+Quittungen für Hinweise und Aktualisierungen speichern ihren Job- und
+Wiederholstatus. Eine fällige Auswertung und Kalenderantworten mit möglicher
+Auswirkung auf Wahrheiten durchlaufen den bisherigen Auswertungspfad. Wird
+eine Frist während des Speicherns fällig, löst der Laufzeit-Timer die Auswertung
+aus. Die Übernahme eines Dienstjobs bleibt dauerhaft gespeichert, bevor der
+Dienst von seiner Ausführung erfährt. Die in #152 gemeldeten Laufzeiten für
+Verwaltungs- und Dienstjoboperationen gehen über diesen Pfad nicht direkt in
+die p95-Stichprobe ein. Hohe Laufzeiten können Eingänge dennoch länger warten
+lassen.
 
 `PUT /api/v1/operations/projection` akzeptiert genau `{"paused": true|false}`.
 Die vorhandene Admin-/Ingress-Grenze gilt; Consumer und Cross-Site-Schreibzugriffe

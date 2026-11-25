@@ -76,7 +76,7 @@ export default function CatalogPage() {
   const pastContent = useQuery({ queryKey: ['catalog-past', catalog?.catalog_id, past, pastAfter], enabled: !!catalog && past !== null, queryFn: () => api<{ items: Entry[]; total: number; next_cursor: string | null }>(`catalogs/revision?${new URLSearchParams({ catalog_id: catalog!.catalog_id, definition_version: String(catalog!.version), revision: String(past), after: pastAfter })}`) });
   const restoreBody = () => ({ catalog_id: catalog!.catalog_id, definition_version: catalog!.version, restore_revision: past, expected_active_revision: expectedActive, expected_content_revision: expected, request_id: restoringId, reason: t('alpha10.catalog.restoreReason') });
   const restore = async () => { if (!catalog || past === null || !impactCurrent) return; setBusy(true); setError(''); try {
-    await api('catalogs/entries', { method: 'POST', body: restoreBody() });
+    await api('catalogs/entries', { method: 'POST', interactive: true, body: restoreBody() });
     restoreGuard.finish(); setSaved(true); await cache.invalidateQueries({ queryKey: ['catalog-entries'] }); await cache.invalidateQueries({ queryKey: ['catalog-history'] }); await cache.invalidateQueries({ queryKey: ['catalog-details'] }); await cache.invalidateQueries({ queryKey: ['catalog-masters'] });
   } catch (failure) { setError(describeError(failure)); } finally { setBusy(false); } };
   const open = (entry: Entry, owner: Catalog = catalog!) => { setSaved(false); setEditingCatalog(owner); setEditing(entry); setClassification(entry.classification ?? entry.effective_classification ?? owner?.classification_schema.values[0] ?? ''); setMode(entry.master_key ? 'variant' : 'independent'); setMaster(entry.master_key ?? ''); setNote(entry.note); setDisplayName(entry.display_name); setRemovingEntry(false); setConfirmSave(false); setExpected(entry.content_revision ?? entries.data?.content_revision ?? 0); setExpectedActive(active.data?.revision ?? 0); setComparison(''); setMasterQuery(''); setRequestId(uuid()); setError(''); setErrorCode(''); setClassConfirmed(false); };
@@ -87,12 +87,12 @@ export default function CatalogPage() {
           classification: mode === 'variant' ? null : classification, master_key: mode === 'variant' ? master : null, note, display_name: displayName, tombstone: removingEntry }] });
   const currentPayload = catalog ? past !== null ? restoreBody() : editing ? body() : null : null;
   const impactCurrent = !!impact && impact.request === JSON.stringify(currentPayload);
-  const inspectImpact = async (restoring = false) => { if (!catalog || (!editing && !restoring)) return; const payload = restoring ? restoreBody() : body(); setBusy(true); setError(''); setErrorCode(''); try { const result = await api<{ affected_keys: number; affected_contracts: number; changes?: Entry[] }>(!restoring && mode === 'promote' ? 'catalogs/care/preview' : 'catalogs/preview', { method: 'POST', body: payload }); setImpact({ ...result, request: JSON.stringify(payload) }); } catch (failure) { setError(describeError(failure)); setErrorCode(failure instanceof ApiError ? failure.code : ''); } finally { setBusy(false); } };
+  const inspectImpact = async (restoring = false) => { if (!catalog || (!editing && !restoring)) return; const payload = restoring ? restoreBody() : body(); setBusy(true); setError(''); setErrorCode(''); try { const result = await api<{ affected_keys: number; affected_contracts: number; changes?: Entry[] }>(!restoring && mode === 'promote' ? 'catalogs/care/preview' : 'catalogs/preview', { method: 'POST', interactive: true, body: payload }); setImpact({ ...result, request: JSON.stringify(payload) }); } catch (failure) { setError(describeError(failure)); setErrorCode(failure instanceof ApiError ? failure.code : ''); } finally { setBusy(false); } };
   const save = async () => {
     if (!editing || !catalog || !impactCurrent) return;
     setBusy(true); setError('');
     try {
-      await api(mode === 'promote' ? 'catalogs/care/write' : 'catalogs/entries', { method: 'POST', body: body() });
+      await api(mode === 'promote' ? 'catalogs/care/write' : 'catalogs/entries', { method: 'POST', interactive: true, body: body() });
       if (removingEntry) setSelected(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => key !== entryKey(editing))));
       await cache.invalidateQueries({ queryKey: ['managed-catalogs'] });
       editGuard.finish(); setSaved(true); await cache.invalidateQueries({ queryKey: ['catalog-entries'] }); await cache.invalidateQueries({ queryKey: ['catalog-history'] }); await cache.invalidateQueries({ queryKey: ['catalog-details'] }); await cache.invalidateQueries({ queryKey: ['catalog-masters'] });

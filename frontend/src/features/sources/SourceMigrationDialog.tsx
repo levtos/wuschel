@@ -34,7 +34,7 @@ export function SourceMigrationDialog(props: { sourceId: string; bindingId?: str
 async function saveMigration(doc: WorkingDocument, base: JsonObject, checked: JsonObject) {
   const target = await doc.ensureDraft();
   const merged = applyEditorChanges(base, checked, target);
-  if (!deepEqual(merged, checked) && !(await validateConfig(merged)).valid) {
+  if (!deepEqual(merged, checked) && !(await validateConfig(merged, true)).valid) {
     throw new EditorInputError(t('alpha7.move.fixBeforeMove'));
   }
   await doc.editAndSave(current => {
@@ -62,7 +62,7 @@ function EntityChangeDialog({ sourceId, bindingId, onClose }: { sourceId: string
     const binding = selectedBinding; const target = entity;
     try {
       const config = planEntityChange(base, sourceId, binding, target);
-      const result = await validateConfig(config);
+      const result = await validateConfig(config, true);
       if (!unchanged()) { setError(t('b22.object.changed')); return; }
       if (!result.valid) { setIssues(result.issues); return; }
       setReview({ config, binding, entity: target, diff: result.diff });
@@ -125,7 +125,7 @@ function MigrationDialog({ sourceId, onClose }: { sourceId: string; onClose: () 
     const candidate = plan; const form = clone(options);
     setBusy(true); setError(''); setIssues([]); setReview(null);
     try {
-      const verdict = await validateConfig(candidate.config);
+      const verdict = await validateConfig(candidate.config, true);
       if (!unchanged() || !deepEqual(currentOptions.current, form)) { setError(t('alpha7.move.changed')); return; }
       if (!verdict.valid) { setIssues(verdict.issues); return; }
       setReview({ options: form, result: candidate, diff: verdict.diff });

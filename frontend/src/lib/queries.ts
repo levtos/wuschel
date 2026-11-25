@@ -180,6 +180,7 @@ export function useDraftMutations() {
       mutationFn: (input: { draft: Draft; config: Registry; display_name?: string; editorial?: import('@/features/editorial/model').EditorialEntry[] }) =>
         api<Draft>(`registry/drafts/${encodeURIComponent(input.draft.draft_id)}`, {
           method: 'PUT',
+          interactive: true,
           body: {
             config: input.config,
             draft_version: input.draft.draft_version,
@@ -207,8 +208,8 @@ export function useDraftMutations() {
 }
 
 /** Validation without saving; the same validator serves drafts and imports. */
-export const validateConfig = (config: Registry) =>
-  api<ValidationResult>('registry/validate', { method: 'POST', body: config });
+export const validateConfig = (config: Registry, interactive = false, signal?: AbortSignal) =>
+  api<ValidationResult>('registry/validate', { method: 'POST', body: config, interactive, signal });
 
 export function useActivation() {
   const client = useQueryClient();
@@ -224,6 +225,7 @@ export function useActivation() {
       mutationFn: (input: { draft: Draft; expectedActiveRevision: number; note?: string; run?: () => Promise<RevisionRow> }) =>
         input.run ? input.run() : api<RevisionRow>(`registry/drafts/${encodeURIComponent(input.draft.draft_id)}/activate`, {
           method: 'POST',
+          interactive: true,
           body: {
             draft_version: input.draft.draft_version,
             expected_active_revision: input.expectedActiveRevision,
@@ -239,6 +241,7 @@ export function useActivation() {
       mutationFn: (input: { revision: number; expectedActiveRevision: number; note?: string }) =>
         api<RevisionRow>('registry/rollback', {
           method: 'POST',
+          interactive: true,
           body: { revision: input.revision, expected_active_revision: input.expectedActiveRevision, ...(input.note?.trim() ? { note: input.note.trim() } : {}) },
         }),
       onSuccess: () => { void done(); },

@@ -141,10 +141,69 @@ async def test_initialization_waits_for_confirmed_snapshot_and_timer_commits_out
     runtime.bridge, runtime.bridge_protocol_selected = "connected", 2
     job = await runtime.submit("service_claim")
     assert job["status"] == "sent"
+    published = runtime.state.publication_seq
     await runtime.submit(
         "service_complete", {"job_id": job["job_id"], "response": {"outcome": "completed"}}
     )
     assert runtime.state.tables["service_state"]["notice:signal"]["acknowledged"]
+    assert runtime.state.tables["service_job"][job["job_id"]]["status"] == "finished"
+    assert runtime.state.publication_seq == published
+
+
+async def test_notice_completion_schedules_retry_without_republishing(runtime, config):
+    runtime.installation_id = str(uuid4())
+    await activate(runtime, document(config).model_dump(mode="json"))
+    await runtime.submit("snapshot", [])
+    runtime.clock.advance(30)
+    await runtime.submit("tick")
+    runtime.bridge, runtime.bridge_protocol_selected = "connected", 2
+    job = await runtime.submit("service_claim")
+    published = runtime.state.publication_seq
+    await runtime.submit(
+        "service_complete", {"job_id": job["job_id"], "response": {"outcome": "failed"}}
+    )
+    retry_at = runtime.clock.now_utc() + timedelta(seconds=30)
+    assert (
+        runtime.state.tables["service_state"]["notice:signal"]["retry_at"] == retry_at.isoformat()
+    )
+    assert runtime.state.publication_seq == published
+    runtime.clock.advance(30)
+    await runtime.submit("tick")
+    assert jobs(runtime.state)[0]["job_id"] != job["job_id"]
+
+
+async def test_notice_completion_preserves_deadline_crossed_during_commit(
+    runtime, config, monkeypatch
+):
+    runtime.installation_id = str(uuid4())
+    await activate(runtime, document(config).model_dump(mode="json"))
+    await runtime.submit("snapshot", [])
+    runtime.clock.advance(30)
+    await runtime.submit("tick")
+    runtime.bridge, runtime.bridge_protocol_selected = "connected", 2
+    job = await runtime.submit("service_claim")
+    runtime.next_evaluation = runtime.clock.now_utc() + timedelta(seconds=1)
+    commit = runtime.store.commit
+    evaluate = runtime._evaluate
+    evaluations = []
+
+    def record_evaluation(*args, **kwargs):
+        evaluations.append(kwargs["origin"])
+        return evaluate(*args, **kwargs)
+
+    async def slow_commit(state):
+        monkeypatch.setattr(runtime.store, "commit", commit)
+        runtime.clock.advance(1)
+        await commit(state)
+
+    monkeypatch.setattr(runtime.store, "commit", slow_commit)
+    monkeypatch.setattr(runtime, "_evaluate", record_evaluation)
+    await runtime.submit(
+        "service_complete", {"job_id": job["job_id"], "response": {"outcome": "completed"}}
+    )
+    await runtime.submit("tick")
+    assert runtime.state.tables["service_state"]["notice:signal"]["acknowledged"]
+    assert evaluations == ["timer"]
 
 
 async def test_failed_notice_commit_cannot_be_claimed_and_disable_keeps_channel_for_cleanup(

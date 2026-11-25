@@ -46,7 +46,7 @@ export default function ImportExportPage() {
     const sequence = ++requestSequence.current;
     setChecking(true); setError('');
     try {
-      const result = await api<Preview>('portable/preview', { method: 'POST', body: JSON.parse(bodyText) });
+      const result = await api<Preview>('portable/preview', { method: 'POST', interactive: true, body: JSON.parse(bodyText) });
       if (sequence !== requestSequence.current) return;
       if (latestKey.current !== previewKey) {
         // Keep a stale first result visible so the existing recheck effect runs.
@@ -71,7 +71,7 @@ export default function ImportExportPage() {
   const firstConflictIndex = preview?.conflicts.indexOf(preview.unresolved[0] ?? '') ?? -1;
   const blockedReason = busy ? t('b12.staging') : checking || previewOutdated ? t('b10.previewUpdating') : error || (targetUnavailable ? t('alpha10.transfer.targetSave') : preview?.configuration_issues?.length ? t('b20.export.compatibility') : '');
   const save = async () => { if (!preview || previewOutdated || checking || error || targetUnavailable || preview.unresolved.length) return; setBusy(true); setError(''); try {
-    const draft = await api<Draft>('portable/stage', { method: 'POST', body: { ...body(), remove_unsupported_origins: removeUnsupportedOrigins, plan_digest: preview.plan_digest, request_id: requestId } });
+    const draft = await api<Draft>('portable/stage', { method: 'POST', interactive: true, body: { ...body(), remove_unsupported_origins: removeUnsupportedOrigins, plan_digest: preview.plan_digest, request_id: requestId } });
     await cache.invalidateQueries({ queryKey: ['registry', 'drafts'] }); if (draft.draft_id === doc.draft?.draft_id) doc.open(draft, { reload: true }); else doc.requestOpen(draft); navigate(`/changes/drafts/${encodeURIComponent(draft.draft_id)}`);
   } catch (failure) { setError(describeError(failure)); } finally { setBusy(false); } };
   const backup = async () => { setBusy(true); setError(''); try {

@@ -82,19 +82,19 @@ export function CatalogCare({ catalog, rows, selected, setSelected, revision, ac
     if (updated.groups.length) begin('group', updated.groups[0]!.members, updated);
     else { setWork(null); setBody(null); }
   };
-  const check = async () => {
+  const check = async (interactive = true) => {
     if (!body || !groupReady || !selectionCurrent) return; const seq = ++sequence.current; setBusy(true); setError(''); const submitted = JSON.stringify(body); const started = performance.now();
-    try { const value = await api<Impact>('catalogs/care/preview', { method: 'POST', body }); if (seq === sequence.current && latest.current === submitted) { setImpact({ value, body: submitted }); setTimings(previous => ({ ...previous, ...(value.timings_ms ?? {}), preview: performance.now() - started })); } }
+    try { const value = await api<Impact>('catalogs/care/preview', { method: 'POST', body, interactive }); if (seq === sequence.current && latest.current === submitted) { setImpact({ value, body: submitted }); setTimings(previous => ({ ...previous, ...(value.timings_ms ?? {}), preview: performance.now() - started })); } }
     catch (failure) { if (seq === sequence.current && latest.current === submitted) failed(failure); } finally { if (seq === sequence.current) setBusy(false); }
   };
   const payloadKey = JSON.stringify(body);
-  useEffect(() => { if (!body || !groupReady || !selectionCurrent) { if (!saving) setBusy(false); return; } setImpact(null); const timer = window.setTimeout(() => void check(), 200); return () => { window.clearTimeout(timer); sequence.current++; }; }, [payloadKey, revision, activeRevision, selectionCurrent]);
+  useEffect(() => { if (!body || !groupReady || !selectionCurrent) { if (!saving) setBusy(false); return; } setImpact(null); const timer = window.setTimeout(() => void check(false), 200); return () => { window.clearTimeout(timer); sequence.current++; }; }, [payloadKey, revision, activeRevision, selectionCurrent]);
   const save = async () => {
     if (!body || !groupReady || !selectionCurrent || !impact || impact.body !== JSON.stringify(body) || busy || error) return;
     setBusy(true); setSaving(true); setError('');
     try {
       const started = performance.now();
-      const result = await api<{ content_revision: number }>('catalogs/care/write', { method: 'POST', body });
+      const result = await api<{ content_revision: number }>('catalogs/care/write', { method: 'POST', body, interactive: true });
       setSaved(true); setChanged(false);
       const write = performance.now() - started; const refreshing = performance.now();
       setSelected({});

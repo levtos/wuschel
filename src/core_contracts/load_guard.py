@@ -58,7 +58,9 @@ class LoadGuard:
             if value is not None
         }
         level = max(levels.values(), default=0)
-        self.reasons = [key for key, severity in levels.items() if severity > 0]
+        self.reasons = [
+            key for key in sorted(levels, key=levels.__getitem__, reverse=True) if levels[key]
+        ]
         target = STATES[level]
         if target != self.candidate:
             self.candidate, self.candidate_since = target, now
@@ -71,6 +73,23 @@ class LoadGuard:
             return False
         self.state, self.changed_at = target, now
         return True
+
+    def protection(self, now: float) -> dict[str, Any]:
+        measurements = [
+            {"metric": key, "value": value, "threshold": threshold}
+            for key, value in self.metrics.items()
+            if value is not None
+            and value >= (threshold := getattr(self.settings, f"load_{key}_protected"))
+        ]
+        if not measurements:
+            measurements.append(
+                {
+                    "metric": "recovery_s",
+                    "value": max(0, now - self.candidate_since),
+                    "threshold": self.settings.load_recover_hold_s,
+                }
+            )
+        return {"measurements": measurements, "wait_seconds": self.settings.load_interactive_wait_s}
 
     def view(self) -> dict[str, Any]:
         return {

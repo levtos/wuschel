@@ -104,7 +104,12 @@ class API:
             try:
                 response = await handler(request)
             except LoadProtected:
-                response = web.json_response({"error": "load_protected"}, status=503)
+                details = (
+                    self.runtime.load_guard.protection(self.runtime.clock.monotonic())
+                    if self.interactive(request) or request.path == "/api/v1/operations/wait"
+                    else {}
+                )
+                response = web.json_response({"error": "load_protected", **details}, status=503)
             except AuthoringError as error:
                 response = web.json_response(
                     {"error": error.code, "cause": error.code, "details": error.details}, status=409
@@ -372,11 +377,35 @@ class API:
         ):
             raise AuthoringError("authoring_upgrade_required")
 
+    @staticmethod
+    def interactive(request: web.Request) -> bool:
+        return (
+            request["role"] == "admin"
+            and request.method in {"POST", "PUT", "PATCH"}
+            and request.headers.get("X-Wuschel-Interactive") == "1"
+        )
+
+    def admit_interactive(self, request: web.Request) -> None:
+        if self.interactive(request) and self.runtime.load_guard.state == "geschützt":
+            raise LoadProtected()
+
+    async def wait_for_load(self, budget_ms: int) -> None:
+        runtime = self.runtime
+        limit = min(runtime.operations.load_interactive_wait_s, budget_ms / 1000)
+        deadline = runtime.clock.monotonic() + limit
+        while runtime.load_guard.state == "geschützt":
+            remaining = deadline - runtime.clock.monotonic()
+            if remaining <= 0:
+                raise LoadProtected()
+            # The wait belongs to the HTTP request, never to the runtime queue.
+            await runtime.clock.sleep(min(0.25, remaining))
+
     async def extension_dispatch(
         self, request: web.Request, *, handler: Callable[..., Awaitable[Any]]
     ) -> web.Response:
         path = request.path.removeprefix("/api/v1/")
         self.authorize(request, path, request.method)
+        self.admit_interactive(request)
         result = await handler(self, request)
         return web.Response(text=canonical(result), content_type="application/json")
 
@@ -384,11 +413,18 @@ class API:
         path, method = request.match_info["path"], request.method
         runtime, state, config = self.runtime, self.runtime.state, self.runtime.config
         self.authorize(request, path, method)
+        self.admit_interactive(request)
         result: Any
         if path == "info" and method == "GET":
             result = self.info()
         elif path == "operations/settings" and method == "GET":
             result = self.operations.view()
+        elif path == "operations/wait" and method == "GET":
+            budget = request.query.get("budget_ms", "60000")
+            if not re.fullmatch(r"[0-9]{1,5}", budget):
+                raise ValueError("invalid_load_wait")
+            await self.wait_for_load(int(budget))
+            return web.Response(status=204)
         elif (
             path == "operations/settings"
             and method == "PUT"
