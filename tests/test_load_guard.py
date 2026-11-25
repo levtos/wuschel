@@ -6,6 +6,8 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from aiohttp import web
+from aiohttp.test_utils import make_mocked_request
 from pydantic import ValidationError
 
 from core_contracts.api import API
@@ -260,6 +262,69 @@ async def test_heavy_operations_are_rejected_before_any_work(runtime, operation)
 async def test_light_operations_are_always_allowed(runtime, state):
     runtime.load_guard.state = state
     assert await runtime.submit("audit", {"operation": "synthetic"}) is None
+
+
+@pytest.mark.parametrize("recovers", [True, False])
+async def test_interactive_admission_wait_reports_recovery_or_current_limit(
+    runtime, config, tmp_path, recovers
+):
+    api = API(runtime, Tokens(tmp_path / "secrets"), "synthetic")
+    middleware = api.application().middlewares[0]
+    guard = runtime.load_guard
+    sample(guard, 0, lag_ms=625)
+    sample(guard, 5, lag_ms=625)
+    before = runtime.state.publication_seq
+    wait_started = asyncio.Event()
+
+    async def call(method, path, *, interactive=False) -> web.Response:
+        headers = {"Authorization": "Bearer " + api.tokens.values["admin"]}
+        if interactive:
+            headers["X-Wuschel-Interactive"] = "1"
+        request = make_mocked_request(
+            method, f"/api/v1/{path}", headers=headers, match_info={"path": path}
+        )
+
+        async def dispatch(request):
+            if path == "operations/wait":
+                wait_started.set()
+            if method == "POST":
+
+                async def body():
+                    return config
+
+                request.json = body
+            return await api.dispatch(request)
+
+        return await middleware(request, dispatch)
+
+    first = await call("POST", "registry/validate", interactive=True)
+    assert first.status == 503
+    assert json.loads(first.text) == {
+        "error": "load_protected",
+        "wait_seconds": 30,
+        "measurements": [{"metric": "lag_ms", "value": 625, "threshold": 500}],
+    }
+    background = await call("POST", "registry/validate")
+    assert background.status == 503 and json.loads(background.text) == {"error": "load_protected"}
+    waiting = asyncio.create_task(call("GET", "operations/wait"))
+    await wait_started.wait()
+    assert not waiting.done() and runtime.queue.empty()
+    if recovers:
+        sample(guard, 6)
+        sample(guard, 36)
+        runtime.clock.advance(1)
+        assert (await waiting).status == 204
+        result = await call("POST", "registry/validate", interactive=True)
+        assert result.status == 200 and json.loads(result.text)["valid"]
+    else:
+        sample(guard, 6, lag_ms=700)
+        runtime.clock.advance(30)
+        result = await waiting
+        assert result.status == 503
+        assert json.loads(result.text)["measurements"] == [
+            {"metric": "lag_ms", "value": 700, "threshold": 500}
+        ]
+    assert runtime.state.publication_seq == before
 
 
 async def test_pause_api_roles_validation_protected_rejection_and_reset(

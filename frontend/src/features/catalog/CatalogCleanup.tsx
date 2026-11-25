@@ -33,7 +33,7 @@ export function CatalogCleanup({ catalog }: { catalog: Catalog }) {
   const inspect = async (fresh = false, offset = 0, selectFiltered = false) => {
     const seq = ++sequence.current; setBusy(true); setError(''); setChangedEntries([]); setConfirmed(false); setChecked('');
     try {
-      const answer = await api<Plan>('catalogs/cleanup/preview', { method: 'POST', body: {
+      const answer = await api<Plan>('catalogs/cleanup/preview', { method: 'POST', interactive: true, body: {
         catalog_id: catalog.catalog_id, definition_version: catalog.version,
         ...(!fresh && plan ? { plan_id: plan.plan_id, selected } : {}),
         filters: { ...filters, since: filters.since ? new Date(filters.since).toISOString() : '', until: filters.until ? new Date(filters.until).toISOString() : '' },
@@ -48,7 +48,7 @@ export function CatalogCleanup({ catalog }: { catalog: Catalog }) {
     if (!plan || !confirmed || checked !== key || busy) return;
     setBusy(true); setError('');
     try {
-      const answer = await api<{ removed: number; reset_counters: boolean }>('catalogs/cleanup/apply', { method: 'POST', body: { plan_id: plan.plan_id, plan_digest: plan.plan_digest, request_id: requestId, confirmed: true } });
+      const answer = await api<{ removed: number; reset_counters: boolean }>('catalogs/cleanup/apply', { method: 'POST', interactive: true, body: { plan_id: plan.plan_id, plan_digest: plan.plan_digest, request_id: requestId, confirmed: true } });
       setResult(t(answer.reset_counters ? 'b20.cleanup.done' : 'b20.cleanup.removed', { n: answer.removed })); setPlan(null); setConfirmed(false);
       await Promise.all(['catalog-entries', 'catalog-history', 'catalog-masters', 'catalog-details', 'catalog-detail'].map(name => cache.invalidateQueries({ queryKey: [name] })));
     } catch (failure) { setError(describeError(failure)); setChangedEntries(failure instanceof ApiError ? failure.changedEntries : []); setChecked(''); setConfirmed(false); }

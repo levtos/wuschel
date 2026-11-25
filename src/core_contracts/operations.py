@@ -123,6 +123,14 @@ class OperationsSettings(Model):
         "Lastschutz: Haltezeit bei sinkender Last",
         "So lange muss die Last niedriger bleiben, bevor Wuschel den Schutz zurücknimmt.",
     )
+    load_interactive_wait_s: int = setting(
+        30,
+        1,
+        60,
+        "s",
+        "Lastschutz: Wartezeit für Deine Aktionen",
+        "So lange warten Prüfen, Vorschau, Speichern und Übernehmen auf das Ende des Schutzes.",
+    )
     projection_protected_interval_s: float = setting(
         10,
         1,

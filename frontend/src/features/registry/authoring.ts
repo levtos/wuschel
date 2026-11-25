@@ -28,11 +28,11 @@ export async function activateWithReceipt(draft: Draft, preview: ActivationPrevi
   const pending = { path: `registry/drafts/${encodeURIComponent(draft.draft_id)}/${complete ? 'complete' : 'activate'}`, body };
   sessionStorage.setItem(key, JSON.stringify(pending));
   try {
-    const result = await api<RevisionRow>(pending.path, { method: 'POST', body });
+    const result = await api<RevisionRow>(pending.path, { method: 'POST', body, interactive: true });
     sessionStorage.removeItem(key);
     return result;
   } catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 0 && error.status < 500) { sessionStorage.removeItem(key); throw error; }
+    if (!(error instanceof ApiError) || error.beforeExecution || error.code === 'load_protected' || error.status !== 0 && error.status < 500) { sessionStorage.removeItem(key); throw error; }
     onUncertain();
     const outcome = await api<{ status: string; result?: RevisionRow }>(`registry/activation-requests/${requestId}`);
     if (outcome.status === 'completed' && outcome.result) { sessionStorage.removeItem(key); return outcome.result; }

@@ -369,7 +369,14 @@ async def operation_service_complete(
             service_observation.storage_document()
         )
         await runtime._record_observation(state, service_observation)
-    if config:
+    # An acknowledgement changes the outbox and its retry state. Calendar
+    # responses and due timers can also change contract inputs or truth.
+    publication = config is not None and (
+        job["kind"] not in {"notice", "refresh", "legacy_refresh"}
+        or now < runtime.last_clock
+        or (runtime.next_evaluation is not None and runtime.next_evaluation <= now)
+    )
+    if config is not None and publication:
         coverage_source = next(
             (
                 b.source_id
@@ -395,7 +402,13 @@ async def operation_service_complete(
     )
     if warn_calendar_failure:
         calendar_row["failure_warning_emitted"] = True
-    await runtime._commit(state, publication=True)
+    previous_due = runtime.next_evaluation
+    await runtime._commit(state, publication=publication)
+    if not publication and previous_due is not None and previous_due <= runtime.clock.now_utc():
+        # A deadline can expire during persistence, after the decision above.
+        # Let the queued timer see it even after commit replans future deadlines.
+        runtime.next_evaluation = previous_due
+        runtime.tick()
     if warn_calendar_failure:
         RUNTIME_LOGGER.warning(
             "calendar_fetch_failed",

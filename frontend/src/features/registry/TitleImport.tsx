@@ -45,7 +45,7 @@ export function TitleImport() {
   const check = async () => {
     const token = ++sequence.current; const submitted = key; setBusy(true); setError('');
     try {
-      const result = await api<Preview>('title-import/preview', { method: 'POST', body });
+      const result = await api<Preview>('title-import/preview', { method: 'POST', interactive: true, body });
       if (token !== sequence.current || latest.current !== submitted) return;
       setPreview(result); setChecked(submitted); requestId.current = uuid();
     } catch (failure) { if (token === sequence.current) { setError(describeError(failure)); setChecked(''); void cache.invalidateQueries({ queryKey: ['registry', 'active'] }); } }
@@ -55,7 +55,7 @@ export function TitleImport() {
     if (!preview || !current || preview.already_applied || preview.unresolved.length) return;
     setBusy(true); setError('');
     try {
-      const result = await api<Draft | Preview>('title-import/stage', { method: 'POST', body: { ...body, plan_digest: preview.plan_digest, request_id: requestId.current } });
+      const result = await api<Draft | Preview>('title-import/stage', { method: 'POST', interactive: true, body: { ...body, plan_digest: preview.plan_digest, request_id: requestId.current } });
       if ('already_applied' in result) { setPreview(result); return; }
       await cache.invalidateQueries({ queryKey: ['registry', 'drafts'] }); doc.requestOpen(result);
       setOpen(false); navigate(`/changes/drafts/${encodeURIComponent(result.draft_id)}`);

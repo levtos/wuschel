@@ -50,7 +50,7 @@ export function TitleSync({ catalogs }: { catalogs: SyncCatalog[] }) {
       if (!edit && runId.current) await release(runId.current);
       if (serial !== sequence.current) return;
       const id = edit ? preview!.plan_id : uuid(); runId.current = id;
-      const result = await api<Preview>('title-sync/preview', { method: 'POST', signal: controller.signal, body: {
+      const result = await api<Preview>('title-sync/preview', { method: 'POST', interactive: true, signal: controller.signal, body: {
         expected_active_revision: expected.current,
         ...(edit && mapping ? { plan_id: id, mapping, expected_mapping_version: preview!.mapping_version } : { run_id: id }),
       } });
@@ -67,7 +67,7 @@ export function TitleSync({ catalogs }: { catalogs: SyncCatalog[] }) {
     if (!preview || dirty || !preview.can_apply || complete || expected.current !== active.data?.revision) return;
     const serial = sequence.current; setBusy(true); setError(''); setMessage('');
     try {
-      const result = await api<{ changed: number; complete: boolean; page: number }>('title-sync/apply', { method: 'POST', body: {
+      const result = await api<{ changed: number; complete: boolean; page: number }>('title-sync/apply', { method: 'POST', interactive: true, body: {
         plan_id: preview.plan_id, plan_digest: preview.plan_digest, request_id: requestId.current,
       } });
       if (serial !== sequence.current) return;

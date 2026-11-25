@@ -126,6 +126,7 @@ async def test_operations_api_roles_validation_reset_and_system_state(
     consumer = {"Authorization": "Bearer " + api.tokens.values["consumer"]}
     for method, path, body in (
         ("GET", "operations/settings", None),
+        ("GET", "operations/wait", None),
         ("PUT", "operations/settings", {}),
         ("POST", "operations/settings/reset", {}),
         ("GET", "system/state", None),

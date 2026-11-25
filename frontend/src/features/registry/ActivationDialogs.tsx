@@ -13,7 +13,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Collapsible } from '@/components/ui/controls';
 import { Field, Input } from '@/components/ui/form';
 import { Notice, Spinner } from '@/components/ui/layout';
-import { api, ApiError, describeError, type Issue } from '@/lib/api';
+import { ActionCancelled, api, ApiError, describeError, type Issue } from '@/lib/api';
 import type { JsonObject } from '@/lib/json';
 import { useLive } from '@/lib/live-context';
 import { keys, useActivation, validateConfig } from '@/lib/queries';
@@ -23,6 +23,7 @@ import { IssueList } from './IssueList';
 
 type Check =
   | { state: 'checking' }
+  | { state: 'cancelled' }
   | { state: 'ok'; result: ValidationResult }
   | { state: 'invalid'; issues: Issue[] }
   | { state: 'stale'; message: string; reason: 'draft' | 'base' }
@@ -37,16 +38,20 @@ class StaleSubject extends Error { constructor(message: string, public reason: '
  * `run` is read through a ref, so it always validates the *current* subject without
  * making the restart depend on callback identity (no re-check loops).
  */
-function useCheck(open: boolean, subject: string, run: () => Promise<ValidationResult>) {
+function useCheck(open: boolean, subject: string, run: (signal: AbortSignal) => Promise<ValidationResult>) {
   const client = useQueryClient();
   const live = useLive();
   const runRef = useRef(run);
   runRef.current = run;
   const ticket = useRef(0);
+  const pending = useRef<AbortController | null>(null);
   const [state, setState] = useState<{ subject: string; check: Check; expected: number }>({ subject, check: { state: 'checking' }, expected: 0 });
 
   const start = useCallback(async () => {
     const mine = ++ticket.current;
+    pending.current?.abort();
+    const controller = new AbortController();
+    pending.current = controller;
     const runCandidate = runRef.current;
     setState({ subject, check: { state: 'checking' }, expected: 0 });
     let outcome: Check;
@@ -55,12 +60,13 @@ function useCheck(open: boolean, subject: string, run: () => Promise<ValidationR
       const active = await client.fetchQuery({ queryKey: keys.active, queryFn: () => api<RevisionRow | null>('registry/active'), staleTime: 0 });
       if (mine !== ticket.current) return;
       expected = active?.revision ?? 0;
-      const result = await runCandidate();
+      const result = await runCandidate(controller.signal);
       const after = await api<RevisionRow | null>('registry/active');
       if ((after?.revision ?? 0) !== expected) throw new StaleSubject(uiText("features.registry.ActivationDialogs.die_aktive_revision_hat_sich_wahrend_der_prufung_38126e"), 'base');
       outcome = { state: 'ok', result };
     } catch (error) {
-      if (error instanceof StaleSubject) outcome = { state: 'stale', message: error.message, reason: error.reason };
+      if (error instanceof ActionCancelled) outcome = { state: 'cancelled' };
+      else if (error instanceof StaleSubject) outcome = { state: 'stale', message: error.message, reason: error.reason };
       else if (error instanceof ApiError && error.kind === 'validation') outcome = { state: 'invalid', issues: error.issues };
       else outcome = { state: 'error', message: describeError(error) };
     }
@@ -69,7 +75,10 @@ function useCheck(open: boolean, subject: string, run: () => Promise<ValidationR
 
   useEffect(() => {
     if (open) void start();
-    else ticket.current += 1; // a closed dialog keeps no result
+    return () => {
+      ticket.current += 1;
+      pending.current?.abort();
+    };
   }, [open, start]);
 
   // A result computed for another subject is never shown or confirmable.
@@ -83,7 +92,7 @@ function useCheck(open: boolean, subject: string, run: () => Promise<ValidationR
 }
 
 function Outcome({ error, onRecheck, draftId, close }: { error: unknown; onRecheck: () => void; draftId?: string; close?: () => void }) {
-  if (!error) return null;
+  if (!error || error instanceof ActionCancelled) return null;
   if (error instanceof ApiError && error.kind === 'conflict') {
     if (draftId && ['draft_base_conflict', 'active_revision_conflict', 'draft_base_unknown', 'import_plan_conflict', 'catalog_content_conflict', 'editorial_version_conflict'].includes(error.code)) return <Notice tone="warn" title={uiText('b3.baseTitle')}><p>{describeError(error)}</p><p>{uiText('b3.noChange')}</p><Link to={`/changes/drafts/${draftId}?continue=1`} onClick={close}><Button variant="primary">{CONTINUE}</Button></Link><div><Link to={`/changes/drafts/${draftId}`} onClick={close}>{uiText('b3.draftView')}</Link> · <Link to="/changes/drafts" onClick={close}>{uiText('b3.allDrafts')}</Link></div></Notice>;
     return (
@@ -116,14 +125,14 @@ export function ActivateDialog({ draft, open, onOpenChange }: { draft: Draft; op
   const requestId = useRef(uuid());
   const [uncertain, setUncertain] = useState(false);
   const subject = `draft:${draft.draft_id}@${draft.draft_version}`;
-  const { check, expected, currentRevision, restart, key } = useCheck(open, subject, async () => {
+  const { check, expected, currentRevision, restart, key } = useCheck(open, subject, async signal => {
     // The saved draft on the server must still be the very version the user is about to activate.
     const saved = await api<Draft>(`registry/drafts/${encodeURIComponent(draft.draft_id)}`);
     if (saved.draft_version !== draft.draft_version) {
       throw new StaleSubject(uiText("features.registry.ActivationDialogs.der_draft_wurde_zwischenzeitlich_auf_v_v0_geande_f36298", { v0: (saved.draft_version), v1: (draft.draft_version) }));
     }
-    const result = await api<ValidationResult>(`registry/drafts/${encodeURIComponent(draft.draft_id)}/validate`, { method: 'POST', body: {} });
-    setPreview(await api<ActivationPreview>(`registry/drafts/${encodeURIComponent(draft.draft_id)}/activation-preview`, { method: 'POST', body: {} }));
+    const result = await api<ValidationResult>(`registry/drafts/${encodeURIComponent(draft.draft_id)}/validate`, { method: 'POST', body: {}, interactive: true, signal });
+    setPreview(await api<ActivationPreview>(`registry/drafts/${encodeURIComponent(draft.draft_id)}/activation-preview`, { method: 'POST', body: {}, interactive: true, signal }));
     const after = await api<Draft>(`registry/drafts/${encodeURIComponent(draft.draft_id)}`);
     if (after.draft_version !== saved.draft_version) throw new StaleSubject(uiText("features.registry.ActivationDialogs.der_draft_hat_sich_wahrend_der_prufung_geandert__832d36"));
     return result;
@@ -142,7 +151,7 @@ export function ActivateDialog({ draft, open, onOpenChange }: { draft: Draft; op
     activate.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, subject]);
-  const ready = check.state === 'ok' && check.result.valid && !activate.error && preview !== null;
+  const ready = check.state === 'ok' && check.result.valid && (!activate.error || activate.error instanceof ActionCancelled) && preview !== null;
   useEffect(() => { setConfirmedFor(null); setRetentionConfirmed(false); }, [preview?.comparison_digest]);
 
   return (
@@ -183,6 +192,7 @@ export function ActivateDialog({ draft, open, onOpenChange }: { draft: Draft; op
             {uiText(currentRevision ? 'alpha9.configuration.activateFrom' : 'alpha9.configuration.activateFirst', { revision: currentRevision })}</Notice>
           {check.state === 'checking' && <Spinner label={uiText("features.registry.ActivationDialogs.server_pruft_den_gespeicherten_draft_afe932")} />}
           {check.state === 'error' && <Notice tone="bad" title={uiText("features.registry.ActivationDialogs.prufung_nicht_moglich_9c9bd1")}>{check.message}</Notice>}
+          {check.state === 'cancelled' && <Button onClick={() => void restart()}>{uiText('features.registry.ActivationDialogs.erneut_prufen_7da626')}</Button>}
           {check.state === 'stale' && (check.reason === 'base' ? <Notice tone="warn" title={uiText('b3.baseTitle')}><p>{check.message}</p><Link to={`/changes/drafts/${draft.draft_id}?continue=1`} onClick={() => onOpenChange(false)}>{CONTINUE}</Link></Notice> : <StaleNotice message={check.message} onRecheck={() => void restart()} />)}
           {check.state === 'invalid' && (
             <>
@@ -211,7 +221,7 @@ export function ActivateDialog({ draft, open, onOpenChange }: { draft: Draft; op
 export function RollbackDialog({ revision, open, onOpenChange }: { revision: RevisionRow; open: boolean; onOpenChange: (o: boolean) => void }) {
   const { rollback } = useActivation();
   const subject = `revision:${revision.revision}:${revision.checksum}`;
-  const { check, expected, currentRevision, restart, key } = useCheck(open, subject, () => validateConfig(revision.config));
+  const { check, expected, currentRevision, restart, key } = useCheck(open, subject, signal => validateConfig(revision.config, true, signal));
   const [confirmedFor, setConfirmedFor] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [done, setDone] = useState<{ subject: string; revision: RevisionRow } | null>(null);
@@ -225,7 +235,7 @@ export function RollbackDialog({ revision, open, onOpenChange }: { revision: Rev
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, subject]);
   const older = revision.revision < expected;
-  const ready = check.state === 'ok' && check.result.valid && older && !rollback.error;
+  const ready = check.state === 'ok' && check.result.valid && older && (!rollback.error || rollback.error instanceof ActionCancelled);
   return (
     <Dialog
       open={open}
@@ -261,6 +271,7 @@ export function RollbackDialog({ revision, open, onOpenChange }: { revision: Rev
           <Notice tone="warn" title={uiText("features.registry.ActivationDialogs.rollback_andert_den_aktiven_zustand_975420")}>{uiText('alpha9.configuration.rollbackFrom', { revision: currentRevision })}</Notice>
           {check.state === 'checking' && <Spinner label={uiText("features.registry.ActivationDialogs.server_analysiert_den_historischen_stand_7fcf03")} />}
           {check.state === 'error' && <Notice tone="bad" title={uiText("features.registry.ActivationDialogs.analyse_nicht_moglich_e876eb")}>{check.message}</Notice>}
+          {check.state === 'cancelled' && <Button onClick={() => void restart()}>{uiText('features.registry.ActivationDialogs.erneut_prufen_7da626')}</Button>}
           {check.state === 'stale' && <StaleNotice message={check.message} onRecheck={() => { setConfirmedFor(null); void restart(); }} />}
           {check.state === 'invalid' && (
             <>

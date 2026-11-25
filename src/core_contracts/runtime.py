@@ -242,16 +242,22 @@ class Runtime:
     def sample_load(self) -> None:
         samples = self._commit_window()
         p95 = samples[(95 * len(samples) + 99) // 100 - 1] if len(samples) >= 5 else None
-        if self.load_guard.sample(
+        guard = self.load_guard
+        previous_hint = (guard.candidate, guard.reasons)
+        changed = guard.sample(
             self.clock.monotonic(),
             lag_ms=self.event_loop_lag_ms,
             queue_depth=self.queue.qsize(),
             queue_capacity=self.queue.maxsize,
             overflow_total=self.overflow_serial,
             commit_p95_ms=p95,
-        ):
-            LOGGER.warning("load_state_changed", extra={"load_state": self.load_guard.state})
+        )
+        if changed:
+            LOGGER.warning("load_state_changed", extra={"load_state": guard.state})
             self.projection_changed.set()
+        if changed or (
+            guard.state != "normal" and previous_hint != (guard.candidate, guard.reasons)
+        ):
             self._broadcast(self.service_state())
 
     def admit_operation(self, operation: str) -> None:

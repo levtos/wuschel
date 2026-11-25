@@ -17,7 +17,11 @@ export interface Info {
 
 export interface ServiceState {
   projection_paused?: boolean;
-  load?: { state: 'normal' | 'angespannt' | 'geschützt' };
+  load?: {
+    state: 'normal' | 'angespannt' | 'geschützt';
+    candidate?: 'normal' | 'angespannt' | 'geschützt';
+    reasons?: string[];
+  };
   retry_notices?: string[];
   type?: 'service_state';
   ready: boolean;

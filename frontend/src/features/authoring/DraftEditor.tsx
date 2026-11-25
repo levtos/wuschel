@@ -71,7 +71,7 @@ export function DraftEditor({ title, description, size, base, dirty, input, plan
       submitted = candidate.config;
       if (next === 'check') {
         try {
-          const result = await validateConfig(candidate.config);
+          const result = await validateConfig(candidate.config, true);
           setCheck({ input, config: candidate.config, result });
         } catch (failure) {
           if (!(failure instanceof ApiError) || failure.kind !== 'validation') throw failure;

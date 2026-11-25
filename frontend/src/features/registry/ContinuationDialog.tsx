@@ -46,10 +46,10 @@ export function ContinuationDialog({ draft, onClose }: { draft: Draft; onClose: 
     try {
       if (session.conflicts.length) {
         const decisions = Object.fromEntries(session.conflicts.map(c => [c.path, { digests: c.digests, choice: choices[c.path] }]));
-        const next = await api<Session>(`registry/continuations/${session.session_id}/decisions`, { method: 'PUT', body: { session_version: session.session_version, decisions } });
+        const next = await api<Session>(`registry/continuations/${session.session_id}/decisions`, { method: 'PUT', interactive: true, body: { session_version: session.session_version, decisions } });
         setSession(next); setChoices({});
       } else {
-        const next = await api<Draft | Session>(`registry/continuations/${session.session_id}/finish`, { method: 'POST', body: { session_version: session.session_version, request_id: session.session_id } });
+        const next = await api<Draft | Session>(`registry/continuations/${session.session_id}/finish`, { method: 'POST', interactive: true, body: { session_version: session.session_version, request_id: session.session_id } });
         if (!('session_id' in next)) { sessionStorage.removeItem(`wuschel.continuation.${draft.draft_id}`); doc.open(next, { reload: true }); await client.invalidateQueries({ queryKey: ['registry'] }); onClose(); navigate(`/changes/drafts/${next.draft_id}`); requestAnimationFrame(() => { const title = document.querySelector<HTMLElement>('h1'); if (title) { title.tabIndex = -1; title.focus(); } }); }
         else { setSession(next); setChoices({}); }
       }

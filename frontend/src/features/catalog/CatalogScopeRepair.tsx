@@ -22,7 +22,7 @@ export function CatalogScopeRepair({ activeRevision }: { activeRevision: number 
   const requestId = useRef(uuid()); const sequence = useRef(0); const checkedRevision = useRef(0);
   const inspect = async (clear = clearPc) => {
     const serial = ++sequence.current; setBusy(true); setError(''); setPlan(null); checkedRevision.current = activeRevision;
-    try { const result = await api<Plan>('catalogs/scope/preview', { method: 'POST', body: { clear_pc: clear, expected_active_revision: activeRevision } }); if (serial === sequence.current) { setPlan(result); requestId.current = uuid(); } }
+    try { const result = await api<Plan>('catalogs/scope/preview', { method: 'POST', interactive: true, body: { clear_pc: clear, expected_active_revision: activeRevision } }); if (serial === sequence.current) { setPlan(result); requestId.current = uuid(); } }
     catch (failure) { if (serial === sequence.current) setError(describeError(failure)); }
     finally { if (serial === sequence.current) setBusy(false); }
   };
@@ -30,7 +30,7 @@ export function CatalogScopeRepair({ activeRevision }: { activeRevision: number 
     if (!plan || plan.complete || busy || checkedRevision.current !== activeRevision) return;
     setBusy(true); setError('');
     try {
-      setPlan(await api<Plan>('catalogs/scope/apply', { method: 'POST', body: { expected_active_revision: activeRevision, clear_pc: clearPc, plan_digest: plan.plan_digest, request_id: requestId.current, confirmed: true } }));
+      setPlan(await api<Plan>('catalogs/scope/apply', { method: 'POST', interactive: true, body: { expected_active_revision: activeRevision, clear_pc: clearPc, plan_digest: plan.plan_digest, request_id: requestId.current, confirmed: true } }));
       await Promise.all(['catalog-entries', 'catalog-history', 'catalog-masters', 'catalog-details', 'managed-catalogs'].map(name => cache.invalidateQueries({ queryKey: [name] })));
     } catch (failure) { setError(describeError(failure)); setPlan(null); }
     finally { setBusy(false); }

@@ -45,7 +45,7 @@ export interface Conflict {
 function compareDraft(server: Draft, draft: Draft, config: Registry, name: string, decisions?: Record<string, { digests: string[]; choice: string }>) {
   return api<{ config: Registry; display_name: string; conflicts: NonNullable<Conflict['comparison']>['conflicts'] }>(
     `registry/drafts/${encodeURIComponent(draft.draft_id)}/reconcile`,
-    { method: 'POST', body: { draft_version: draft.draft_version, expected_server_version: server.draft_version, config, display_name: name, ...(decisions ? { decisions } : {}) } },
+    { method: 'POST', interactive: true, body: { draft_version: draft.draft_version, expected_server_version: server.draft_version, config, display_name: name, ...(decisions ? { decisions } : {}) } },
   );
 }
 
@@ -81,9 +81,9 @@ export interface WorkingDocument {
   replaceAll: (config: Registry) => void;
   undo: () => void;
   redo: () => void;
-  save: () => Promise<'saved' | 'conflict' | 'error'>;
+  save: () => Promise<'saved' | 'conflict' | 'cancelled' | 'error'>;
   saveError: string | null;
-  validateNow: () => Promise<void>;
+  validateNow: (interactive?: boolean) => Promise<void>;
   resolveConflict: (choice: 'take-server' | 'merge' | 'cancel', decisions?: Record<string, { digests: string[]; choice: string }>) => Promise<string | void>;
 }
 
@@ -318,14 +318,14 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
     });
   }, []);
 
-  const validateNow = useCallback(async () => {
+  const validateNow = useCallback(async (interactive = true) => {
     clearTimeout(retryTimer.current);
     const config = latest.current.config;
     if (!config) return;
     const id = ++runId.current;
     setValidation((v) => ({ ...v, state: 'checking', error: null }));
     try {
-      const result = await validateConfig(config);
+      const result = await validateConfig(config, interactive);
       if (id !== runId.current) return;
       validatedFor.current = config;
       validatedRevision.current = activeRevision;
@@ -334,13 +334,15 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
       if (id !== runId.current) return;
       validatedFor.current = config;
       validatedRevision.current = activeRevision;
-      if (error instanceof ApiError && error.kind === 'validation') {
+      if (error instanceof ActionCancelled) {
+        setValidation(IDLE);
+      } else if (error instanceof ApiError && error.kind === 'validation') {
         setValidation({ state: 'done', result: { valid: false, issues: error.issues }, issues: error.issues, stale: latest.current.config !== config, error: null });
       } else {
         const limited = error instanceof ApiError && error.kind === 'rate_limited';
         setValidation({ state: 'failed', result: null, issues: [], stale: false, error: describeError(error) });
         // Too many requests is transient: look again later instead of leaving the document unchecked.
-        if (limited) retryTimer.current = setTimeout(() => { if (id === runId.current && autoValidateRef.current) void validateNow(); }, 60_000);
+        if (limited) retryTimer.current = setTimeout(() => { if (id === runId.current && autoValidateRef.current) void validateNow(false); }, 60_000);
       }
     }
   }, [activeRevision]);
@@ -360,7 +362,7 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
       setValidation((v) => (v.stale ? v : { ...v, stale: true }));
     }
     if (!autoValidate || validatedFor.current === snap.config) return;
-    const timer = setTimeout(() => void validateNow(), validateDebounceMs);
+    const timer = setTimeout(() => void validateNow(false), validateDebounceMs);
     return () => clearTimeout(timer);
   }, [snap.config, autoValidate, validateNow, validateDebounceMs, activeRevision]);
 
@@ -391,6 +393,7 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
       return 'saved' as const;
     } catch (error) {
       if (owner !== documentId.current) return 'error' as const;
+      if (error instanceof ActionCancelled) return 'cancelled' as const;
       if (error instanceof ApiError && error.code === 'draft_version_conflict') {
         try {
           const server = await api<Draft>(`registry/drafts/${encodeURIComponent(draft.draft_id)}`);
@@ -399,7 +402,8 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
           if (owner !== documentId.current) return 'error' as const;
           setConflict({ server, comparison });
           return 'conflict' as const;
-        } catch {
+        } catch (comparisonError) {
+          if (comparisonError instanceof ActionCancelled) return 'cancelled' as const;
           /* fall through to a plain error */
         }
       }
@@ -458,7 +462,9 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
     const owner = documentId.current;
     if (!current.draft || !current.config) throw new Error(uiText('alpha7.draft.noDraft'));
     if (!deepEqual(current.config, current.draft.config) || current.name !== (current.draft.display_name ?? '')) {
-      if (await save() !== 'saved') throw new Error(uiText('alpha7.draft.saveBeforeReview'));
+      const result = await save();
+      if (result === 'cancelled') throw new ActionCancelled();
+      if (result !== 'saved') throw new Error(uiText('alpha7.draft.saveBeforeReview'));
     }
     const saved = await api<Draft>(`registry/drafts/${encodeURIComponent(current.draft.draft_id)}`);
     if (owner !== documentId.current || latest.current.config !== current.config || latest.current.name !== current.name || !deepEqual(saved.config, current.config) || (saved.display_name ?? '') !== current.name) {
