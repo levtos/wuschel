@@ -54,6 +54,9 @@ async def test_guarded_storm_replay(config):
             runtime.queue = original_queue
         replay.clock.advance(runtime.operations.load_commit_window_s)
         runtime.sample_load()
+        replay.collect()
+        load = replay.messages[-1]["load"]
+        assert (load["state"], load["candidate"], load["reasons"]) == ("geschützt", "normal", [])
         replay.clock.advance(runtime.operations.load_recover_hold_s)
         runtime.sample_load()
         states.append(runtime.load_guard.state)

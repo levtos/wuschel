@@ -13,7 +13,8 @@ it('keeps the pause visible across pages and clears it only after the service re
   send(true);
   expect(screen.getByText(/Die Ausgabe an Home Assistant ist pausiert/)).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Ausgabe an Home Assistant verwalten' })).toHaveAttribute('href', '/settings/diagnostics/system-state');
-  expect(screen.getByText(/Bei hoher Auslastung liefert Wuschel seltener Werte/)).toBeInTheDocument();
+  expect(screen.getByText(/Wuschel liefert seltener Werte an Home Assistant/)).toBeInTheDocument();
+  expect(screen.getByText(/Deine Verwaltungsaktionen warten auf das Ende des Schutzes/)).toBeInTheDocument();
   send(false);
   expect(screen.queryByText(/Die Ausgabe an Home Assistant ist pausiert/)).toBeNull();
   act(() => store.stop());

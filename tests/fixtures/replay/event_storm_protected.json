@@ -768,6 +768,56 @@
         "first_bridge_snapshot_pending"
       ],
       "type": "service_state"
+    },
+    {
+      "bridge": "disconnected",
+      "conditions": [
+        {
+          "code": "supervisor_options",
+          "satisfied": true
+        },
+        {
+          "code": "database",
+          "satisfied": true
+        },
+        {
+          "code": "active_configuration",
+          "satisfied": true
+        },
+        {
+          "code": "history_retention",
+          "satisfied": true
+        },
+        {
+          "code": "first_ha_state",
+          "satisfied": false
+        },
+        {
+          "code": "ha_connection",
+          "satisfied": false
+        },
+        {
+          "code": "publication",
+          "satisfied": true
+        },
+        {
+          "code": "input_capacity",
+          "satisfied": true
+        }
+      ],
+      "ha": "disconnected",
+      "ha_disconnected_since": null,
+      "ha_unbounded_values": 0,
+      "mqtt": "disabled",
+      "mqtt_external_settings_present": null,
+      "mqtt_mode": null,
+      "persistence": "available",
+      "publication_confirmed": true,
+      "ready": false,
+      "reasons": [
+        "first_bridge_snapshot_pending"
+      ],
+      "type": "service_state"
     }
   ],
   "results": [
