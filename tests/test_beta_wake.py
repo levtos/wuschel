@@ -6,18 +6,22 @@ from zoneinfo import ZoneInfo
 import pytest
 from pydantic import ValidationError
 
+from core_contracts.calendar_coverage import add_months
 from core_contracts.extensions.wake.operator import build_plan
 from core_contracts.extensions.wake.settings import WakeException, WakeSettings
-from core_contracts.quality import FieldValue
+from core_contracts.freshness_templates import upgrade_document
+from core_contracts.quality import CalendarCoverage, FieldValue
 
-from .test_beta_sleep import settings
+from .conftest import activate
+from .test_b22_p8 import holiday_config, regular_coverage, sweep
+from .test_beta_sleep import configuration, fields, observe, settings
 
 
 def valid(value):
     return FieldValue(status="valid", quality="healthy", value=value)
 
 
-def plan(now, *, capture=None, exception=None, events=(), holidays=(), **changes):
+def plan(now, *, capture=None, exception=None, events=(), holidays=(), coverage=None, **changes):
     config = settings()
     for profile in config["profiles"].values():
         profile.update(wake_time="08:00", minimum_sleep_minutes=480, wake_window_minutes=15)
@@ -28,17 +32,101 @@ def plan(now, *, capture=None, exception=None, events=(), holidays=(), **changes
         fetched_at=now.isoformat(),
         expires_at=(now + timedelta(hours=1)).isoformat(),
     )
+    holiday_cache = valid({**cache, "events": list(holidays)})
+    if coverage is not None:
+        holiday_cache = holiday_cache.with_calendar_coverage(coverage)
     return build_plan(
         WakeSettings.model_validate(config),
         now,
         valid({**cache, "events": list(events)}),
-        valid({**cache, "events": list(holidays)}),
+        holiday_cache,
         valid(now.astimezone(ZoneInfo("Europe/Berlin")).date().isoformat()),
         valid(capture.isoformat())
         if capture
         else FieldValue(status="not_applicable", quality="healthy", positively_not_applicable=True),
         valid(exception) if exception else None,
     )
+
+
+def test_thursday_evening_plan_is_unknown_if_holiday_gap_starts_at_friday_midnight():
+    now = datetime(2026, 1, 1, 19, tzinfo=UTC)
+    friday_midnight = datetime(2026, 1, 1, 23, tzinfo=UTC)
+    coverage = CalendarCoverage("source.holidays", friday_midnight, now + timedelta(days=1))
+    result = plan(now, coverage=coverage)["all"]
+    assert result.status == "unknown" and result.value is None
+    assert result.reasons[0].code == "calendar_coverage_missing"
+    assert result.reasons[0].input == "source.holidays"
+    assert result.reasons[0].detail
+
+
+def test_gap_in_six_months_preserves_the_plan_and_caps_its_validity():
+    now = datetime(2026, 1, 1, 19, tzinfo=UTC)
+    boundary = add_months(now, 6)
+    coverage = CalendarCoverage("source.holidays", boundary, add_months(now, 9))
+    original = plan(now)
+    result = plan(now, coverage=coverage)
+    assert result["plan_date"].value == "2026-01-02"
+    assert result == {
+        name: field.model_copy(update={"valid_until": boundary}) for name, field in original.items()
+    }
+
+
+async def test_coverage_expiry_reevaluates_wake_plan_and_survives_restore(runtime, config):
+    document = configuration(config)
+    holidays = upgrade_document(holiday_config(config))
+    document["dependencies"].extend(holidays["dependencies"])
+    for table in ("sources", "bindings"):
+        document[table] = [
+            row for row in document[table] if row["source_id"] != "source.holiday_days"
+        ]
+    document["sources"].append({**holidays["sources"][0], "source_id": "source.holiday_days"})
+    binding = {**holidays["bindings"][0], "source_id": "source.holiday_days"}
+    binding["adapter"]["window"].update(past_days=0, future_days=31)
+    document["bindings"].append(binding)
+    await activate(runtime, document)
+    now = runtime.clock.now_utc()
+    await observe(runtime, "local_date", "2026-01-01", kind="snapshot")
+    await observe(
+        runtime,
+        "appointments",
+        dict(
+            window_start=(now - timedelta(days=1)).isoformat(),
+            window_end=(now + timedelta(days=32)).isoformat(),
+            fetched_at=now.isoformat(),
+            expires_at=(now + timedelta(hours=1)).isoformat(),
+            events=[],
+        ),
+        kind="snapshot",
+    )
+    await sweep(runtime, regular_coverage(runtime, now + timedelta(days=1)))
+    assert fields(runtime)["wake_next_wake_start"]["status"] == "valid"
+
+    # Shorten only the persisted proof while keeping the fact cache fresh.
+    expiry = now + timedelta(seconds=1)
+    state = runtime.state.clone()
+    rows = state.tables["service_state"]
+    coverage = rows["calendar_coverage:binding.a"]
+    coverage["expires_at"] = expiry.isoformat()
+    boundary = min(coverage["evidence_end"], coverage["horizon"])
+    assert datetime.fromisoformat(rows["calendar:binding.a"]["expires_at"]) > expiry
+    await runtime.store.commit(state)
+    runtime.state = await runtime.store.load()
+    await runtime._restore("process_restart")
+    assert fields(runtime)["wake_next_wake_start"]["status"] == "valid"
+    assert datetime.fromisoformat(fields(runtime)["wake_next_wake_start"]["valid_until"]) == expiry
+    assert runtime.next_evaluation == expiry
+    deadlines = runtime.state.tables["node_state"]["fixture.sleep"]["clock_due"]
+    assert {expiry.isoformat(), boundary}.issubset(deadlines)
+
+    runtime.clock.advance(1)
+    await runtime.submit("tick")
+    for restore in (False, True):
+        if restore:
+            await runtime._restore("process_restart")
+        result = fields(runtime)["wake_next_wake_start"]
+        assert result["status"] == "unknown" and result["value"] is None
+        assert result["reasons"][0]["code"] == "calendar_coverage_missing"
+        assert result["reasons"][0]["input"] == "source.holiday_days"
 
 
 @pytest.mark.parametrize(

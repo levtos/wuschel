@@ -74,6 +74,12 @@ def due(evaluation: Any, rule: dm.WakePlanRule, plan: Any) -> None:
                 if isinstance(expires, str) and datetime.fromisoformat(expires) > evaluation.now:
                     if expires not in due:
                         due.append(expires)
+        coverage = evaluation.inputs[rule.holidays_input].calendar_coverage
+        if coverage:
+            for at in (coverage.before, coverage.expires_at):
+                stamp = at.isoformat()
+                if at > evaluation.now and stamp not in due:
+                    due.append(stamp)
 
 
 def children(rule: dm.WakePlanRule) -> list[tuple[str, Any]]:

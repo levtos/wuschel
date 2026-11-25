@@ -5,6 +5,7 @@ from fnmatch import fnmatchcase
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from core_contracts.calendar_coverage import missing_coverage
 from core_contracts.extensions.wake import wake_config as config
 from core_contracts.extensions.wake import wake_planning as planning
 from core_contracts.extensions.wake.settings import WakeSettings
@@ -88,6 +89,14 @@ def build_plan(
     consumed: tuple[str, ...] = (),
 ) -> dict[str, FieldValue]:
     inputs = [calendar, holidays, local_date]
+    coverage = holidays.calendar_coverage
+    coverage_end = min(coverage.before, coverage.expires_at) if coverage else None
+    if coverage and coverage_end and now >= coverage_end:
+        return {
+            "all": missing_coverage(
+                coverage.source_id, now, "Der Nachweis für die Feiertagsabdeckung ist abgelaufen."
+            )
+        }
     if sleep_since.status != "not_applicable" and not sleep_since.usable(now):
         return {"all": derive(None, [*inputs, sleep_since], now)}
     if any(not value.usable(now) for value in inputs):
@@ -203,6 +212,13 @@ def build_plan(
         )
     assert current is not None
     selected = min(candidates, key=lambda row: row[0]) if candidates else None
+    # The first missing day invalidates the whole run of dates up to the candidate.
+    if coverage and selected and local_start(date.fromisoformat(selected[3])) >= coverage.before:
+        return {
+            "all": missing_coverage(
+                coverage.source_id, now, "Für den Weckplan fehlt ein lückenloser Feiertagsnachweis."
+            )
+        }
     if exception and exception.usable(now):
         inputs.append(exception)
     if sleep_since.usable(now) and selected and selected[6]:
@@ -227,5 +243,12 @@ def build_plan(
                 evidence=tuple(e for item in inputs for e in item.evidence),
             )
         else:
-            result[name] = derive(value, inputs, now)
+            field = derive(value, inputs, now)
+            result[name] = (
+                field.model_copy(
+                    update={"valid_until": min(coverage_end, field.valid_until or coverage_end)}
+                )
+                if coverage_end
+                else field
+            )
     return result
