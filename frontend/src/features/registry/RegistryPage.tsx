@@ -2,7 +2,7 @@ import { currentDraft, draftState } from './authoring';
 import { ConfigurationContent } from './ConfigurationContent';
 import { t as uiText } from '@/i18n';
 import { Copy, Download, FilePlus2, FolderOpen, GitCompare, History, Pencil, RotateCcw, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,70 +13,70 @@ import { CreateDraftDialog } from '@/features/authoring/CreateDraftDialog';
 import { draftLabel } from '@/features/authoring/DraftBar';
 import { downloadDraft, downloadText, exportRegistry } from '@/features/authoring/importExport';
 import { changedPaths } from '@/features/authoring/locate';
-import { registryIdentities } from '@/features/authoring/editorChanges';
 import { useWorkingDocument } from '@/features/authoring/WorkingDocument';
 import { describeError } from '@/lib/api';
 import { formatTime } from '@/lib/format';
-import { canonicalJson, deepEqual, isObject, type JsonObject } from '@/lib/json';
-import { asArray, asObject, emptyRegistry, str } from '@/features/authoring/model';
-import { fieldLabel } from '@/i18n/codes';
+import { canonicalJson } from '@/lib/json';
+import { asObject } from '@/features/authoring/model';
 import { useLive } from '@/lib/live-context';
-import { useActiveRevision, useDraftMutations, useDrafts, useHistory, useRevisions } from '@/lib/queries';
-import type { Draft, RevisionRow } from '@/lib/types';
+import { fetchDraft, useActiveRevision, useDraftMutations, useDrafts, useHistory, useRevisions } from '@/lib/queries';
+import type { Draft, DraftSummary, RevisionRow } from '@/lib/types';
 import { RollbackDialog } from './ActivationDialogs';
 
-function DraftObjects({ before, after }: { before: JsonObject | undefined; after: JsonObject }) {
-  if (!before) return <p className="text-xs text-muted">{uiText('a2.edit.draftBaseUnavailable')}</p>;
-  const entries = [...new Set([...Object.keys(before), ...Object.keys(after)])].flatMap(collection => {
-    if (deepEqual(before[collection], after[collection]) || ['config_schema_version', 'fingerprint_version'].includes(collection)) return [];
-    const keys = registryIdentities[collection];
-    if (!keys) return [{ id: collection, label: fieldLabel(collection) }];
-    const rows = (config: JsonObject) => new Map(asArray(config[collection]).filter(isObject).map(row => [keys.map(key => String(row[key] ?? '')).join(' · '), row]));
-    const original = rows(before); const candidate = rows(after);
-    return [...new Set([...original.keys(), ...candidate.keys()])].flatMap(id => {
-      const old = original.get(id); const next = candidate.get(id);
-      return deepEqual(old, next) ? [] : [{ id: `${collection}/${id}`, label: str((next ?? old)?.display_name) || id }];
-    });
-  });
-  if (!entries.length) return <p className="mt-2 text-xs text-muted">{uiText('a2.edit.draftNoObjects')}</p>;
-  return <Collapsible title={uiText('a2.edit.draftObjects', { count: entries.length })} defaultOpen={entries.length <= 4}>
-    <ul className="flex flex-wrap gap-1">{entries.map(item => <li key={item.id}><Badge>{item.label}</Badge></li>)}</ul>
-  </Collapsible>;
-}
-
 function DraftsTab() {
+  const [completed, setCompleted] = useState(false);
   const drafts = useDrafts();
+  const completedDrafts = useDrafts('completed', completed);
+  const visibleDrafts = completed ? completedDrafts : drafts;
   const doc = useWorkingDocument();
   const { remove } = useDraftMutations();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [copyOf, setCopyOf] = useState<Draft | null>(null);
-  const [deleting, setDeleting] = useState<Draft | null>(null);
-  const [opening, setOpening] = useState<Draft | null>(null);
+  const [deleting, setDeleting] = useState<DraftSummary | null>(null);
+  const [opening, setOpening] = useState<string | null>(null);
+  const [loadingDraft, setLoadingDraft] = useState(false);
+  const draftRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => draftRequest.current?.abort(), []);
   // After the switch dialog confirms, follow into the draft's page.
   useEffect(() => {
-    if (opening && doc.draft?.draft_id === opening.draft_id) {
+    if (opening && doc.draft?.draft_id === opening) {
       setOpening(null);
-      navigate(`/changes/drafts/${encodeURIComponent(opening.draft_id)}`);
-    } else if (opening && doc.switchRequest === null && doc.draft?.draft_id !== opening.draft_id) setOpening(null);
+      navigate(`/changes/drafts/${encodeURIComponent(opening)}`);
+    } else if (opening && doc.switchRequest === null) setOpening(null);
   }, [opening, doc.draft?.draft_id, doc.switchRequest, navigate]);
   const [error, setError] = useState('');
   const active = useActiveRevision();
-  const revisions = useRevisions();
-  const revisionConfigs = useMemo(() => new Map((revisions.data ?? []).map(row => [row.revision, row.config])), [revisions.data]);
-  const baseOf = (draft: Draft) => draft.base_status === 'needs_review' || draft.base_revision === undefined ? undefined : draft.base_revision === 0 ? emptyRegistry() : draft.base_revision === active.data?.revision ? active.data.config : revisionConfigs.get(draft.base_revision);
-  const [completed, setCompleted] = useState(false);
   const [staleOnly, setStaleOnly] = useState(false);
-  const [cleanup, setCleanup] = useState<Draft[] | null>(null);
+  const [cleanup, setCleanup] = useState<DraftSummary[] | null>(null);
   const [cleaning, setCleaning] = useState(false);
   const all = drafts.data ?? [];
-  const openCount = all.filter(d => (d.lifecycle ?? 'open') === 'open').length;
-  const obsolete = active.isSuccess ? all.filter(d => (d.lifecycle ?? 'open') === 'open' && !currentDraft(d, active.data?.revision ?? 0) && d.draft_id !== doc.draft?.draft_id) : [];
-  const list = all.filter(d => ((d.lifecycle ?? 'open') !== 'open') === completed).filter(d => !staleOnly || !currentDraft(d, active.data?.revision ?? 0));
+  const openCount = all.length;
+  const obsolete = active.isSuccess ? all.filter(d => !currentDraft(d, active.data?.revision ?? 0) && d.draft_id !== doc.draft?.draft_id) : [];
+  const list = (visibleDrafts.data ?? []).filter(d => completed || !staleOnly || !currentDraft(d, active.data?.revision ?? 0));
 
-  const open = (draft: Draft) => {
-    if (doc.requestOpen(draft) !== 'pending') navigate(`/changes/drafts/${encodeURIComponent(draft.draft_id)}`);
-    else setOpening(draft);
+  const loadDraft = async (summary: DraftSummary, then: (draft: Draft) => void) => {
+    setError('');
+    setLoadingDraft(true);
+    const controller = new AbortController();
+    draftRequest.current = controller;
+    try {
+      const draft = await fetchDraft(summary.draft_id, controller.signal);
+      if (!controller.signal.aborted) then(draft);
+    } catch (failure) {
+      if (!controller.signal.aborted) setError(describeError(failure));
+    } finally {
+      if (!controller.signal.aborted) setLoadingDraft(false);
+    }
+  };
+
+  const open = (summary: DraftSummary) => {
+    const navigateToDraft = () => navigate(`/changes/drafts/${encodeURIComponent(summary.draft_id)}`);
+    if (doc.draft?.draft_id === summary.draft_id) { navigateToDraft(); return; }
+    void loadDraft(summary, draft => {
+      if (doc.requestOpen(draft) === 'pending') setOpening(summary.draft_id);
+      else navigateToDraft();
+    });
   };
 
   return (
@@ -97,8 +97,10 @@ function DraftsTab() {
       </div>
       {error && <Notice tone="bad" title={uiText("features.registry.RegistryPage.aktion_fehlgeschlagen_3a20cc")}>{error}</Notice>}
       <Panel>
-        {drafts.isPending ? (
+        {visibleDrafts.isPending ? (
           <Spinner />
+        ) : visibleDrafts.isError ? (
+          <Notice tone="bad">{describeError(visibleDrafts.error)}</Notice>
         ) : list.length === 0 ? (
           <Empty title={uiText("features.registry.RegistryPage.noch_keine_drafts_a1dbb9")}>
             {completed ? uiText('beta3.a32d6f4f66ce') : uiText('beta3.0616d1ac83b2')}</Empty>
@@ -113,11 +115,10 @@ function DraftsTab() {
                   </p>
                   <Collapsible title={uiText('alpha7.draft.advanced')}><p className="mono break-all text-xs text-muted">{draft.draft_id}</p></Collapsible>
                   <p className="text-sm">{draftState(draft, active.data?.revision ?? 0)}</p><p className="text-xs text-muted">{uiText("features.registry.RegistryPage.v_4c9448")}{draft.draft_version} {uiText("features.registry.RegistryPage.basis_revision_690542")}{draft.base_revision ?? '–'} {uiText("features.registry.RegistryPage.erstellt_555e13")}{formatTime(draft.created_at)} {uiText("features.registry.RegistryPage.geandert_4147a3")}{formatTime(draft.updated_at)}</p>
-                  {!completed && <DraftObjects before={baseOf(draft)} after={draft.config} />}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  <Button size="sm" onClick={() => open(draft)}><Pencil size={13} /> {completed ? uiText('beta3.8e31363947a6') : currentDraft(draft, active.data?.revision ?? 0) ? uiText('beta3.84e45ee73411') : uiText('beta3.98040289d15a')}</Button>
-                  <Button size="sm" onClick={() => setCopyOf(draft)}><Copy size={13} /> {uiText("features.registry.RegistryPage.duplizieren_9d400c")}</Button>
+                  <Button size="sm" disabled={loadingDraft} onClick={() => open(draft)}><Pencil size={13} /> {completed ? uiText('beta3.8e31363947a6') : currentDraft(draft, active.data?.revision ?? 0) ? uiText('beta3.84e45ee73411') : uiText('beta3.98040289d15a')}</Button>
+                  <Button size="sm" disabled={loadingDraft} onClick={() => void loadDraft(draft, setCopyOf)}><Copy size={13} /> {uiText("features.registry.RegistryPage.duplizieren_9d400c")}</Button>
                   <Button size="sm" disabled={doc.draft?.draft_id === draft.draft_id && doc.dirty} onClick={() => void downloadDraft(draft, active.data?.revision ?? 0, draftLabel(draft)).catch(failure => setError(describeError(failure)))}><Download size={13} /> {uiText("features.registry.RegistryPage.export_366489")}</Button>
                   {!completed && <Button size="sm" variant="danger" onClick={() => setDeleting(draft)}><Trash2 size={13} /> {uiText('a2.edit.draftDiscard')}</Button>}
                 </div>

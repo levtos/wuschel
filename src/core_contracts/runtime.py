@@ -266,6 +266,7 @@ class Runtime:
                         for name, value in guard.metrics.items()
                     },
                     **self.activities.operation(),
+                    **self.activities.request(),
                 },
             )
             self.projection_changed.set()

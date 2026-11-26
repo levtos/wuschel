@@ -134,16 +134,17 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     // async waitFor callback can still be queued in the real 61s budget when its
     // 15s deadline fires, hiding both the response and the actual assertion.
     await screen.findByText('Im Entwurf gespeichert');
-    const saved = await raw<{ draft_id: string; draft_version: number; config: JsonObject }[]>('registry/drafts');
+    const summaries = await raw<{ draft_id: string; draft_version: number }[]>('registry/drafts');
+    expect(summaries.status).toBe(200);
+    expect(summaries.body[0]!.draft_version).toBeGreaterThan(1);
+    expect(summaries.body[0]).not.toHaveProperty('config');
+    const draftId = summaries.body[0]!.draft_id;
+    const saved = await raw<Draft>(`registry/drafts/${draftId}`);
     expect(saved.status).toBe(200);
-    const drafts = saved.body;
-    expect(drafts[0]!.draft_version).toBeGreaterThan(1);
-    expect(drafts[0]!.config).toEqual(registry);
-    const draftId = drafts[0]!.draft_id;
-    expect(drafts[0]!.config).toEqual(registry); // stored by the real server exactly as built
+    expect(saved.body.config).toEqual(registry); // stored by the real server exactly as built
 
     // 2. The real server validates what the UI produced, then the UI activates it.
-    const verdict = await raw<{ valid: boolean; issues: unknown[] }>('registry/validate', json('POST', drafts[0]!.config));
+    const verdict = await raw<{ valid: boolean; issues: unknown[] }>('registry/validate', json('POST', saved.body.config));
     expect(verdict).toMatchObject({ status: 200, body: { valid: true, issues: [] } });
     const dialog = await f.activateOpenDraft(draftId);
     // The preceding explicit saves share the production request window with activation.
@@ -167,7 +168,8 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await expectSameAsActive(exportedActive);
     await f.go('#/registry');
     await f.createDraft('E2E-Reimport', "Einlesen (JSON)", JSON.stringify(exportedActive));
-    const reimported = (await raw<{ draft_id: string; display_name: string; config: JsonObject }[]>('registry/drafts')).body.find((d) => d.display_name === 'E2E-Reimport')!;
+    const reimportedId = (await raw<{ draft_id: string; display_name: string }[]>('registry/drafts')).body.find((d) => d.display_name === 'E2E-Reimport')!.draft_id;
+    const reimported = (await raw<Draft>(`registry/drafts/${reimportedId}`)).body;
     expect(reimported.config).toEqual(exportedActive); // the draft keeps the imported document verbatim
     await expectSameAsActive(reimported.config);
 
@@ -307,9 +309,10 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await waitFor(() => expect(adding).not.toBeInTheDocument(), { timeout: 65_000 });
     // K.01: the guided objects use the same server comparison in the bar and page.
     await screen.findByText('Im Entwurf gespeichert');
-    const drafts = await raw<{ draft_id: string; display_name: string; draft_version: number; config: JsonObject }[]>('registry/drafts');
+    const drafts = await raw<{ draft_id: string; display_name: string; draft_version: number }[]>('registry/drafts');
     expect(drafts.status).toBe(200);
-    const guided = drafts.body.find(item => item.display_name === 'P8 Quellenumzug')!;
+    const guidedId = drafts.body.find(item => item.display_name === 'P8 Quellenumzug')!.draft_id;
+    const guided = (await raw<Draft>(`registry/drafts/${guidedId}`)).body;
     expect(guided.draft_version).toBeGreaterThan(1);
     const comparison = (await raw<Verdict>('registry/validate', json('POST', guided.config))).body;
     const objectCount = Object.values(comparison.diff.objects).reduce((total, group) => total + group.added.length + group.changed.length + group.removed.length, 0);

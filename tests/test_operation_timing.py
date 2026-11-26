@@ -7,11 +7,27 @@ import pytest
 from aiohttp import web
 
 from core_contracts import slots
-from core_contracts.app import API, JsonFormatter
+from core_contracts.api import API, logical_route
+from core_contracts.app import JsonFormatter
 from core_contracts.observation_block import BlockRuntime
 from core_contracts.operation_timing import ObservationTimings
 from core_contracts.persistence import PostgresStore, State
 from core_contracts.security import Tokens
+
+
+@pytest.mark.parametrize(
+    ("pattern", "path", "expected"),
+    [
+        ("/api/v1/{path}", "registry/drafts", "registry/drafts"),
+        ("/api/v1/{path}", "registry/drafts/private-id/activate", "registry/drafts/{id}/activate"),
+        ("/api/v1/{path}", "registry/drafts/private-id/private-action", "{path}"),
+        ("/api/v1/{path}", "history/query/observations", "history/query/observations"),
+        ("/api/v1/{path}", "private-id", "{path}"),
+        ("/api/v1/catalogs/care", "", "catalogs/care"),
+    ],
+)
+def test_logical_route_only_uses_known_paths_and_patterns(pattern, path, expected):
+    assert logical_route(pattern, path) == expected
 
 
 def events(caplog, event):
@@ -107,7 +123,17 @@ async def test_postgres_commit_timing_is_debug_only_and_has_all_fields(
     assert "synthetic-private" not in json.dumps(record)
 
 
-async def test_load_change_reports_current_then_last_operation(runtime, caplog, monkeypatch):
+async def test_load_change_reports_current_then_last_operation(
+    runtime, caplog, monkeypatch, aiohttp_client, tmp_path
+):
+    tokens = Tokens(tmp_path)
+    client = await aiohttp_client(API(runtime, tokens, "synthetic").application())
+    response = await client.get(
+        "/api/v1/registry/drafts?synthetic=private-query",
+        headers={"Authorization": f"Bearer {tokens.values['admin']}"},
+    )
+    assert response.status == 200
+    await response.read()
     entered, release = asyncio.Event(), asyncio.Event()
 
     async def process(operation, payload):
@@ -146,6 +172,9 @@ async def test_load_change_reports_current_then_last_operation(runtime, caplog, 
         },
         "operation": "tick",
         "operation_active": True,
+        "route": "registry/drafts",
+        "request_active": False,
+        "request_run_ms": 0.0,
         "run_ms": runtime.operations.load_enter_hold_s * 1000,
     }
     assert normal == {
@@ -222,7 +251,7 @@ async def test_loop_stall_is_logged_once_per_phase_with_safe_activity(
             "lag_ms": 250.0,
             "count": 2,
             "activities": [
-                {"route": "/api/v1/synthetic/{item}", "run_ms": 375.0},
+                {"route": "synthetic/{item}", "run_ms": 375.0},
                 {"operation": "tick", "run_ms": 375.0},
             ],
         }

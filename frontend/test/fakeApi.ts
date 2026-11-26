@@ -114,7 +114,12 @@ export function installFakeApi(initial: { revisions?: FakeRevision[]; drafts?: F
     if (path === 'registry/active') return json(200, api.revisions.at(-1) ?? null);
     if (path === 'registry/active/export') return api.revisions.length ? json(200, api.revisions.at(-1)!.config) : json(409, { error: 'no_active_registry' });
     if (path === 'registry/revisions') return json(200, api.revisions);
-    if (path === 'registry/drafts' && method === 'GET') return json(200, [...api.drafts.values()]);
+    if ((path === 'registry/drafts' || path === 'registry/drafts?lifecycle=completed') && method === 'GET') {
+      const completed = path.endsWith('=completed');
+      return json(200, [...api.drafts.values()]
+        .filter(draft => ((draft.lifecycle ?? 'open') !== 'open') === completed)
+        .map(({ config: _config, ...summary }) => summary));
+    }
     if (path === 'registry/drafts' && method === 'POST') {
       const id = body.draft_id ?? `draft-${api.drafts.size + 1}`;
       const draft: FakeDraft = { draft_id: id, draft_version: 1, config: body.config, display_name: body.display_name ?? '', base_revision: api.active(), created_at: stamp(), updated_at: stamp() };

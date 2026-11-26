@@ -13,6 +13,7 @@ import type {
   ContractDiagnosis,
   Diagnostics,
   Draft,
+  DraftSummary,
   HaEntityPage,
   HistoryPage,
   Info,
@@ -83,8 +84,15 @@ export const useRevisions = () =>
     queryFn: () => api<RevisionRow[]>('registry/revisions'),
   });
 
-export const useDrafts = () =>
-  useQuery({ queryKey: keys.drafts, queryFn: () => api<Draft[]>('registry/drafts') });
+export const fetchDraft = (id: string, signal?: AbortSignal) =>
+  api<Draft>(`registry/drafts/${encodeURIComponent(id)}`, { signal, concurrentDraftRead: true });
+
+export const useDrafts = (lifecycle: 'open' | 'completed' = 'open', enabled = true) =>
+  useQuery({
+    queryKey: [...keys.drafts, { lifecycle }],
+    queryFn: ({ signal }) => api<DraftSummary[]>(lifecycle === 'open' ? 'registry/drafts' : 'registry/drafts?lifecycle=completed', { signal }),
+    enabled,
+  });
 
 export const useDiagnostics = (refetchMs: number | false = POLL_MS) =>
   useQuery({
@@ -120,6 +128,7 @@ export interface HistoryFilters {
   since?: string;
   until?: string;
   limit?: number;
+  compact?: boolean;
 }
 
 export function historyPath(kind: string, filters: HistoryFilters, cursor?: string | null): string {
@@ -197,7 +206,7 @@ export function useDraftMutations() {
     }),
     remove: useMutation({
       retry: false,
-      mutationFn: (draft: Draft) =>
+      mutationFn: (draft: DraftSummary) =>
         api<{ deleted: boolean }>(`registry/drafts/${encodeURIComponent(draft.draft_id)}`, {
           method: 'DELETE',
           body: { draft_version: draft.draft_version },

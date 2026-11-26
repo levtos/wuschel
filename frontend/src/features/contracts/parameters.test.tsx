@@ -46,6 +46,8 @@ it('groups contract settings and stores clock minutes, duration seconds and week
   expect(within(group.closest('section')!).getByText('07:00')).toBeVisible();
   await user.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
   const editor = within(await screen.findByRole('dialog', { name: 'Vertrag bearbeiten' }));
+  expect(editor.getByText(/Was dieser Vertrag berechnet/)).toHaveTextContent('Die Berechnung änderst du über eine neue Vorlagenversion.');
+  expect(editor.getByRole('link', { name: 'Vorlage ansehen' })).toHaveAttribute('href', '#/templates/details/test.settings/1');
 
   const time = editor.getByLabelText('Schaltzeit');
   const timeRow = within(time.closest('li')!);
@@ -70,10 +72,10 @@ it('groups contract settings and stores clock minutes, duration seconds and week
   expect(asObject(asArray(api.revisions[0]?.config.contracts)[0]).parameters).toEqual({ start: 480 });
 });
 
-it('links to the rule when the contract has no settings', async () => {
+it('links to the output calculation when the contract has no settings', async () => {
   app('/contracts/view/synthetic.simple?tab=config');
   expect(await screen.findByText(/Dieser Vertrag hat keine eigenen Einstellungen/)).toHaveTextContent('Synthetische Vorlage');
-  expect(screen.getByRole('link', { name: 'Regel ansehen' })).toHaveAttribute('href', '#/templates/details/test.simple/1?tab=rules');
+  expect(screen.getByRole('link', { name: 'Regel ansehen' })).toHaveAttribute('href', '#/templates/details/test.simple/1?tab=outputs');
 });
 
 it('shows the template parameters as a labelled table with technical details collapsed', async () => {

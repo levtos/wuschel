@@ -213,6 +213,7 @@ export default function ContractDetailPage() {
         <ObjectActions key={contractId} collection="contracts" idKey="contract_id" value={editingContract} editing onLocalPatch={patch => apply(c => setAt(c, editingPointer, { ...editingContract, ...patch }))} config={editor.config} toggle />
       </>}>
         {editingContract ? <>
+          <p className="text-sm text-muted">{uiText('a2.read.calculationInTemplate')}{' '}<ContractTemplateLink contract={editingContract} config={editor.config} />{' '}{uiText('a2.read.changeTemplateVersion')}</p>
           <ContractEditor value={editingContract} pointer={editingPointer} types={alternatives} refs={refs} refreshSources={refreshSources} onChange={next => apply(c => ({ ...setAt(c, editingPointer, next), ...(next.refresh_plan !== undefined ? { config_schema_version: Math.max(2, Number(c.config_schema_version ?? 1)) } : {}) }))} onAddDevice={setDeviceInput} />
           <OpeningHeartbeatSettings config={editor.config} contract={editingContract} onChange={(sourceIndex, interval) => apply(c => { const source = asObject(asArray(c.sources)[sourceIndex]); return setAt(c, `/sources/${sourceIndex}`, ownRule(source, { ...effectiveRule(c, source), interval_s: interval })); })} />
         </> : <p>{uiText('a2.edit.removalPending')}</p>}

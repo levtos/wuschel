@@ -4,7 +4,7 @@ import { draftState } from '@/features/registry/authoring';
 import { useActiveRevision } from '@/lib/queries';
 import { t as uiText } from '@/i18n';
 import { CheckCircle2, CircleAlert, Loader2, MoreHorizontal, Redo2, Save, Undo2 } from 'lucide-react';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,11 +15,11 @@ import { canonicalJson } from '@/lib/json';
 import { fieldLabel } from '@/i18n/codes';
 import { locateIssue } from './locate';
 import { describeError } from '@/lib/api';
-import { useDrafts } from '@/lib/queries';
+import { fetchDraft, useDrafts } from '@/lib/queries';
 import { changedObjectCount } from '@/lib/diff';
 import { ActivateDialog } from '@/features/registry/ActivationDialogs';
 import { IssueList } from '@/features/registry/IssueList';
-import type { Draft } from '@/lib/types';
+import type { Draft, DraftSummary } from '@/lib/types';
 import { CreateDraftDialog } from './CreateDraftDialog';
 import { useWorkingDocument } from './WorkingDocument';
 import { freshnessChoiceLabel } from '@/features/sources/freshness';
@@ -29,26 +29,47 @@ export const draftLabel = (draft: Pick<Draft, 'draft_id' | 'display_name'>): str
 /** Choose (or create) the working draft. Opening another draft with unsaved edits asks first. */
 export function DraftPicker({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const doc = useWorkingDocument();
-  const allDrafts = useDrafts();
-  const drafts = { ...allDrafts, data: allDrafts.data?.filter(d => (d.lifecycle ?? 'open') === 'open') };
+  const drafts = useDrafts('open', open);
   const [creating, setCreating] = useState(false);
-  const pick = (draft: Draft) => {
-    // Re-selecting the open draft is a no-op; another draft asks first if edits would be lost.
-    doc.requestOpen(draft);
-    onOpenChange(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const selection = useRef<AbortController | null>(null);
+  useEffect(() => {
+    if (!open) { setError(''); setBusy(false); }
+    return () => selection.current?.abort();
+  }, [open]);
+
+  const pick = async (summary: DraftSummary) => {
+    const controller = new AbortController();
+    selection.current = controller;
+    setBusy(true);
+    setError('');
+    try {
+      const draft = doc.draft?.draft_id === summary.draft_id ? doc.draft : await fetchDraft(summary.draft_id, controller.signal);
+      if (controller.signal.aborted) return;
+      doc.requestOpen(draft);
+      onOpenChange(false);
+    } catch (failure) {
+      if (!controller.signal.aborted) setError(describeError(failure));
+    } finally {
+      if (!controller.signal.aborted) setBusy(false);
+    }
   };
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange} title={uiText("features.authoring.DraftBar.arbeits_draft_wahlen_d0f546")} description={uiText("features.authoring.DraftBar.authoring_bereiche_bearbeiten_immer_genau_einen__3bfed3")} footer={<Button variant="primary" disabled={(drafts.data?.length ?? 0) >= 100} disabledReason={uiText('alpha7.import.limit')} onClick={() => setCreating(true)}>{uiText("features.authoring.DraftBar.neuer_draft_1d7ef0")}</Button>}>
+        {error && <Notice tone="bad">{error}</Notice>}
         {drafts.isPending ? (
           <Spinner />
+        ) : drafts.isError ? (
+          <Notice tone="bad">{describeError(drafts.error)}</Notice>
         ) : (drafts.data ?? []).length === 0 ? (
           <p className="py-6 text-center text-sm text-muted">{uiText("features.authoring.DraftBar.noch_keine_drafts_vorhanden_8f793b")}</p>
         ) : (
           <ul className="divide-y divide-line rounded-[var(--radius-md)] border border-line">
             {drafts.data!.map((draft) => (
               <li key={draft.draft_id}>
-                <button type="button" className="flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-raised" onClick={() => pick(draft)}>
+                <button type="button" className="flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-raised" disabled={busy} onClick={() => void pick(draft)}>
                   <span className="min-w-0">
                     <span className="block truncate font-medium">{draftLabel(draft)}</span>
                     <span className="block text-xs text-muted">{uiText("features.authoring.DraftBar.v_4c9448")}{draft.draft_version} {uiText("features.authoring.DraftBar.basis_revision_cb2fb5")}{draft.base_revision ?? '–'} · {formatTime(draft.updated_at)}</span>

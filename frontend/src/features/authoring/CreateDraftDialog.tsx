@@ -33,8 +33,8 @@ export function CreateDraftDialog({
 }) {
   const { create } = useDraftMutations();
   const active = useActiveExport();
-  const drafts = useDrafts();
-  const atLimit = (drafts.data?.filter(d => (d.lifecycle ?? 'open') === 'open').length ?? 0) >= 100;
+  const drafts = useDrafts('open', open);
+  const atLimit = (drafts.data?.length ?? 0) >= 100;
   const doc = useWorkingDocument();
   const [origin, setOrigin] = useState<Origin>(copyOf ? 'copy' : 'empty');
   const [name, setName] = useState('');

@@ -44,34 +44,57 @@ export function problemAdvice(reasons: Reason[], config: Registry | null | undef
 export interface OverviewEvent {
   id: string;
   at: string;
-  kind: 'activate' | 'rollback' | 'contract_stale' | 'contract_error' | 'ha_connected' | 'ha_disconnected';
+  kind: 'activate' | 'rollback' | 'contract_stale' | 'contract_error' | 'contract_recovered' | 'source_error' | 'source_recovered' | 'ha_connected' | 'ha_disconnected';
   revision?: number;
   contractId?: string;
+  sourceId?: string;
   session?: boolean;
 }
 
-/** Presentation of persisted server facts; draft_create/delete are deliberately absent. */
-export function overviewEvents(activations: HistoryItem[], history: HistoryItem[], connections: BrowserConnectionEvent[]): OverviewEvent[] {
+export function overviewEvents(activations: HistoryItem[], history: HistoryItem[], connections: BrowserConnectionEvent[], observations: HistoryItem[] = []): OverviewEvent[] {
   const events: OverviewEvent[] = [];
   for (const item of activations) if ((item.operation === 'activate' || item.operation === 'rollback') && typeof item.at === 'string' && typeof item.revision === 'number') events.push({ id: `activation-${item.id}`, at: item.at, kind: item.operation, revision: item.revision });
-  const previous = new Map<string, string | null>();
+
+  const previous = new Map<string, string>();
   for (const item of [...history].sort((a, b) => Date.parse(str(a.published_at)) - Date.parse(str(b.published_at)))) {
-    if (typeof item.contract_id !== 'string' || typeof item.published_at !== 'string') continue;
+    if (typeof item.contract_id !== 'string' || typeof item.published_at !== 'string' || !Number.isFinite(Date.parse(item.published_at))) continue;
     const fields = Object.values(asObject(item.fields)).filter(isObject);
     const reasons = fields.flatMap(field => asArray(field.reasons).filter(isObject));
     const codes = reasons.map(reason => str(reason.code));
-    const kind = codes.some(code => ['evaluation_error', 'invalid_value', 'config_incomplete'].includes(code)) ? 'contract_error' : codes.includes('input_stale') ? 'contract_stale' : null;
-    if (kind && previous.get(item.contract_id) !== kind) {
-      const onset = reasons.filter(reason => (kind === 'contract_stale' ? reason.code === 'input_stale' : ['evaluation_error', 'invalid_value', 'config_incomplete'].includes(str(reason.code)))).map(reason => str(reason.since)).filter(at => Number.isFinite(Date.parse(at))).sort()[0];
+    const kind = codes.includes('input_stale') ? 'contract_stale' : item.contract_health === 'degraded' || codes.some(code => ['evaluation_error', 'invalid_value', 'config_incomplete'].includes(code)) ? 'contract_error' : null;
+    const prior = previous.get(item.contract_id);
+    if (kind && prior !== kind) {
+      const onset = reasons.filter(reason => kind === 'contract_stale' ? reason.code === 'input_stale' : reason.code !== 'input_stale')
+        .map(reason => str(reason.since)).filter(at => Number.isFinite(Date.parse(at))).sort()[0];
       events.push({ id: `contract-${item.id}`, at: onset ?? item.published_at, kind, contractId: item.contract_id });
+    } else if (!kind && prior && item.contract_health === 'healthy') {
+      events.push({ id: `contract-${item.id}`, at: item.published_at, kind: 'contract_recovered', contractId: item.contract_id });
     }
-    previous.set(item.contract_id, kind);
+    if (kind) previous.set(item.contract_id, kind);
+    else if (item.contract_health === 'healthy') previous.delete(item.contract_id);
+  }
+
+  const disturbed = new Map<string, Set<string>>();
+  for (const item of [...observations].sort((a, b) => Date.parse(str(a.received_at)) - Date.parse(str(b.received_at)))) {
+    if (typeof item.source_id !== 'string' || typeof item.binding_id !== 'string' || typeof item.received_at !== 'string' || !Number.isFinite(Date.parse(item.received_at))) continue;
+    const bindings = disturbed.get(item.source_id) ?? new Set<string>();
+    const at = item.received_at;
+    const event = { id: `source-${item.id}`, at, sourceId: item.source_id };
+    if (['unavailable', 'unknown', 'absent'].includes(str(item.availability)) || typeof item.transform_error === 'string' || item.invalid_timestamp === true) {
+      if (!bindings.size) events.push({ ...event, kind: 'source_error' });
+      bindings.add(item.binding_id);
+      disturbed.set(item.source_id, bindings);
+    } else if (item.availability === 'available' && bindings.delete(item.binding_id) && !bindings.size) {
+      events.push({ ...event, kind: 'source_recovered' });
+      disturbed.delete(item.source_id);
+    }
   }
   events.push(...connections.map(event => ({ ...event, session: true })));
   return events.filter(event => Number.isFinite(Date.parse(event.at))).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
 }
 
 export function eventText(event: OverviewEvent, config: JsonObject | null | undefined) {
-  const name = event.contractId ? contractName(config, event.contractId) : '';
+  const source = asArray(config?.sources).filter(isObject).find(item => item.source_id === event.sourceId);
+  const name = event.contractId ? contractName(config, event.contractId) : str(source?.display_name) || event.sourceId || '';
   return t(`alpha7.event.${event.kind}`, { name, version: event.revision });
 }

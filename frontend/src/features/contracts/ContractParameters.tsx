@@ -139,7 +139,7 @@ export function ContractParameters({ entry, value, pointer, onChange }: {
   const items = parameters(root);
   if (!items.length) return <div className="space-y-2 text-sm">
     <p>{entry ? t('a2.parameters.noSettings', { name: entry.displayName || entry.type_id }) : t('editors.RegistryObjects.keine_parameter_bekannt_272f5e')}</p>
-    {entry && <ObjectReadLink to={definitionHref(entry.type_id, entry.type_version) + '?tab=rules'}>{t('a2.parameters.openRule')}</ObjectReadLink>}
+    {entry && <ObjectReadLink to={definitionHref(entry.type_id, entry.type_version) + '?tab=outputs'}>{t('a2.parameters.openRule')}</ObjectReadLink>}
   </div>;
 
   const groups = new Map<string, Parameter[]>();

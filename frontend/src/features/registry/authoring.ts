@@ -1,6 +1,6 @@
 import { t as uiText } from '@/i18n';
 import { ApiError, api } from '@/lib/api';
-import type { Draft, RevisionRow } from '@/lib/types';
+import type { Draft, DraftSummary, RevisionRow } from '@/lib/types';
 
 export const CONTINUE = uiText('beta3.95163eb65ff9');
 export interface ActivationPreview {
@@ -10,10 +10,10 @@ export interface ActivationPreview {
   required_confirmations: string[];
   retention: { before: Record<string, number> | null; after: Record<string, number> | null; changed: boolean; shortening: string[] };
 }
-export function currentDraft(draft: Draft, active: number | undefined): boolean {
+export function currentDraft(draft: DraftSummary, active: number | undefined): boolean {
   return (draft.lifecycle ?? 'open') === 'open' && draft.base_status !== 'needs_review' && (active === undefined || draft.base_revision === undefined ? draft.base_current !== false : draft.base_revision === active);
 }
-export function draftState(draft: Draft, active: number | undefined): string {
+export function draftState(draft: DraftSummary, active: number | undefined): string {
   if (draft.lifecycle === 'continued') return uiText('beta3.e5704de26e46');
   if (draft.lifecycle === 'completed') return uiText('beta3.0feb12317e84', { v0: (draft.completed_revision) });
   if (draft.base_status === 'needs_review') return uiText('beta3.c1bcffa28ccd');

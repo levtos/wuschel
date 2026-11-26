@@ -1,10 +1,13 @@
 """Catalog care views and bounded bulk requests; writes use managed_catalog.prepare."""
 
+import asyncio
 import base64
 import json
 import re
 from collections import defaultdict
+from copy import deepcopy
 from datetime import datetime
+from types import SimpleNamespace
 from typing import Any, Literal
 
 from pydantic import Field
@@ -19,7 +22,7 @@ from core_contracts.extensions.catalog.managed_catalog import (
     semantic,
 )
 from core_contracts.model import Model, canonical, checksum
-from core_contracts.rules.catalog_models import CatalogWrite, EntryChange
+from core_contracts.rules.catalog_models import CatalogWrite, EntryChange, ManagedCatalog
 from core_contracts.text_rules import normalize_key
 
 
@@ -252,6 +255,59 @@ def all_rows(
     return rows
 
 
+class CatalogReadCache:
+    """Derived HTTP rows for the current published catalog content and sightings."""
+
+    def __init__(self) -> None:
+        self._revision: tuple[str, int] | None = None
+        self._sightings: dict[str, dict[str, Any]] = {}
+        self._by_catalog: dict[str, dict[str, dict[str, Any]]] = {}
+        self._rows: dict[str, tuple[Any, dict[str, dict[str, Any]]]] = {}
+        self._lock = asyncio.Lock()
+
+    async def rows(self, state: Any, catalog: ManagedCatalog) -> dict[str, dict[str, Any]]:
+        async with self._lock:
+            revision = (state.epoch_id, state.active_revision)
+            if revision != self._revision:
+                self._rows.clear()
+                self._revision = revision
+            sightings = state.tables["catalog_sighting"]
+            if sightings != self._sightings:
+                self._sightings = dict(dict.items(sightings))
+                by_catalog: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
+                for key, row in self._sightings.items():
+                    by_catalog[row["catalog"]][key] = row
+                self._by_catalog = by_catalog
+            key = head_key(catalog)
+            heads = state.tables["catalog_head"]
+            current = dict.get(heads, key)
+            local = self._by_catalog.get(key, {})
+            metadata = {
+                name: row
+                for name, row in dict.items(state.tables["service_state"])
+                if name == "catalog_counter_epoch" or name.startswith("catalog_app_name:")
+            }
+            basis = (current, local, metadata)
+            cached = self._rows.get(key)
+            if cached is not None and cached[0] == basis:
+                return cached[1]
+
+            # Published rows are immutable. Copy the selected tables inside the worker
+            # before the view reads them, keeping row leases on the writer's loop.
+            tables = {
+                "catalog_head": {key: current} if current is not None else {},
+                "catalog_sighting": local,
+                "service_state": metadata,
+            }
+
+            def build() -> dict[str, dict[str, Any]]:
+                return all_rows(SimpleNamespace(tables=deepcopy(tables)), catalog)
+
+            rows = await asyncio.to_thread(build)
+            self._rows[key] = (basis, rows)
+            return rows
+
+
 def filtered(
     rows: dict[str, dict[str, Any]], query: str, view: str, filters: dict[str, str]
 ) -> list[dict[str, Any]]:
@@ -356,11 +412,13 @@ def listing(
     variants_first: bool = False,
     grouped: bool = False,
     _all: bool = False,
+    rows: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     filters = filters or {}
     validate_page(query, view, filters, sort, limit)
     current = head(state, catalog)
-    rows = all_rows(state, catalog)
+    if rows is None:
+        rows = all_rows(state, catalog)
     media_metadata = [
         row["catalog_metadata"] for row in rows.values() if row.get("catalog_metadata")
     ]
@@ -487,11 +545,17 @@ def listing(
 
 
 def queue(
-    state: Any, catalog: Any, query: str, view: str, filters: dict[str, str]
+    state: Any,
+    catalog: Any,
+    query: str,
+    view: str,
+    filters: dict[str, str],
+    *,
+    rows: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    rows = filtered(all_rows(state, catalog), query, view, filters)
+    selected = filtered(all_rows(state, catalog) if rows is None else rows, query, view, filters)
     clusters: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in rows:
+    for row in selected:
         if row["candidate"]:
             clusters[row["cluster_key"]].append(row)
     result = []
@@ -739,6 +803,7 @@ def detail(
     query: str = "",
     view: str = "all",
     filters: dict[str, str] | None = None,
+    rows: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     from core_contracts.extensions.catalog.catalog_mapping import current_mapping, keys
     from core_contracts.extensions.catalog.managed_catalog import definition, identity
@@ -763,7 +828,8 @@ def detail(
         or any(len(value) > 16384 for value in filters.values())
     ):
         raise ValueError("catalog_page_invalid")
-    rows = all_rows(state, catalog)
+    if rows is None:
+        rows = all_rows(state, catalog)
     row = rows.get(key)
     if row is None:
         raise ValueError("catalog_page_invalid")

@@ -3,10 +3,10 @@ import { t as uiText } from '@/i18n';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api, ApiError, ActionCancelled, describeError, type Issue } from '@/lib/api';
 import { clone, deepEqual, getAt, setAt, type Json } from '@/lib/json';
-import { useActiveRevision, useDraftMutations, validateConfig } from '@/lib/queries';
+import { fetchDraft, useActiveRevision, useDraftMutations, validateConfig } from '@/lib/queries';
 import { budgetWaiting, subscribeBudgetWait } from '@/lib/request-budget';
 import { IssuesProvider } from './issues';
-import type { Draft, Registry, ValidationResult } from '@/lib/types';
+import type { Draft, DraftSummary, Registry, ValidationResult } from '@/lib/types';
 import { emptyRegistry } from './model';
 import { defaultDraftName } from './draftName';
 import { Dialog } from '@/components/ui/dialog';
@@ -118,9 +118,9 @@ interface Snapshot {
 const IDLE: ValidationView = { state: 'idle', result: null, issues: [], stale: false, error: null };
 
 export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, preparationTimeoutMs = 15_000 }: { children: ReactNode; validateDebounceMs?: number; preparationTimeoutMs?: number }) {
-  const [candidates, setCandidates] = useState<Draft[] | null>(null);
+  const [candidates, setCandidates] = useState<DraftSummary[] | null>(null);
   const [selectedDraft, setSelectedDraft] = useState<string | null>(null);
-  const choose = useRef<((draft: Draft | null | undefined) => void) | null>(null);
+  const choose = useRef<((draft: DraftSummary | null | undefined) => void) | null>(null);
   const { create, update } = useDraftMutations();
   const active = useActiveRevision();
   const activeRevision = active.data === undefined ? undefined : active.data?.revision ?? 0;
@@ -208,7 +208,7 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
       const current = latest.current;
       if (current.draft && current.config) {
         const draftId = current.draft.draft_id;
-        const saved = await bounded(() => api<Draft>(`registry/drafts/${draftId}`, { signal: controller.signal }));
+        const saved = await bounded(() => fetchDraft(draftId, controller.signal));
         if (currentDraft(saved, head?.revision ?? 0)) {
           if (owner !== documentId.current || latest.current.draft?.draft_id !== current.draft.draft_id || !latest.current.config) throw new Error(uiText('alpha7.draft.changedDuringAction'));
           setEditing(true); return clone(latest.current.config);
@@ -217,13 +217,18 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
       if (current.draft && current.config && (!deepEqual(current.config, current.draft.config) || current.name !== (current.draft.display_name ?? ''))) {
         throw new Error(uiText('alpha7.draft.saveBeforeReview'));
       }
-      const all = await bounded(() => api<Draft[]>('registry/drafts', { signal: controller.signal }));
+      const all = await bounded(() => api<DraftSummary[]>('registry/drafts', { signal: controller.signal }));
       const available = (Array.isArray(all) ? all : []).filter(d => currentDraft(d, head?.revision ?? 0));
       if (available.length || current.draft) {
-        const selected = await new Promise<Draft | null | undefined>(resolve => { choose.current = resolve; setSelectedDraft(null); setCandidates(available); });
+        const selected = await new Promise<DraftSummary | null | undefined>(resolve => { choose.current = resolve; setSelectedDraft(null); setCandidates(available); });
         if (selected === undefined) throw new ActionCancelled();
         if (owner !== documentId.current) throw new Error(uiText('alpha7.draft.changedDuringAction'));
-        if (selected) { open(selected); return clone(selected.config); }
+        if (selected) {
+          const draft = await bounded(() => fetchDraft(selected.draft_id, controller.signal));
+          if (owner !== documentId.current || !currentDraft(draft, head?.revision ?? 0)) throw new Error(uiText('alpha7.draft.changedDuringAction'));
+          open(draft);
+          return clone(draft.config);
+        }
       }
       const config = head?.config ?? emptyRegistry();
       if (owner !== documentId.current) throw new Error(uiText('alpha7.draft.changedDuringAction'));
@@ -280,7 +285,7 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
     const id = storedDraftId();
     if (!id) return;
     const owner = documentId.current;
-    api<Draft>(`registry/drafts/${encodeURIComponent(id)}`)
+    fetchDraft(id)
       .then((draft) => {
         if (owner !== documentId.current || latest.current.draft !== null) return;
         if ((draft.lifecycle ?? 'open') === 'open') open(draft);

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0b30 - Schnellere Ansichten und verständliche Diagnose
+
+- Die Entwurfsliste lädt Kopfdaten. Inhalte folgen bei Auswahl, abgeschlossene Entwürfe auf Wunsch.
+- Katalogzahlen und Katalogpflege verwenden dieselbe aus Katalogstand und Sichtungen abgeleitete Zeilengrundlage. Warnungen nennen den logischen Anfragepfad.
+- Die Übersicht nennt die Zahl gestörter Signale und unvollständiger Einstellungen. Sie zeigt Störungen, Erholung und Verbindungswechsel. „Regel ansehen“ führt zu den Ausgaben der Vorlage. [#171](https://github.com/levtos/wuschel/issues/171)
+
 ## 1.0.0b29 - Lastdiagnose im Log
 
 - Die Zeitmessungen für Vorgänge, Beobachtungen und PostgreSQL-Commits erscheinen bei DEBUG. Beobachtungsblöcke werden einmal protokolliert.

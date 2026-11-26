@@ -61,9 +61,10 @@ der genannte Vorgang noch läuft. Ohne verfügbaren Vorgang sind diese Felder
 `load_lag_ms_strained` in einer Warnung zusammen. Beim ersten Messwert unter
 der Schwelle oder beim Prozessstopp meldet sie Anzahl, höchsten Lag und bis
 zu acht Vorgänge oder HTTP-Routenmuster mit der stärksten zeitlichen
-Überlappung zur Spitzenmessung. Bei Sammelrouten erscheint das registrierte
-Sammelmuster. Pfadparameter, Querys, Header und Anfragedaten werden nicht
-erfasst. Die Laufzeit ist die verstrichene Zeit. Zeitliche Überlappung allein
+Überlappung zur Spitzenmessung. Ab b30 nennen beide Warnungen bekannte
+logische Anfragepfade wie `registry/drafts` und `catalogs/care`. Für dynamische
+Abschnitte werden Platzhalter ausgegeben. Pfadparameter, Querys, Header und
+Anfragedaten werden nicht erfasst. Die Laufzeit ist die verstrichene Zeit. Zeitliche Überlappung allein
 belegt keine Ursache.
 
 `operation_timing`, `commit_timing` und `observation_timing` erscheinen bei

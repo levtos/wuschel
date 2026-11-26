@@ -41,6 +41,7 @@ def page_all(
     variants_first: bool = False,
     limit: int = 100,
     classification_catalog: str = "",
+    rows_by_catalog: dict[str, dict[str, dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     from core_contracts.extensions.catalog.catalog_care import listing, validate_page
 
@@ -68,6 +69,7 @@ def page_all(
             variants_first=variants_first,
             grouped=True,
             _all=True,
+            rows=rows_by_catalog.get(head_key(catalog)) if rows_by_catalog is not None else None,
         )
         selected.extend(
             {
