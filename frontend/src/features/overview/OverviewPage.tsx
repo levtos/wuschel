@@ -35,6 +35,8 @@ export function OverviewPage() {
   }
   const entries = [...grouped].filter(([id]) => enabledIds.has(id));
   const incomplete = Object.values(current ?? {}).filter(envelope => enabledIds.has(envelope.contract_id)).flatMap(envelope => Object.entries(envelope.fields).filter(([, field]) => field.configuration?.complete === false).map(([name, field]) => ({ envelope, name, field })));
+  const signalCount = current !== null || (active.isSuccess && problems.isSuccess) ? entries.length : '–';
+  const incompleteCount = current === null ? '–' : incomplete.length;
   const metrics = [
     { key: 'active', filter: 'active', color: 'text-fg' }, { key: 'healthy', filter: 'healthy', color: 'text-ok' },
     { key: 'degraded', filter: 'degraded', color: 'text-warn' }, { key: 'off', filter: 'off', color: 'text-muted' },
@@ -59,8 +61,8 @@ export function OverviewPage() {
             </Link>)}
           </div>}
           {current === null && <p className="text-xs text-muted">{t('alpha7.overview.waitingValues')}</p>}
-          <h3 className="font-medium">{t('alpha8.configuration.signal')}</h3>
-          {problems.isPending ? <Spinner /> : problems.isError ? <p role="alert" className="text-sm text-bad">{t('alpha7.overview.problemsUnavailable')}</p> : entries.length === 0 ? <p className="text-sm text-muted">{t('alpha7.overview.noProblems')}</p> : <ul className="divide-y divide-line">
+          <h3 className="font-medium">{t('a2.overview.signalCount', { count: signalCount })}</h3>
+          {signalCount === '–' && (active.isPending || problems.isPending) ? <Spinner /> : signalCount === '–' ? <p role="alert" className="text-sm text-bad">{t('alpha7.overview.problemsUnavailable')}</p> : entries.length === 0 ? <p className="text-sm font-medium text-ok">{t('a2.overview.allGood')}</p> : <ul className="divide-y divide-line">
             {entries.slice(0, 8).map(([id, reasons]) => {
               const advice = problemAdvice(reasons, config, id);
               return <li key={id} className="py-4 first:pt-0">
@@ -71,8 +73,8 @@ export function OverviewPage() {
             })}
           </ul>}
           {entries.length > 8 && <Link to="/contracts/list/all?filter=degraded" className="text-sm text-fg underline">{t('alpha7.overview.moreProblems', { count: entries.length - 8 })}</Link>}
-          <h3 className="font-medium">{t('alpha8.configuration.title')}</h3>
-          {current === null ? <p className="text-sm text-muted">{t('alpha7.overview.waitingValues')}</p> : incomplete.length === 0 ? <p className="text-sm text-muted">{t('alpha9.configuration.emptySection')}</p> : <ul className="space-y-3">{incomplete.map(({ envelope, name, field }) => <li key={`${envelope.contract_id}:${name}`} className="rounded-xl border border-line p-3 text-sm"><Link to={`/contracts/view/${encodeURIComponent(envelope.contract_id)}`} className="font-medium underline">{contractName(config, envelope.contract_id)}</Link><p>{field.configuration?.hints.map(hint => hint.message || t('alpha8.configuration.unassigned')).join(' · ')}</p><p className="text-muted">{t('alpha8.configuration.validHint')}</p></li>)}</ul>}
+          <h3 className="font-medium">{t('a2.overview.incompleteCount', { count: incompleteCount })}</h3>
+          {current === null ? <p className="text-sm text-muted">{t('alpha7.overview.waitingValues')}</p> : incomplete.length === 0 ? <p className="text-sm font-medium text-ok">{t('a2.overview.allGood')}</p> : <ul className="space-y-3">{incomplete.map(({ envelope, name, field }) => <li key={`${envelope.contract_id}:${name}`} className="rounded-xl border border-line p-3 text-sm"><Link to={`/contracts/view/${encodeURIComponent(envelope.contract_id)}`} className="font-medium underline">{contractName(config, envelope.contract_id)}</Link><p>{field.configuration?.hints.map(hint => hint.message || t('alpha8.configuration.unassigned')).join(' · ')}</p><p className="text-muted">{t('alpha8.configuration.validHint')}</p></li>)}</ul>}
         </div>
       </Panel></LayoutPanel>
       <LayoutPanel id="events" title={t('alpha7.overview.events')}><Panel>

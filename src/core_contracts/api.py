@@ -28,6 +28,82 @@ from .security import RateLimiter, Tokens
 from .setup import Setup
 from .validation import RegistryValidationError
 
+# The core dispatcher has a catch-all router resource. Only known names and
+# placeholder patterns may become diagnostic labels.
+LOGICAL_ROUTES = frozenset(
+    {
+        "bindings",
+        "capabilities",
+        "commands",
+        "contracts",
+        "definitions",
+        "diagnostics",
+        "diagnostics/problems",
+        "editorial",
+        "ha/contexts",
+        "ha/entities",
+        "history/retention/preview",
+        "history/retention/run",
+        "history/rollups",
+        "info",
+        "manual-restarts",
+        "operations/projection",
+        "operations/settings",
+        "operations/settings/reset",
+        "operations/wait",
+        "portable/export",
+        "portable/preview",
+        "portable/stage",
+        "reasons",
+        "registry/active",
+        "registry/active/export",
+        "registry/drafts",
+        "registry/freshness",
+        "registry/revisions",
+        "registry/rollback",
+        "registry/schema",
+        "registry/validate",
+        "snapshot",
+        "sources",
+        "sources/calendar-status",
+        "system/state",
+        "tokens",
+        "tokens/rotate",
+        "types",
+    }
+)
+PARAMETERIZED_ROUTES = (
+    (r"contracts/.+", "contracts/{id}"),
+    (r"commands/.+", "commands/{id}"),
+    (r"diagnostics/contracts/.+", "diagnostics/contracts/{id}"),
+    (r"manual-restarts/preview/.+", "manual-restarts/preview/{id}"),
+    (r"manual-sources/[^/]+/observations", "manual-sources/{id}/observations"),
+    (r"manual-sources/[^/]+/requests/[^/]+", "manual-sources/{id}/requests/{request_id}"),
+    (r"evidence/reference/.+", "evidence/reference/{id}"),
+    (r"evidence/.+", "evidence/{id}"),
+    (r"history/.+", "history/{id}"),
+    (r"registry/revisions/.+", "registry/revisions/{id}"),
+    (r"registry/activation-requests/.+", "registry/activation-requests/{id}"),
+    (r"registry/continuations/[^/]+(?:/(decisions|finish|cancel))?", "registry/continuations/{id}"),
+    (
+        r"registry/drafts/[^/]+(?:/(validate|activate|activation-preview|complete|continuations|reconcile))?",
+        "registry/drafts/{id}",
+    ),
+)
+
+
+def logical_route(pattern: str, path: str) -> str:
+    if pattern != "/api/v1/{path}":
+        return pattern.removeprefix("/api/v1/")
+    if path in LOGICAL_ROUTES or (
+        path.startswith("history/query/") and path.removeprefix("history/query/") in HISTORY_TABLES
+    ):
+        return path
+    for expression, label in PARAMETERIZED_ROUTES:
+        if match := re.fullmatch(expression, path):
+            return f"{label}/{match[1]}" if match.lastindex else label
+    return pattern.removeprefix("/api/v1/")
+
 
 class API:
     def __init__(
@@ -104,7 +180,8 @@ class API:
             try:
                 resource = request.match_info.route.resource
                 if resource is not None and resource.canonical != "/api/v1/ws":
-                    with self.runtime.activities.track(resource.canonical, kind="route"):
+                    route = logical_route(resource.canonical, request.match_info.get("path", ""))
+                    with self.runtime.activities.track(route, kind="route"):
                         response = await handler(request)
                 else:
                     response = await handler(request)
@@ -769,9 +846,25 @@ class API:
             kind = path.removeprefix("history/query/")
             if kind not in HISTORY_TABLES:
                 raise web.HTTPNotFound()
+            options = dict(request.query)
+            compact = kind == "observations" and options.pop("compact", None) == "true"
             result = await runtime.store.history(
-                HISTORY_TABLES[kind], HistoryQuery.model_validate(dict(request.query))
+                HISTORY_TABLES[kind], HistoryQuery.model_validate(options)
             )
+            if compact:
+                compact_fields = (
+                    "id",
+                    "source_id",
+                    "binding_id",
+                    "received_at",
+                    "availability",
+                    "transform_error",
+                    "invalid_timestamp",
+                )
+                result["items"] = [
+                    {key: row[key] for key in compact_fields if key in row}
+                    for row in result["items"]
+                ]
         elif path.startswith("evidence/reference/") and method == "GET":
             reference = path.removeprefix("evidence/reference/")
             if len(reference) > 1024:
@@ -844,13 +937,15 @@ class API:
             else:
                 raise web.HTTPNotFound()
         elif path == "registry/drafts" and method == "GET":
-            from .authoring import view
+            from .authoring import draft_summary
 
-            lifecycle = request.query.get("lifecycle")
+            lifecycle = request.query.get("lifecycle", "open")
+            if lifecycle not in {"open", "completed"}:
+                raise ValueError("invalid_draft_lifecycle")
             result = [
-                view(state, d)
-                for d in state.tables["registry_draft"].values()
-                if not lifecycle or (d.get("lifecycle", "open") == "open") == (lifecycle == "open")
+                draft_summary(state, draft)
+                for draft in state.tables["registry_draft"].values()
+                if (draft.get("lifecycle", "open") == "open") == (lifecycle == "open")
             ]
         elif path == "registry/drafts" and method == "POST":
             document = await request.json()

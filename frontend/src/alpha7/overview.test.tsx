@@ -15,7 +15,7 @@ const config = sampleConfig({ contracts: [
   { contract_id: 'off', display_name: 'Ausgeschalteter Vertrag', enabled: false, type_id: 'test.boolean', type_version: 1, inputs: [] },
 ] });
 const envelope = (id: string, health: 'healthy' | 'degraded'): Envelope => ({ contract_id: id, contract_health: health } as Envelope);
-const row = (id: string, code?: string, contract = 'room', onset = at): HistoryItem => ({ id, contract_id: contract, published_at: `2026-10-16T12:0${id}:00Z`, fields: { value: { reasons: code ? [{ code, since: onset }] : [] } } });
+const row = (id: string, code?: string, contract = 'room', onset = at): HistoryItem => ({ id, contract_id: contract, published_at: `2026-10-16T12:0${id}:00Z`, contract_health: code ? 'degraded' : 'healthy', fields: { value: { reasons: code ? [{ code, since: onset }] : [] } } });
 beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
 
 it('counts only enabled server health and keeps missing snapshot counts unknown', () => {
@@ -37,9 +37,21 @@ it('shows activation and rollback facts but leaves draft bookkeeping out', () =>
 
 it('deduplicates repeated stale publications, remembers recovery and uses server onset', () => {
   const events = overviewEvents([], [row('1', 'input_stale'), row('2', 'input_stale'), row('3'), row('4', 'input_stale', 'room', '2026-10-16T12:04:00Z'), row('5', 'evaluation_error', 'room', '2026-10-16T12:05:00Z')], []);
-  expect(events.map(event => event.kind)).toEqual(['contract_error', 'contract_stale', 'contract_stale']);
+  expect(events.map(event => event.kind)).toEqual(['contract_error', 'contract_stale', 'contract_recovered', 'contract_stale']);
   expect(events.filter(event => event.kind === 'contract_stale').map(event => event.at)).toEqual(['2026-10-16T12:04:00Z', at]);
   expect(eventText(events[1]!, config)).toBe('Temperatur im Zimmer: Wert veraltet');
+});
+
+it('reports source faults and recovery only after every affected binding reports healthy', () => {
+  const obs = (id: number, binding: string, availability: string): HistoryItem => ({
+    id: String(id), source_id: 'test.source', binding_id: binding, availability,
+    received_at: `2026-10-16T12:0${id}:00Z`,
+  });
+  const events = overviewEvents([], [], [], [
+    obs(1, 'a', 'unknown'), obs(2, 'b', 'unavailable'), obs(3, 'a', 'available'), obs(4, 'b', 'available'),
+  ]);
+  expect(events.map(event => [event.kind, event.id])).toEqual([['source_recovered', 'source-4'], ['source_error', 'source-1']]);
+  expect(eventText(events[0]!, { sources: [{ source_id: 'test.source', display_name: 'Beispielquelle' }] })).toBe('Beispielquelle: Quelle wieder in Ordnung');
 });
 
 it('marks session connection observations and rejects invalid event timestamps', () => {
@@ -78,8 +90,8 @@ it('keeps valid unassigned values healthy and lists configuration separately', a
   vi.spyOn(live, 'getSnapshot').mockReturnValue({ ...live.getSnapshot(), stale: false, registryRevision: 4, contracts: { room: current } });
   app(live);
   expect(await screen.findByRole('link', { name: '1 gesund' })).toBeVisible();
-  expect(screen.getByRole('heading', { name: 'Signal gestört' })).toBeVisible();
-  expect(screen.getByRole('heading', { name: 'Konfiguration unvollständig' })).toBeVisible();
+  expect(screen.getByRole('heading', { name: 'Gestörte Signale: 0' })).toBeVisible();
+  expect(screen.getByRole('heading', { name: 'Unvollständige Einstellungen: 1' })).toBeVisible();
   expect(screen.getByText('Noch nicht zugeordnet')).toBeVisible();
 });
 
@@ -108,7 +120,7 @@ it.each(['healthy', 'degraded'] as const)('uses current %s publications instead 
   if (health === 'degraded') expect(await screen.findByText('Ein benötigter Wert ist zu alt.')).toBeVisible();
   else {
     await screen.findByRole('link', { name: /1 gesund/ });
-    expect(await screen.findByText('Zurzeit sind keine Probleme gemeldet.')).toBeVisible();
+    expect(await screen.findAllByText('Alles in Ordnung')).toHaveLength(2);
     expect(screen.queryByRole('link', { name: 'Temperatur im Zimmer' })).not.toBeInTheDocument();
   }
 });
@@ -136,7 +148,11 @@ it('renders exactly three overview blocks and links the count to a filtered list
   api.activations.push({ revision: 4, at, operation: 'activate' });
   app();
   const main = await screen.findByRole('main');
-  await within(main).findByText("Konfiguration 4 übernommen");
+  await within(main).findByRole('link', { name: /1 ausgeschaltet/ });
+  expect(within(main).queryByText("Konfiguration 4 übernommen")).not.toBeInTheDocument();
+  expect(api.calls.some(call => call.path.startsWith('history/query/activations'))).toBe(false);
+  expect(api.calls.some(call => call.path.startsWith('history/query/observations?') && call.path.includes('compact=true'))).toBe(true);
+  expect(api.calls.some(call => call.method === 'GET' && call.path === 'registry/drafts')).toBe(false);
   expect(within(main).getAllByRole('heading', { level: 2 }).map(h => h.textContent)).toEqual(['Schnellaktionen', 'Verträge', 'Letzte Ereignisse']);
   expect(within(main).queryByText('Installationskennung')).not.toBeInTheDocument();
   expect(within(main).queryByText('Bereiche')).not.toBeInTheDocument();

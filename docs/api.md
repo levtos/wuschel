@@ -53,7 +53,7 @@ Der Client installiert sich aus `client/` und importiert keinen Plattformcode.
 | GET | sources, bindings, evidence/{source_id}, history/{contract_id} | Admin-Diagnose |
 | GET | registry/active, registry/active/export | Revision bzw. reine Konfiguration |
 | GET | registry/revisions, registry/revisions/{n} | unveränderliche Historie |
-| GET / POST | registry/drafts | auflisten / JSON-Konfiguration als Draft importieren |
+| GET / POST | registry/drafts | offene Entwurfs-Kopfdaten auflisten (`?lifecycle=completed` für abgeschlossene und fortgeführte) / JSON-Konfiguration als Draft importieren |
 | GET / PUT | registry/drafts/{id} | lesen / `{config, draft_version}` mit OCC speichern |
 | POST | registry/drafts/{id}/validate | Validierung und Diff zur aktiven Revision |
 | POST | registry/drafts/{id}/activate | `{draft_version, expected_active_revision}` |

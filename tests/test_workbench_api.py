@@ -29,9 +29,20 @@ async def api_client(runtime, aiohttp_client, tmp_path):
 
 
 async def test_catalog_list_batches_active_counts_without_publishing(
-    runtime, config, aiohttp_client, tmp_path
+    runtime, config, aiohttp_client, tmp_path, monkeypatch
 ):
+    from core_contracts.extensions.catalog import catalog_care
+
     from .test_managed_catalog import catalog, change, configured, request
+
+    calls = []
+    all_rows = catalog_care.all_rows
+
+    def counted(state, definition):
+        calls.append(definition.catalog_id)
+        return all_rows(state, definition)
+
+    monkeypatch.setattr(catalog_care, "all_rows", counted)
 
     document = configured(config)
     document["catalogs"].append({**catalog(), "catalog_id": "example.empty"})
@@ -59,6 +70,8 @@ async def test_catalog_list_batches_active_counts_without_publishing(
     )
     assert all_page.status == 200
     assert (await all_page.json())["items"][0]["catalog_id"] == "example.titles"
+    assert (await (await client.get("/api/v1/catalogs", headers=headers)).json()) == rows
+    assert calls == ["example.titles", "example.empty"]
     for endpoint in ("inspect", "export"):
         response = await client.get(
             f"/api/v1/catalogs/care/{endpoint}?catalog_id=all", headers=headers
@@ -69,6 +82,52 @@ async def test_catalog_list_batches_active_counts_without_publishing(
             await client.get(f"/api/v1/catalogs/care/{endpoint}", headers=consumer)
         ).status == 403
     assert runtime.state.model_dump() == before
+    calls.clear()
+    await runtime.submit(
+        "catalog_write",
+        {"request": request(runtime, [change("Synthetic C")], revision=2)},
+    )
+    fresh = await (await client.get("/api/v1/catalogs", headers=headers)).json()
+    assert {row["catalog_id"]: row["active_entry_count"] for row in fresh} == {
+        "example.titles": 2,
+        "example.empty": 0,
+    }
+    assert calls == ["example.titles"]
+
+
+async def test_draft_list_contains_only_heads_and_loads_completed_on_request(
+    runtime, aiohttp_client, tmp_path
+):
+    path = "/api/v1/registry/drafts"
+    document = {"synthetic_content": "x" * 800_000}
+    drafts = runtime.state.tables["registry_draft"]
+    for index in range(22):
+        key = f"synthetic-{index}"
+        drafts[key] = {
+            "draft_id": key,
+            "draft_version": 1,
+            "display_name": f"Synthetic {index}",
+            "base_revision": 0,
+            "base_status": "known",
+            "lifecycle": "open" if index == 0 else "continued" if index == 1 else "completed",
+            "config": document,
+            "portable": {"synthetic": "private-plan-content"},
+        }
+    _, client, headers = await api_client(runtime, aiohttp_client, tmp_path)
+    response = await client.get(path, headers=headers)
+    assert response.status == 200 and len(await response.read()) < 500
+    (summary,) = await response.json()
+    assert summary["draft_id"] == "synthetic-0"
+    assert summary["base_current"] is True
+    closed = await client.get(path + "?lifecycle=completed", headers=headers)
+    assert closed.status == 200 and len(await closed.read()) < 8_000
+    assert len(await closed.json()) == 21
+    assert all(
+        "config" not in row and "portable" not in row for row in [summary, *await closed.json()]
+    )
+    detail = await client.get(path + "/synthetic-0", headers=headers)
+    assert (await detail.json())["config"] == document
+    assert (await client.get(path + "?lifecycle=invalid", headers=headers)).status == 400
 
 
 async def test_calendar_source_status_excludes_event_contents_and_requires_admin(
@@ -300,6 +359,14 @@ async def test_history_cursor_evidence_filters_and_roles(runtime, config, aiohtt
         await client.get("/api/v1/history/query/observations?limit=2", headers=headers)
     ).json()
     assert len(first["items"]) == 2 and first["next_cursor"]
+    compact_response = await client.get(
+        "/api/v1/history/query/observations?limit=2&compact=true", headers=headers
+    )
+    assert compact_response.status == 200
+    compact = await compact_response.json()
+    assert compact["next_cursor"] == first["next_cursor"]
+    assert [row["id"] for row in compact["items"]] == [row["id"] for row in first["items"]]
+    assert all("value_raw" not in row and "availability" in row for row in compact["items"])
     second = await (
         await client.get(
             "/api/v1/history/query/observations",

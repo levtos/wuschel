@@ -61,6 +61,23 @@ def view(state: Any, draft: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def draft_summary(state: Any, draft: dict[str, Any]) -> dict[str, Any]:
+    fields = (
+        "draft_id",
+        "draft_version",
+        "display_name",
+        "lifecycle",
+        "created_at",
+        "updated_at",
+        "completed_revision",
+        "continued_to_draft_id",
+        "base_revision",
+        "base_checksum",
+        "base_status",
+    )
+    return view(state, {key: draft[key] for key in fields if key in draft})
+
+
 def guard(state: Any, draft: dict[str, Any], *, current: bool = True) -> None:
     if draft.get("lifecycle", "open") != "open":
         raise AuthoringError("draft_closed", draft_id=draft["draft_id"])

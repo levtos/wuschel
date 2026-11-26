@@ -18,7 +18,7 @@ import { FieldSchemaEditor } from '@/editors/FieldSchemaEditor';
 import type { FieldSchema } from '@/features/authoring/model';
 import { Stateful, wrap } from '../test/harness';
 import { objects } from '@/features/sources/sourceMigration';
-import type { Draft, RevisionRow } from '@/lib/types';
+import type { Draft, DraftSummary, RevisionRow } from '@/lib/types';
 import { reserveRequest } from '@/lib/request-budget';
 import { episodeId as b14Episode, sleepRegistry as b14Registry } from '../test/b14-fixtures';
 import { Blob as NodeBlob } from 'node:buffer';
@@ -54,6 +54,18 @@ const raw = async <T,>(path: string, init?: RequestInit): Promise<{ status: numb
   }
 };
 const json = (method: string, body: unknown): RequestInit => ({ method, headers: { 'Content-Type': 'application/json', 'X-Authoring-Protocol': '2' }, body: JSON.stringify(body) });
+
+async function draftSnapshot(): Promise<Draft[]> {
+  const open = await raw<DraftSummary[]>('registry/drafts');
+  const completed = await raw<DraftSummary[]>('registry/drafts?lifecycle=completed');
+  expect(open.status).toBe(200);
+  expect(completed.status).toBe(200);
+  return Promise.all([...open.body, ...completed.body].map(async ({ draft_id }) => {
+    const detail = await raw<Draft>(`registry/drafts/${encodeURIComponent(draft_id)}`);
+    expect(detail.status).toBe(200);
+    return detail.body;
+  }));
+}
 
 async function activationInput(draft: { draft_id: string; draft_version: number }, expected: number) {
   const preview = (await raw<{ comparison_digest: string; required_confirmations: string[] }>(`registry/drafts/${draft.draft_id}/activation-preview`, json('POST', {}))).body;
@@ -134,16 +146,17 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     // async waitFor callback can still be queued in the real 61s budget when its
     // 15s deadline fires, hiding both the response and the actual assertion.
     await screen.findByText('Im Entwurf gespeichert');
-    const saved = await raw<{ draft_id: string; draft_version: number; config: JsonObject }[]>('registry/drafts');
+    const summaries = await raw<{ draft_id: string; draft_version: number }[]>('registry/drafts');
+    expect(summaries.status).toBe(200);
+    expect(summaries.body[0]!.draft_version).toBeGreaterThan(1);
+    expect(summaries.body[0]).not.toHaveProperty('config');
+    const draftId = summaries.body[0]!.draft_id;
+    const saved = await raw<Draft>(`registry/drafts/${draftId}`);
     expect(saved.status).toBe(200);
-    const drafts = saved.body;
-    expect(drafts[0]!.draft_version).toBeGreaterThan(1);
-    expect(drafts[0]!.config).toEqual(registry);
-    const draftId = drafts[0]!.draft_id;
-    expect(drafts[0]!.config).toEqual(registry); // stored by the real server exactly as built
+    expect(saved.body.config).toEqual(registry); // stored by the real server exactly as built
 
     // 2. The real server validates what the UI produced, then the UI activates it.
-    const verdict = await raw<{ valid: boolean; issues: unknown[] }>('registry/validate', json('POST', drafts[0]!.config));
+    const verdict = await raw<{ valid: boolean; issues: unknown[] }>('registry/validate', json('POST', saved.body.config));
     expect(verdict).toMatchObject({ status: 200, body: { valid: true, issues: [] } });
     const dialog = await f.activateOpenDraft(draftId);
     // The preceding explicit saves share the production request window with activation.
@@ -167,7 +180,8 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await expectSameAsActive(exportedActive);
     await f.go('#/registry');
     await f.createDraft('E2E-Reimport', "Einlesen (JSON)", JSON.stringify(exportedActive));
-    const reimported = (await raw<{ draft_id: string; display_name: string; config: JsonObject }[]>('registry/drafts')).body.find((d) => d.display_name === 'E2E-Reimport')!;
+    const reimportedId = (await raw<{ draft_id: string; display_name: string }[]>('registry/drafts')).body.find((d) => d.display_name === 'E2E-Reimport')!.draft_id;
+    const reimported = (await raw<Draft>(`registry/drafts/${reimportedId}`)).body;
     expect(reimported.config).toEqual(exportedActive); // the draft keeps the imported document verbatim
     await expectSameAsActive(reimported.config);
 
@@ -307,9 +321,10 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await waitFor(() => expect(adding).not.toBeInTheDocument(), { timeout: 65_000 });
     // K.01: the guided objects use the same server comparison in the bar and page.
     await screen.findByText('Im Entwurf gespeichert');
-    const drafts = await raw<{ draft_id: string; display_name: string; draft_version: number; config: JsonObject }[]>('registry/drafts');
+    const drafts = await raw<{ draft_id: string; display_name: string; draft_version: number }[]>('registry/drafts');
     expect(drafts.status).toBe(200);
-    const guided = drafts.body.find(item => item.display_name === 'P8 Quellenumzug')!;
+    const guidedId = drafts.body.find(item => item.display_name === 'P8 Quellenumzug')!.draft_id;
+    const guided = (await raw<Draft>(`registry/drafts/${guidedId}`)).body;
     expect(guided.draft_version).toBeGreaterThan(1);
     const comparison = (await raw<Verdict>('registry/validate', json('POST', guided.config))).body;
     const objectCount = Object.values(comparison.diff.objects).reduce((total, group) => total + group.added.length + group.changed.length + group.removed.length, 0);
@@ -534,8 +549,9 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await user.click(within(dialog).getByRole('button', { name: 'In Entwurf speichern' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Vorhandene Quellen zuordnen' })).not.toBeInTheDocument());
     await screen.findByText(/7 Quellen · 4 Verträge · 0 eigene Abweichungen/);
-    const drafts = (await raw<Draft[]>('registry/drafts')).body;
-    const draft = drafts.find(row => row.draft_id === working.body.draft_id)!;
+    const detail = await raw<Draft>(`registry/drafts/${working.body.draft_id}`);
+    expect(detail.status).toBe(200);
+    const draft = detail.body;
     expect(draft.config.config_schema_version).toBe(4);
     const verdict = (await raw<{ diff: { effective_freshness_changes: string[] } }>('registry/validate', json('POST', draft.config))).body;
     expect(verdict.diff.effective_freshness_changes).toHaveLength(5);
@@ -606,7 +622,7 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     expect(exported.status).toBe(200);
     expect(exported.body.scope).toBe('configuration');
     for (const object of refs.filter(ref => ref.id === shared)) expect((await raw('editorial', json('PUT', { object, category: 'other', room: { mode: 'none' }, expected_editorial_version: 1 }))).status).toBe(200);
-    const draftsBefore = (await raw<Draft[]>('registry/drafts')).body;
+    const draftsBefore = await draftSnapshot();
     const uiFetch = globalThis.fetch;
     const stageCalls: unknown[] = [];
     const previews: { status: number; body: { editorial_changed: Record<string, boolean>; unresolved: string[] } }[] = [];
@@ -649,7 +665,7 @@ describe.skipIf(!base)('Workbench ↔ real engine (isolated instance)', () => {
     await waitFor(() => expect(stage).toBeEnabled());
     expect(screen.queryByRole('link', { name: /Konflikte noch nicht entschieden/ })).not.toBeInTheDocument();
     expect(stageCalls).toEqual([]);
-    expect((await raw<Draft[]>('registry/drafts')).body).toEqual(draftsBefore);
+    expect(await draftSnapshot()).toEqual(draftsBefore);
     expect((await raw<RevisionRow>('registry/active')).body.checksum).toBe(baseline.checksum);
     cleanup();
   }, 240_000);

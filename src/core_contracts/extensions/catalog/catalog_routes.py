@@ -5,14 +5,14 @@ from typing import Any
 from aiohttp import web
 
 from core_contracts import slots
+from core_contracts.extensions.catalog.catalog_care import CatalogReadCache
 
 
-async def dispatch(self: Any, request: web.Request) -> Any:
+async def dispatch(self: Any, request: web.Request, *, cache: CatalogReadCache) -> Any:
     path, method = request.path.removeprefix("/api/v1/"), request.method
     runtime, state, config = self.runtime, self.runtime.state, self.runtime.config
     result: Any
     if path == "catalogs" and method == "GET":
-        from core_contracts.extensions.catalog.catalog_care import all_rows
         from core_contracts.extensions.catalog.catalog_scope import device_scope
         from core_contracts.rules.catalog_models import ManagedCatalog
 
@@ -21,7 +21,7 @@ async def dispatch(self: Any, request: web.Request) -> Any:
                 {
                     **c.model_dump(mode="json"),
                     "device_scope": device_scope(config, c.catalog_id, c.version),
-                    "active_entry_count": len(all_rows(state, c)),
+                    "active_entry_count": len(await cache.rows(state, c)),
                 }
                 for c in config.catalogs
                 if isinstance(c, ManagedCatalog)
@@ -50,8 +50,16 @@ async def dispatch(self: Any, request: web.Request) -> Any:
             )
         }
         if path == "catalogs/care" and request.query.get("catalog_id") == "all":
-            from core_contracts.extensions.catalog.catalog_views import page_all
+            from core_contracts.extensions.catalog.catalog_views import catalogs_for, page_all
+            from core_contracts.extensions.catalog.managed_catalog import head_key
 
+            classification_catalog = request.query.get("classification_catalog", "")
+            rows_by_catalog = {
+                head_key(catalog): await cache.rows(state, catalog)
+                for catalog in catalogs_for(config, "all", 1)
+                if not classification_catalog
+                or classification_catalog == f"{catalog.catalog_id}@{catalog.version}"
+            }
             return page_all(
                 state,
                 config,
@@ -61,11 +69,13 @@ async def dispatch(self: Any, request: web.Request) -> Any:
                 filters=filters,
                 sort=request.query.get("sort", "newest"),
                 variants_first=request.query.get("variants_first") == "true",
-                classification_catalog=request.query.get("classification_catalog", ""),
+                classification_catalog=classification_catalog,
+                rows_by_catalog=rows_by_catalog,
             )
         catalog = definition(
             config, request.query["catalog_id"], int(request.query["definition_version"])
         )
+        rows = await cache.rows(state, catalog)
         if path.endswith("detail"):
             result = detail(
                 state,
@@ -75,6 +85,7 @@ async def dispatch(self: Any, request: web.Request) -> Any:
                 query=request.query.get("q", ""),
                 view=request.query.get("view", "all"),
                 filters=filters,
+                rows=rows,
             )
         elif path.endswith("queue"):
             result = queue(
@@ -83,6 +94,7 @@ async def dispatch(self: Any, request: web.Request) -> Any:
                 request.query.get("q", ""),
                 request.query.get("view", "all"),
                 filters,
+                rows=rows,
             )
         else:
             result = listing(
@@ -95,6 +107,7 @@ async def dispatch(self: Any, request: web.Request) -> Any:
                 sort=request.query.get("sort", "newest"),
                 variants_first=request.query.get("variants_first") == "true",
                 grouped=request.query.get("grouped") == "true",
+                rows=rows,
             )
     elif path in {"catalogs/care/inspect", "catalogs/care/export"} and method == "GET":
         from core_contracts.extensions.catalog.catalog_views import (
@@ -191,7 +204,7 @@ async def dispatch(self: Any, request: web.Request) -> Any:
 def register(app: web.Application, api: Any) -> None:
     from functools import partial
 
-    handler = partial(api.extension_dispatch, handler=dispatch)
+    handler = partial(api.extension_dispatch, handler=partial(dispatch, cache=CatalogReadCache()))
     for path in [
         "catalogs",
         "catalogs/care",

@@ -206,7 +206,7 @@ function AuditPanel() {
     <Panel>
       <PanelHeader title={uiText("features.admin.AdminPage.audit_verlauf_843625")} description={uiText("features.admin.AdminPage.administrative_operationen_mit_rolle_vertrauensg_2a53f4")} />
       <div className="space-y-5 p-4">
-        <EventFeed limit={50} logLink={false} />
+        <EventFeed limit={50} logLink={false} includeActivations />
         <HistoryTable
           kind="diagnostics"
           filters={{ limit: 100 }}

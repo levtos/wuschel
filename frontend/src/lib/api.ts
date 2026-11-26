@@ -89,11 +89,13 @@ export interface RequestOptions {
   body?: unknown;
   signal?: AbortSignal;
   interactive?: boolean;
+  concurrentDraftRead?: boolean;
 }
 
 /** Same-origin call below the (relative) Ingress prefix. No credentials are kept in the browser. */
 async function request(path: string, options: RequestOptions, reserved = false): Promise<Response> {
   const method = options.method ?? 'GET';
+  const concurrentDraftRead = options.concurrentDraftRead && method === 'GET' && /^registry\/drafts\/[^/]+$/.test(path);
   let response: Response;
   const sessionDocument = browserSession.getDocumentVersion();
   try {
@@ -101,6 +103,7 @@ async function request(path: string, options: RequestOptions, reserved = false):
       if (!reserved) await reserveRequest(options.signal);
       await browserSession.waitReady(options.signal);
       options.signal?.throwIfAborted();
+      if (sessionDocument !== browserSession.getDocumentVersion()) throw new DOMException('old_document', 'AbortError');
       const result = await fetch(`./api/v1/${path}`, {
         method,
         headers: {
@@ -112,10 +115,12 @@ async function request(path: string, options: RequestOptions, reserved = false):
         signal: options.signal,
       });
       assertIngressResponse(result, sessionDocument);
+      if (concurrentDraftRead && browserSession.getSnapshot().blocked) throw new SessionExpired();
       return result;
     };
-    // Long-polling admission is read-only and must leave the session queue free.
-    response = path.startsWith('operations/wait?') ? await send() : await browserSession.run(send, options.signal);
+    // Admission waits and opening a different draft must be able to finish
+    // while a save is still pending. Both reads still pass the session gate.
+    response = path.startsWith('operations/wait?') || concurrentDraftRead ? await send() : await browserSession.run(send, options.signal);
   } catch (error) {
     if (error instanceof SessionExpired) throw new ApiError(error.status, 'ingress_session_expired', [], uiText('b22.connection.reload'));
     if (error instanceof DOMException && error.name === 'AbortError') throw error;

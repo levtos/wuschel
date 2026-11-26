@@ -40,7 +40,7 @@ class Activities:
         self.monotonic = monotonic
         self.active: dict[Activity, None] = {}
         self.recent: deque[Activity] = deque(maxlen=128)
-        self.last_operation: Activity | None = None
+        self.last: dict[str, Activity] = {}
 
     @contextmanager
     def track(
@@ -54,17 +54,28 @@ class Activities:
             activity.ended = self.monotonic()
             del self.active[activity]
             self.recent.append(activity)
-            if kind == "operation":
-                self.last_operation = activity
+            self.last[kind] = activity
+
+    def _latest(self, kind: Literal["operation", "route"]) -> Activity | None:
+        return next(
+            (item for item in reversed(self.active) if item.kind == kind), self.last.get(kind)
+        )
 
     def operation(self) -> dict[str, str | float | bool | None]:
-        activity = next(
-            (item for item in reversed(self.active) if item.kind == "operation"),
-            self.last_operation,
-        )
+        activity = self._latest("operation")
         if activity is None:
             return {"operation": None, "run_ms": None, "operation_active": None}
         return {**activity.log_fields(self.monotonic()), "operation_active": activity.ended is None}
+
+    def request(self) -> dict[str, str | float | bool]:
+        activity = self._latest("route")
+        if activity is None:
+            return {}
+        return {
+            "route": activity.name,
+            "request_run_ms": activity.log_fields(self.monotonic())["run_ms"],
+            "request_active": activity.ended is None,
+        }
 
     def overlapping(self, start: float, end: float) -> list[dict[str, str | float]]:
         # Include work that finished before the delayed sampler got CPU time.
