@@ -48,6 +48,27 @@ Berechnung, geschützte Eingänge, Fristen und Veröffentlichung bleiben in
 ihrer vorhandenen Reihenfolge. Last oder MQTT-Queueüberlauf lösen keine neue
 Verbindung aus. MQTT-Überläufe bleiben als Lücke sichtbar.
 
+## Logdiagnose ab b29
+
+`load_state_changed` meldet beide Zustände, die aktuellen Gründe und auf drei
+Nachkommastellen gerundete Messwerte. Fehlende Messwerte erscheinen als
+`null`. Die Warnung nennt den laufenden oder zuletzt beendeten Vorgang
+und seine bisherige bzw. gesamte Laufzeit. `operation_active` zeigt an, ob
+der genannte Vorgang noch läuft. Ohne verfügbaren Vorgang sind diese Felder
+`null`.
+
+`event_loop_stall` fasst aufeinanderfolgende Messungen ab
+`load_lag_ms_strained` in einer Warnung zusammen. Beim ersten Messwert unter
+der Schwelle oder beim Prozessstopp meldet sie Anzahl, höchsten Lag und bis
+zu acht Vorgänge oder HTTP-Routenmuster mit der stärksten zeitlichen
+Überlappung zur Spitzenmessung. Bei Sammelrouten erscheint das registrierte
+Sammelmuster. Pfadparameter, Querys, Header und Anfragedaten werden nicht
+erfasst. Die Laufzeit ist die verstrichene Zeit. Zeitliche Überlappung allein
+belegt keine Ursache.
+
+`operation_timing`, `commit_timing` und `observation_timing` erscheinen bei
+DEBUG. Die Laufzeit eines Beobachtungsblocks steht in `operation_timing`.
+
 ## Verwaltung und Pause
 
 `slots.Operation.heavy` kennzeichnet Vorschau/Validierung, Katalogpflege,

@@ -7,14 +7,73 @@ they are not individual SQL statements or server-side execution time.
 import asyncio
 import inspect
 import logging
-from collections.abc import Awaitable, Callable
+from collections import deque
+from collections.abc import Awaitable, Callable, Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from functools import wraps
+from heapq import nlargest
+from itertools import chain
 from time import perf_counter
-from typing import Any
+from typing import Any, Literal
 
 LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(eq=False)
+class Activity:
+    kind: Literal["operation", "route"]
+    name: str
+    started: float
+    ended: float | None = None
+
+    def log_fields(self, now: float) -> dict[str, str | float]:
+        end = self.ended if self.ended is not None else now
+        return {self.kind: self.name, "run_ms": round((end - self.started) * 1000, 3)}
+
+
+class Activities:
+    """Keep safe labels and timing for spans on the runtime's event loop."""
+
+    def __init__(self, monotonic: Callable[[], float]) -> None:
+        self.monotonic = monotonic
+        self.active: dict[Activity, None] = {}
+        self.recent: deque[Activity] = deque(maxlen=128)
+        self.last_operation: Activity | None = None
+
+    @contextmanager
+    def track(
+        self, name: str, *, kind: Literal["operation", "route"] = "operation"
+    ) -> Iterator[None]:
+        activity = Activity(kind, name, self.monotonic())
+        self.active[activity] = None
+        try:
+            yield
+        finally:
+            activity.ended = self.monotonic()
+            del self.active[activity]
+            self.recent.append(activity)
+            if kind == "operation":
+                self.last_operation = activity
+
+    def operation(self) -> dict[str, str | float | bool | None]:
+        activity = next(
+            (item for item in reversed(self.active) if item.kind == "operation"),
+            self.last_operation,
+        )
+        if activity is None:
+            return {"operation": None, "run_ms": None, "operation_active": None}
+        return {**activity.log_fields(self.monotonic()), "operation_active": activity.ended is None}
+
+    def overlapping(self, start: float, end: float) -> list[dict[str, str | float]]:
+        # Include work that finished before the delayed sampler got CPU time.
+        def overlap(item: Activity) -> float:
+            completed = item.ended if item.ended is not None else end
+            return min(completed, end) - max(item.started, start)
+
+        candidates = (item for item in chain(self.active, self.recent) if overlap(item) > 0)
+        return [item.log_fields(end) for item in nlargest(8, candidates, key=overlap)]
 
 
 @dataclass
@@ -106,8 +165,8 @@ class ObservationTimings:
             self.flush()
 
     def flush(self) -> None:
-        if self.wait:
-            LOGGER.info(
+        if self.wait and LOGGER.isEnabledFor(logging.DEBUG):
+            LOGGER.debug(
                 "observation_timing",
                 extra={
                     "count": len(self.wait),

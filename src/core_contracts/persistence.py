@@ -783,7 +783,7 @@ class PostgresStore:
                 "written_rows": len(changes),
                 "clone_calls": 0,
             }
-            LOGGER.info("commit_timing", extra=self.last_commit_timing)
+            LOGGER.debug("commit_timing", extra=self.last_commit_timing)
 
     async def get(self, table: str, key: str) -> dict[str, Any] | None:
         if table not in TABLES or self.pool is None:

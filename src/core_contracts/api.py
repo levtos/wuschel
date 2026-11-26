@@ -102,7 +102,12 @@ class API:
                 if ingress and request.headers.get("Sec-Fetch-Site") == "cross-site":
                     raise web.HTTPForbidden()
             try:
-                response = await handler(request)
+                resource = request.match_info.route.resource
+                if resource is not None and resource.canonical != "/api/v1/ws":
+                    with self.runtime.activities.track(resource.canonical, kind="route"):
+                        response = await handler(request)
+                else:
+                    response = await handler(request)
             except LoadProtected:
                 details = (
                     self.runtime.load_guard.protection(self.runtime.clock.monotonic())
