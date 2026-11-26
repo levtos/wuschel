@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.0.0b28 — Verständliche Bedienung (A2)
+
+- Verträge zeigen Ursache, Kette bis zur verantwortlichen Quelle und den nächsten Schritt. Ansehen legt keinen Entwurf mehr an.
+- Änderungen bleiben lokal, bis du „In Entwurf speichern“ wählst. „Abbrechen“ verwirft nur deine Änderung; Fehlermeldungen nennen die betroffenen Felder.
+- Vorlagenparameter können Standardwert, Gruppe und Darstellung (Uhrzeit, Dauer, Wochentag) tragen und erscheinen am Vertrag mit Erklärung, Bereich und „Auf Standard zurücksetzen“.
+- Eine Lücke im Feiertagskalender macht nur noch betroffene Tage unbekannt; heute und morgen bleiben gültig, spätere Lücken erscheinen als Warnung. Das gilt auch für den Weckplan.
+- Katalogpflege: denselben Master erneut wählen ändert nichts; Familien zusammenführen und Rollen tauschen mit vollständiger Vorschau.
+- Lastschutz: Eigene Aktionen warten sichtbar, statt abgewiesen zu werden. Bleibt der Schutz bestehen, siehst du Messwert, Schwelle und den Link zu Betrieb.
+- Kein kurzes „Nicht bereit“ mehr beim Tabwechsel; Auswahlwerte übersetzt, ⓘ-Hinweise ergänzt.
+- Nur amd64. [Auftrag, Abnahme und Nachweise #152](https://github.com/Levtos/wuschel/issues/152).
+
+## 1.0.0b27 — Feiertagskalender
+
+- In den Einstellungen jeder Feiertagsquelle lässt sich die maximal erlaubte Lücke auf 1 bis 12 Monate setzen (leer = 4). Die Prüfmeldung zeigt die eingestellte Grenze.
+- Nur amd64. [PR #153](https://github.com/Levtos/wuschel/pull/153).
+
+## 1.0.0b26 — Wiederanlauf, Betriebsdiagnose und Selbstschutz
+
+- Bereits migrierte Entwürfe benötigen beim Start keine Vollkopie des Zustands; Startphasen und Startversuche sind sichtbar.
+- 55 Betriebseinstellungen und die Seite „Systemzustand“ zeigen Warteschlangen, Ereignisschleife, Speicherzeiten, Verbindungen und Lastzustand.
+- Der Lastschutz erholt sich ohne Neustart; die HA-Projektion lässt sich getrennt pausieren. Traber kennzeichnet ausbleibende Projektionen nach der Karenz als veraltet.
+- Nur amd64. Keine Schemamigration. [#135](https://github.com/Levtos/wuschel/issues/135).
+
+## 1.0.0b25 — Kartuschen-Umbau
+
+- Die Zentrale verteilt Vorgänge über ausdrückliche Steckplätze; Katalogpflege, Titelübernahme, Weckplanung und Öffnungen liegen in eigenen Kartuschen.
+- Traber schreibt nur geänderte Vertragszustände. Der Start protokolliert seine Phasen.
+- Nur amd64. Keine Schemamigration, Konfigurationsformat unverändert. [#120](https://github.com/Levtos/wuschel/issues/120).
+
+## 1.0.0b24 — Startkorrektur
+
+- Der Start bricht nicht mehr ab, wenn die Vorbereitung länger als eine Minute dauert.
+
 ## 1.0.0b23 — Stabilität, Prüftempo und HA-Schnittstelle
 
 - Wuschel verarbeitet Beobachtungen während Prüfungen und Vorschauen weiter. Volle Puffer oder eine ausbleibende Projektionsbestätigung lösen keine HA-Neuverbindung aus. Ereignisse und Kontakte bleiben vollständig geordnet; Zustandsquellen können mit sichtbarer Verlaufslücke zusammengefasst werden.
