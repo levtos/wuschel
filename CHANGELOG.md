@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0b28 - Diagnose, Bearbeitung und Lastschutz (A2)
+
+- Vertragswerte führen über Eingänge und Verknüpfungen zur Ursache. Einstellungen zeigen Einheiten, Standardwerte und Grenzen. Vorlagen, Regeln und Abläufe sind lesbar.
+- Änderungen werden lokal geprüft und ausdrücklich in einen Entwurf gespeichert. Die Übernahme zeigt Auswirkungen und Zielbestand. Die Katalogpflege zeigt die betroffenen Varianten vor einem Rollentausch.
+- Bei Lastschutz warten manuell gestartete Prüf-, Vorschau-, Speicher- und Übernahmeaktionen bis zur eingestellten Frist. Die Aktion lässt sich abbrechen. Die Kopfzeile zeigt den Lastzustand und seinen Grund.
+- Feiertagslücken betreffen die Tage ohne Nachweis. Der Weckplan meldet fehlende oder abgelaufene Feiertagsabdeckung und wird an den Abdeckungsfristen neu berechnet.
+- A2 P0–P8 und B1 aus [#152](https://github.com/levtos/wuschel/issues/152). Nur amd64. Installation und Live-Test übernimmt Benni.
+
 ## 1.0.0b27 - Einstellbare Lücke im Feiertagskalender
 
 - Die maximal erlaubte Lücke lässt sich je Feiertagsquelle auf 1 bis 12 Monate einstellen. Ohne Angabe gelten 4 Monate. Die Meldung zeigt die gewählte Grenze.
