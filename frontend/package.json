@@ -1,7 +1,7 @@
 {
   "name": "wuschel-workbench",
   "private": true,
-  "version": "1.0.0b28",
+  "version": "1.0.0b29",
   "type": "module",
   "scripts": {
     "dev": "vite",

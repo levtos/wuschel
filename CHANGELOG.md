@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0b29 - Lastdiagnose im Log
+
+- Die Zeitmessungen für Vorgänge, Beobachtungen und PostgreSQL-Commits erscheinen bei DEBUG. Beobachtungsblöcke werden einmal protokolliert.
+- Das Log nennt bei Lastwechseln beide Zustände, Gründe, Messwerte und den laufenden oder zuletzt beendeten Vorgang.
+- Für aufeinanderfolgende verzögerte Messungen der Ereignisschleife gibt es eine Warnzeile mit Spitzenwert und den dabei überlappenden Vorgängen oder HTTP-Routenmustern. [#167](https://github.com/Levtos/wuschel/issues/167)
+
 ## 1.0.0b28 - Diagnose, Bearbeitung und Lastschutz (A2)
 
 - Vertragswerte führen über Eingänge und Verknüpfungen zur Ursache. Einstellungen zeigen Einheiten, Standardwerte und Grenzen. Vorlagen, Regeln und Abläufe sind lesbar.

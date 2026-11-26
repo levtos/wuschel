@@ -129,10 +129,7 @@ async def process_block(runtime: Runtime, first: Work) -> None:
                 max(0, started - item.queued_at) * 1000, (finished - started) * 1000
             )
             runtime.queue.task_done()
-        LOGGER.info(
-            "observation_block", extra={"count": len(works), "run_ms": (finished - started) * 1000}
-        )
-        LOGGER.info(
+        LOGGER.debug(
             "operation_timing",
             extra={
                 "operation": "observation_block",

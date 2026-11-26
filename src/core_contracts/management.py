@@ -154,7 +154,7 @@ def prepare(
         try:
             return await worker.process(plan.operation, copy.deepcopy(payload))
         finally:
-            logging.getLogger(__name__).info(
+            logging.getLogger(__name__).debug(
                 "operation_timing",
                 extra={
                     "operation": plan.operation,

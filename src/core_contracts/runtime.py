@@ -25,7 +25,7 @@ from .evidence import Observation, assess, is_new, is_older
 from .ha_context import ContextIndex
 from .load_guard import LoadGuard
 from .model import Model, checksum, utc
-from .operation_timing import ObservationTimings, TimedStore, Timing, current
+from .operation_timing import Activities, ObservationTimings, TimedStore, Timing, current
 from .operations import OperationsSettings
 from .persistence import State, Store
 from .producer import Context, Producer
@@ -101,6 +101,7 @@ class Runtime:
         self.projection_paused = False
         self.projection_changed = asyncio.Event()
         self.observation_timings = ObservationTimings()
+        self.activities = Activities(lambda: self.clock.monotonic())
         self.validation_cache = ValidationCache()
         self.require_history_retention = require_history_retention
         self.installation_id: str | None = None
@@ -243,6 +244,7 @@ class Runtime:
         samples = self._commit_window()
         p95 = samples[(95 * len(samples) + 99) // 100 - 1] if len(samples) >= 5 else None
         guard = self.load_guard
+        previous_state = guard.state
         previous_hint = (guard.candidate, guard.reasons)
         changed = guard.sample(
             self.clock.monotonic(),
@@ -253,7 +255,19 @@ class Runtime:
             commit_p95_ms=p95,
         )
         if changed:
-            LOGGER.warning("load_state_changed", extra={"load_state": guard.state})
+            LOGGER.warning(
+                "load_state_changed",
+                extra={
+                    "previous_load_state": previous_state,
+                    "load_state": guard.state,
+                    "reasons": guard.reasons,
+                    "metrics": {
+                        name: round(value, 3) if value is not None else None
+                        for name, value in guard.metrics.items()
+                    },
+                    **self.activities.operation(),
+                },
+            )
             self.projection_changed.set()
         if changed or (
             guard.state != "normal" and previous_hint != (guard.candidate, guard.reasons)
@@ -273,15 +287,37 @@ class Runtime:
             raise LoadProtected()
 
     async def measure_event_loop(self) -> None:
-        while True:
-            started = self.clock.monotonic()
-            await self.clock.sleep(1)
-            lag = max(0.0, (self.clock.monotonic() - started - 1) * 1000)
-            self.event_loop_lag_ms = round(lag, 3)
-            self.event_loop_lag_max_ms = max(
-                self.event_loop_lag_max_ms or 0, self.event_loop_lag_ms
+        count = 0
+        peak = 0.0
+        activities: list[dict[str, str | float]] = []
+
+        def report() -> None:
+            LOGGER.warning(
+                "event_loop_stall", extra={"lag_ms": peak, "count": count, "activities": activities}
             )
-            self.sample_load()
+
+        try:
+            while True:
+                started = self.clock.monotonic()
+                await self.clock.sleep(1)
+                finished = self.clock.monotonic()
+                lag = round(max(0.0, (finished - started - 1) * 1000), 3)
+                self.event_loop_lag_ms = lag
+                self.event_loop_lag_max_ms = max(self.event_loop_lag_max_ms or 0, lag)
+                if lag >= self.operations.load_lag_ms_strained:
+                    count += 1
+                    if lag > peak:
+                        peak = lag
+                        activities = self.activities.overlapping(started + 1, finished)
+                elif count:
+                    report()
+                    count = 0
+                    peak = 0.0
+                    activities = []
+                self.sample_load()
+        finally:
+            if count:
+                report()
 
     def system_state(self) -> dict[str, Any]:
         samples = self._commit_window()
@@ -686,7 +722,8 @@ class Runtime:
                 None,
             )
         if handler is not None:
-            return await handler(self, operation, payload)
+            with self.activities.track(operation):
+                return await handler(self, operation, payload)
         return await self._enqueue(operation, payload)
 
     async def _enqueue(self, operation: str, payload: Any) -> Any:
@@ -758,71 +795,76 @@ class Runtime:
             if work.operation == "observation" and self.persistence:
                 from .observation_block import process_block
 
-                await process_block(self, work)
+                with self.activities.track("observation_block"):
+                    await process_block(self, work)
                 continue
-            started = perf_counter()
-            timing = Timing(asyncio.current_task())
-            timing_token = current.set(timing)
-            try:
-                result = await self.process(work.operation, work.payload)
-                if work.future and not work.future.done():
-                    work.future.set_result(result)
-            except Exception as error:
-                expected_error = isinstance(error, (RegistryValidationError, AuthoringError)) or (
-                    type(error) is ValueError
-                    and str(error)
-                    in {
-                        "draft_limit",
-                        "draft_identity_conflict",
-                        "draft_version_conflict",
-                        "active_revision_conflict",
-                        "sensitive key",
-                        "credential URL",
-                        "document too large",
-                        "document too deep",
-                        "configuration object required",
-                        "invalid_draft_id",
-                        "invalid_draft_version",
-                        "invalid_draft_display_name",
-                        "invalid_expected_revision",
-                        "revision_not_found",
-                    }
-                )
-                LOGGER.log(
-                    logging.INFO if expected_error else logging.ERROR,
-                    "processor_request_failed",
-                    extra={"operation": work.operation, "error_type": type(error).__name__},
-                )
-                if work.future and not work.future.done():
-                    work.future.set_exception(error)
-            finally:
-                # Older queued events must finish before their coalesced successors.
-                # Ingest keeps buffering a binding until this buffer is committed.
-                if self.overflow and self.queue.empty() and self.persistence:
-                    try:
-                        await self._drain_overflow()
-                    except Exception as error:
-                        LOGGER.warning(
-                            "buffer_drain_failed", extra={"error_type": type(error).__name__}
-                        )
-                self.queue.task_done()
-                elapsed = (perf_counter() - started) * 1000
-                wait = (started - work.queued_at) * 1000
-                if work.operation == "observation":
-                    self.observation_timings.add(wait, elapsed)
-                else:
-                    LOGGER.info(
-                        "operation_timing",
-                        extra={
-                            "operation": work.operation,
-                            "queue_wait_ms": wait,
-                            "run_ms": elapsed,
-                            "db_calls": timing.db_calls,
-                            "db_ms": timing.db_ms,
-                            "phases_ms": timing.phases_ms,
-                        },
+            with self.activities.track(work.operation):
+                await self._run_work(work)
+
+    async def _run_work(self, work: Work) -> None:
+        started = perf_counter()
+        timing = Timing(asyncio.current_task())
+        timing_token = current.set(timing)
+        try:
+            result = await self.process(work.operation, work.payload)
+            if work.future and not work.future.done():
+                work.future.set_result(result)
+        except Exception as error:
+            expected_error = isinstance(error, (RegistryValidationError, AuthoringError)) or (
+                type(error) is ValueError
+                and str(error)
+                in {
+                    "draft_limit",
+                    "draft_identity_conflict",
+                    "draft_version_conflict",
+                    "active_revision_conflict",
+                    "sensitive key",
+                    "credential URL",
+                    "document too large",
+                    "document too deep",
+                    "configuration object required",
+                    "invalid_draft_id",
+                    "invalid_draft_version",
+                    "invalid_draft_display_name",
+                    "invalid_expected_revision",
+                    "revision_not_found",
+                }
+            )
+            LOGGER.log(
+                logging.DEBUG if expected_error else logging.ERROR,
+                "processor_request_failed",
+                extra={"operation": work.operation, "error_type": type(error).__name__},
+            )
+            if work.future and not work.future.done():
+                work.future.set_exception(error)
+        finally:
+            # Older queued events must finish before their coalesced successors.
+            # Ingest keeps buffering a binding until this buffer is committed.
+            if self.overflow and self.queue.empty() and self.persistence:
+                try:
+                    await self._drain_overflow()
+                except Exception as error:
+                    LOGGER.warning(
+                        "buffer_drain_failed", extra={"error_type": type(error).__name__}
                     )
-                current.reset(timing_token)
+            self.queue.task_done()
+            elapsed = (perf_counter() - started) * 1000
+            wait = (started - work.queued_at) * 1000
+            if work.operation == "observation":
+                self.observation_timings.add(wait, elapsed)
+            else:
+                LOGGER.debug(
+                    "operation_timing",
+                    extra={
+                        "operation": work.operation,
+                        "queue_wait_ms": wait,
+                        "run_ms": elapsed,
+                        "db_calls": timing.db_calls,
+                        "db_ms": timing.db_ms,
+                        "phases_ms": timing.phases_ms,
+                    },
+                )
+            current.reset(timing_token)
 
     async def process(self, operation: str, payload: Any) -> Any:
         entry = slots.OPERATIONS.get(operation)
@@ -1877,7 +1919,7 @@ class Runtime:
         }
         await self._commit(state, publication=bool(override))
         if result["status"] != "accepted":
-            LOGGER.info(
+            LOGGER.debug(
                 "command_rejected",
                 extra={
                     "contract_id": command.contract_id,

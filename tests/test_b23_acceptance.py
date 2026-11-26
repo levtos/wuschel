@@ -442,7 +442,7 @@ async def test_live_size_twenty_per_second_for_sixty_seconds_with_real_administr
 ):
     # Benni's replacement criteria, #100 Go 03.11.2026: end states and complete
     # protected event sequences, rather than the count of coalescible values.
-    caplog.set_level("INFO", logger="core_contracts")
+    caplog.set_level("DEBUG", logger="core_contracts")
     try:
         await genuine_load(aiohttp_server)
     except AssertionError:
