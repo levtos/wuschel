@@ -6,7 +6,7 @@ from uuid import UUID
 
 from . import slots
 from .model import Model
-from .persistence import PostgresStore, State
+from .persistence import State
 from .registry import RegistryConfig
 from .retention import RetentionBatch, collect_retention_batch, pinned_references
 
@@ -49,7 +49,8 @@ async def publish_retention(
     now: datetime,
     config: RegistryConfig | None,
 ) -> dict[str, Any]:
-    if not isinstance(runtime.store, PostgresStore):
+    apply = getattr(runtime.store, "apply_prepared_retention", None)
+    if apply is None:
         raise ValueError("history_retention_not_configured")
     key = f"retention:{payload.request_id}"
     policy = config.history_retention if config else None
@@ -62,7 +63,7 @@ async def publish_retention(
             or payload.batch.batch_size != policy.batch_size
         ):
             raise ValueError("retention_plan_conflict")
-        result = await runtime.store.apply_prepared_retention(state, key, payload.batch)
+        result = await apply(state, key, payload.batch)
     if payload.scheduled and policy is not None:
         runtime.retention_receipt = result
         runtime.next_retention = now + timedelta(
