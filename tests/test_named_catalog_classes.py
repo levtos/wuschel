@@ -5,6 +5,10 @@ from uuid import uuid4
 
 import pytest
 
+from core_contracts.extensions.catalog.catalog_class_rollback import (
+    PreparedClassRollback,
+    prepare_work_rollback,
+)
 from core_contracts.extensions.catalog.catalog_class_rollback import preview as rollback_preview
 from core_contracts.extensions.catalog.managed_catalog import effective, head, identity
 from core_contracts.extensions.catalog.named_class_migration import build_package
@@ -23,7 +27,8 @@ from tests.test_portable import export, plan, stage
 from tests.test_postgres import database as database
 
 
-async def test_typed_migration_commits_one_content_revision(runtime, config):
+@pytest.mark.parametrize("prepared", [False, True])
+async def test_typed_migration_commits_one_content_revision(runtime, config, prepared):
     document = configured(config)
     document["catalogs"][0].update(catalog_id="media.homepods", unassigned_value="normal")
     document["catalogs"][0]["classification_schema"]["values"] = [
@@ -124,7 +129,15 @@ async def test_typed_migration_commits_one_content_revision(runtime, config):
     }
     with pytest.raises(ValueError, match="catalog_migration_rollback_required"):
         await runtime.submit("rollback", {"expected_active_revision": 2, "revision": 1})
-    result = await runtime.submit("rollback", body)
+    if prepared:
+        prepared_plan = await prepare_work_rollback(runtime, body)
+        assert isinstance(prepared_plan, PreparedClassRollback)
+        assert runtime.state.active_revision == 2
+        sealed = PreparedClassRollback.model_validate_json(prepared_plan.model_dump_json())
+        result = await runtime.submit("catalog_class_rollback_prepared", sealed)
+        assert await runtime.submit("catalog_class_rollback_prepared", sealed) == result
+    else:
+        result = await runtime.submit("rollback", body)
     assert result["revision"] == 3
     assert await runtime.submit("rollback", body) == result
     restored = runtime.config.catalogs[0]

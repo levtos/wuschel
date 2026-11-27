@@ -34,6 +34,7 @@ from .wiring import (
     Credentials,
     PreparedCatalogCleanup,
     PreparedCatalogWrite,
+    PreparedClassRollback,
     PreparedScopeWrite,
     PreparedTitlePage,
 )
@@ -254,6 +255,7 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
                 | PreparedCatalogCleanup
                 | PreparedTitlePage
                 | PreparedScopeWrite
+                | PreparedClassRollback
             ) = PreparedPortableStage.model_validate(raw)
         elif operation == "retention_run_prepared":
             plan = PreparedRetention.model_validate(raw)
@@ -265,6 +267,8 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
             plan = PreparedTitlePage.model_validate(raw)
         elif operation == "catalog_scope_prepared":
             plan = PreparedScopeWrite.model_validate(raw)
+        elif operation == "catalog_class_rollback_prepared":
+            plan = PreparedClassRollback.model_validate(raw)
         else:
             raise ValueError("work_commit_invalid")
         result: dict[str, Any] = await runtime.submit(operation, plan)

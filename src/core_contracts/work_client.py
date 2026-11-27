@@ -260,7 +260,12 @@ class WorkClient:
         return {"X-Work-Owner": kind + ":" + role}
 
     async def queue(
-        self, request: web.Request, path: str, *, service: dict[str, Any] | None = None
+        self,
+        request: web.Request,
+        path: str,
+        *,
+        service: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
     ) -> web.StreamResponse | None:
         if not work_route(request.method, path):
             return None
@@ -292,7 +297,11 @@ class WorkClient:
             async with session.post(
                 "http://localhost/jobs",
                 headers=headers,
-                data=request.content.iter_chunked(FRAME_LIMIT),
+                data=(
+                    canonical(body).encode()
+                    if body is not None
+                    else request.content.iter_chunked(FRAME_LIMIT)
+                ),
             ) as response:
                 if response.status != 202:
                     return await self.forward(request, response)

@@ -31,10 +31,12 @@ from .wiring import (
     Credentials,
     PreparedCatalogCleanup,
     PreparedCatalogWrite,
+    PreparedClassRollback,
     PreparedScopeWrite,
     PreparedTitlePage,
     prepare_work_catalog_write,
     prepare_work_cleanup,
+    prepare_work_rollback,
     prepare_work_scope,
     prepare_work_title_apply,
     prepare_work_title_stage,
@@ -128,6 +130,12 @@ class WorkerRuntime(Runtime):
             if isinstance(result, PreparedScopeWrite):
                 self.prepared_work = result
                 return result.result
+            return result
+        if operation == "rollback":
+            result = await prepare_work_rollback(self, payload)
+            if isinstance(result, PreparedClassRollback):
+                self.prepared_work = result
+                return {}
             return result
         if operation not in READ_OPERATIONS:
             raise RuntimeError("work_read_only")

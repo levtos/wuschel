@@ -43,6 +43,11 @@ async def dispatch(self: Any, request: web.Request, *, cache: CatalogReadCache) 
         from core_contracts.extensions.catalog.catalog_class_rollback import preview
 
         result = preview(state, config)
+    elif path == "catalogs/classes/rollback" and method == "POST":
+        body = await self.object_body(request)
+        if type(body.get("catalog_migration_revision")) is not int:
+            raise ValueError("catalog_migration_conflict")
+        result = await runtime.submit("rollback", {**body, "_actor": request["actor"]})
     elif path == "catalogs/classes/outputs" and method == "GET":
         from core_contracts.extensions.catalog.named_class_migration import output_options
 

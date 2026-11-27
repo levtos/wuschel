@@ -51,6 +51,7 @@ PLAN_ROUTES = frozenset(
         "catalogs/care/write",
         "catalogs/scope/apply",
         "catalogs/cleanup/apply",
+        "catalogs/classes/rollback",
         "history/retention/run",
     }
 )
@@ -76,6 +77,7 @@ WRITE_PLANS = {
     ("POST", "catalogs/cleanup/apply"): "catalog_cleanup_prepared",
     ("POST", "catalogs/scope/apply"): "catalog_scope_prepared",
     ("POST", "title-sync/apply"): "title_sync_apply_prepared",
+    ("POST", "catalogs/classes/rollback"): "catalog_class_rollback_prepared",
 }
 
 

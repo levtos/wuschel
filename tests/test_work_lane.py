@@ -276,6 +276,7 @@ def test_registered_operations_have_a_closed_classification():
         "catalog_care_write",
         "catalog_cleanup_apply",
         "catalog_cleanup_prepared",
+        "catalog_class_rollback_prepared",
         "catalog_scope_apply",
         "catalog_scope_prepared",
         "catalog_write",

@@ -27,6 +27,12 @@ from .extensions.catalog import (  # noqa: F401
     catalog_scope,
     managed_catalog,
 )
+from .extensions.catalog.catalog_class_rollback import (
+    PreparedClassRollback as PreparedClassRollback,
+)
+from .extensions.catalog.catalog_class_rollback import (
+    prepare_work_rollback as prepare_work_rollback,
+)
 from .extensions.catalog.catalog_operations import PreparedCatalogCleanup as PreparedCatalogCleanup
 from .extensions.catalog.catalog_operations import PreparedCatalogWrite as PreparedCatalogWrite
 from .extensions.catalog.catalog_operations import (

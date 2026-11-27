@@ -1191,6 +1191,8 @@ async def operation_activate(
     payload: Any,
     now: datetime,
     config: RegistryConfig | None,
+    *,
+    prepared_rollback: Any = None,
 ) -> Any:
     from . import authoring
 
@@ -1243,7 +1245,9 @@ async def operation_activate(
             check_catalog_heads(state, new_config)
         draft["config"] = storage_document(new_config)
     elif catalog_rollback := slots.AUTHORING.get("catalog_rollback_apply"):
-        await catalog_rollback(runtime, state, payload, config, new_config, now)
+        await catalog_rollback(
+            runtime, state, payload, config, new_config, now, prepared=prepared_rollback
+        )
     revision = max((int(r) for r in state.tables["registry_revision"]), default=0) + 1
     state.active_revision = revision
     state.tables["registry_revision"][str(revision)] = {
