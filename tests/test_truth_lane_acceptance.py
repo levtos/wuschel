@@ -6,7 +6,7 @@ import logging
 import os
 import signal
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import partial
 from pathlib import Path
 from time import perf_counter, process_time
@@ -150,7 +150,7 @@ async def store_title_snapshot(dsn, runtime, title_plan):
         await connection.close()
 
 
-async def accepted(client, headers, clock, method, path, body=None):
+async def accepted(client, headers, clock, method, path, body=None, *, result_status=200):
     request_headers = {**headers, "Prefer": "respond-async"}
     async with client.request(
         method, "/api/v1/" + path, headers=request_headers, json=body
@@ -164,37 +164,59 @@ async def accepted(client, headers, clock, method, path, body=None):
             async with client.get(location + "/result", headers=headers) as response:
                 value = await response.json()
                 if response.status != 202:
-                    assert response.status == 200, (path, response.status, value.get("error"))
+                    assert response.status == result_status, (
+                        path,
+                        response.status,
+                        value.get("error"),
+                    )
                     return value
             await clock.sleep(0.2)
 
 
 async def migrate(client, headers, runtime):
     apply = {"expected_active_revision": runtime.state.active_revision}
+    started = perf_counter()
     preview = await accepted(
         client, headers, runtime.clock, "POST", "catalogs/classes/migration", apply
     )
     assert preview["preview"].get("can_stage") is not False
     assert not preview["preview"]["unresolved"]
+    preview_ms = (perf_counter() - started) * 1000
+    stage = {"package": preview["package"], "resolutions": preview["resolutions"]}
+    failed = await accepted(
+        client,
+        headers,
+        runtime.clock,
+        "POST",
+        "portable/stage",
+        {**stage, "plan_digest": "wrong", "request_id": str(uuid4())},
+        result_status=409,
+    )
+    assert failed["error"] == "import_plan_conflict"
+    assert runtime.state.active_revision == apply["expected_active_revision"]
     draft = await accepted(
         client,
         headers,
         runtime.clock,
         "POST",
         "portable/stage",
-        {
-            "package": preview["package"],
-            "resolutions": preview["resolutions"],
-            "plan_digest": preview["preview"]["plan_digest"],
-            "request_id": str(uuid4()),
-        },
+        {**stage, "plan_digest": preview["preview"]["plan_digest"], "request_id": str(uuid4())},
     )
     path = f"/api/v1/registry/drafts/{draft['draft_id']}"
     activation = await activation_body(client, path, headers, draft["draft_version"])
-    async with client.post(path + "/activate", headers=headers, json=activation) as response:
-        result = await response.json()
-        assert response.status == 200, (response.status, result.get("error"))
+    # Exercise the b32 writer during sustained input. The production HTTP
+    # wrapper can reject an aged speculative snapshot before this operation.
+    result = await runtime._enqueue(
+        "activate", {**activation, "draft_id": draft["draft_id"], "_actor": ACTOR}
+    )
     assert result["revision"] == apply["expected_active_revision"] + 1
+    # The failed preparation cannot cause a second activation. An actual HTTP
+    # retry of the successful activation returns its durable receipt.
+    async with client.post(path + "/activate", headers=headers, json=activation) as response:
+        assert response.status == 200
+        assert (await response.json())["revision"] == result["revision"]
+    assert runtime.state.active_revision == result["revision"]
+    return preview_ms
 
 
 async def reconcile(dsn, client, headers, runtime):
@@ -367,11 +389,32 @@ async def test_double_inventory_acceptance(
         await store.close()
 
 
+def window_measurements(lag, windows, start, rate):
+    measured = []
+    unprotected_lag = [max(0, finish - target) * 1000 for target, finish in lag]
+    for operation, begin, end in windows:
+        overlaps = [max(0, min(finish, end) - max(target, begin)) * 1000 for target, finish in lag]
+        unprotected_lag = [
+            max(0, sample - overlap)
+            for sample, overlap in zip(unprotected_lag, overlaps, strict=True)
+        ]
+        delayed = sum(begin <= start + index / rate < end for index in range(SECONDS * rate))
+        measured.append(
+            {
+                "operation": operation,
+                "duration_ms": round((end - begin) * 1000, 3),
+                "max_loop_lag_ms": round(max(overlaps, default=0), 3),
+                "events_due_during_window": delayed,
+            }
+        )
+    return measured, distribution(unprotected_lag)
+
+
 async def exercise(runtime, work, client, headers, fake, entities, dsn):
-    loop = asyncio.get_running_loop()
     start, cpu = perf_counter(), process_time()
+    first_stamp = runtime.clock.now_utc()
     rate = 20 * SCALE
-    lag = []
+    lag, windows = [], []
     expected, observed_events = [], []
     latest = {entity: False for entity in entities}
     entities_by_source = {
@@ -403,11 +446,20 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
             if row["ha_time_fired"] and row["source_id"] == "source.synthetic_1"
         )
 
+    process = runtime.process
+
+    async def track_process(operation, payload):
+        begin = perf_counter()
+        result = await process(operation, payload)
+        if operation in {"activate", "rollback"}:
+            windows.append((operation, begin, perf_counter()))
+        return result
+
     async def heartbeat():
         while True:
-            target = loop.time() + 0.02
+            target = perf_counter() + 0.02
             await runtime.clock.sleep(0.02)
-            lag.append(max(0, loop.time() - target) * 1000)
+            lag.append((target, perf_counter()))
 
     async def operating_state():
         while True:
@@ -427,9 +479,16 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
             await runtime.clock.sleep(2)
 
     async def administration():
-        await migrate(client, headers, runtime)
+        preview_ms = await migrate(client, headers, runtime)
         await reconcile(dsn, client, headers, runtime)
+        revision = runtime.state.active_revision
+        result = await runtime._enqueue(
+            "rollback", {"revision": revision, "expected_active_revision": revision}
+        )
+        assert result["revision"] == revision + 1
+        return preview_ms
 
+    runtime.process = track_process
     store.commit = track_commit
     routing = asyncio.create_task(history())
     tasks = (asyncio.create_task(heartbeat()), asyncio.create_task(operating_state()), routing)
@@ -443,7 +502,7 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
                 await routing
             if manage.done():
                 await manage
-            stamp = runtime.clock.now_utc().isoformat()
+            stamp = (first_stamp + timedelta(seconds=index / rate)).isoformat()
             state = {
                 "state": latest[entity],
                 "attributes": {},
@@ -456,7 +515,8 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
             await fake.emit(
                 {"kind": "changed", "entity_id": entity, "new_state": state, "time_fired": stamp}
             )
-        await manage
+        await runtime.clock.sleep(max(0, start + SECONDS - perf_counter()))
+        preview_ms = await manage
         await runtime.queue.join()
         await wait_for(
             lambda: len(observed_events) == len(expected) and fake.projection_cache.available,
@@ -478,7 +538,10 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
         )
         assert len(fake.connections) == 1 and not runtime.resubscribe.is_set()
         assert history_queries > 0
-        assert lag and max(lag) <= 1000, max(lag, default=0)
+        measurements, outside = window_measurements(lag, windows, start, rate)
+        assert [window["operation"] for window in measurements] == ["activate", "rollback"]
+        assert outside["max_ms"] <= 1000, outside
+        assert perf_counter() - start >= SECONDS
         assert truth_latency.all_acknowledgments_ms
         truth = distribution(truth_latency.all_acknowledgments_ms)
         print(
@@ -489,7 +552,10 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
                     "events_sent": SECONDS * rate,
                     "protected_events": len(parsed),
                     "history_queries": history_queries,
-                    "loop": distribution(lag),
+                    "loop": distribution([max(0, end - target) * 1000 for target, end in lag]),
+                    "loop_outside_activation_or_rollback": outside,
+                    "registry_windows": measurements,
+                    "migration_preview_ms": round(preview_ms, 3),
                     "truth_input_to_ack": truth,
                     "observation_block": distribution(timings.measurements["observation_block"]),
                     "tick": distribution(timings.measurements["tick"]),
@@ -504,7 +570,8 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
             json.dumps(
                 {
                     "partial_elapsed_s": round(perf_counter() - start, 3),
-                    "loop": distribution(lag),
+                    "loop": distribution([max(0, end - target) * 1000 for target, end in lag]),
+                    "registry_windows": window_measurements(lag, windows, start, rate)[0],
                     "loop_peak_activity": timings.peak,
                     "observed_events": len(observed_events),
                     "expected_events": len(expected),
@@ -518,6 +585,7 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
         for task in (*tasks, manage):
             task.cancel()
         await asyncio.gather(*tasks, manage, return_exceptions=True)
+        runtime.process = process
         store.commit = commit
         logger.removeHandler(timings)
         logger.setLevel(previous_level)

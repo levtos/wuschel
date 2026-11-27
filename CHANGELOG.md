@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0b33 - Wahrheiten haben Vorfahrt
+
+- Große Vorschauen, Übernahmen und Abgleiche laufen in eigenen Verarbeitern.
+- Unter „Aufträge“ siehst du den Stand und kannst laufende Arbeiten bis zur Übernahme abbrechen.
+- Auch bei hoher Last nimmt Wuschel deine Aufträge an und stellt sie in die Warteschlange.
+- Beim Übernehmen einer neuen Konfiguration können Wahrheiten kurz (ca. 1–3 s) verzögert aktualisiert werden.
+
 ## 1.0.0b32 - Schaltungen und ihre Herkunft
 
 - Steuerungen können Schaltungen über Traber anmelden. Ein gemeinsamer Ausführer verwendet die Kennung der beauftragenden Steuerung.

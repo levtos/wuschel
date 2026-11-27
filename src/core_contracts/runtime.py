@@ -42,6 +42,7 @@ from .registry import (
     RegistryConfig,
     affected_sources,
     fingerprints,
+    observation_fingerprints,
     registry_types,
     resolve_ref,
     topological,
@@ -83,6 +84,7 @@ class Work:
     payload: Any
     future: asyncio.Future[Any] | None = None
     queued_at: float = dataclass_field(default_factory=perf_counter)
+    observation_config: RegistryConfig | None = None
 
 
 @dataclass
@@ -755,11 +757,18 @@ class Runtime:
         if not self.persistence:
             self._buffer_outage(observation)
             return
-        if self.config and observation.source_id in self._structure(self.config).protected:
+        config = self.config
+        if config and observation.source_id in self._structure(config).protected:
             from .observation_block import IngestQueue
 
+            basis = (
+                config
+                if observation.adapter in {"ha_state", "ha_attribute"}
+                and observation.observation_kind in {"live_change", "report"}
+                else None
+            )
             assert isinstance(self.queue, IngestQueue)
-            self.queue.put_event(Work("observation", observation))
+            self.queue.put_event(Work("observation", observation, observation_config=basis))
             return
         if observation.binding_id in self.latest:
             self.latest[observation.binding_id] = observation
@@ -771,6 +780,21 @@ class Runtime:
             self.latest[observation.binding_id] = observation
             self.overflow = True
             self.overflow_serial += 1
+
+    def queued_observation(self, work: Work) -> Observation:
+        observation: Observation = work.payload
+        before = work.observation_config
+        revision = self.state.active_revision
+        if before is None or observation.registry_revision in {None, revision}:
+            return observation
+        after = self.config
+        if after and (
+            observation_fingerprints(before, source_id=observation.source_id)
+            == observation_fingerprints(after, source_id=observation.source_id)
+        ):
+            # A compatible queued HA event carries the same evidence across activation.
+            return observation.model_copy(update={"registry_revision": revision})
+        return observation
 
     def tick(self) -> None:
         self.last_heartbeat = self.clock.monotonic()
@@ -828,7 +852,8 @@ class Runtime:
         timing = Timing(asyncio.current_task())
         timing_token = current.set(timing)
         try:
-            result = await self.process(work.operation, work.payload)
+            payload = self.queued_observation(work) if work.observation_config else work.payload
+            result = await self.process(work.operation, payload)
             if work.future and not work.future.done():
                 work.future.set_result(result)
         except Exception as error:

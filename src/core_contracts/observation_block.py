@@ -106,7 +106,7 @@ async def process_block(runtime: Runtime, first: Work) -> None:
     try:
         while True:
             works.append(work)
-            await worker.process("observation", work.payload)
+            await worker.process("observation", worker.queued_observation(work))
             if (
                 len(works) >= runtime.operations.observation_block_size
                 or perf_counter() >= deadline
