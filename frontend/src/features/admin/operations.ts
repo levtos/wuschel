@@ -1,3 +1,5 @@
+import type { WorkState } from '@/features/jobs/state';
+
 export interface OperationSetting {
   key: string; value: number; active_value: number; default: number;
   minimum: number; maximum: number; unit: string; name: string; explanation: string;
@@ -5,7 +7,9 @@ export interface OperationSetting {
 }
 export interface OperationSettings { notice: string | null; settings: OperationSetting[] }
 export interface SystemState {
-  load: { state: 'normal' | 'angespannt' | 'geschützt'; reasons: string[]; metrics: Record<string, number | null> };
+  work?: WorkState;
+  truth_delayed?: boolean;
+  load: { state: 'normal' | 'angespannt' | 'geschützt'; reasons: string[]; metrics: Record<string, number | null>; remaining_hold_ms?: number };
   projection_paused: boolean; retry_notices: string[];
   ready: boolean; publication_confirmed: boolean; publication_seq: number; version: string;
   persistence: string; ha: string; bridge: string; mqtt: string; traber_version: string | null;

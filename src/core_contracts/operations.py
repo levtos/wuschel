@@ -35,6 +35,15 @@ def setting(
 
 
 class OperationsSettings(Model):
+    work_max_workers: int = setting(
+        0,
+        0,
+        64,
+        "Verarbeiter",
+        "Höchstens gleichzeitig verfügbare Verarbeiter",
+        "Wuschel richtet die Zahl nach den verfügbaren Rechenkernen. Einer steht bereit. "
+        "Weitere kommen hinzu, wenn Aufträge warten. Mit 0 stellst du die Obergrenze automatisch ein.",
+    )
     load_lag_ms_strained: float = setting(
         100,
         1,

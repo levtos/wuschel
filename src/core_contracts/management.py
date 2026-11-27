@@ -184,7 +184,6 @@ def prepare(
 async def execute(runtime: Runtime, operation: str, payload: Any) -> Any:
     async with runtime.management_slots:
         for attempt in range(3):
-            runtime.admit_operation(operation)
             plan = await runtime.submit("management_snapshot")
             plan.operation = operation
             try:

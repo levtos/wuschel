@@ -30,6 +30,7 @@ class LoadGuard:
         queue_capacity: int,
         overflow_total: int,
         commit_p95_ms: float | None,
+        pending_ms: float | None = None,
     ) -> bool:
         increase = max(0, overflow_total - self._overflow_total)
         self._overflow_total = overflow_total
@@ -57,6 +58,10 @@ class LoadGuard:
             for key, value in self.metrics.items()
             if value is not None
         }
+        if pending_ms is not None:
+            self.metrics["pending_truth_ms"] = pending_ms
+            if pending_ms >= 500:
+                levels["pending_truth_ms"] = 2
         level = max(levels.values(), default=0)
         self.reasons = [
             key for key in sorted(levels, key=levels.__getitem__, reverse=True) if levels[key]
@@ -69,6 +74,8 @@ class LoadGuard:
             if level > STATES.index(self.state)
             else self.settings.load_recover_hold_s
         )
+        if pending_ms is not None and pending_ms >= 500:
+            hold = 0
         if target == self.state or now - self.candidate_since < hold:
             return False
         self.state, self.changed_at = target, now
@@ -91,8 +98,15 @@ class LoadGuard:
             )
         return {"measurements": measurements, "wait_seconds": self.settings.load_interactive_wait_s}
 
-    def view(self) -> dict[str, Any]:
+    def view(self, now: float = 0.0) -> dict[str, Any]:
+        upward = STATES.index(self.candidate) > STATES.index(self.state)
+        hold = self.settings.load_enter_hold_s if upward else self.settings.load_recover_hold_s
         return {
+            "remaining_hold_ms": (
+                max(0, round((self.candidate_since + hold - now) * 1000))
+                if self.candidate != self.state
+                else 0
+            ),
             "state": self.state,
             "candidate": self.candidate,
             "changed_at_monotonic": self.changed_at,

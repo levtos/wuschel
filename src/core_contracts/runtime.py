@@ -20,7 +20,7 @@ from . import slots
 from .calendar_inputs import project
 from .clock import Alarm, Clock
 from .declarative import GuardEvaluationError
-from .errors import AuthoringError, LoadProtected, RegistryValidationError
+from .errors import AuthoringError, RegistryValidationError
 from .evidence import Observation, assess, is_new, is_older
 from .ha_context import MANUAL_CHANGE_TYPE, ContextIndex, EngineRegistration
 from .load_guard import LoadGuard
@@ -44,6 +44,7 @@ from .retention import RetentionPolicy
 from .schema import Envelope, TypeRegistry, validate_fields
 from .statemachine import MachineState
 from .temporal import start_case
+from .truth_latency import TruthLatency
 from .validation_cache import ValidationCache
 
 LOGGER = logging.getLogger(__name__)
@@ -98,6 +99,9 @@ class Runtime:
         self.store, self.clock, self.types = TimedStore(store), clock, types
         self.operations = operations or OperationsSettings()
         self.load_guard = LoadGuard(self.operations)
+        self.truth_latency = TruthLatency()
+        self.truth_delayed = False
+        self.active_truth_since: float | None = None
         self.projection_paused = False
         self.projection_changed = asyncio.Event()
         self.observation_timings = ObservationTimings()
@@ -227,6 +231,8 @@ class Runtime:
 
     def set_projection_paused(self, paused: bool) -> None:
         self.projection_paused = paused
+        if paused:
+            self.truth_latency.reset_pending()
         self.projection_changed.set()
         LOGGER.info("projection_pause_changed", extra={"paused": paused})
         self._broadcast(self.service_state())
@@ -241,18 +247,26 @@ class Runtime:
         return sorted(duration for _, duration in self.commit_samples)
 
     def sample_load(self) -> None:
-        samples = self._commit_window()
-        p95 = samples[(95 * len(samples) + 99) // 100 - 1] if len(samples) >= 5 else None
+        now = self.clock.monotonic()
         guard = self.load_guard
         previous_state = guard.state
         previous_hint = (guard.candidate, guard.reasons)
+        from .observation_block import IngestQueue
+
+        queue = self.queue
+        truth_queued = queue.truth_queued if isinstance(queue, IngestQueue) else ()
+        oldest = truth_queued[0] if truth_queued else self.active_truth_since
+        queued_ms = max(0.0, (now - oldest) * 1000) if oldest is not None else 0.0
+        pending_ms = self.truth_latency.oldest_ms(now)
+        self.truth_delayed = pending_ms is not None and pending_ms >= 1000
         changed = guard.sample(
-            self.clock.monotonic(),
+            now,
             lag_ms=self.event_loop_lag_ms,
-            queue_depth=self.queue.qsize(),
+            queue_depth=len(truth_queued) + int(self.active_truth_since is not None),
             queue_capacity=self.queue.maxsize,
             overflow_total=self.overflow_serial,
-            commit_p95_ms=p95,
+            commit_p95_ms=self.truth_latency.p95_ms(now),
+            pending_ms=max(pending_ms or 0.0, queued_ms) or None,
         )
         if changed:
             LOGGER.warning(
@@ -269,23 +283,10 @@ class Runtime:
                     **self.activities.request(),
                 },
             )
-            self.projection_changed.set()
         if changed or (
             guard.state != "normal" and previous_hint != (guard.candidate, guard.reasons)
         ):
             self._broadcast(self.service_state())
-
-    def admit_operation(self, operation: str) -> None:
-        entry = slots.OPERATIONS.get(operation) or next(
-            (
-                item
-                for prefix, item in slots.OPERATION_PREFIXES.items()
-                if operation.startswith(prefix)
-            ),
-            None,
-        )
-        if entry is not None and entry.heavy and self.load_guard.state == "geschützt":
-            raise LoadProtected()
 
     async def measure_event_loop(self) -> None:
         count = 0
@@ -300,9 +301,9 @@ class Runtime:
         try:
             while True:
                 started = self.clock.monotonic()
-                await self.clock.sleep(1)
+                await self.clock.sleep(0.02)
                 finished = self.clock.monotonic()
-                lag = round(max(0.0, (finished - started - 1) * 1000), 3)
+                lag = round(max(0.0, (finished - started - 0.02) * 1000), 3)
                 self.event_loop_lag_ms = lag
                 self.event_loop_lag_max_ms = max(self.event_loop_lag_max_ms or 0, lag)
                 if lag >= self.operations.load_lag_ms_strained:
@@ -324,6 +325,8 @@ class Runtime:
         samples = self._commit_window()
         return {
             **self.service_state(),
+            "load": self.load_guard.view(self.clock.monotonic()),
+            "truth_delayed": self.truth_delayed,
             "publication_seq": self.state.publication_seq,
             "queues": {
                 "ingest": {
@@ -711,7 +714,6 @@ class Runtime:
     async def submit(self, operation: str, payload: Any = None) -> Any:
         if self.stopping:
             raise RuntimeError("going_away")
-        self.admit_operation(operation)
         handler = slots.SUBMIT.get(operation)
         if handler is None:
             handler = next(
@@ -793,14 +795,20 @@ class Runtime:
                 work, self._next_work = self._next_work, None
             else:
                 work = await self.queue.get()
-            if work.operation == "observation" and self.persistence:
-                from .observation_block import process_block
+            from .observation_block import IngestQueue, process_block
 
-                with self.activities.track("observation_block"):
-                    await process_block(self, work)
-                continue
-            with self.activities.track(work.operation):
-                await self._run_work(work)
+            self.active_truth_since = (
+                work.queued_at if work.operation in IngestQueue.TRUTH_OPERATIONS else None
+            )
+            try:
+                if work.operation == "observation" and self.persistence:
+                    with self.activities.track("observation_block"):
+                        await process_block(self, work)
+                else:
+                    with self.activities.track(work.operation):
+                        await self._run_work(work)
+            finally:
+                self.active_truth_since = None
 
     async def _run_work(self, work: Work) -> None:
         started = perf_counter()

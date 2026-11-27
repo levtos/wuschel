@@ -613,7 +613,7 @@ class PostgresStore:
         self.tls = tls
         self.operations = operations or OperationsSettings()
         self.writer: asyncpg.Connection[Any] | None = None
-        self.pool: asyncpg.Pool[Any] | None = None
+        self.pool: asyncpg.Pool[Any] | asyncpg.Connection[Any] | None = None
         self._committed = State()
         self.before_commit: Callable[[], None] | None = None
         self.verify_changes = False
@@ -720,26 +720,38 @@ class PostgresStore:
             canonical(value),
         )
 
+    @staticmethod
+    async def load_read_state(
+        connection: asyncpg.Connection[Any], *, tables: set[str] | None = None
+    ) -> State:
+        """Load state within the caller's PostgreSQL snapshot."""
+        raw = await connection.fetchval("SELECT value FROM cc_meta WHERE key='runtime'")
+        state = State.model_validate(json.loads(raw) if raw is not None else {})
+        for table in TABLES:
+            if tables is not None and table not in tables:
+                continue
+            if table == "registry_revision":
+                rows = await connection.fetch(
+                    "SELECT key,payload FROM registry_revision WHERE key=$1",
+                    str(state.active_revision),
+                )
+            elif table == "runtime_epoch":
+                rows = await connection.fetch(
+                    "SELECT key,payload FROM runtime_epoch WHERE key=$1", state.epoch_id
+                )
+            elif table in ARCHIVE:
+                continue
+            else:
+                rows = await connection.fetch(f"SELECT key,payload FROM {table}")
+            state.tables[table] = {row["key"]: json.loads(row["payload"]) for row in rows}
+        state.clean()
+        return state
+
     async def load(self) -> State:
         await self.probe()
         connection = self._writer()
         async with connection.transaction(isolation="repeatable_read", readonly=True):
-            state = State.model_validate(await self.metadata("runtime") or {})
-            for table in TABLES:
-                if table == "registry_revision":
-                    rows = await connection.fetch(
-                        f"SELECT key,payload FROM {table} WHERE key=$1", str(state.active_revision)
-                    )
-                elif table == "runtime_epoch":
-                    rows = await connection.fetch(
-                        f"SELECT key,payload FROM {table} WHERE key=$1", state.epoch_id
-                    )
-                elif table in ARCHIVE:
-                    continue
-                else:
-                    rows = await connection.fetch(f"SELECT key,payload FROM {table}")
-                state.tables[table] = {row["key"]: json.loads(row["payload"]) for row in rows}
-        state.clean()
+            state = await self.load_read_state(connection)
         self._committed = state.clone()
         self._committed.clean()
         return state

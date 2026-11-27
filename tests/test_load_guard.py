@@ -1,48 +1,18 @@
 """b26 load hysteresis and diagnostics, independent of published truth."""
 
 import asyncio
-import copy
 import json
 from types import SimpleNamespace
 
 import pytest
-from aiohttp import web
-from aiohttp.test_utils import make_mocked_request
 from pydantic import ValidationError
 
 from core_contracts.api import API
-from core_contracts.errors import LoadProtected
 from core_contracts.load_guard import LoadGuard
 from core_contracts.operations import OperationsSettings
 from core_contracts.security import Tokens
 
 from .conftest import activate
-
-HEAVY = (
-    "draft_complete",
-    "draft_reconcile",
-    "portable_export",
-    "manual_restart_preview",
-    "validate",
-    "draft_preview",
-    "portable_preview",
-    "portable_stage",
-    "catalog_scope_preview",
-    "catalog_scope_apply",
-    "catalog_cleanup_preview",
-    "catalog_cleanup_apply",
-    "catalog_write",
-    "catalog_preview",
-    "catalog_care_write",
-    "catalog_care_preview",
-    "retention_preview",
-    "retention_run",
-    "title_preview",
-    "title_stage",
-    "title_sync_preview",
-    "title_sync_apply",
-    "continuation_preview",
-)
 
 
 def sample(guard, now, **overrides):
@@ -181,9 +151,7 @@ async def test_management_commit_does_not_count(runtime, monkeypatch, operation)
         assert not runtime.commit_samples
 
 
-async def test_slow_event_commits_protect_then_expire_without_new_work(
-    runtime, config, monkeypatch
-):
+async def test_storage_remains_diagnostic_without_late_publication(runtime, config, monkeypatch):
     from .test_runtime import obs
 
     await activate(runtime, config)
@@ -192,39 +160,49 @@ async def test_slow_event_commits_protect_then_expire_without_new_work(
         for _ in range(5):
             await runtime.process("observation", obs(runtime, True))
     runtime.sample_load()
-    assert runtime.system_state()["commits"]["count"] == 5
+    assert runtime.system_state()["commits"]["p95_ms"] == pytest.approx(600)
+    assert runtime.load_guard.metrics["commit_p95_ms"] is None
+    runtime.clock.advance(runtime.operations.load_enter_hold_s)
+    runtime.sample_load()
+    assert runtime.load_guard.state == "normal"
+    runtime.clock.advance(runtime.operations.load_commit_window_s)
+    runtime.sample_load()
+    assert runtime.system_state()["commits"]["count"] == 0
+
+
+async def test_end_to_end_publication_samples_recover_after_quiet(runtime):
+    now = runtime.clock.monotonic()
+    for sequence in range(1, 21):
+        runtime.truth_latency.publish(sequence, now - 0.6)
+        runtime.truth_latency.acknowledge(sequence, now)
+    runtime.sample_load()
     assert runtime.load_guard.metrics["commit_p95_ms"] == pytest.approx(600)
     runtime.clock.advance(runtime.operations.load_enter_hold_s)
     runtime.sample_load()
     assert runtime.load_guard.state == "geschützt"
-    runtime.clock.advance(runtime.operations.load_commit_window_s)
+    assert not runtime.system_state()["truth_delayed"]
+    runtime.clock.advance(61)
     runtime.sample_load()
-    assert runtime.system_state()["commits"] == {
-        "count": 0,
-        "window_s": 60,
-        "median_ms": None,
-        "p95_ms": None,
-    }
+    assert runtime.load_guard.view(runtime.clock.monotonic())["remaining_hold_ms"] == 30_000
     runtime.clock.advance(runtime.operations.load_recover_hold_s)
     runtime.sample_load()
     assert runtime.load_guard.state == "normal"
 
 
-async def test_full_old_sample_batch_recovers_after_quiet(runtime, monkeypatch):
-    with monkeypatch.context() as patch:
-        slow_commits(runtime, patch, [0.001] * 243 + [0.6] * 13)
-        for _ in range(256):
-            await runtime._commit(runtime.state.clone(), measure_load=True)
+async def test_truth_warning_requires_an_unacknowledged_publication(runtime):
+    now = runtime.clock.monotonic()
     runtime.sample_load()
-    runtime.clock.advance(runtime.operations.load_enter_hold_s)
+    assert not runtime.system_state()["truth_delayed"]
+    runtime.truth_latency.publish(1, now)
+    runtime.clock.advance(0.999)
     runtime.sample_load()
-    assert runtime.load_guard.state == "geschützt"
-    # The production meter samples once a second, including during idle time.
-    for _ in range(120):
-        runtime.clock.advance(1)
-        runtime.sample_load()
-    assert runtime.load_guard.state == "normal"
-    assert runtime.system_state()["commits"]["count"] == 0
+    assert not runtime.system_state()["truth_delayed"]
+    runtime.clock.advance(0.002)
+    runtime.sample_load()
+    assert runtime.system_state()["truth_delayed"]
+    runtime.truth_latency.acknowledge(1, runtime.clock.monotonic())
+    runtime.sample_load()
+    assert not runtime.system_state()["truth_delayed"]
 
 
 async def test_runtime_state_retry_warning_and_pause_are_process_local(runtime):
@@ -248,88 +226,33 @@ async def test_runtime_state_retry_warning_and_pause_are_process_local(runtime):
     assert "projection_paused" not in runtime.state.tables["service_state"]
 
 
-@pytest.mark.parametrize("operation", HEAVY)
-async def test_heavy_operations_are_rejected_before_any_work(runtime, operation):
-    runtime.load_guard.state = "geschützt"
-    before = copy.deepcopy(runtime.state)
-    with pytest.raises(LoadProtected, match="load_protected"):
-        await runtime.submit(operation, {"private": "never processed"})
-    assert runtime.state == before
-    assert not runtime.queue.qsize()
-
-
 @pytest.mark.parametrize("state", ["normal", "angespannt", "geschützt"])
 async def test_light_operations_are_always_allowed(runtime, state):
     runtime.load_guard.state = state
     assert await runtime.submit("audit", {"operation": "synthetic"}) is None
 
 
-@pytest.mark.parametrize("recovers", [True, False])
-async def test_interactive_admission_wait_reports_recovery_or_current_limit(
-    runtime, config, tmp_path, recovers
+async def test_valid_work_is_not_rejected_and_legacy_wait_returns_immediately(
+    runtime, config, tmp_path, aiohttp_client
 ):
-    api = API(runtime, Tokens(tmp_path / "secrets"), "synthetic")
-    middleware = api.application().middlewares[0]
-    guard = runtime.load_guard
-    sample(guard, 0, lag_ms=625)
-    sample(guard, 5, lag_ms=625)
-    before = runtime.state.publication_seq
-    wait_started = asyncio.Event()
-
-    async def call(method, path, *, interactive=False) -> web.Response:
-        headers = {"Authorization": "Bearer " + api.tokens.values["admin"]}
-        if interactive:
-            headers["X-Wuschel-Interactive"] = "1"
-        request = make_mocked_request(
-            method, f"/api/v1/{path}", headers=headers, match_info={"path": path}
-        )
-
-        async def dispatch(request):
-            if path == "operations/wait":
-                wait_started.set()
-            if method == "POST":
-
-                async def body():
-                    return config
-
-                request.json = body
-            return await api.dispatch(request)
-
-        return await middleware(request, dispatch)
-
-    first = await call("POST", "registry/validate", interactive=True)
-    assert first.status == 503
-    assert json.loads(first.text) == {
-        "error": "load_protected",
-        "wait_seconds": 30,
-        "measurements": [{"metric": "lag_ms", "value": 625, "threshold": 500}],
+    tokens = Tokens(tmp_path / "secrets")
+    api = API(runtime, tokens, "synthetic")
+    client = await aiohttp_client(api.application())
+    headers = {
+        "Authorization": "Bearer " + tokens.values["admin"],
+        "X-Wuschel-Interactive": "1",
     }
-    background = await call("POST", "registry/validate")
-    assert background.status == 503 and json.loads(background.text) == {"error": "load_protected"}
-    waiting = asyncio.create_task(call("GET", "operations/wait"))
-    await wait_started.wait()
-    assert not waiting.done() and runtime.queue.empty()
-    if recovers:
-        sample(guard, 6)
-        sample(guard, 36)
-        runtime.clock.advance(1)
-        assert (await waiting).status == 204
-        result = await call("POST", "registry/validate", interactive=True)
-        assert result.status == 200 and json.loads(result.text)["valid"]
-    else:
-        sample(guard, 6, lag_ms=700)
-        runtime.clock.advance(30)
-        result = await waiting
-        assert result.status == 503
-        assert json.loads(result.text)["measurements"] == [
-            {"metric": "lag_ms", "value": 700, "threshold": 500}
-        ]
+    runtime.load_guard.state = "geschützt"
+    before = runtime.state.publication_seq
+    response = await client.post("/api/v1/registry/validate", json=config, headers=headers)
+    assert response.status == 200
+    assert (await response.json())["valid"]
+    response = await client.get("/api/v1/operations/wait", headers=headers)
+    assert response.status == 204
     assert runtime.state.publication_seq == before
 
 
-async def test_pause_api_roles_validation_protected_rejection_and_reset(
-    runtime, aiohttp_client, tmp_path
-):
+async def test_pause_api_roles_validation_and_reset(runtime, aiohttp_client, tmp_path):
     api = API(runtime, Tokens(tmp_path / "secrets"), "synthetic")
     client = await aiohttp_client(api.application())
     admin = {"Authorization": "Bearer " + api.tokens.values["admin"]}
@@ -348,9 +271,6 @@ async def test_pause_api_roles_validation_protected_rejection_and_reset(
         )
         assert response.status == 200 and (await response.json())["projection_paused"] is paused
         assert runtime.projection_paused is paused
-    runtime.load_guard.state = "geschützt"
-    response = await client.post("/api/v1/portable/preview", headers=admin, json={})
-    assert response.status == 503 and (await response.json()) == {"error": "load_protected"}
     response = await client.put(
         "/api/v1/operations/settings",
         headers=admin,
@@ -480,8 +400,7 @@ async def test_protected_storm_keeps_every_event_and_ordered_durable_publication
     runtime.clock.advance(runtime.operations.load_enter_hold_s)
     runtime.sample_load()
     assert runtime.load_guard.state == "geschützt"
-    with pytest.raises(LoadProtected):
-        await runtime.submit("catalog_care_preview")
+    assert await runtime.submit("audit", {"operation": "synthetic"}) is None
     await runtime.queue.join()
     assert evaluated == persisted == list(range(1, 501))
     deltas = []

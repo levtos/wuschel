@@ -17,7 +17,6 @@ from pydantic import ValidationError
 from . import __version__, slots
 from .authoring import AuthoringError
 from .capabilities import capabilities, configuration_schema, describe_types, reasons
-from .errors import LoadProtected
 from .history import HISTORY_TABLES, HistoryQuery
 from .model import canonical
 from .operations import OperationsFile
@@ -27,6 +26,7 @@ from .runtime import Runtime
 from .security import RateLimiter, Tokens
 from .setup import Setup
 from .validation import RegistryValidationError
+from .work_client import WorkClient
 
 # The core dispatcher has a catch-all router resource. Only known names and
 # placeholder patterns may become diagnostic labels.
@@ -110,7 +110,7 @@ class API:
     def __init__(
         self,
         runtime: Runtime,
-        tokens: Tokens,
+        tokens: Tokens | None,
         installation_id: str,
         *,
         installation_label: str = "",
@@ -118,6 +118,7 @@ class API:
         frontend: Path | None = None,
         setup: Setup | None = None,
         operations: OperationsFile | None = None,
+        work: WorkClient | None = None,
     ) -> None:
         self.runtime, self.tokens, self.installation_id = runtime, tokens, installation_id
         self.installation_label, self.ingress_address, self.frontend = (
@@ -125,6 +126,7 @@ class API:
             ingress_address,
             frontend,
         )
+        self.work = work
         self.limiter = RateLimiter(runtime.clock)
         self.setup = setup
         self.operations = operations or OperationsFile(active=runtime.operations)
@@ -133,12 +135,21 @@ class API:
         self.sockets: set[web.WebSocketResponse] = set()
         self.title_reader: Callable[[], Awaitable[dict[str, Any]]] | None = None
 
-    def application(self, *, ingress: bool = False) -> web.Application:
+    def application(
+        self, *, ingress: bool = False, work_actor: dict[str, str] | None = None
+    ) -> web.Application:
         @web.middleware
         async def boundary(
             request: web.Request, handler: Callable[[web.Request], Awaitable[web.StreamResponse]]
         ) -> web.StreamResponse:
-            if ingress:
+            if work_actor is not None:
+                from .work_routes import read_route
+
+                path = request.path.removeprefix("/api/v1/")
+                if not read_route(request.method, path):
+                    raise web.HTTPNotFound()
+                role = work_actor["role"]
+            elif ingress:
                 if request.remote != self.ingress_address:
                     raise web.HTTPForbidden()
                 role = "admin"
@@ -147,7 +158,11 @@ class API:
             else:
                 if not self.auth_limiter.allow(f"auth:{request.remote}"):
                     raise web.HTTPTooManyRequests()
-                role = self.tokens.role(request.headers.get("Authorization", "")) or ""
+                role = (
+                    (self.tokens.role(request.headers.get("Authorization", "")) or "")
+                    if self.tokens
+                    else ""
+                )
                 if not role:
                     raise web.HTTPUnauthorized()
             if role != "health" and not self.limiter.allow(f"{request.remote}:{role}"):
@@ -155,7 +170,10 @@ class API:
             request["role"] = role
             # No client identity header is accepted. The ingress peer is checked
             # above; bearer identities are represented by their authenticated role.
-            request["actor"] = {"kind": "ingress" if ingress else "token", "role": role}
+            request["actor"] = work_actor or {
+                "kind": "ingress" if ingress else "token",
+                "role": role,
+            }
             setup_path = request.path.startswith("/api/v1/setup/")
             static_path = ingress and not request.path.startswith(("/api/", "/health/"))
             if setup_path and (not ingress or self.setup is None):
@@ -186,13 +204,6 @@ class API:
                         response = await handler(request)
                 else:
                     response = await handler(request)
-            except LoadProtected:
-                details = (
-                    self.runtime.load_guard.protection(self.runtime.clock.monotonic())
-                    if self.interactive(request) or request.path == "/api/v1/operations/wait"
-                    else {}
-                )
-                response = web.json_response({"error": "load_protected", **details}, status=503)
             except AuthoringError as error:
                 response = web.json_response(
                     {"error": error.code, "cause": error.code, "details": error.details}, status=409
@@ -474,43 +485,26 @@ class API:
         ):
             raise AuthoringError("authoring_upgrade_required")
 
-    @staticmethod
-    def interactive(request: web.Request) -> bool:
-        return (
-            request["role"] == "admin"
-            and request.method in {"POST", "PUT", "PATCH"}
-            and request.headers.get("X-Wuschel-Interactive") == "1"
-        )
-
-    def admit_interactive(self, request: web.Request) -> None:
-        if self.interactive(request) and self.runtime.load_guard.state == "geschützt":
-            raise LoadProtected()
-
-    async def wait_for_load(self, budget_ms: int) -> None:
-        runtime = self.runtime
-        limit = min(runtime.operations.load_interactive_wait_s, budget_ms / 1000)
-        deadline = runtime.clock.monotonic() + limit
-        while runtime.load_guard.state == "geschützt":
-            remaining = deadline - runtime.clock.monotonic()
-            if remaining <= 0:
-                raise LoadProtected()
-            # The wait belongs to the HTTP request, never to the runtime queue.
-            await runtime.clock.sleep(min(0.25, remaining))
-
     async def extension_dispatch(
         self, request: web.Request, *, handler: Callable[..., Awaitable[Any]]
-    ) -> web.Response:
+    ) -> web.StreamResponse:
         path = request.path.removeprefix("/api/v1/")
         self.authorize(request, path, request.method)
-        self.admit_interactive(request)
+        if self.work and (queued := await self.work.queue(request, path)) is not None:
+            return queued
         result = await handler(self, request)
         return web.Response(text=canonical(result), content_type="application/json")
 
-    async def dispatch(self, request: web.Request) -> web.Response:
+    async def dispatch(self, request: web.Request) -> web.StreamResponse:
         path, method = request.match_info["path"], request.method
         runtime, state, config = self.runtime, self.runtime.state, self.runtime.config
         self.authorize(request, path, method)
-        self.admit_interactive(request)
+        if self.work:
+            if path == "work/jobs" or path.startswith("work/jobs/"):
+                return await self.work.jobs(request, path)
+            service = runtime.service_state() if path == "diagnostics/problems" else None
+            if (queued := await self.work.queue(request, path, service=service)) is not None:
+                return queued
         result: Any
         if path == "info" and method == "GET":
             result = self.info()
@@ -520,7 +514,6 @@ class API:
             budget = request.query.get("budget_ms", "60000")
             if not re.fullmatch(r"[0-9]{1,5}", budget):
                 raise ValueError("invalid_load_wait")
-            await self.wait_for_load(int(budget))
             return web.Response(status=204)
         elif (
             path == "operations/settings"
@@ -578,6 +571,8 @@ class API:
                 "version": __version__,
                 "operations_notice": self.operations.notice,
             }
+            if self.work:
+                result["work"] = self.work.current(request)
         elif path == "operations/projection" and method == "PUT":
             body = await self.object_body(request)
             if set(body) != {"paused"} or type(body["paused"]) is not bool:
@@ -618,7 +613,6 @@ class API:
         elif path in {"portable/export", "portable/preview", "portable/stage"} and method == "POST":
             from .portable import strict_json
 
-            runtime.admit_operation("portable_" + path.rsplit("/", 1)[1])
             body = strict_json(await request.text())
             if not isinstance(body, dict):
                 raise ValueError("import_object_required")
@@ -1070,6 +1064,8 @@ class API:
         elif path == "tokens" and method == "GET":
             result = {"roles": ["consumer", "admin"], "tokens_visible": False}
         elif path == "tokens/rotate" and method == "POST":
+            if self.tokens is None:
+                raise web.HTTPForbidden()
             role = (await self.object_body(request))["role"]
             if role not in {"admin", "consumer"}:
                 raise ValueError("invalid token role")

@@ -29,6 +29,7 @@ from .runtime import Runtime
 from .security import Tokens
 from .setup import Connection, Setup, probe
 from .wiring import Credentials
+from .work_client import WorkClient
 
 LOGGER = logging.getLogger(__name__)
 
@@ -230,6 +231,8 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stopped.set)
+    work = WorkClient(clock)
+    work_task: asyncio.Task[None] | None = None
     api = API(
         runtime,
         Tokens(data / "secrets"),
@@ -238,6 +241,7 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
         frontend=frontend,
         setup=setup,
         operations=operations_file,
+        work=work,
     )
     from .wiring import read_titles
 
@@ -262,6 +266,7 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
         while True:
             if api.installation_id:
                 runtime.tick()
+                work.set_pressure(runtime.load_guard.state)
             else:
                 runtime.last_heartbeat = clock.monotonic()
             await clock.sleep(operations.scheduler_interval_s)
@@ -374,6 +379,18 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
             return
         installation_id = initialization.result()
         api.installation_id = installation_id
+        connection = setup.connection
+        assert connection is not None
+        work_task = asyncio.create_task(
+            work.supervise(
+                {
+                    "connection": connection.private(),
+                    "operations": operations.model_dump(mode="json"),
+                    "installation_id": installation_id,
+                }
+            ),
+            name="work_coordinator",
+        )
         supervisor_token = os.environ.get("SUPERVISOR_TOKEN", "")
         LOGGER.info(
             "started",
@@ -443,6 +460,9 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
         finally:
             LOGGER.info("stopping")
     finally:
+        if work_task:
+            work_task.cancel()
+            await asyncio.gather(work_task, return_exceptions=True)
         for background in (ticker, loop_meter, stop_waiter, initialization):
             background.cancel()
         await asyncio.gather(
