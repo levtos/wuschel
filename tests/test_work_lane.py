@@ -312,9 +312,7 @@ async def test_worker_disallows_truth_write_before_dispatch(runtime):
 
 @pytest.mark.postgres
 @pytest.mark.skipif(sys.platform != "linux", reason="Supervisor process IPC uses Unix sockets")
-async def test_work_survives_pause_and_isolates_owner(
-    database, runtime, config, tmp_path, aiohttp_client
-):
+async def test_work_survives_pause_and_isolates_owner(database, runtime, tmp_path, aiohttp_client):
     database_config = urlsplit(database)
     store = PostgresStore(database, MIGRATIONS, tls=False)
     await store.open()
@@ -343,7 +341,7 @@ async def test_work_survives_pause_and_isolates_owner(
     headers = {"Authorization": "Bearer " + tokens.values["admin"], "Prefer": "respond-async"}
     try:
         await asyncio.wait_for(work.ready.wait(), 30)
-        response = await client.post("/api/v1/registry/validate", headers=headers, json=config)
+        response = await client.get("/api/v1/history/query/contracts", headers=headers)
         assert response.status == 202
         location = "/api/v1/" + response.headers["Location"]
         receipt = await response.json()
@@ -360,7 +358,7 @@ async def test_work_survives_pause_and_isolates_owner(
         async with asyncio.timeout(30):
             while (result := await client.get(location + "/result", headers=headers)).status == 202:
                 await clock.sleep(0.15)
-        assert result.status == 200 and (await result.json())["valid"]
+        assert result.status == 200 and (await result.json())["items"] == []
 
         protected = await asyncpg.connect(
             database, ssl=False, server_settings={"default_transaction_read_only": "on"}
