@@ -82,6 +82,33 @@ async def test_activation_recomputes_after_a_prewrite_live_occ_conflict(
     assert runtime.state.tables["source_observation_current"]["binding.a"]["value_raw"] is True
 
 
+async def test_continuous_live_changes_use_one_current_writer_activation(
+    runtime, config, monkeypatch
+):
+    from core_contracts import management
+
+    await activate(runtime, config)
+    original = management.prepare
+    attempts = []
+
+    async def advance(value):
+        runtime.clock.advance(0.01)
+        await runtime.submit("observation", obs(runtime, value))
+
+    def prepare(*args):
+        plan = original(*args)
+        attempts.append(plan)
+        asyncio.run_coroutine_threadsafe(advance(bool(len(attempts) % 2)), args[3]).result(5)
+        return plan
+
+    monkeypatch.setattr(management, "prepare", prepare)
+    result = await runtime.submit("rollback", {"revision": 1, "expected_active_revision": 1})
+    assert result["revision"] == 2
+    assert len(attempts) == 3 and all(plan.live_conflict for plan in attempts)
+    assert runtime.state.tables["source_observation_current"]["binding.a"]["value_raw"] is True
+    assert runtime.snapshot()["contracts"]["fixture.echo"]["fields"]["value"]["value"] is True
+
+
 async def test_changed_control_basis_is_not_a_retryable_live_occ_conflict(runtime, config):
     from core_contracts.management import capture, commit, prepare
 

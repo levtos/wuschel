@@ -51,6 +51,17 @@ pytestmark = [
 ]
 
 
+class AcceptanceTimings(Timings):
+    def __init__(self):
+        super().__init__()
+        self.peak = {}
+
+    def emit(self, record):
+        super().emit(record)
+        if record.msg == "event_loop_stall" and record.lag_ms > self.peak.get("lag_ms", 0):
+            self.peak = {"lag_ms": record.lag_ms, "activities": record.activities}
+
+
 class RecordedTruthLatency(TruthLatency):
     def __init__(self):
         super().__init__()
@@ -375,7 +386,7 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
     history_queries = 0
     store = runtime.store
     commit = store.commit
-    timings = Timings()
+    timings = AcceptanceTimings()
     logger = logging.getLogger("core_contracts")
     previous_level = logger.level
     logger.setLevel(logging.DEBUG)
@@ -494,6 +505,7 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
                 {
                     "partial_elapsed_s": round(perf_counter() - start, 3),
                     "loop": distribution(lag),
+                    "loop_peak_activity": timings.peak,
                     "observed_events": len(observed_events),
                     "expected_events": len(expected),
                     "adapter_connections": len(fake.connections),
