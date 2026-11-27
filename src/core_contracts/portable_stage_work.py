@@ -1,7 +1,7 @@
 """Prepare a portable import off the truth lane and publish one draft atomically."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
 
 from . import slots
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 class PreparedPortableStage(Model):
     request_id: UUID
+    kind: Literal["stage", "title-stage"] = "stage"
     request_digest: str
     expected_active_revision: int | None
     target_draft_id: str | None
@@ -45,9 +46,20 @@ async def prepare_stage(
         runtime.clock.now_utc(),
         restored=await runtime._portable_numbers(payload),
     )
+    return draft, seal_stage(request_id, digest, draft)
+
+
+def seal_stage(
+    request_id: UUID,
+    digest: str,
+    draft: dict[str, Any],
+    *,
+    kind: Literal["stage", "title-stage"] = "stage",
+) -> PreparedPortableStage:
     details = draft["portable"]
-    plan = PreparedPortableStage(
+    return PreparedPortableStage(
         request_id=request_id,
+        kind=kind,
         request_digest=digest,
         expected_active_revision=details["expected_active_revision"],
         target_draft_id=details["target_draft_id"],
@@ -56,7 +68,6 @@ async def prepare_stage(
         editorial_versions=details["editorial_versions"],
         draft=draft,
     )
-    return draft, plan
 
 
 async def publish_stage(
@@ -67,13 +78,17 @@ async def publish_stage(
     now: datetime,
     config: RegistryConfig | None,
 ) -> dict[str, Any]:
-    record = f"stage:{payload.request_id}"
+    record = f"{payload.kind}:{payload.request_id}"
     if previous := await runtime.store.get("catalog_import", record):
         if previous["digest"] != payload.request_digest:
             raise ValueError("import_plan_conflict")
         result: dict[str, Any] = previous["result"]
         return result
 
+    if payload.kind == "title-stage":
+        import_id = payload.draft["portable"]["title_import"]["import_id"]
+        if applied := await runtime.store.get("catalog_import", f"title:{import_id}"):
+            return {**applied["result"], "already_applied": True}
     if state.active_revision != payload.expected_active_revision:
         raise ValueError("import_plan_conflict")
     if any(

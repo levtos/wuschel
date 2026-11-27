@@ -207,7 +207,7 @@ class WorkClient:
             result = await apply(operation, plan)
             if (
                 operation != "portable_stage_prepared"
-                or result["draft_id"] != plan["draft"]["draft_id"]
+                or result.get("draft_id") != plan["draft"]["draft_id"]
             ):
                 replacement = (await asyncio.to_thread(canonical, result)).encode()
         except AuthoringError as error:
@@ -219,7 +219,16 @@ class WorkClient:
             code = (
                 str(error)
                 if type(error) is ValueError
-                and str(error) in {"import_plan_conflict", "retention_plan_conflict", "draft_limit"}
+                and str(error)
+                in {
+                    "import_plan_conflict",
+                    "retention_plan_conflict",
+                    "draft_limit",
+                    "active_revision_conflict",
+                    "catalog_content_conflict",
+                    "catalog_request_conflict",
+                    "catalog_evaluation_failed",
+                }
                 else "invalid_request"
             )
             status = 409 if "conflict" in code else 400

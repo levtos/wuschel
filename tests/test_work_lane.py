@@ -277,6 +277,7 @@ def test_registered_operations_have_a_closed_classification():
         "catalog_cleanup_apply",
         "catalog_scope_apply",
         "catalog_write",
+        "catalog_write_prepared",
         "draft_complete",
         "draft_reconcile",
         "portable_stage",
@@ -309,7 +310,7 @@ async def test_worker_disallows_truth_write_before_dispatch(runtime):
     with pytest.raises(RuntimeError, match="work_read_only"):
         await worker.submit("activate", {})
     with pytest.raises(RuntimeError, match="work_read_only"):
-        await worker.submit("catalog_write", {})
+        await worker.submit("catalog_write_prepared", {})
     assert worker.queue.empty()
 
 

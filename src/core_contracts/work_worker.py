@@ -27,7 +27,13 @@ from .retention import RetentionPolicy, maintain_postgres, pinned_references
 from .retention_work import PreparedRetention, prepare_retention
 from .runtime import Runtime
 from .setup import Connection
-from .wiring import Credentials, read_titles
+from .wiring import (
+    Credentials,
+    PreparedCatalogWrite,
+    prepare_work_catalog_write,
+    prepare_work_title_stage,
+    read_titles,
+)
 from .work_artifacts import load_plan
 from .work_capacity import effective_cpu_count
 from .work_process import FRAME_LIMIT, exit_with_parent, read_frame, write_frame
@@ -66,6 +72,7 @@ class WorkerRuntime(Runtime):
     service_snapshot: dict[str, Any] | None = None
     prepared_stage: PreparedPortableStage | None = None
     prepared_retention: PreparedRetention | None = None
+    prepared_catalog: PreparedCatalogWrite | None = None
     job_id: UUID
     retention_scheduled = False
 
@@ -78,6 +85,12 @@ class WorkerRuntime(Runtime):
         if operation == "portable_stage":
             result, self.prepared_stage = await prepare_stage(self, payload)
             return result
+        if operation == "title_stage":
+            result = await prepare_work_title_stage(self, payload)
+            if isinstance(result, PreparedPortableStage):
+                self.prepared_stage = result
+                return result.draft
+            return result
         if operation == "retention_run":
             assert isinstance(self.store, PostgresStore)
             self.prepared_retention = await prepare_retention(
@@ -87,6 +100,12 @@ class WorkerRuntime(Runtime):
                 scheduled=self.retention_scheduled,
             )
             return self.prepared_retention.batch.receipt(dry_run=False)
+        if operation in {"catalog_write", "catalog_care_write"}:
+            result = await prepare_work_catalog_write(self, operation, payload)
+            if isinstance(result, PreparedCatalogWrite):
+                self.prepared_catalog = result
+                return result.result
+            return result
         if operation not in READ_OPERATIONS:
             raise RuntimeError("work_read_only")
         return await self.process(operation, payload)
@@ -220,6 +239,9 @@ async def run(
                         elif response.status < 400 and runtime.prepared_retention is not None:
                             artifact = runtime.prepared_retention.model_dump(mode="json")
                             commit = "retention_run_prepared"
+                        elif response.status < 400 and runtime.prepared_catalog is not None:
+                            artifact = runtime.prepared_catalog.model_dump(mode="json")
+                            commit = "catalog_write_prepared"
                         write_frame(
                             sys.stdout.buffer,
                             canonical(

@@ -230,7 +230,9 @@ class Coordinator:
             if not work_route(method, path):
                 raise web.HTTPNotFound()
             job_id = UUID(request.headers["X-Work-Id"])
-            limit = TITLE_BODY if path == "title-import/preview" else MAX_BODY
+            limit = (
+                TITLE_BODY if path in {"title-import/preview", "title-import/stage"} else MAX_BODY
+            )
 
             async def chunks() -> AsyncIterator[bytes]:
                 size = 0

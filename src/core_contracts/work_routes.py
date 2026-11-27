@@ -69,7 +69,10 @@ def job_route(method: str, path: str) -> bool:
 
 WRITE_PLANS = {
     ("POST", "portable/stage"): "portable_stage_prepared",
+    ("POST", "title-import/stage"): "portable_stage_prepared",
     ("POST", "history/retention/run"): "retention_run_prepared",
+    ("POST", "catalogs/entries"): "catalog_write_prepared",
+    ("POST", "catalogs/care/write"): "catalog_write_prepared",
 }
 
 
