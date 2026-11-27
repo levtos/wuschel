@@ -26,6 +26,7 @@ from .model import Model, canonical
 from .operations import OperationsFile, OperationsSettings
 from .persistence import PersistenceUnavailable, PostgresStore
 from .portable_stage_work import PreparedPortableStage
+from .retention_work import PreparedRetention
 from .runtime import Runtime
 from .security import Tokens
 from .setup import Connection, Setup, probe
@@ -239,13 +240,19 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
         return await runtime.entity_discovery(preview=True)
 
     async def apply_work(operation: str, raw: dict[str, Any]) -> dict[str, Any]:
-        if operation != "portable_stage_prepared":
+        if operation == "portable_stage_prepared":
+            plan: PreparedPortableStage | PreparedRetention = PreparedPortableStage.model_validate(
+                raw
+            )
+        elif operation == "retention_run_prepared":
+            plan = PreparedRetention.model_validate(raw)
+        else:
             raise ValueError("work_commit_invalid")
-        plan = PreparedPortableStage.model_validate(raw)
         result: dict[str, Any] = await runtime.submit(operation, plan)
         return result
 
     work = WorkClient(clock, discover_entities, apply_work)
+    runtime.retention_dispatch = work.retention_due.set
     work_task: asyncio.Task[None] | None = None
     api = API(
         runtime,

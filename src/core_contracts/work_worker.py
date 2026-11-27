@@ -8,6 +8,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, BinaryIO, cast
+from uuid import UUID
 
 import aiohttp
 import asyncpg
@@ -23,6 +24,7 @@ from .operations import OperationsSettings
 from .persistence import PostgresStore, State
 from .portable_stage_work import PreparedPortableStage, prepare_stage
 from .retention import RetentionPolicy, maintain_postgres, pinned_references
+from .retention_work import PreparedRetention, prepare_retention
 from .runtime import Runtime
 from .setup import Connection
 from .wiring import Credentials, read_titles
@@ -63,6 +65,9 @@ class WorkerStore(PostgresStore):
 class WorkerRuntime(Runtime):
     service_snapshot: dict[str, Any] | None = None
     prepared_stage: PreparedPortableStage | None = None
+    prepared_retention: PreparedRetention | None = None
+    job_id: UUID
+    retention_scheduled = False
 
     def service_state(self) -> dict[str, Any]:
         return (
@@ -73,6 +78,15 @@ class WorkerRuntime(Runtime):
         if operation == "portable_stage":
             result, self.prepared_stage = await prepare_stage(self, payload)
             return result
+        if operation == "retention_run":
+            assert isinstance(self.store, PostgresStore)
+            self.prepared_retention = await prepare_retention(
+                self,
+                self.store.pool,
+                self.job_id,
+                scheduled=self.retention_scheduled,
+            )
+            return self.prepared_retention.batch.receipt(dry_run=False)
         if operation not in READ_OPERATIONS:
             raise RuntimeError("work_read_only")
         return await self.process(operation, payload)
@@ -134,6 +148,8 @@ async def run(
         runtime = WorkerRuntime(store, SystemClock(), type_registry(), operations=settings)
         runtime.persistence = runtime.confirmed = True
         runtime.installation_id = configuration["installation_id"]
+        runtime.job_id = UUID(metadata["job_id"])
+        runtime.retention_scheduled = metadata["actor"]["kind"] == "internal"
         async with connection.transaction(isolation="repeatable_read", readonly=True):
             tables = (
                 {"registry_revision"} if method == "GET" and path.startswith("history/") else None
@@ -201,6 +217,9 @@ async def run(
                         if response.status < 400 and runtime.prepared_stage is not None:
                             artifact = runtime.prepared_stage.model_dump(mode="json")
                             commit = "portable_stage_prepared"
+                        elif response.status < 400 and runtime.prepared_retention is not None:
+                            artifact = runtime.prepared_retention.model_dump(mode="json")
+                            commit = "retention_run_prepared"
                         write_frame(
                             sys.stdout.buffer,
                             canonical(

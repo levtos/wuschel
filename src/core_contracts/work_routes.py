@@ -67,12 +67,14 @@ def job_route(method: str, path: str) -> bool:
     return match is not None and (method == "GET" or method == "DELETE" and not match["result"])
 
 
-def prepare_route(method: str, path: str) -> bool:
-    return method == "POST" and path == "portable/stage"
+WRITE_PLANS = {
+    ("POST", "portable/stage"): "portable_stage_prepared",
+    ("POST", "history/retention/run"): "retention_run_prepared",
+}
 
 
 def work_route(method: str, path: str) -> bool:
-    return read_route(method, path) or prepare_route(method, path)
+    return read_route(method, path) or (method, path) in WRITE_PLANS
 
 
 def read_route(method: str, path: str) -> bool:

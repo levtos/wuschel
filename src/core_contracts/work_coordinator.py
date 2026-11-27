@@ -22,7 +22,7 @@ from .work_artifacts import ARTIFACT_CHUNK, PLAN_KINDS
 from .work_capacity import WORKER_IDLE_S, WorkCapacity
 from .work_journal import JobConflict, WorkJournal
 from .work_process import WorkProcess, exit_with_parent, read_frame, write_frame
-from .work_routes import is_long, prepare_route, work_route
+from .work_routes import WRITE_PLANS, is_long, work_route
 
 WORKER_READY_TIMEOUT = 15
 MAX_BODY = 50 * 1024 * 1024
@@ -84,7 +84,7 @@ class Coordinator:
     async def execute(self, worker: Worker, job_id: UUID, metadata: dict[str, Any]) -> None:
         try:
             async with asyncio.timeout(600 if worker.long else 90):
-                await worker.child.send(canonical(metadata).encode())
+                await worker.child.send(canonical({**metadata, "job_id": str(job_id)}).encode())
                 async for piece in self.journal.artifact(job_id, "request"):
                     await worker.child.send(piece)
                 await worker.child.send(b"")
@@ -99,10 +99,8 @@ class Coordinator:
                 plan = None
                 commit = envelope.get("commit")
                 if commit is not None:
-                    if (
-                        status >= 400
-                        or commit != "portable_stage_prepared"
-                        or not prepare_route(metadata["method"], metadata["path"])
+                    if status >= 400 or commit != WRITE_PLANS.get(
+                        (metadata["method"], metadata["path"])
                     ):
                         raise ValueError("work_commit_invalid")
                     part = 0

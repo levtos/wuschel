@@ -109,46 +109,66 @@ def summaries(
     return groups, watermarks
 
 
-async def maintain_postgres(
-    connection: Any,
-    now: datetime,
-    policy: RetentionPolicy,
-    pins: set[str],
-    *,
-    dry_run: bool = False,
-) -> dict[str, Any]:
+class RetentionBatch(Model):
+    raw_before: datetime
+    rollup_before: datetime
+    batch_size: int
+    pinned_count: int
+    references: tuple[str, ...]
+    watermarks: dict[str, int]
+    rollups: tuple[
+        tuple[
+            str,
+            str,
+            int,
+            datetime,
+            int,
+            int,
+            Decimal | None,
+            Decimal | None,
+            Decimal,
+            datetime,
+            datetime,
+        ],
+        ...,
+    ]
+
+    def receipt(self, *, dry_run: bool) -> dict[str, Any]:
+        return {
+            "raw_before": self.raw_before.isoformat(),
+            "rollup_before": self.rollup_before.isoformat(),
+            "selected": len(self.references),
+            "rollup_groups": len(self.rollups),
+            "pinned_references": self.pinned_count,
+            "dry_run": dry_run,
+        }
+
+
+async def collect_retention_batch(
+    connection: Any, now: datetime, policy: RetentionPolicy, pins: set[str], *, lock: bool = False
+) -> RetentionBatch:
     import json
 
     raw_before = now - timedelta(days=policy.raw_days)
-    rollup_before = now - timedelta(days=policy.rollup_days)
-    async with connection.transaction():
-        rows = await connection.fetch(
-            "SELECT h.key,h.payload FROM cc_observation_index i JOIN source_observation_history h ON h.key=i.reference "
-            "WHERE i.received_at<$1 AND NOT(h.key=ANY($2::text[])) ORDER BY i.received_at,i.reference LIMIT $3"
-            + ("" if dry_run else " FOR UPDATE OF h"),
-            raw_before,
-            list(pins),
-            policy.batch_size,
-        )
-        values = [(row["key"], json.loads(row["payload"])) for row in rows]
-        groups, watermarks = summaries(values)
-        receipt = {
-            "raw_before": raw_before.isoformat(),
-            "rollup_before": rollup_before.isoformat(),
-            "selected": len(values),
-            "rollup_groups": len(groups),
-            "pinned_references": len(pins),
-            "dry_run": dry_run,
-        }
-        if dry_run:
-            return receipt
-        for key, item in groups.items():
-            await connection.execute(
-                "INSERT INTO cc_observation_rollup(source_id,binding_id,registry_revision,hour,count,numeric_count,minimum,maximum,total,first_at,last_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) "
-                "ON CONFLICT(source_id,binding_id,registry_revision,hour) DO UPDATE SET "
-                "count=cc_observation_rollup.count+EXCLUDED.count,numeric_count=cc_observation_rollup.numeric_count+EXCLUDED.numeric_count,"
-                "minimum=LEAST(cc_observation_rollup.minimum,EXCLUDED.minimum),maximum=GREATEST(cc_observation_rollup.maximum,EXCLUDED.maximum),"
-                "total=cc_observation_rollup.total+EXCLUDED.total,first_at=LEAST(cc_observation_rollup.first_at,EXCLUDED.first_at),last_at=GREATEST(cc_observation_rollup.last_at,EXCLUDED.last_at)",
+    rows = await connection.fetch(
+        "SELECT h.key,h.payload FROM cc_observation_index i JOIN source_observation_history h ON h.key=i.reference "
+        "WHERE i.received_at<$1 AND NOT(h.key=ANY($2::text[])) ORDER BY i.received_at,i.reference LIMIT $3"
+        + (" FOR UPDATE OF h" if lock else ""),
+        raw_before,
+        list(pins),
+        policy.batch_size,
+    )
+    values = [(row["key"], json.loads(row["payload"])) for row in rows]
+    groups, watermarks = summaries(values)
+    return RetentionBatch(
+        raw_before=raw_before,
+        rollup_before=now - timedelta(days=policy.rollup_days),
+        batch_size=policy.batch_size,
+        pinned_count=len(pins),
+        references=tuple(reference for reference, _ in values),
+        watermarks=watermarks,
+        rollups=tuple(
+            (
                 *key,
                 item["count"],
                 item["numeric_count"],
@@ -158,20 +178,58 @@ async def maintain_postgres(
                 item["first_at"],
                 item["last_at"],
             )
-        for scope, sequence in watermarks.items():
-            await connection.execute(
-                "INSERT INTO cc_evidence_watermark VALUES($1,$2,$3) ON CONFLICT(scope) DO UPDATE SET max_sequence=GREATEST(cc_evidence_watermark.max_sequence,EXCLUDED.max_sequence),retained_after=GREATEST(cc_evidence_watermark.retained_after,EXCLUDED.retained_after)",
-                scope,
-                sequence,
-                raw_before,
-            )
-        await connection.execute(
-            "DELETE FROM source_observation_history WHERE key=ANY($1::text[])",
-            [key for key, _ in values],
-        )
-        await connection.execute(
-            "DELETE FROM cc_observation_rollup WHERE ctid IN (SELECT ctid FROM cc_observation_rollup WHERE hour<$1 ORDER BY hour LIMIT $2)",
-            rollup_before,
-            policy.batch_size,
-        )
-        return receipt
+            for key, item in groups.items()
+        ),
+    )
+
+
+async def verify_retention_batch(connection: Any, batch: RetentionBatch, pins: set[str]) -> None:
+    if pins.intersection(batch.references):
+        raise ValueError("retention_plan_conflict")
+    current = await connection.fetch(
+        "SELECT h.key FROM cc_observation_index i JOIN source_observation_history h ON h.key=i.reference "
+        "WHERE i.received_at<$1 AND h.key=ANY($2::text[]) FOR UPDATE OF h",
+        batch.raw_before,
+        batch.references,
+    )
+    if {row["key"] for row in current} != set(batch.references):
+        raise ValueError("retention_plan_conflict")
+
+
+async def apply_retention_batch(connection: Any, batch: RetentionBatch) -> None:
+    await connection.executemany(
+        "INSERT INTO cc_observation_rollup(source_id,binding_id,registry_revision,hour,count,numeric_count,minimum,maximum,total,first_at,last_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) "
+        "ON CONFLICT(source_id,binding_id,registry_revision,hour) DO UPDATE SET "
+        "count=cc_observation_rollup.count+EXCLUDED.count,numeric_count=cc_observation_rollup.numeric_count+EXCLUDED.numeric_count,"
+        "minimum=LEAST(cc_observation_rollup.minimum,EXCLUDED.minimum),maximum=GREATEST(cc_observation_rollup.maximum,EXCLUDED.maximum),"
+        "total=cc_observation_rollup.total+EXCLUDED.total,first_at=LEAST(cc_observation_rollup.first_at,EXCLUDED.first_at),last_at=GREATEST(cc_observation_rollup.last_at,EXCLUDED.last_at)",
+        batch.rollups,
+    )
+    await connection.executemany(
+        "INSERT INTO cc_evidence_watermark VALUES($1,$2,$3) ON CONFLICT(scope) DO UPDATE SET max_sequence=GREATEST(cc_evidence_watermark.max_sequence,EXCLUDED.max_sequence),retained_after=GREATEST(cc_evidence_watermark.retained_after,EXCLUDED.retained_after)",
+        [(scope, sequence, batch.raw_before) for scope, sequence in batch.watermarks.items()],
+    )
+    await connection.execute(
+        "DELETE FROM source_observation_history WHERE key=ANY($1::text[])",
+        batch.references,
+    )
+    await connection.execute(
+        "DELETE FROM cc_observation_rollup WHERE ctid IN (SELECT ctid FROM cc_observation_rollup WHERE hour<$1 ORDER BY hour LIMIT $2)",
+        batch.rollup_before,
+        batch.batch_size,
+    )
+
+
+async def maintain_postgres(
+    connection: Any,
+    now: datetime,
+    policy: RetentionPolicy,
+    pins: set[str],
+    *,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    async with connection.transaction():
+        batch = await collect_retention_batch(connection, now, policy, pins, lock=not dry_run)
+        if not dry_run:
+            await apply_retention_batch(connection, batch)
+        return batch.receipt(dry_run=dry_run)

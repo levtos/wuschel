@@ -40,6 +40,7 @@ class WorkClient:
         self.session: aiohttp.ClientSession | None = None
         self.pressure = "normal"
         self.changed = asyncio.Event()
+        self.retention_due = asyncio.Event()
         self.status_by_owner: dict[str, dict[str, Any]] = {}
 
     async def supervise(self, configuration: dict[str, Any]) -> None:
@@ -96,12 +97,14 @@ class WorkClient:
                         pressure = group.create_task(self.send_pressure())
                         status = group.create_task(self.refresh_status())
                         commits = group.create_task(self.publish_commits())
+                        retention = group.create_task(self.queue_scheduled_retention())
                         self.ready.set()
                         delay = 0.25
                         await child.process.wait()
                         pressure.cancel()
                         status.cancel()
                         commits.cancel()
+                        retention.cancel()
             except OSError, EOFError, ValueError, TimeoutError, aiohttp.ClientError:
                 LOGGER.warning("work_coordinator_unavailable")
             finally:
@@ -133,6 +136,37 @@ class WorkClient:
                 await self.clock.sleep(0.25)
                 continue
             await self.changed.wait()
+
+    async def queue_scheduled_retention(self) -> None:
+        while self.session is not None:
+            await self.retention_due.wait()
+            owner = "internal:system"
+            key = str(uuid4())
+            metadata = canonical(
+                {
+                    "method": "POST",
+                    "path": "history/retention/run",
+                    "query": [],
+                    "headers": {},
+                    "actor": {"kind": "internal", "role": "admin"},
+                    "service": None,
+                }
+            )
+            while self.session is not None:
+                try:
+                    async with self.session.post(
+                        "http://localhost/jobs",
+                        headers={
+                            "X-Work-Owner": owner,
+                            "X-Work-Id": key,
+                            "X-Work-Request": metadata,
+                        },
+                    ) as response:
+                        response.raise_for_status()
+                    self.retention_due.clear()
+                    break
+                except aiohttp.ClientError:
+                    await self.clock.sleep(1)
 
     async def publish_commits(self) -> None:
         if self.apply is None:
@@ -171,7 +205,10 @@ class WorkClient:
         try:
             plan = await asyncio.to_thread(json.loads, encoded)
             result = await apply(operation, plan)
-            if result["draft_id"] != plan["draft"]["draft_id"]:
+            if (
+                operation != "portable_stage_prepared"
+                or result["draft_id"] != plan["draft"]["draft_id"]
+            ):
                 replacement = (await asyncio.to_thread(canonical, result)).encode()
         except AuthoringError as error:
             status = 409
@@ -182,7 +219,7 @@ class WorkClient:
             code = (
                 str(error)
                 if type(error) is ValueError
-                and str(error) in {"import_plan_conflict", "draft_limit"}
+                and str(error) in {"import_plan_conflict", "retention_plan_conflict", "draft_limit"}
                 else "invalid_request"
             )
             status = 409 if "conflict" in code else 400

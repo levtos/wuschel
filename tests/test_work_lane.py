@@ -282,6 +282,7 @@ def test_registered_operations_have_a_closed_classification():
         "portable_stage",
         "portable_stage_prepared",
         "retention_run",
+        "retention_run_prepared",
         "title_stage",
         "title_sync_apply",
     }

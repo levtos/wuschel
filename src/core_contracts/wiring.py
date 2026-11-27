@@ -12,6 +12,7 @@ from . import (  # noqa: F401
     portable_stage_work,
     reconfiguration,
     retention_ops,
+    retention_work,
     revision_plan,
     service_jobs,
     validation,

@@ -114,7 +114,8 @@ class WorkJournal:
                 "UPDATE cc_work_job SET phase='running', updated_at=clock_timestamp() "
                 "WHERE id=(SELECT id FROM cc_work_job WHERE phase='waiting' "
                 "AND (NOT $1 OR metadata->>'long'='false') "
-                "ORDER BY created_at, id LIMIT 1) RETURNING *",
+                "ORDER BY (owner='internal:system' AND created_at > clock_timestamp() - interval '60 seconds'), "
+                "created_at, id LIMIT 1) RETURNING *",
                 short_only,
             )
 
