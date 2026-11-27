@@ -120,7 +120,8 @@ jobs:
           PG_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
           TEST_MQTT_DOCKER: '1'
         run: python -c 'import json,os,subprocess; subprocess.run(["uv","run","pytest","-q",*json.loads(os.environ["PYTEST_FILES"])],check=True)'
-      - run: uv run pytest -q
+      - run: uv run pytest -q --timeout=120
+        timeout-minutes: 18
         if: needs.scope.outputs.area_only != 'true'
         env:
           PG_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}

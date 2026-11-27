@@ -112,6 +112,7 @@ async def test_health_http_request_concurrent_with_cold_validation(
 ):
     _, client, headers = await api_client(runtime, aiohttp_client, tmp_path)
     reader, writer = await asyncio.open_connection(client.host, client.port)
+    loop = asyncio.get_running_loop()
     started = None
     original = runtime_module.validate
 
@@ -122,8 +123,9 @@ async def test_health_http_request_concurrent_with_cold_validation(
         # the FIRST pass and send one request on this Connection: close socket.
         if started is None:
             started = perf_counter()
-            writer.write(
-                b"GET /health/live HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+            loop.call_soon_threadsafe(
+                writer.write,
+                b"GET /health/live HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n",
             )
         return original(document, types)
 

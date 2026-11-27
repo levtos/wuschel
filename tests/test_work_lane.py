@@ -313,6 +313,7 @@ async def test_worker_disallows_truth_write_before_dispatch(runtime):
 
 @pytest.mark.postgres
 @pytest.mark.skipif(sys.platform != "linux", reason="Supervisor process IPC uses Unix sockets")
+@pytest.mark.timeout(90)
 async def test_work_survives_pause_and_isolates_owner(database, runtime, tmp_path, aiohttp_client):
     database_config = urlsplit(database)
     store = PostgresStore(database, MIGRATIONS, tls=False)
