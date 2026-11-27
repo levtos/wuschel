@@ -19,6 +19,11 @@ on:
         description: Repeat the identical image build and verify cached bytes
         type: boolean
         default: false
+      work_acceptance:
+        description: Run the synthetic work lane acceptance on demand
+        type: choice
+        options: ['off', 'smoke', 'hour']
+        default: 'off'
   pull_request:
   push:
     branches: [main, agent/platform-alpha1]
@@ -146,6 +151,30 @@ jobs:
             client/dist/*.whl
             dist/alpha4-review-performance.json
             dist/alpha8-scale.json
+  work-acceptance:
+    if: github.event_name == 'workflow_dispatch' && (inputs.work_acceptance == 'smoke' || inputs.work_acceptance == 'hour')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 72
+    services:
+      postgres:
+        image: postgres:18-bookworm
+        env:
+          POSTGRES_USER: synthetic_acceptance
+          POSTGRES_DB: synthetic_acceptance_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U synthetic_acceptance" --health-interval 2s --health-retries 20
+    env:
+      TEST_DATABASE_DSN: postgresql://synthetic_acceptance@localhost:5432/synthetic_acceptance_test
+      WUSCHEL_SYNTHETIC_ACCEPTANCE_SECONDS: ${{ inputs.work_acceptance == 'hour' && '3600' || '15' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          python-version: '3.14.5'
+      - run: uv sync --frozen
+      - name: Exercise PostgreSQL, work processes and synthetic Traber
+        run: uv run pytest -q -s tests/test_truth_lane_acceptance.py
   area-map:
     needs: scope
     if: github.event_name == 'workflow_dispatch' && inputs.area_map

@@ -54,20 +54,16 @@ async def dispatch(self: Any, request: web.Request, *, cache: CatalogReadCache) 
         result = await asyncio.to_thread(output_options, config) if config else []
     elif path == "catalogs/classes/migration" and method == "POST":
         from core_contracts.extensions.catalog.named_class_migration import (
-            build_package,
-            configure_package,
-            migration_blockers,
+            package_from_snapshot,
             projection_changes,
         )
         from core_contracts.portable import objects
 
         body = await self.object_body(request)
-        baseline = await runtime.submit(
-            "portable_export", {"expected_active_revision": body.get("expected_active_revision")}
+        package, baseline, blockers = await asyncio.to_thread(
+            package_from_snapshot, state, config, body
         )
-        if "catalog_classes" not in body and (
-            blockers := await asyncio.to_thread(migration_blockers, baseline)
-        ):
+        if blockers:
             return {
                 "package": {},
                 "resolutions": {},
@@ -78,17 +74,6 @@ async def dispatch(self: Any, request: web.Request, *, cache: CatalogReadCache) 
                     "unresolved": ["catalog_migration_unmapped"],
                 },
             }
-        package = (
-            await asyncio.to_thread(
-                configure_package,
-                baseline,
-                body["catalog_classes"],
-                body.get("assignments", {}),
-                body.get("outputs"),
-            )
-            if "catalog_classes" in body
-            else await asyncio.to_thread(build_package, baseline)
-        )
         resolutions = {key: "file" for key in objects(package["config"])}
         plan = await runtime.submit(
             "portable_preview", {"package": package, "resolutions": resolutions}
@@ -98,7 +83,7 @@ async def dispatch(self: Any, request: web.Request, *, cache: CatalogReadCache) 
             "resolutions": resolutions,
             "preview": plan,
             "projections": await asyncio.to_thread(
-                projection_changes, runtime, baseline["config"], plan["config"]
+                projection_changes, runtime, baseline, plan["config"]
             )
             if plan.get("can_stage") is not False and not plan["unresolved"]
             else [],

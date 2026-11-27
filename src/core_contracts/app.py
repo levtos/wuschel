@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import signal
+from functools import partial
 from pathlib import Path
 from time import perf_counter
 from typing import Any, Literal
@@ -213,6 +214,35 @@ def mqtt_status(options: Options) -> tuple[str, bool]:
     )
 
 
+async def apply_work(runtime: Runtime, operation: str, raw: dict[str, Any]) -> dict[str, Any]:
+    if operation == "portable_stage_prepared":
+        plan: (
+            PreparedPortableStage
+            | PreparedRetention
+            | PreparedCatalogWrite
+            | PreparedCatalogCleanup
+            | PreparedTitlePage
+            | PreparedScopeWrite
+            | PreparedClassRollback
+        ) = PreparedPortableStage.model_validate(raw)
+    elif operation == "retention_run_prepared":
+        plan = PreparedRetention.model_validate(raw)
+    elif operation == "catalog_write_prepared":
+        plan = PreparedCatalogWrite.model_validate(raw)
+    elif operation == "catalog_cleanup_prepared":
+        plan = PreparedCatalogCleanup.model_validate(raw)
+    elif operation == "title_sync_apply_prepared":
+        plan = PreparedTitlePage.model_validate(raw)
+    elif operation == "catalog_scope_prepared":
+        plan = PreparedScopeWrite.model_validate(raw)
+    elif operation == "catalog_class_rollback_prepared":
+        plan = PreparedClassRollback.model_validate(raw)
+    else:
+        raise ValueError("work_commit_invalid")
+    result: dict[str, Any] = await runtime.submit(operation, plan)
+    return result
+
+
 async def run(options: Options | None, data: Path, migrations: Path, frontend: Path) -> None:
     operations_file = OperationsFile(data / "operations.json")
     operations = operations_file.active
@@ -246,35 +276,7 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
             raise ConnectionError("ha_discovery_unavailable")
         return await runtime.entity_discovery(preview=True)
 
-    async def apply_work(operation: str, raw: dict[str, Any]) -> dict[str, Any]:
-        if operation == "portable_stage_prepared":
-            plan: (
-                PreparedPortableStage
-                | PreparedRetention
-                | PreparedCatalogWrite
-                | PreparedCatalogCleanup
-                | PreparedTitlePage
-                | PreparedScopeWrite
-                | PreparedClassRollback
-            ) = PreparedPortableStage.model_validate(raw)
-        elif operation == "retention_run_prepared":
-            plan = PreparedRetention.model_validate(raw)
-        elif operation == "catalog_write_prepared":
-            plan = PreparedCatalogWrite.model_validate(raw)
-        elif operation == "catalog_cleanup_prepared":
-            plan = PreparedCatalogCleanup.model_validate(raw)
-        elif operation == "title_sync_apply_prepared":
-            plan = PreparedTitlePage.model_validate(raw)
-        elif operation == "catalog_scope_prepared":
-            plan = PreparedScopeWrite.model_validate(raw)
-        elif operation == "catalog_class_rollback_prepared":
-            plan = PreparedClassRollback.model_validate(raw)
-        else:
-            raise ValueError("work_commit_invalid")
-        result: dict[str, Any] = await runtime.submit(operation, plan)
-        return result
-
-    work = WorkClient(clock, discover_entities, apply_work)
+    work = WorkClient(clock, discover_entities, partial(apply_work, runtime))
     runtime.retention_dispatch = work.retention_due.set
     work_task: asyncio.Task[None] | None = None
     api = API(

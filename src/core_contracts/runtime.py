@@ -555,8 +555,12 @@ class Runtime:
             dict[str, Any], await slots.CONFIGURATION["_restore_numbers"](self, document, previous)
         )
 
-    async def _portable_numbers(self, request: dict[str, Any]) -> dict[str, Any]:
-        return cast(dict[str, Any], await slots.CONFIGURATION["_portable_numbers"](self, request))
+    async def _portable_numbers(
+        self, request: dict[str, Any], package: dict[str, Any]
+    ) -> dict[str, Any]:
+        return cast(
+            dict[str, Any], await slots.CONFIGURATION["_portable_numbers"](self, request, package)
+        )
 
     async def _definition_versions(self, config: RegistryConfig) -> None:
         await slots.CONFIGURATION["_definition_versions"](self, config)

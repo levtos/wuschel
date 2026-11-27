@@ -8,7 +8,7 @@ from . import slots
 from .authoring import guard, open_count
 from .model import Model, checksum
 from .persistence import State
-from .portable import stage
+from .portable import request_package, stage
 from .registry import RegistryConfig
 
 if TYPE_CHECKING:
@@ -38,13 +38,15 @@ async def prepare_stage(
         return previous["result"], None
 
     state = runtime.state.catalog_clone()
+    package = request_package(payload)
     draft = stage(
         runtime,
         state,
         payload,
         payload.get("_actor"),
         runtime.clock.now_utc(),
-        restored=await runtime._portable_numbers(payload),
+        restored=await runtime._portable_numbers(payload, package),
+        verified_package=package,
     )
     return draft, seal_stage(request_id, digest, draft)
 

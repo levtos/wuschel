@@ -395,19 +395,22 @@ def read_package(value: Any) -> dict[str, Any]:
     return value
 
 
+def request_package(request: dict[str, Any]) -> dict[str, Any]:
+    return read_package(
+        strict_json(request["package_text"]) if "package_text" in request else request["package"]
+    )
+
+
 def preview(
     runtime: Any,
     state: Any,
     request: dict[str, Any],
     *,
     restored: dict[str, Any] | None = None,
+    verified_package: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     package = copy.deepcopy(
-        read_package(
-            strict_json(request["package_text"])
-            if "package_text" in request
-            else request["package"]
-        )
+        verified_package if verified_package is not None else request_package(request)
     )
     from .validation import RegistryValidationError
 
@@ -765,8 +768,9 @@ def stage(
     now: Any,
     *,
     restored: dict[str, Any] | None = None,
+    verified_package: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    plan = preview(runtime, state, request, restored=restored)
+    plan = preview(runtime, state, request, restored=restored, verified_package=verified_package)
     if request.get("plan_digest") != plan["plan_digest"]:
         raise ValueError("import_plan_conflict")
     if plan.get("can_stage") is False or plan["unresolved"]:
@@ -889,8 +893,13 @@ async def operation_portable_preview(
 ) -> Any:
     from .portable import preview as portable_preview
 
+    package = request_package(payload)
     return portable_preview(
-        runtime, state, payload, restored=await runtime._portable_numbers(payload)
+        runtime,
+        state,
+        payload,
+        restored=await runtime._portable_numbers(payload, package),
+        verified_package=package,
     )
 
 
@@ -918,13 +927,15 @@ async def operation_portable_stage(
         if import_previous["digest"] != import_digest:
             raise ValueError("import_plan_conflict")
         return import_previous["result"]
+    package = request_package(payload)
     result = stage(
         runtime,
         state,
         payload,
         payload.get("_actor"),
         now,
-        restored=await runtime._portable_numbers(payload),
+        restored=await runtime._portable_numbers(payload, package),
+        verified_package=package,
     )
     state.tables["catalog_import"][import_record] = {
         "digest": import_digest,
@@ -939,12 +950,9 @@ slots.OPERATIONS["portable_stage"] = slots.Operation(
 )
 
 
-async def _portable_numbers(runtime: Runtime, request: dict[str, Any]) -> dict[str, Any]:
-    from .portable import read_package, strict_json
-
-    package = read_package(
-        strict_json(request["package_text"]) if "package_text" in request else request["package"]
-    )
+async def _portable_numbers(
+    runtime: Runtime, request: dict[str, Any], package: dict[str, Any]
+) -> dict[str, Any]:
     target = runtime.state.tables["registry_draft"].get(request.get("target_draft_id", ""))
     from .validation import RegistryValidationError
 
