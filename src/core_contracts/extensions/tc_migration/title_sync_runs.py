@@ -401,7 +401,19 @@ async def process(
             "page": run["page"],
             "complete": complete,
         }
-        staged.tables["catalog_request"][request_id] = {"digest": digest, "result": result}
+        staged.tables["catalog_request"][request_id] = {
+            "digest": digest,
+            "result": result,
+            "title_sync_progress": {
+                "plan_id": body["plan_id"],
+                "owner": checksum(body.get("_actor")),
+                "applied_page": run["_index"],
+                "page_digest": body["plan_digest"],
+                "mapping_version": result["mapping_version"],
+                "heads": {**run["_heads"], **prepared["revisions"]},
+                "complete": complete,
+            },
+        }
         await runtime._commit(staged, publication=bool(prepared["affected"]))
         committed = True
         run["mapping_version"] = result["mapping_version"]

@@ -3,6 +3,7 @@
 import asyncio
 import copy
 import logging
+from collections import deque
 from time import perf_counter
 
 from .operation_timing import Timing, current
@@ -16,6 +17,42 @@ class IngestQueue(asyncio.Queue[Work]):
     """A soft bound for coalescible state; protected events keep FIFO order."""
 
     ordered_put = False
+    TRUTH_OPERATIONS = frozenset(
+        {
+            "observation",
+            "snapshot",
+            "snapshot_complete",
+            "tick",
+            "catalog_tick",
+            "recover",
+            "gap",
+            "bridge_state",
+            "mqtt_state",
+            "command",
+            "manual_source_enter",
+            "manual_restart",
+            "context_register",
+            "engine_context_register",
+            "service_claim",
+            "service_complete",
+            "legacy_refresh_prepare",
+        }
+    )
+
+    def __init__(self, maxsize: int = 0) -> None:
+        super().__init__(maxsize)
+        self.truth_queued: deque[float] = deque()
+
+    def _put(self, item: Work) -> None:
+        super()._put(item)
+        if item.operation in self.TRUTH_OPERATIONS:
+            self.truth_queued.append(item.queued_at)
+
+    def _get(self) -> Work:
+        item = super()._get()
+        if item.operation in self.TRUTH_OPERATIONS:
+            self.truth_queued.popleft()
+        return item
 
     def full(self) -> bool:
         return False if self.ordered_put else super().full()
@@ -88,7 +125,22 @@ async def process_block(runtime: Runtime, first: Work) -> None:
         if worker._block_changed:
             runtime.pending_latches = worker.latches
             runtime.pending_refresh = worker._block_refresh
+            previous_sequence = runtime.state.publication_seq
             await runtime._commit(worker.state, publication=True, measure_load=True)
+            if (
+                runtime.state.publication_seq != previous_sequence
+                and "contract_projection" in runtime.bridge_features
+                and runtime.bridge == "connected"
+                and not runtime.projection_paused
+            ):
+                observed = [
+                    item.queued_at
+                    for item in works
+                    if item.payload.adapter == "ha_state"
+                    and item.payload.observation_kind in {"live_change", "report"}
+                ]
+                if observed:
+                    runtime.truth_latency.publish(runtime.state.publication_seq, min(observed))
             runtime._observation_models = worker._observation_models
             runtime._field_models = worker._field_models
         runtime.evaluation_stats = worker.evaluation_stats

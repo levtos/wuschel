@@ -2,7 +2,12 @@ import { hasTranslation, t as uiText } from '@/i18n';
 import type { Json } from './json';
 import { coolDownRequests, reserveRequest } from './request-budget';
 import { assertIngressResponse, browserSession, SessionExpired } from './browser-session';
-import { loadWait, type LoadMeasurement } from './load-wait';
+
+interface LoadMeasurement {
+  metric: string;
+  value: number;
+  threshold: number;
+}
 
 /** One structured server finding; paths are JSON Pointers into the submitted document. */
 export interface Issue {
@@ -108,6 +113,7 @@ async function request(path: string, options: RequestOptions, reserved = false):
         method,
         headers: {
           'X-Authoring-Protocol': '2',
+          Prefer: 'respond-async',
           ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...(options.interactive ? { 'X-Wuschel-Interactive': '1' } : {}),
         },
@@ -118,9 +124,7 @@ async function request(path: string, options: RequestOptions, reserved = false):
       if (concurrentDraftRead && browserSession.getSnapshot().blocked) throw new SessionExpired();
       return result;
     };
-    // Admission waits and opening a different draft must be able to finish
-    // while a save is still pending. Both reads still pass the session gate.
-    response = path.startsWith('operations/wait?') || concurrentDraftRead ? await send() : await browserSession.run(send, options.signal);
+    response = concurrentDraftRead ? await send() : await browserSession.run(send, options.signal);
   } catch (error) {
     if (error instanceof SessionExpired) throw new ApiError(error.status, 'ingress_session_expired', [], uiText('b22.connection.reload'));
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
@@ -139,46 +143,25 @@ async function request(path: string, options: RequestOptions, reserved = false):
   return response;
 }
 
-function protectedError(error: unknown): error is ApiError {
-  return error instanceof ApiError && error.status === 503 && error.code === 'load_protected';
-}
-
-async function requestInteractive(path: string, options: RequestOptions): Promise<Response> {
-  let deadline: number | undefined;
+async function awaitWork(response: Response, signal?: AbortSignal): Promise<Response> {
+  if (response.status !== 202 || response.headers.get('Preference-Applied') !== 'respond-async') return response;
+  const path = response.headers.get('Location') ?? '';
+  if (!/^work\/jobs\/[a-f0-9-]{36}$/i.test(path)) throw new ApiError(202, 'invalid_response', [], '');
   for (;;) {
-    let remaining: number;
+    signal?.throwIfAborted();
     try {
-      return await request(path, options);
+      const result = await request(`${path}/result`, { signal });
+      if (result.status !== 202) return result;
     } catch (error) {
-      if (!protectedError(error)) throw error;
-      const now = performance.now();
-      deadline ??= now + Math.min(60, error.waitSeconds ?? 30) * 1000;
-      remaining = Math.ceil(deadline - now);
-      if (remaining <= 0) {
-        loadWait.reject(error.measurements ?? []);
-        throw error;
-      }
+      if (error instanceof ApiError && error.code === 'work_cancelled') throw new ActionCancelled();
+      if (!(error instanceof ApiError) || ![0, 503].includes(error.status) || error.code === 'ingress_session_expired') throw error;
     }
-    if (loadWait.snapshot()?.kind === 'waiting') throw new ActionCancelled();
-    const controller = new AbortController();
-    const signal = options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal;
-    loadWait.start(() => controller.abort());
-    try {
-      await request(`operations/wait?budget_ms=${remaining}`, { signal });
-      signal.throwIfAborted();
-    } catch (error) {
-      if (signal.aborted) { loadWait.finish(); throw new ActionCancelled(); }
-      if (error instanceof ApiError) error.beforeExecution = true;
-      if (protectedError(error)) loadWait.reject(error.measurements ?? []);
-      else loadWait.finish();
-      throw error;
-    }
-    loadWait.finish();
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 }
 
 export async function api<T = Json>(path: string, options: RequestOptions = {}): Promise<T> {
-  const response = await (options.interactive ? requestInteractive(path, options) : request(path, options));
+  const response = await awaitWork(await request(path, options), options.signal);
   if (response.status === 204) return null as T;
   return (await response.json()) as T;
 }
@@ -195,7 +178,7 @@ export async function apiWithFreshServerTime<T = Json>(path: string, body: (serv
 
 /** Preserve portable format-1 numeric spelling and its historical digests. */
 export async function apiText(path: string, options: RequestOptions = {}): Promise<string> {
-  return (await request(path, options)).text();
+  return (await awaitWork(await request(path, options), options.signal)).text();
 }
 
 const MESSAGES: Record<string, string> = {

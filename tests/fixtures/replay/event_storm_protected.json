@@ -822,7 +822,7 @@
   ],
   "results": [
     {
-      "heavy_operation": "load_protected",
+      "heavy_operation": "validated",
       "load_states": [
         "normal",
         "geschützt",

@@ -1,13 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
+import { useOperatingState } from '@/features/jobs/state';
 import { t, hasTranslation } from '@/i18n';
 import { codeLabel } from '@/i18n/codes';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { KeyValue, Notice, PageHeader, Panel, PanelHeader, Spinner } from '@/components/ui/layout';
-import { api, describeError } from '@/lib/api';
+import { describeError } from '@/lib/api';
 import { formatNumber, formatTime } from '@/lib/format';
 import { connectionLabel } from '@/lib/status';
-import type { SystemState } from '@/features/admin/operations';
 import { ProjectionControl } from '@/features/admin/ProjectionControl';
 import { InlineHelp } from '@/components/ui/inline-help';
 
@@ -15,7 +14,7 @@ const measurement = (value: number | null | undefined) => value == null ? t('b26
 const name = (kind: string, key: string) => hasTranslation(`b26.system.${kind}.${key}`) ? t(`b26.system.${kind}.${key}`) : key;
 
 export default function SystemStatePage() {
-  const query = useQuery({ queryKey: ['system-state'], queryFn: ({ signal }) => api<SystemState>('system/state', { signal }), refetchInterval: 5000, retry: false });
+  const query = useOperatingState();
   const state = query.data;
   return <>
     <PageHeader title={t('b26.system.title')} description={t('b26.system.description')} actions={<Button variant="primary" disabled={query.isFetching} onClick={() => void query.refetch()}>{t('b26.system.refresh')}</Button>} />
@@ -28,6 +27,8 @@ export default function SystemStatePage() {
         <Badge tone={state.load.state === 'normal' ? 'ok' : 'warn'}>{t(`b26.load.${state.load.state}`)}</Badge>
         {state.load.state !== 'normal' && <p>{t(state.load.state === 'geschützt' ? 'b26.load.protectedHelp' : 'b26.load.strainedHelp')}</p>}
         {state.load.reasons.map(reason => <p key={reason} className="text-sm text-muted">{t(`b26.load.metric.${reason}`)}</p>)}
+        {Boolean(state.load.remaining_hold_ms) && <p>{t('work.holding', { seconds: Math.ceil((state.load.remaining_hold_ms ?? 0) / 1000) })}</p>}
+        {state.work?.available && <p>{t('work.capacity', { workers: state.work.workers ?? 0, maximum: state.work.maximum ?? 0 })}</p>}
         <ProjectionControl paused={state.projection_paused} disabled={query.isError || query.isFetching} onChanged={() => { void query.refetch(); }} />
       </div></Panel>
       <div className="grid gap-4 lg:grid-cols-2">

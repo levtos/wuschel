@@ -194,7 +194,14 @@ async def probe(
                     "SELECT value FROM public.cc_meta WHERE key='installation_id'"
                 )
                 identity = json.loads(value) if value else None
-            allowed = set(TABLES) | {"cc_meta", "cc_schema_migrations", "publication"}
+            allowed = set(TABLES) | {
+                "cc_meta",
+                "cc_schema_migrations",
+                "publication",
+                "cc_work_job",
+                "cc_work_artifact",
+                "cc_work_plan",
+            }
             if identity:
                 allowed |= {
                     "cc_observation_index",

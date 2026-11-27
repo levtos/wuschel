@@ -207,9 +207,16 @@ async def dispatch(self: Any, request: web.Request, *, cache: CatalogReadCache) 
             {**await self.object_body(request), "_actor": request["actor"]},
         )
     elif path in {"catalogs/cleanup/preview", "catalogs/cleanup/apply"} and method == "POST":
+        from core_contracts.model import checksum
+
+        body = await self.object_body(request)
+        key = body.get("plan_id")
+        if path.endswith("/apply") and isinstance(key, str):
+            plan = await runtime.store.work_plan("catalog_cleanup", key, checksum(request["actor"]))
+            if plan:
+                runtime.catalog_cleanup_plans[key] = plan
         result = await runtime.submit(
-            "catalog_cleanup_" + path.rsplit("/", 1)[1],
-            {**await self.object_body(request), "_actor": request["actor"]},
+            "catalog_cleanup_" + path.rsplit("/", 1)[1], {**body, "_actor": request["actor"]}
         )
     elif path == "catalogs/entries" and method == "GET":
         from core_contracts.extensions.catalog.managed_catalog import definition, page

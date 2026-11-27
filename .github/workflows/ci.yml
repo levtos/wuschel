@@ -120,9 +120,15 @@ jobs:
           PG_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
           TEST_MQTT_DOCKER: '1'
         run: python -c 'import json,os,subprocess; subprocess.run(["uv","run","pytest","-q",*json.loads(os.environ["PYTEST_FILES"])],check=True)'
+      - name: Work process and route architecture
+        if: needs.scope.outputs.area_only != 'true'
+        run: uv run pytest -q tests/test_work_lane.py
+        timeout-minutes: 3
       - run: uv run pytest -q
+        timeout-minutes: 18
         if: needs.scope.outputs.area_only != 'true'
         env:
+          PYTEST_TIMEOUT: '120'
           PG_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
           TEST_MQTT_DOCKER: '1'
       - run: uv run python dev/resource_probe.py

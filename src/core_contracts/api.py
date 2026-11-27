@@ -17,16 +17,17 @@ from pydantic import ValidationError
 from . import __version__, slots
 from .authoring import AuthoringError
 from .capabilities import capabilities, configuration_schema, describe_types, reasons
-from .errors import LoadProtected
 from .history import HISTORY_TABLES, HistoryQuery
 from .model import canonical
 from .operations import OperationsFile
-from .registry import fingerprints, registry_types
+from .registry import RegistryConfig, fingerprints, registry_types
 from .retention import EvidenceOutsideRetention
 from .runtime import Runtime
 from .security import RateLimiter, Tokens
 from .setup import Setup
 from .validation import RegistryValidationError
+from .work_client import WorkClient
+from .work_routes import job_route
 
 # The core dispatcher has a catch-all router resource. Only known names and
 # placeholder patterns may become diagnostic labels.
@@ -71,6 +72,7 @@ LOGICAL_ROUTES = frozenset(
         "tokens",
         "tokens/rotate",
         "types",
+        "work/jobs",
     }
 )
 PARAMETERIZED_ROUTES = (
@@ -85,6 +87,7 @@ PARAMETERIZED_ROUTES = (
     (r"history/.+", "history/{id}"),
     (r"registry/revisions/.+", "registry/revisions/{id}"),
     (r"registry/activation-requests/.+", "registry/activation-requests/{id}"),
+    (r"work/jobs/[0-9A-Fa-f-]{36}(?:/result)?", "work/jobs/{id}"),
     (r"registry/continuations/[^/]+(?:/(decisions|finish|cancel))?", "registry/continuations/{id}"),
     (
         r"registry/drafts/[^/]+(?:/(validate|activate|activation-preview|complete|continuations|reconcile))?",
@@ -110,7 +113,7 @@ class API:
     def __init__(
         self,
         runtime: Runtime,
-        tokens: Tokens,
+        tokens: Tokens | None,
         installation_id: str,
         *,
         installation_label: str = "",
@@ -118,6 +121,7 @@ class API:
         frontend: Path | None = None,
         setup: Setup | None = None,
         operations: OperationsFile | None = None,
+        work: WorkClient | None = None,
     ) -> None:
         self.runtime, self.tokens, self.installation_id = runtime, tokens, installation_id
         self.installation_label, self.ingress_address, self.frontend = (
@@ -125,37 +129,67 @@ class API:
             ingress_address,
             frontend,
         )
+        self.work = work
         self.limiter = RateLimiter(runtime.clock)
+        # Several accepted jobs can be polled concurrently for their lifetime.
+        self.job_poll_limiter = RateLimiter(runtime.clock, limit=1800)
         self.setup = setup
         self.operations = operations or OperationsFile(active=runtime.operations)
         runtime.configuration_error = bool(setup and setup.configuration_error)
         self.auth_limiter = RateLimiter(runtime.clock)
+        self._metadata_lock = asyncio.Lock()
+        self._metadata: dict[str, tuple[RegistryConfig | None, str]] = {}
         self.sockets: set[web.WebSocketResponse] = set()
         self.title_reader: Callable[[], Awaitable[dict[str, Any]]] | None = None
 
-    def application(self, *, ingress: bool = False) -> web.Application:
+    def application(
+        self, *, ingress: bool = False, work_actor: dict[str, str] | None = None
+    ) -> web.Application:
         @web.middleware
         async def boundary(
             request: web.Request, handler: Callable[[web.Request], Awaitable[web.StreamResponse]]
         ) -> web.StreamResponse:
-            if ingress:
+            job_poll = (
+                self.work is not None
+                and request.method == "GET"
+                and job_route("GET", request.path.removeprefix("/api/v1/"))
+            )
+            if work_actor is not None:
+                from .work_routes import read_route
+
+                path = request.path.removeprefix("/api/v1/")
+                if not read_route(request.method, path):
+                    raise web.HTTPNotFound()
+                role = work_actor["role"]
+            elif ingress:
                 if request.remote != self.ingress_address:
                     raise web.HTTPForbidden()
                 role = "admin"
             elif request.path.startswith("/health/"):
                 role = "health"
             else:
-                if not self.auth_limiter.allow(f"auth:{request.remote}"):
+                auth_key = f"auth:{request.remote}"
+                if not job_poll and not self.auth_limiter.allow(auth_key):
                     raise web.HTTPTooManyRequests()
-                role = self.tokens.role(request.headers.get("Authorization", "")) or ""
+                role = (
+                    (self.tokens.role(request.headers.get("Authorization", "")) or "")
+                    if self.tokens
+                    else ""
+                )
+                if job_poll and role != "admin" and not self.auth_limiter.allow(auth_key):
+                    raise web.HTTPTooManyRequests()
                 if not role:
                     raise web.HTTPUnauthorized()
-            if role != "health" and not self.limiter.allow(f"{request.remote}:{role}"):
+            limiter = self.job_poll_limiter if job_poll and role == "admin" else self.limiter
+            if role != "health" and not limiter.allow(f"{request.remote}:{role}"):
                 raise web.HTTPTooManyRequests()
             request["role"] = role
             # No client identity header is accepted. The ingress peer is checked
             # above; bearer identities are represented by their authenticated role.
-            request["actor"] = {"kind": "ingress" if ingress else "token", "role": role}
+            request["actor"] = work_actor or {
+                "kind": "ingress" if ingress else "token",
+                "role": role,
+            }
             setup_path = request.path.startswith("/api/v1/setup/")
             static_path = ingress and not request.path.startswith(("/api/", "/health/"))
             if setup_path and (not ingress or self.setup is None):
@@ -186,13 +220,6 @@ class API:
                         response = await handler(request)
                 else:
                     response = await handler(request)
-            except LoadProtected:
-                details = (
-                    self.runtime.load_guard.protection(self.runtime.clock.monotonic())
-                    if self.interactive(request) or request.path == "/api/v1/operations/wait"
-                    else {}
-                )
-                response = web.json_response({"error": "load_protected", **details}, status=503)
             except AuthoringError as error:
                 response = web.json_response(
                     {"error": error.code, "cause": error.code, "details": error.details}, status=409
@@ -474,43 +501,38 @@ class API:
         ):
             raise AuthoringError("authoring_upgrade_required")
 
-    @staticmethod
-    def interactive(request: web.Request) -> bool:
-        return (
-            request["role"] == "admin"
-            and request.method in {"POST", "PUT", "PATCH"}
-            and request.headers.get("X-Wuschel-Interactive") == "1"
-        )
-
-    def admit_interactive(self, request: web.Request) -> None:
-        if self.interactive(request) and self.runtime.load_guard.state == "geschützt":
-            raise LoadProtected()
-
-    async def wait_for_load(self, budget_ms: int) -> None:
-        runtime = self.runtime
-        limit = min(runtime.operations.load_interactive_wait_s, budget_ms / 1000)
-        deadline = runtime.clock.monotonic() + limit
-        while runtime.load_guard.state == "geschützt":
-            remaining = deadline - runtime.clock.monotonic()
-            if remaining <= 0:
-                raise LoadProtected()
-            # The wait belongs to the HTTP request, never to the runtime queue.
-            await runtime.clock.sleep(min(0.25, remaining))
-
     async def extension_dispatch(
         self, request: web.Request, *, handler: Callable[..., Awaitable[Any]]
-    ) -> web.Response:
+    ) -> web.StreamResponse:
         path = request.path.removeprefix("/api/v1/")
         self.authorize(request, path, request.method)
-        self.admit_interactive(request)
+        if self.work and (queued := await self.work.queue(request, path)) is not None:
+            return queued
         result = await handler(self, request)
         return web.Response(text=canonical(result), content_type="application/json")
 
-    async def dispatch(self, request: web.Request) -> web.Response:
+    async def configuration_metadata(
+        self, path: str, config: RegistryConfig | None, build: Callable[[], Any]
+    ) -> web.Response:
+        async with self._metadata_lock:
+            cached = self._metadata.get(path)
+            if cached is None or cached[0] is not config:
+                body = await asyncio.to_thread(lambda: canonical(build()))
+                self._metadata[path] = (config, body)
+            else:
+                body = cached[1]
+        return web.Response(text=body, content_type="application/json")
+
+    async def dispatch(self, request: web.Request) -> web.StreamResponse:
         path, method = request.match_info["path"], request.method
         runtime, state, config = self.runtime, self.runtime.state, self.runtime.config
         self.authorize(request, path, method)
-        self.admit_interactive(request)
+        if self.work:
+            if job_route(method, path):
+                return await self.work.jobs(request, path)
+            service = runtime.service_state() if path == "diagnostics/problems" else None
+            if (queued := await self.work.queue(request, path, service=service)) is not None:
+                return queued
         result: Any
         if path == "info" and method == "GET":
             result = self.info()
@@ -520,7 +542,6 @@ class API:
             budget = request.query.get("budget_ms", "60000")
             if not re.fullmatch(r"[0-9]{1,5}", budget):
                 raise ValueError("invalid_load_wait")
-            await self.wait_for_load(int(budget))
             return web.Response(status=204)
         elif (
             path == "operations/settings"
@@ -578,6 +599,8 @@ class API:
                 "version": __version__,
                 "operations_notice": self.operations.notice,
             }
+            if self.work:
+                result["work"] = self.work.current(request)
         elif path == "operations/projection" and method == "PUT":
             body = await self.object_body(request)
             if set(body) != {"paused"} or type(body["paused"]) is not bool:
@@ -585,13 +608,17 @@ class API:
             runtime.set_projection_paused(body["paused"])
             result = {"projection_paused": runtime.projection_paused}
         elif path == "types" and method == "GET":
-            result = describe_types(config, runtime.types)
+            return await self.configuration_metadata(
+                path, config, lambda: describe_types(config, runtime.types)
+            )
         elif path == "capabilities" and method == "GET":
-            result = capabilities(config, runtime.types)
+            return await self.configuration_metadata(
+                path, config, lambda: capabilities(config, runtime.types)
+            )
         elif path == "reasons" and method == "GET":
             result = reasons()
         elif path == "registry/schema" and method == "GET":
-            result = configuration_schema()
+            return await self.configuration_metadata(path, None, configuration_schema)
         elif path == "registry/freshness" and method == "POST":
             from .freshness_templates import effective_freshness
             from .validation import validate_document as validate
@@ -618,7 +645,6 @@ class API:
         elif path in {"portable/export", "portable/preview", "portable/stage"} and method == "POST":
             from .portable import strict_json
 
-            runtime.admit_operation("portable_" + path.rsplit("/", 1)[1])
             body = strict_json(await request.text())
             if not isinstance(body, dict):
                 raise ValueError("import_object_required")
@@ -1070,6 +1096,8 @@ class API:
         elif path == "tokens" and method == "GET":
             result = {"roles": ["consumer", "admin"], "tokens_visible": False}
         elif path == "tokens/rotate" and method == "POST":
+            if self.tokens is None:
+                raise web.HTTPForbidden()
             role = (await self.object_body(request))["role"]
             if role not in {"admin", "consumer"}:
                 raise ValueError("invalid token role")

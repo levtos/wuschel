@@ -946,7 +946,6 @@ class BridgeAdapter:
         from ..ha_projection import snapshot
 
         queue = self.runtime.subscribe(max_queue=1)
-        last_sent: float | None = None
         try:
             while True:
                 await self.projection_connected.wait()
@@ -960,16 +959,6 @@ class BridgeAdapter:
                         if await self._projection_wait(None, None) == "disconnected":
                             break
                         continue
-                    if self.runtime.load_guard.state == "geschützt" and last_sent is not None:
-                        remaining = (
-                            last_sent
-                            + self.runtime.operations.projection_protected_interval_s
-                            - self.runtime.clock.monotonic()
-                        )
-                        if remaining > 0:
-                            if await self._projection_wait(None, remaining) == "disconnected":
-                                break
-                            continue
                     payload = snapshot(
                         self.runtime, include_fields=self.projection_fields_supported
                     )
@@ -987,7 +976,6 @@ class BridgeAdapter:
                         future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
                         identifier = None
                         try:
-                            last_sent = self.runtime.clock.monotonic()
                             identifier = await connection.send(payload, future)
                             async with asyncio.timeout(
                                 self.runtime.operations.projection_timeout_s
@@ -995,6 +983,9 @@ class BridgeAdapter:
                                 result = await future
                             if not isinstance(result, dict) or "applied" not in result:
                                 raise ConnectionError("projection_not_acknowledged")
+                            self.runtime.truth_latency.acknowledge(
+                                payload["publication_seq"], self.runtime.clock.monotonic()
+                            )
                             previous = payload
                             retry_delay = 0.25
                             self.runtime.retry_succeeded("projection")
@@ -1054,6 +1045,7 @@ class BridgeAdapter:
                         "ha_error_code": getattr(error, "ha_error_code", None),
                     },
                 )
+                self.runtime.truth_latency.reset_pending()
                 await self.runtime.submit("bridge_state", ("unavailable", "disconnected"))
                 await self.runtime.clock.sleep(
                     random.uniform(self.retry_delay / 2, self.retry_delay)

@@ -2,9 +2,6 @@
 
 import os
 
-import pytest
-
-from core_contracts.errors import LoadProtected
 from core_contracts.observation_block import IngestQueue
 
 from .test_declarative import observation
@@ -34,8 +31,7 @@ async def test_guarded_storm_replay(config):
             runtime.sample_load()
             states.append(runtime.load_guard.state)
             assert states[-1] == "geschützt"
-            with pytest.raises(LoadProtected):
-                await runtime.submit("retention_preview")
+            assert (await runtime.process("validate", config))["valid"]
             seen = []
             sequences = []
             while not runtime.queue.empty():
@@ -68,7 +64,7 @@ async def test_guarded_storm_replay(config):
                 "protected_ingest_sequences": seen,
                 "publication_sequences": sequences,
                 "reconnect_requested": runtime.resubscribe.is_set(),
-                "heavy_operation": "load_protected",
+                "heavy_operation": "validated",
             }
         )
         actual = canonical(await replay.output())

@@ -124,7 +124,8 @@ async def maintain_postgres(
     async with connection.transaction():
         rows = await connection.fetch(
             "SELECT h.key,h.payload FROM cc_observation_index i JOIN source_observation_history h ON h.key=i.reference "
-            "WHERE i.received_at<$1 AND NOT(h.key=ANY($2::text[])) ORDER BY i.received_at,i.reference LIMIT $3 FOR UPDATE OF h",
+            "WHERE i.received_at<$1 AND NOT(h.key=ANY($2::text[])) ORDER BY i.received_at,i.reference LIMIT $3"
+            + ("" if dry_run else " FOR UPDATE OF h"),
             raw_before,
             list(pins),
             policy.batch_size,

@@ -50,6 +50,7 @@ export function workbenchRoutes(onSetup: () => void): RouteObject[] {
         { path: 'changes/transfer', element: <LegacyRoute /> },
         { path: 'import-export', element: lazyPage(() => import('@/features/registry/ImportExportPage')) },
         { path: 'catalog-care', element: lazyPage(() => import('@/features/catalog/CatalogPage')) },
+        { path: 'jobs', element: lazyPage(() => import('@/features/jobs/JobsPage')) },
         { path: 'settings/catalog-care', element: lazyPage(() => import('@/features/catalog/CatalogPage')) },
         { path: 'changes/drafts/:draftId', element: lazyPage(() => import('@/features/registry/DraftPage')) },
         ...['system', 'installation', 'connections', 'keys', 'log'].map(section => ({ path: `settings/${section}`, element: lazyPage(() => import('@/features/admin/AdminPage')) })),
