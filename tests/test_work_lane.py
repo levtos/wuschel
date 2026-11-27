@@ -8,6 +8,7 @@ from uuid import UUID
 
 import asyncpg
 import pytest
+from aiohttp import web
 
 from core_contracts import slots
 from core_contracts.api import API, LOGICAL_ROUTES, PARAMETERIZED_ROUTES
@@ -163,7 +164,9 @@ async def test_local_routes_and_loop_remain_responsive_with_a_busy_subprocess(
     ]
     await activate(runtime, config)
     tokens = Tokens(tmp_path / "secrets")
-    client = await aiohttp_client(API(runtime, tokens, "synthetic").application())
+    api = API(runtime, tokens, "synthetic")
+    api.auth_limiter.limit = api.limiter.limit = 1000
+    client = await aiohttp_client(api.application())
     headers = {"Authorization": "Bearer " + tokens.values["admin"]}
     clock = asyncio.get_running_loop()
     lag = []
@@ -181,15 +184,32 @@ async def test_local_routes_and_loop_remain_responsive_with_a_busy_subprocess(
     child = await asyncio.create_subprocess_exec(
         sys.executable,
         "-c",
-        "from time import monotonic\nend = monotonic() + 3\nwhile monotonic() < end:\n    pass\n",
+        "from time import monotonic\nend = monotonic() + 12\nwhile monotonic() < end:\n    pass\n",
     )
     try:
         for path in (
+            "bindings",
+            "capabilities",
+            "catalogs",
             "contracts",
-            "snapshot",
-            "registry/drafts",
-            "system/state",
+            "contracts/fixture.synthetic_0",
+            "definitions",
+            "diagnostics",
+            "editorial",
+            "info",
             "operations/settings",
+            "reasons",
+            "registry/active",
+            "registry/active/export",
+            "registry/drafts",
+            "registry/revisions",
+            "registry/schema",
+            "snapshot",
+            "sources",
+            "sources/calendar-status",
+            "system/state",
+            "tokens",
+            "types",
         ):
             times = []
             for _ in range(20):
@@ -316,6 +336,32 @@ async def test_worker_disallows_truth_write_before_dispatch(runtime):
     with pytest.raises(RuntimeError, match="work_read_only"):
         await worker.submit("catalog_write_prepared", {})
     assert worker.queue.empty()
+
+
+async def test_authenticated_job_reads_keep_a_separate_budget(
+    runtime, tmp_path, aiohttp_client, monkeypatch
+):
+    work = WorkClient(runtime.clock)
+
+    async def jobs(request, path):
+        assert request["actor"] == {"kind": "token", "role": "admin"}
+        return web.json_response({"jobs": []})
+
+    monkeypatch.setattr(work, "jobs", jobs)
+    tokens = Tokens(tmp_path / "secrets")
+    api = API(runtime, tokens, "synthetic", work=work)
+    api.auth_limiter.limit = 3
+    api.limiter.limit = 3
+    client = await aiohttp_client(api.application())
+    headers = {"Authorization": "Bearer " + tokens.values["admin"]}
+    assert (await client.get("/api/v1/work/jobs")).status == 401
+    for _ in range(5):
+        assert (await client.get("/api/v1/work/jobs", headers=headers)).status == 200
+    for _ in range(2):
+        assert (await client.get("/api/v1/info", headers=headers)).status == 200
+    assert (await client.get("/api/v1/info", headers=headers)).status == 429
+    assert (await client.get("/api/v1/work/jobs", headers=headers)).status == 200
+    assert (await client.get("/api/v1/work/jobs")).status == 429
 
 
 @pytest.mark.postgres
