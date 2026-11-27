@@ -35,6 +35,15 @@ Die Tabelle nennt Millisekunden, außer für die ausdrücklich in Sekunden angeg
 | b32, einfach | an | 3.976,39 | 13,10 | 0,17 | 5,09 | 4,26 |
 | b32, doppelt | aus | 37,69 | 24,15 | 0,09 | – | – |
 | b32, doppelt | an | 7.739,38 | 42,66 | 0,16 | 11,67 | 7,91 |
+| A2c, einfach | aus | 16,36 | 14,23 | 0,22 | – | – |
+| A2c, einfach | an | 3.614,02 | 15,09 | 0,10 | 3,76 | 3,85 |
+| A2c, doppelt | aus | 24,55 | 21,95 | 0,14 | – | – |
+| A2c, doppelt | an | 7.471,24 | 38,59 | 0,13 | 10,08 | 7,63 |
+
+Die A2c-Zeilen messen die Vorbereitung im selben Windows-Aufbau. Dieser Aufbau führt die
+Verwaltungsrouten im selben Prozess aus. Mit doppeltem Bestand dauerte die Vorschau rund
+1,6 s weniger. Für die 1-s-Grenze gilt die Messung des Linux-Abnahmelaufs mit getrennten
+Verarbeitern.
 
 Im profilierten Doppelversuch entfielen kumuliert 18,7 s auf den bisherigen Stage-Vorgang,
 14,7 s auf die beiden Vorschauen und 6,0 s auf fünf Paketprüfungen. Die Zeiten im CPU-Profil

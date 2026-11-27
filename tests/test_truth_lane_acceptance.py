@@ -4,9 +4,11 @@ import asyncio
 import json
 import logging
 import os
+import signal
 import sys
 from datetime import datetime
 from functools import partial
+from pathlib import Path
 from time import perf_counter, process_time
 from urllib.parse import unquote, urlsplit
 from uuid import uuid4
@@ -28,6 +30,7 @@ from core_contracts.security import Tokens
 from core_contracts.truth_latency import TruthLatency
 from core_contracts.work_client import WorkClient
 from core_contracts.work_journal import ARTIFACT_CHUNK
+from core_contracts.work_process import WorkProcess
 from dev.fake_ha import FakeHA
 from dev.truth_lane_profile import Timings, distribution, registry, seed
 from tests.conftest import activation_body
@@ -66,6 +69,8 @@ def config(scale):
     result["catalogs"].append(catalog)
     result["sources"][1]["source_type"] = "event"
     field = {"type": "bool", "required": True, "physical_state": False}
+    for source in result["sources"][1:]:
+        source["value_schema"] = field
     result["definitions"] = [
         {
             "type_id": "fixture.echo",
@@ -208,7 +213,64 @@ async def reconcile(dsn, client, headers, runtime):
     assert applied["changed"] > 0
 
 
-async def test_double_inventory_acceptance(database, tmp_path, aiohttp_server, aiohttp_client):
+async def check_worker_failure(runtime, client, headers, coordinator):
+    def current_children():
+        pid = coordinator.process.pid
+        path = Path(f"/proc/{pid}/task/{pid}/children")
+        return [int(child) for child in path.read_text(encoding="ascii").split()]
+
+    before = runtime.state.active_revision, dict(runtime.state.tables["registry_draft"])
+    for abort in (False, True):
+        children = current_children()
+        assert len(children) == 1, children
+        worker = children[0]
+        os.kill(worker, signal.SIGSTOP)
+        try:
+            async with client.post(
+                "/api/v1/catalogs/classes/migration",
+                headers={**headers, "Prefer": "respond-async"},
+                json={"expected_active_revision": runtime.state.active_revision},
+            ) as response:
+                assert response.status == 202
+                location = "/api/v1/" + response.headers["Location"]
+            async with asyncio.timeout(15):
+                while True:
+                    async with client.get(location, headers=headers) as response:
+                        current = await response.json()
+                    if current["phase"] == "running":
+                        break
+                    await runtime.clock.sleep(0.05)
+            async with asyncio.timeout(10):
+                result = await accepted(
+                    client, headers, runtime.clock, "GET", "history/query/contracts?limit=10"
+                )
+                assert "items" in result
+            if abort:
+                async with client.delete(location, headers=headers) as response:
+                    assert response.status == 204
+            else:
+                os.kill(worker, signal.SIGKILL)
+            async with asyncio.timeout(10):
+                while True:
+                    async with client.get(location, headers=headers) as response:
+                        current = await response.json()
+                    if current["phase"] in {"cancelled", "failed"}:
+                        assert current["phase"] == ("cancelled" if abort else "failed")
+                        break
+                    await runtime.clock.sleep(0.05)
+        finally:
+            if worker in current_children():
+                try:
+                    os.kill(worker, signal.SIGCONT)
+                except ProcessLookupError:
+                    pass
+        await wait_for(lambda: worker not in current_children())
+    assert before == (runtime.state.active_revision, dict(runtime.state.tables["registry_draft"]))
+
+
+async def test_double_inventory_acceptance(
+    database, tmp_path, aiohttp_server, aiohttp_client, monkeypatch
+):
     clock = SystemClock()
     operations = OperationsSettings(work_max_workers=4)
     store = PostgresStore(database, MIGRATIONS, tls=False, operations=operations)
@@ -223,6 +285,16 @@ async def test_double_inventory_acceptance(database, tmp_path, aiohttp_server, a
         API(runtime, tokens, runtime.installation_id, work=work).application()
     )
     tasks = []
+    coordinators = []
+    start_process = WorkProcess.start
+
+    async def capture(module, configuration, *args, **kwargs):
+        child = await start_process(module, configuration, *args, **kwargs)
+        if module == "core_contracts.work_coordinator":
+            coordinators.append(child)
+        return child
+
+    monkeypatch.setattr(WorkProcess, "start", capture)
     try:
         await seed(runtime, SCALE, document=config(SCALE))
         now = clock.now_utc().isoformat()
@@ -254,6 +326,8 @@ async def test_double_inventory_acceptance(database, tmp_path, aiohttp_server, a
                         runtime.first_snapshot and len(fake.projection_cache.rows) == 100 * SCALE
                     )
                 )
+                assert len(coordinators) == 1
+                await check_worker_failure(runtime, server, admin, coordinators[0])
                 await exercise(runtime, work, server, admin, fake, entities, database)
             finally:
                 for task in tasks:
