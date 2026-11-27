@@ -1,6 +1,7 @@
 # Wuschel – Wahrheit hat Vorfahrt
 
-A1-Entwurf zu [#180](https://github.com/Levtos/wuschel/issues/180), Stand b32.
+A1-Design zu [#180](https://github.com/Levtos/wuschel/issues/180), Stand b32.
+Die fünf [Auflagen der Claude-Nachprüfung](https://github.com/Levtos/wuschel/pull/182#issuecomment-7226676193) sind eingearbeitet.
 Die Entscheidung zur Reihenfolge steht in [ADR 0034](../adr/0034-wahrheit-hat-vorfahrt.md).
 Das [Inventar](wahrheit-hat-vorfahrt-routen.md) benennt die heutigen Einstiegspunkte.
 Die unten genannten Startwerte und Budgets sind Vorschläge für A2.
@@ -18,6 +19,10 @@ Die unten genannten Startwerte und Budgets sind Vorschläge für A2.
    aus. Nutzlasten, Seitenausgaben und Artefakte werden gestreamt. Eine langsame
    Arbeitsverbindung darf weder die Wahrheitswarteschlange füllen noch die
    Hauptschleife mit blockierenden Pipe-, Datei- oder JSON-Operationen belegen.
+   Fällt der Koordinator aus, bleiben Übersicht, Verträge, Einstellungen und
+   die Bedienung von Entwürfen im Hauptprozess verfügbar. Eigene längere
+   Entwurfsprüfungen können wieder aufgenommen werden, sobald der
+   Arbeitsweg bereit ist.
 3. **Verarbeiter.** Jeder Unterprozess bearbeitet genau einen Auftrag zugleich.
    Alle Aufträge benutzen die bestehende Fachlogik. Vorschau und Vergleich
    dürfen die aktive Wahrheit weder schreiben noch veröffentlichen.
@@ -33,10 +38,10 @@ Datenstrom für große Inhalte. Die Schnittstelle lädt keine serialisierten
 Python-Objekte. [Python-Dokumentation zu subprocess](https://docs.python.org/3.14/library/subprocess.html).
 
 Der heutige Supervisor-Entrypoint behält UID 10001 und die Start- und
-Gesundheitsgrenzen. Der Koordinator erhält nur die für Arbeitsdaten nötigen
-Zugänge. Worker starten mit freigegebenen Umgebungsvariablen, ohne offene
-Handles aus Hauptprozess oder Koordinator und ohne Schreibzugang zur
-Wahrheitsdatenbank. Ein Supervisor-Stopp schließt die Annahme, lässt kurze
+Gesundheitsgrenzen. Der Koordinator benutzt die bestehende PostgreSQL-Rolle
+für seine begrenzten Sitzungen. Worker starten mit freigegebenen
+Umgebungsvariablen und ohne offene Handles aus Hauptprozess oder Koordinator.
+Der Sitzungsstandard ihrer Verbindungen ist `default_transaction_read_only = on`. Ein Supervisor-Stopp schließt die Annahme, lässt kurze
 Commits auslaufen und beendet die Kindprozesse mit begrenzter Frist. Der
 Koordinator überwacht die Elternverbindung. Beim Abbruch eines Workers
 beendet und erntet er die gesamte zugehörige Prozessgruppe. Beim Neustart
@@ -136,30 +141,31 @@ den gespeicherten und den wirksamen Wert. Änderungen und Rücksetzen auf
    Revisions-/Abfragekennung gebunden, soweit die betreffende Route das
    bereits verlangt. Der In-Memory-Testspeicher stellt dieselbe Sicht bereit.
    [PostgreSQL-Dokumentation zur Transaktionsisolation](https://www.postgresql.org/docs/18/transaction-iso.html).
-2. Je Prozess gibt es höchstens einen laufenden Leseauftrag. Eigene
-   Verbindungsgrenzen, `statement_timeout`, `lock_timeout` und
-   `idle_in_transaction_session_timeout` halten Arbeitsabfragen von der
-   reservierten Schreibverbindung und den Verbindungsplätzen für HA fern.
-   Der Koordinator stellt nur parametrisierte, zugelassene Leseoperationen
-   bereit. TC-Daten liest der bestehende Adapter mit Zeit- und Größengrenzen
-   für den jeweiligen Plan. HA-Entitätensuche erhält ausschließlich die
-   nötigen Metadaten. Anmeldedaten der Adapter verbleiben dort. Arbeitsartefakte und Journal
-   liegen in der eigenen Installation, sind nur für berechtigte Auftraggeber
-   abrufbar und werden nach befristeter Aufbewahrung bereinigt. Protokolle
-   enthalten Kennungen, Typen und Zeiten, keine Nutzlasten.
-3. Ein Auftrag erzeugt Antwortdaten oder einen vollständig vorbereiteten
-   Plan mit betroffenen Schlüsseln, erwarteten Versionen, Prüfsumme und
-   `request_id`. Import, Vergleich, Hashing und Validierung großer
-   Datenmengen laufen im Verarbeiter. Der Koordinator prüft die Planform
-   und versiegelt Datenabschnitte in einem begrenzten, getrennt berechtigten
-   Arbeitsbereich. Das Arbeitsjournal speichert Besitzer, Phase, Schlüssel
-   und Ergebnisverweis. Die Arbeitsdatenbankrolle kann in diesem Bereich
-   schreiben. Sie besitzt keine Schreibrechte an den Wahrheitstabellen
-   und kann keine aktive Revision wählen. A2 legt Rollenrechte, Schema-Upgrade
-   und Wiederanlauf für bestehende Installationen im PostgreSQL-Test offen.
-   Der Hauptprozess prüft die Rechte bei der Betriebsbereitschaft des
-   Arbeitswegs und meldet eine fehlgeschlagene Einrichtung unter Betrieb. Die IPC-Nachricht zur Übernahme
-   enthält nur Vorgang, Schlüssel, Versionsbezug, Prüfsumme und Referenz.
+2. Der Arbeitsweg verwendet fest **höchstens sieben PostgreSQL-Verbindungen
+   je App**. Eine Schreibverbindung des Koordinators dient dem Auftragsjournal
+   und den Arbeitsartefakten. Höchstens sechs Lesesitzungen werden an
+   Verarbeiter vergeben, auch wenn der CPU-basierte Pool größer ist. Ein
+   Worker verwendet je Auftrag höchstens einen Leseplatz. Der Koordinator
+   gibt einen Platz erst nach Schließung der Sitzung wieder frei.
+   Diese sieben Plätze sind zum bestehenden Bedarf von Wuschel und den
+   übrigen Nutzern gegen PostgreSQL `max_connections` zu rechnen.
+   Die Wahrheitsverbindungen werden weiterhin zuerst reserviert.
+   Die bestehende App-Rolle und die normale Migration genügen.
+   `default_transaction_read_only = on`, `REPEATABLE READ READ ONLY`,
+   `statement_timeout`, `lock_timeout` und
+   `idle_in_transaction_session_timeout` begrenzen die Lesesitzungen.
+   Der Architekturtest prüft, dass kein Ausführungspfad im Verarbeiter
+   Schreibzugriffe zulässt oder den Sitzungsstandard umgeht.
+   TC-Daten liest der bestehende Adapter mit Zeit- und Größengrenzen.
+3. Ein Auftrag erzeugt Antwortdaten oder einen vollständigen Plan mit
+   betroffenen Schlüsseln, erwarteten Versionen, Prüfsumme und
+   `request_id`. Das Journal und die versiegelten Artefakte liegen in
+   eigenen Tabellen aus der normalen App-Migration. Der Koordinator
+   schreibt ausschließlich über die dafür vorgesehenen Methoden. Der
+   Wahrheitsschreiber erhält Vorgang, Schlüssel, Versionsbezug,
+   Prüfsumme und Planreferenz. Arbeitsdaten sind an ihre Besitzer
+   gebunden und befristet gespeichert. Protokolle enthalten Kennungen,
+   Typen und Zeiten.
 4. Der Wahrheitsschreiber überprüft `expected_active_revision` und die
    betroffenen Köpfe, Entwurfs-, Zuordnungs- und Redaktionsversionen,
    Sichtungsgrenzen, Planbindung, Auftragszustand und den vorhandenen
@@ -167,28 +173,19 @@ den gespeicherten und den wirksamen Wert. Änderungen und Rücksetzen auf
    Daten gebunden. Ein Konflikt hat dasselbe Ergebnis wie heute. Eine
    erneute Planung ist eine neue Vorschau, die die Oberfläche bei
    geänderter Grundlage ausdrücklich anzeigt.
-5. Der Schreiber schaltet vorbereitete, bis dahin unsichtbare
-   Planabschnitte über transaktionale Referenzen frei. Kleine Deltas
-   schreibt er direkt in derselben Transaktion. Revision, wirksame
-   Versionszeiger, Beleg, Audit und Publikationsstand werden gemeinsam
-   festgeschrieben. Große Beiwerte, Indexarbeit und Kodierung müssen vorab
-   vorbereitet sein. Der Übernahmeschritt darf weder alle Zeilen kopieren
-   noch den Inhalt eines kompletten Pakets erneut validieren. Die
-   vorhandenen Schreibhandler werden an dieser Grenze aufgeteilt.
-   Übernahmen erhalten ein kurzes Lock-/Commit-Budget und werden einzeln
-   zwischen Wahrheitsblöcken eingeordnet. Fällige Fristen und angenommene
-   HA-Eingänge behalten ihre Reihenfolge und Vorfahrt.
-6. Bei Aktivierung kompiliert der Arbeitsweg den neuen Auswertungsplan.
-   Der Schreiber ermittelt für den neuen Plan den Ausgangsstand mit
-   derselben Fachauswertung und sichtungsbezogenen Regeln. Er kann
-   vorbereiten und Ereignisse in begrenzten Abschnitten nachführen, solange
-   er weiter den alten Stand veröffentlicht. Ein vorbereiteter Stand ist
-   an die letzte eingearbeitete Eingangsfolge gebunden. Der Umschaltpunkt
-   prüft diese Folge, Zeitgrenzen und Revision erneut. Reicht das Budget
-   bis zum nächsten sicheren Schnitt nicht, führt der Schreiber die
-   Vorbereitung weiter oder plant neu. Er veröffentlicht erst den
-   vollständigen Stand. So können weder stale Eingänge noch eine neue
-   Revision mit alten abgeleiteten Werten wirksam werden.
+5. Der Schreiber übernimmt geprüfte Planabschnitte, Geschäftsdaten,
+   Audit und Idempotenzbeleg in derselben Transaktion. Aufbereitung,
+   Kodierung und Validierung großer Eingaben erfolgen vorher.
+   Übernahmen werden einzeln zwischen Wahrheitsblöcken eingeordnet.
+   Fällige Fristen und angenommene HA-Eingänge behalten ihre Reihenfolge
+   und Vorfahrt. Die Aufbewahrung übernimmt die bestehenden begrenzten
+   Löschabschnitte mit erneuter Prüfung ihrer Grenze und Belege.
+6. Die bestehende b32-Aktivierung und das Register-Rollback bleiben
+   semantisch unverändert im seriellen Schreiber. Nur die Vorbereitung
+   und Validierung von Entwürfen wandern in den Arbeitsweg. Im doppelten
+   Bestand werden Schleifenverzug und Dauer der eigentlichen Aktivierung
+   gesondert gemessen. Eine Blockade über 1 s wird mit Messwerten als
+   Folgeauftrag berichtet. A2 behält dafür die Aktivierungssemantik aus b32.
 7. Abbruch, Prozessabsturz oder Datenbankfehler vor dem Commit lassen den
    bisherigen Stand bestehen. Wurde der Commit bestätigt oder kann die
    Bestätigung verloren gegangen sein, entscheidet der atomar geschriebene
@@ -309,11 +306,12 @@ Vorher und Nachher für den synthetischen Bestand werden erst in A2 ermittelt.
 - Dieselbe Linux-Umgebung mit 4 vCPU, 8 GiB und gepinnter PostgreSQL-,
   Python- und HA-/Traber-Version verwenden. b32 und A2 aus den genauen
   Commits jeweils mit neuer Datenbank und identischen Fixtures starten.
-  Je Variante nach 10 Minuten Aufwärmen drei identische kurze Profil-Läufe
-  sowie mindestens 60 Minuten Doppel-Dauertest. Messungen für einfach
-  und doppelt je ohne und mit Verwaltung ausweisen. Dokumentieren, wenn
-  b32 Abfragen abweist oder nur teilweise ausführt. Diese Fälle zählen
-  zur Rate und als Fehlschläge, nicht als kurze Erfolgszeiten.
+  Für beide Stände nach 10 Minuten Aufwärmen drei kurze Profilläufe je
+  Variante (einfach/doppelt, ohne/mit Verwaltung) ausführen.
+  Den 60-Minuten-Doppel-Dauertest einmal für den vollständigen neuen
+  Stand vor dem Release durchführen. Die CI verwendet nur den kurzen
+  deterministischen Belastungsfall. Dokumentieren, wenn b32 Abfragen
+  abweist oder nur teilweise ausführt. Diese Fälle zählen als Fehlschläge.
 - Während des Doppel-Dauertests gleichzeitig wiederholt Klassen-Umzug
   (Vorschau, Stage, Validierung, Übernahme), lesender TC-Abgleich samt
   apply, Verlaufsabfrage und portable Stage/Export ausführen. Auslösen,
@@ -368,6 +366,11 @@ beobachteten Kostentreiber mit Teilzeiten und Effekt je Korrektur.
   Neue oder unbekannte Zweige und pauschale Wildcard-Freigaben schlagen
   fehl. Ersetzt ein Eintrag einen bisherigen Handler, prüft der Test den
   tatsächlichen Ein- und Aufrufpfad.
+- Alle im Hauptprozess verbleibenden Routen im Belastungstest mit
+  doppeltem synthetischem Bestand prüfen. Je Methode und Pfad gilt
+  p95 ≤ 50 ms für die Routenarbeit im Hauptprozess. Bei Aktivierung und
+  Register-Rollback zusätzlich die eigentliche serielle Schreiberarbeit
+  getrennt messen, gemäß A2-Abgrenzung als Folgeauftrag ausweisen.
 - Prozessgrenze als Test durchsetzen. Arbeitsrouten dürfen im Hauptprozess
   nur Transport, Berechtigung und Einreihung aufrufen. Änderungen an der
   Wahrheit müssen durch den seriellen Handler und dieselbe
@@ -404,7 +407,7 @@ dem tatsächlichen serverseitigen Stand überein.
 | Worker hängt im CPU-Teil bzw. in SQL, Worker stirbt vor/nach Staging | Kurze Arbeit läuft parallel. Genau der betroffene Vorgang wird beendet oder sicher neu aufgenommen. Keine halben Geschäftsdaten, verwaisten Kinder oder offenen DB-Sichten. |
 | Veraltete Registerrevision, Katalogkopf, Zuordnung, Entwurf oder Redaktionsversion | Bestehende Konfliktart, unveränderter Stand, neue Vorschau möglich. |
 | Abbruch beim Warten, während Arbeit und beim Commit; Antwortverlust nach Commit | Eindeutiger Gewinner an der Übernahmegrenze. Wiederholungen liefern genau einen Beleg. |
-| Koordinator-/App-Neustart mit wartenden und laufenden Aufträgen | Journal, sichtbarer Zustand und Belege werden versöhnt. Bestehendes HA-Wiederanlaufverhalten gilt. |
+| Ausfall und Neustart des Koordinators, App-Neustart mit wartenden und laufenden Aufträgen | Übersicht, Verträge, Einstellungen und Entwürfe bleiben bei Koordinatorausfall bedienbar. Journal, sichtbarer Zustand und Belege werden nach Neustart versöhnt. Bestehendes HA-Wiederanlaufverhalten gilt. |
 | Druck steigt und fällt; HA ist ruhig, später tatsächlich verspätet | Aufträge bleiben angenommen. Haltezeit und Freigabe überall konsistent. Nur tatsächlich verspätete Wahrheit erzeugt eine Meldung. |
 | Vertrags-, Traber- und API-Kompatibilität, Rollen, Datenschutz | Vertrag und HA-v1-Basis sind unverändert. Nur additive Betriebsangaben. Fremde Aufträge und Artefakte sind geschützt. Unzulässige Eingaben liefern die bestehenden fachlichen Fehler. |
 
@@ -415,23 +418,31 @@ Der Bericht nennt Vorher/Nachher für beide Größen. Verfehlte Ziele werden
 mit Ursache und Verbesserung beziffert. Die harten Bedingungen gelten
 unabhängig davon.
 
-## Umsetzung nach Freigabe
+## Umsetzung mit drei eigenen PRs
 
-1. Reproduzierbare b32-Messung und reproduzierbare Prüfung der semantischen
-   Ausgaben erstellen. Rechte, CPU-Ermittlung und Speicherbudgets im
-   Testcontainer prüfen.
-2. Koordinator, Journal und Architekturprüfung einführen. Zuerst lesende
-   Arbeit und große Transportdaten verlagern, anschließend Plan-/Commit-Grenze
-   für Pflege, portable, TC und Registeraktivierung herstellen.
-3. Wahrheitsschleife anhand der Messungen optimieren, das alte
-   Last-Warten ablösen und die gemeinsame Betriebssicht samt
-   Auftragsanzeige anbinden. Dauertest und Betriebshandbuch mit
-   Konfiguration, Auftragsabbruch, Wiederanlauf und Diagnose vervollständigen.
-4. CI, Messnachweise, Claude-Review im PR und Bennis Go für die nächste
-   Wuschel-Beta einholen. Versionsänderung und kurze deutsche Einträge für
-   Benni in `CHANGELOG.md` und `wuschel/CHANGELOG.md` liegen gemeinsam
-   in der Versions-PR. Technische Veröffentlichung und Live-Abnahme
-   sind getrennte Schritte.
+Jeder Teil erhält einen eigenen PR mit grüner CI. Es gibt ein Release
+nach A2c, Claude-Review im PR und Release-Go.
+
+1. **A2a** führt den Koordinator per `exec`, den elastischen Verarbeiter-Pool,
+   die Betriebseinstellung und die Datenbankmigration für das Auftragsjournal
+   ein. Die Auftragsanzeige verwendet die dauerhafte `202`-Annahme, Status und
+   Abbruch. Gemeinsame Betriebssicht, Lastfreigabe und Meldung bei tatsächlich
+   verspäteter Wahrheit ersetzen das bisherige Last-Warten. Schwere lesende
+   Routen wandern in den Pool. CI klassifiziert alle Routen und Operationen
+   und prüft Routen- und Schleifenbudgets.
+2. **A2b** führt versiegelte Pläne und die atomare Übernahme für
+   `portable/stage`, Klassen-Umzug und -Rücknahme, `title-sync/apply`,
+   Katalog-Schreibvorgänge und Aufbewahrung ein. Der Schreiber prüft
+   `expected_active_revision`, sonstige betroffene Versionen und Belege.
+   Abbruch und Absturz werden an der Commit-Grenze geprüft.
+3. **A2c** profiliert und optimiert `observation_block` und `tick`. Die
+   Umzugsvorschau arbeitet ohne Vollexport und `portable/stage` verwendet
+   passende Validierungsergebnisse erneut. Der 60-Minuten-Doppel-Dauertest,
+   Vorher/Nachher mit PSS und das Betriebshandbuch vervollständigen die Abnahme.
+
+Die Versions-PR für die nächste Wuschel-Beta enthält kurze deutsche
+Einträge für Benni in `CHANGELOG.md` und `wuschel/CHANGELOG.md`.
+Technische Veröffentlichung und Live-Abnahme sind getrennte Schritte.
 
 Die Tests verwenden synthetische Daten. Für Versuche werden keine
 Wuschel-App-Optionen abgefragt. Kennungen, Größen, Zustände und Zeiten

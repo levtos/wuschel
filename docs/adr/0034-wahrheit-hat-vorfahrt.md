@@ -1,6 +1,6 @@
 # ADR 0034 – Wahrheit hat Vorfahrt
 
-- Status **Entwurf für A1**, zur Claude-Nachprüfung und Freigabe durch Benni
+- Status **Freigegeben für A2** mit den [fünf Auflagen aus dem Claude-Review](https://github.com/Levtos/wuschel/pull/182#issuecomment-7226676193)
 - Auftrag [Wuschel #180](https://github.com/Levtos/wuschel/issues/180)
 - Ausgangspunkt Wuschel 1.0.0b32, Commit `baee49c`
 - Details [Betriebsentwurf und Abnahme](../operations/wahrheit-hat-vorfahrt-a1.md) und [Routen und Operationen](../operations/wahrheit-hat-vorfahrt-routen.md)
@@ -17,7 +17,7 @@ Der HA-Adapter verlängert in diesem Zustand das Sendeintervall der Projektion.
 Die Auswirkungen sind in [#180](https://github.com/Levtos/wuschel/issues/180)
 mit Bezug auf [#167](https://github.com/Levtos/wuschel/issues/167) belegt.
 
-## Entscheidung im Entwurf
+## Entscheidung
 
 Wuschel hat genau **einen seriellen Wahrheitsschreiber**. Er bestimmt die
 Reihenfolge der zugelassenen Eingänge, die aktive Registerrevision und die
@@ -29,15 +29,27 @@ brauchen denselben Stand. Schreiber pro Katalog oder Vertragsart würden dafür
 eine verteilte Commit-Reihenfolge und neue Fehlerfälle an diesen Grenzen
 einführen.
 
-Der Arbeitsweg übernimmt große Eingaben, Aufbereitung, Vorschauen, Abfragen,
-Vergleiche und Vorbereitung von Änderungen. Ein eigener Koordinator betreibt
-hoch- und herunterfahrbare Unterprozesse. Die Verarbeiter erhalten je Auftrag
-eine unveränderliche Sicht und geben bei Änderungen einen geprüften, versiegelten
-Plan zurück. In der seriellen Reihenfolge prüft der Schreiber den erwarteten
-Stand erneut und übernimmt den Plan atomar. Geschäftsdaten, Beleg und
-Publikationsstand werden gemeinsam wirksam. Schreibrechte auf Wahrheitstabellen
-liegen ausschließlich beim Wahrheitsschreiber. Arbeitsdaten und Auftragsjournal
-haben eigene Rechte und Lebenszyklen.
+Der Arbeitsweg übernimmt die im Inventar festgelegten schweren Vorgänge.
+Weitere Routen werden nur bei bestandsabhängigem Aufwand oder einem
+gemessenen p95 über 50 ms im Hauptprozess bei doppeltem Bestand verlagert.
+Für die verbleibenden Routen gilt das CI-Budget p95 ≤ 50 ms. Übersicht,
+Verträge, Einstellungen und die Bedienung von Entwürfen bleiben bei
+Ausfall des Koordinators verfügbar.
+
+Ein eigener Koordinator betreibt hoch- und herunterfahrbare Unterprozesse.
+Sie lesen einen unveränderlichen Stand und erstellen bei schweren
+Schreibvorgängen versiegelte Pläne. Der serielle Schreiber prüft den
+erwarteten Stand erneut und übernimmt den Plan atomar mit Beleg. Die
+Vorbereitung und Validierung von Entwürfen wandert in den Arbeitsweg.
+Die eigentliche Aktivierung und das Register-Rollback behalten die
+Semantik aus b32 im Wahrheitsschreiber.
+
+Die App verwendet ihre bestehende PostgreSQL-Rolle. Lesesitzungen der
+Verarbeiter starten mit `default_transaction_read_only = on`.
+Der Koordinator schreibt ausschließlich in die per normaler Migration
+angelegten Tabellen für Auftragsjournal und Arbeitsartefakte.
+Read-only-Sitzungen, eine feste Verbindungsobergrenze und Architekturtests
+sichern diese Grenze.
 
 Die drei Signale des Lastschutzes kommen ausschließlich aus dem Wahrheitsweg.
 Der Schutz steuert die Freigabe von Arbeitsaufträgen. Die Grenzwerte ändern
@@ -62,6 +74,6 @@ auch im restriktiven Supervisor-Container wirksam sein.
 
 CI prüft jede Route und Operation gegen eine explizite Zuordnung. Ein
 Belastungstest prüft, dass zugelassene Verwaltungsarbeit den Hauptprozess
-innerhalb seines Schleifenbudgets lässt. Vollständige Abnahme und Vorher/Nachher
-gehören zu A2. Maßgeblich sind die harten Stabilitäts- und
+innerhalb seines Schleifenbudgets lässt. Die kurze b32-Profilmessung liefert den Vergleich. Der 60-Minuten-Doppel-Dauertest
+misst den vollständigen neuen Stand einmal vor dem Release. Maßgeblich sind die harten Stabilitäts- und
 Korrektheitsbedingungen im [Betriebsentwurf](../operations/wahrheit-hat-vorfahrt-a1.md#abnahme).
