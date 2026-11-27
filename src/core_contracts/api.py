@@ -20,7 +20,7 @@ from .capabilities import capabilities, configuration_schema, describe_types, re
 from .history import HISTORY_TABLES, HistoryQuery
 from .model import canonical
 from .operations import OperationsFile
-from .registry import fingerprints, registry_types
+from .registry import RegistryConfig, fingerprints, registry_types
 from .retention import EvidenceOutsideRetention
 from .runtime import Runtime
 from .security import RateLimiter, Tokens
@@ -131,10 +131,14 @@ class API:
         )
         self.work = work
         self.limiter = RateLimiter(runtime.clock)
+        # Several accepted jobs can be polled concurrently for their lifetime.
+        self.job_poll_limiter = RateLimiter(runtime.clock, limit=1800)
         self.setup = setup
         self.operations = operations or OperationsFile(active=runtime.operations)
         runtime.configuration_error = bool(setup and setup.configuration_error)
         self.auth_limiter = RateLimiter(runtime.clock)
+        self._metadata_lock = asyncio.Lock()
+        self._metadata: dict[str, tuple[RegistryConfig | None, str]] = {}
         self.sockets: set[web.WebSocketResponse] = set()
         self.title_reader: Callable[[], Awaitable[dict[str, Any]]] | None = None
 
@@ -145,6 +149,11 @@ class API:
         async def boundary(
             request: web.Request, handler: Callable[[web.Request], Awaitable[web.StreamResponse]]
         ) -> web.StreamResponse:
+            job_poll = (
+                self.work is not None
+                and request.method == "GET"
+                and job_route("GET", request.path.removeprefix("/api/v1/"))
+            )
             if work_actor is not None:
                 from .work_routes import read_route
 
@@ -159,16 +168,20 @@ class API:
             elif request.path.startswith("/health/"):
                 role = "health"
             else:
-                if not self.auth_limiter.allow(f"auth:{request.remote}"):
+                auth_key = f"auth:{request.remote}"
+                if not job_poll and not self.auth_limiter.allow(auth_key):
                     raise web.HTTPTooManyRequests()
                 role = (
                     (self.tokens.role(request.headers.get("Authorization", "")) or "")
                     if self.tokens
                     else ""
                 )
+                if job_poll and role != "admin" and not self.auth_limiter.allow(auth_key):
+                    raise web.HTTPTooManyRequests()
                 if not role:
                     raise web.HTTPUnauthorized()
-            if role != "health" and not self.limiter.allow(f"{request.remote}:{role}"):
+            limiter = self.job_poll_limiter if job_poll and role == "admin" else self.limiter
+            if role != "health" and not limiter.allow(f"{request.remote}:{role}"):
                 raise web.HTTPTooManyRequests()
             request["role"] = role
             # No client identity header is accepted. The ingress peer is checked
@@ -498,6 +511,18 @@ class API:
         result = await handler(self, request)
         return web.Response(text=canonical(result), content_type="application/json")
 
+    async def configuration_metadata(
+        self, path: str, config: RegistryConfig | None, build: Callable[[], Any]
+    ) -> web.Response:
+        async with self._metadata_lock:
+            cached = self._metadata.get(path)
+            if cached is None or cached[0] is not config:
+                body = await asyncio.to_thread(lambda: canonical(build()))
+                self._metadata[path] = (config, body)
+            else:
+                body = cached[1]
+        return web.Response(text=body, content_type="application/json")
+
     async def dispatch(self, request: web.Request) -> web.StreamResponse:
         path, method = request.match_info["path"], request.method
         runtime, state, config = self.runtime, self.runtime.state, self.runtime.config
@@ -583,13 +608,17 @@ class API:
             runtime.set_projection_paused(body["paused"])
             result = {"projection_paused": runtime.projection_paused}
         elif path == "types" and method == "GET":
-            result = describe_types(config, runtime.types)
+            return await self.configuration_metadata(
+                path, config, lambda: describe_types(config, runtime.types)
+            )
         elif path == "capabilities" and method == "GET":
-            result = capabilities(config, runtime.types)
+            return await self.configuration_metadata(
+                path, config, lambda: capabilities(config, runtime.types)
+            )
         elif path == "reasons" and method == "GET":
             result = reasons()
         elif path == "registry/schema" and method == "GET":
-            result = configuration_schema()
+            return await self.configuration_metadata(path, None, configuration_schema)
         elif path == "registry/freshness" and method == "POST":
             from .freshness_templates import effective_freshness
             from .validation import validate_document as validate
