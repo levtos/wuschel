@@ -50,6 +50,7 @@ export function DefinitionEditor({
   readOnly = false,
   lockReason,
   initialTab,
+  registry,
 }: {
   value: JsonObject;
   onChange: (next: JsonObject) => void;
@@ -59,6 +60,7 @@ export function DefinitionEditor({
   readOnly?: boolean;
   lockReason?: string;
   initialTab?: string;
+  registry?: JsonObject;
 }) {
   const locked = semanticLocked || readOnly;
   const defaults = operatorDefaults(caps);
@@ -113,7 +115,22 @@ export function DefinitionEditor({
           <RuleEditor
             value={(outputs[name] ?? newRule('input', ctx, defaults)) as Rule}
             pointer={join(pointer, 'outputs', name)}
-            onChange={(rule) => set({ outputs: { ...outputs, [name]: rule } })}
+            onChange={(rule) => {
+              const previous = asObject(outputs[name]);
+              const schema = asObject(value.schema);
+              const fields = asObject(schema.fields);
+              const field = asObject(fields[name]);
+              const classChanged = rule.op === 'managed_catalog_lookup' && rule.schema !== previous.schema &&
+                (rule.class_key || previous.class_key);
+              set({
+                outputs: { ...outputs, [name]: rule },
+                ...(classChanged ? {
+                  schema: { ...schema, fields: { ...fields, [name]: {
+                    ...asObject(rule.schema), required: field.required ?? true, physical_state: field.physical_state ?? false,
+                  } } },
+                } : {}),
+              });
+            }}
           />
         </div>
       )}
@@ -311,7 +328,7 @@ export function DefinitionEditor({
       content: value.machine ? (
         <div className="flex max-w-4xl flex-col gap-4">
           {value.type_id === 'sleep.flow' && <MachineReading definition={value} />}
-          <MachineEditor value={asObject(value.machine)} pointer={join(pointer, 'machine')} definition={value} caps={caps} locked={locked} onChange={(machine) => set({ machine })} />
+          <MachineEditor value={asObject(value.machine)} pointer={join(pointer, 'machine')} definition={value} caps={caps} locked={locked} registry={registry} onChange={(machine) => set({ machine })} />
           {!locked && (
             <div>
               <button type="button" className="cursor-pointer text-xs text-bad hover:underline" onClick={() => set({ machine: undefined })}>
@@ -361,7 +378,7 @@ export function DefinitionEditor({
     if (initialTab) setTab(initialTab);
   }, [initialTab]);
   return (
-    <RuleEnvProvider value={{ ctx, caps, locked }}>
+    <RuleEnvProvider value={{ ctx, caps, locked, registry }}>
       <div className="flex flex-col gap-4">
         {semanticLocked && (
           <Notice tone="warn" title={<span className="flex items-center gap-2"><Lock size={14} /> {uiText("editors.DefinitionEditor.aktivierte_version_semantisch_unveranderlich_8bfc17")}</span>}>

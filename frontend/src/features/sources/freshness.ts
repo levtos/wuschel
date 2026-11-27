@@ -5,6 +5,20 @@ import { durationText } from '@/lib/duration';
 import { t } from '@/i18n';
 
 export const SENSOR_KINDS = ['contact', 'temperature', 'motion', 'counter'] as const;
+export type SensorType = { sensor_kind: string; display_name: string };
+
+export function sensorTypes(config: Registry): SensorType[] {
+  if (config.config_schema_version !== 5) {
+    return SENSOR_KINDS.map(kind => ({ sensor_kind: kind, display_name: t(`b4.${kind}`) }));
+  }
+  return asArray(config.sensor_kinds).filter(isObject).map(row => ({
+    sensor_kind: str(row.sensor_kind), display_name: str(row.display_name),
+  }));
+}
+
+export function sensorTypeName(config: Registry, kind: string): string {
+  return sensorTypes(config).find(row => row.sensor_kind === kind)?.display_name || kind;
+}
 
 export function importFreshnessSources(config: Registry, target: Registry): JsonObject[] {
   const existing = new Map(asArray(target.sources).filter(isObject).map(source => [source.source_id, source]));
@@ -31,7 +45,8 @@ export function freshnessChoiceLabel(config: Registry, value: unknown): string |
 export function upgradeFreshness(config: Registry): Registry {
   for (const key of ['sources', 'freshness_templates']) if (config[key] !== undefined && (!Array.isArray(config[key]) || !asArray(config[key]).every(isObject))) throw new Error(t('alpha7.device.invalidConfig'));
   const next = clone(config);
-  next.config_schema_version = 4; next.fingerprint_version = 4;
+  if (next.config_schema_version !== 5) next.config_schema_version = 4;
+  next.fingerprint_version = 4;
   next.freshness_templates ??= [];
   next.sources = asArray(next.sources).filter(isObject).map(source => {
     if (!source.freshness) return source;

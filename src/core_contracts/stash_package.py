@@ -79,7 +79,7 @@ def augment(
             rule = {"mode": "event_stateful", "future_tolerance_s": 0}
             source.update(
                 {"freshness_selection": {"kind": "own", "rule": rule}}
-                if config["config_schema_version"] == 4
+                if config["config_schema_version"] in {4, 5}
                 else {"freshness": rule}
             )
             config["sources"].append(source)

@@ -449,6 +449,9 @@ class ManagedCatalogRule(DeclarativeModel):
     op: Literal["managed_catalog_lookup"]
     catalog_id: str
     definition_version: int = Field(ge=1)
+    class_key: str | None = Field(
+        default=None, pattern=r"^[a-z][a-z0-9_]{0,63}$", exclude_if=lambda value: value is None
+    )
     profile: Literal["stash_slot", "apple_tv_title"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -457,6 +460,12 @@ class ManagedCatalogRule(DeclarativeModel):
     signal_type: Rule
     key: Rule
     field_schema: FieldSchema = Field(alias="schema")
+
+
+class CatalogOffsetSumRule(Model):
+    op: Literal["catalog_offset_sum"]
+    application: Rule
+    title: Rule
 
 
 class TextRule(Model):
@@ -529,7 +538,8 @@ Rule = Annotated[
     | OpeningContactRule
     | OpeningZoneRule
     | ConfigurationHintRule
-    | ManagedCatalogRule,
+    | ManagedCatalogRule
+    | CatalogOffsetSumRule,
     Field(discriminator="op"),
 ]
 
@@ -821,6 +831,7 @@ for _model in (
     TextRule,
     ConfigurationHintRule,
     ManagedCatalogRule,
+    CatalogOffsetSumRule,
     DeclarativeDefinition,
     EventMatchRule,
     CalendarAtRule,

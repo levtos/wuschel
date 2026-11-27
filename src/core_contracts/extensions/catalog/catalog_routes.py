@@ -1,5 +1,6 @@
 """Catalog HTTP routes registered at the application boundary."""
 
+import asyncio
 from typing import Any
 
 from aiohttp import web
@@ -22,6 +23,15 @@ async def dispatch(self: Any, request: web.Request, *, cache: CatalogReadCache) 
                     **c.model_dump(mode="json"),
                     "device_scope": device_scope(config, c.catalog_id, c.version),
                     "active_entry_count": len(await cache.rows(state, c)),
+                    **(
+                        {
+                            "class_definitions": [
+                                item.model_dump(mode="json") for item in c.assigned_classes.values()
+                            ]
+                        }
+                        if c.class_assignments
+                        else {}
+                    ),
                 }
                 for c in config.catalogs
                 if isinstance(c, ManagedCatalog)
@@ -29,6 +39,65 @@ async def dispatch(self: Any, request: web.Request, *, cache: CatalogReadCache) 
             if config
             else []
         )
+    elif path == "catalogs/classes/rollback" and method == "GET":
+        from core_contracts.extensions.catalog.catalog_class_rollback import preview
+
+        result = preview(state, config)
+    elif path == "catalogs/classes/outputs" and method == "GET":
+        from core_contracts.extensions.catalog.named_class_migration import output_options
+
+        result = await asyncio.to_thread(output_options, config) if config else []
+    elif path == "catalogs/classes/migration" and method == "POST":
+        from core_contracts.extensions.catalog.named_class_migration import (
+            build_package,
+            configure_package,
+            migration_blockers,
+            projection_changes,
+        )
+        from core_contracts.portable import objects
+
+        body = await self.object_body(request)
+        baseline = await runtime.submit(
+            "portable_export", {"expected_active_revision": body.get("expected_active_revision")}
+        )
+        if "catalog_classes" not in body and (
+            blockers := await asyncio.to_thread(migration_blockers, baseline)
+        ):
+            return {
+                "package": {},
+                "resolutions": {},
+                "blockers": blockers,
+                "preview": {
+                    "plan_digest": "",
+                    "can_stage": False,
+                    "unresolved": ["catalog_migration_unmapped"],
+                },
+            }
+        package = (
+            await asyncio.to_thread(
+                configure_package,
+                baseline,
+                body["catalog_classes"],
+                body.get("assignments", {}),
+                body.get("outputs"),
+            )
+            if "catalog_classes" in body
+            else await asyncio.to_thread(build_package, baseline)
+        )
+        resolutions = {key: "file" for key in objects(package["config"])}
+        plan = await runtime.submit(
+            "portable_preview", {"package": package, "resolutions": resolutions}
+        )
+        result = {
+            "package": package,
+            "resolutions": resolutions,
+            "preview": plan,
+            "projections": await asyncio.to_thread(
+                projection_changes, runtime, baseline["config"], plan["config"]
+            )
+            if plan.get("can_stage") is not False and not plan["unresolved"]
+            else [],
+        }
     elif (
         path in {"catalogs/care", "catalogs/care/queue", "catalogs/care/detail"} and method == "GET"
     ):
@@ -49,6 +118,9 @@ async def dispatch(self: Any, request: web.Request, *, cache: CatalogReadCache) 
                 "classification",
             )
         }
+        for key in ("class_key", "class_value"):
+            if request.query.get(key):
+                filters[key] = request.query[key]
         if path == "catalogs/care" and request.query.get("catalog_id") == "all":
             from core_contracts.extensions.catalog.catalog_views import catalogs_for, page_all
             from core_contracts.extensions.catalog.managed_catalog import head_key
@@ -209,6 +281,9 @@ def register(app: web.Application, api: Any) -> None:
         "catalogs",
         "catalogs/care",
         "catalogs/care/queue",
+        "catalogs/classes/migration",
+        "catalogs/classes/rollback",
+        "catalogs/classes/outputs",
         "catalogs/care/inspect",
         "catalogs/care/export",
         "catalogs/care/detail",

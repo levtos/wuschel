@@ -11,6 +11,7 @@ import { api, describeError } from '@/lib/api';
 import { formatTime, pluralize } from '@/lib/format';
 import type { Catalog, Entry } from './CatalogPage';
 import { catalogLabel, catalogValue } from './catalogLabels';
+import { classLabel, uniqueClasses } from './ClassFields';
 import { titleLabel } from './titleLabel';
 import { CatalogMediaFacts } from './CatalogMediaFacts';
 
@@ -18,7 +19,7 @@ interface Props {
   catalogs: Catalog[]; rows: Entry[]; selected: Record<string, Entry>;
   setSelected: (next: Record<string, Entry> | ((current: Record<string, Entry>) => Record<string, Entry>)) => void;
   onEdit: (entry: Entry, catalog: Catalog) => void; onDetails: (entry: Entry, catalog: Catalog) => void;
-  parameters: string; all: boolean; expand: boolean; onClassSort: () => void;
+  parameters: string; all: boolean; expand: boolean; onClassSort: (dimension?: string) => void;
 }
 export const entryKey = (entry: Entry) => JSON.stringify([entry.catalog_id ?? '', entry.definition_version ?? 0, entry.identity]);
 export const isGameCatalog = (catalog: Catalog) => catalog.catalog_id === 'media.ps5';
@@ -45,7 +46,9 @@ function Family({ entry, catalog, props }: { entry: Entry; catalog: Catalog; pro
       return next;
     });
   }, [open, after, variants.data, variants.isError, catalog.catalog_id, catalog.version, entry.identity, entry.content_revision, setSelected]);
-  const columns = props.all ? 11 : 10;
+  const dimensions = uniqueClasses(props.catalogs);
+  const legacyColumn = props.catalogs.some(item => !item.class_definitions?.length);
+  const columns = (props.all ? 10 : 9) + dimensions.length + Number(legacyColumn);
   const multiGame = isGameCatalog(catalog) && Object.values(props.selected).filter(row => row.catalog_id === catalog.catalog_id && row.definition_version === catalog.version).length > 1;
   const displayClass = (value?: string | null) => value ? catalog.classification_schema.legend?.[value]?.display_name ?? value : t('a2.care.noStoredClass');
   const row = (value: Entry, nested = false) => {
@@ -66,10 +69,17 @@ function Family({ entry, catalog, props }: { entry: Entry; catalog: Catalog; pro
       <td className="p-3"><Badge tone={value.review_status === 'reviewed' ? 'ok' : value.review_status === 'hidden' ? 'neutral' : 'warn'}>{t(`b17.status.${value.review_status ?? 'open'}`)}</Badge>{!value.complete && <Badge>{t('b21.withoutClass')}</Badge>}</td>
       <td className="p-3">{catalogValue('scope', value.scope)}</td>
       {props.all && <td className="p-3">{catalogLabel(catalog)}</td>}
-      <td className="p-3">
+      {legacyColumn && <td className="p-3">{!catalog.class_definitions?.length && <>
         <span className="inline-flex items-center gap-1">{displayClass(value.effective_classification)}<InlineHelp text={t('a2.help.class')} /></span>
         <p className="text-xs text-muted">{t(nested ? 'a2.care.classFromMaster' : value.classification ? 'a2.care.classFromRecord' : 'a2.care.classFromDefault')}</p>
-      </td>
+      </>}</td>}
+      {dimensions.map(definition => {
+        const origin = value.class_origins?.[definition.class_key];
+        return <td className="p-3" key={definition.class_key}>
+          {classLabel(definition, value.effective_class_values?.[definition.class_key])}
+          {origin && <p className="text-xs text-muted">{t(origin === 'inherited' ? 'a2.care.classFromMaster' : origin === 'explicit' ? 'a2.care.classFromRecord' : 'a2.care.classFromDefault')}</p>}
+        </td>;
+      })}
       <td className="p-3 tabular-nums">{pluralize(nested ? value.seen_count ?? 0 : value.family_seen_count ?? value.seen_count ?? 0, t('b26.catalog.playOne'), t('b26.catalog.playMany'))}</td>
       <td className="p-3 whitespace-nowrap">{formatTime(nested ? value.last_seen : value.family_last_seen ?? value.last_seen)}</td>
       <td className="p-3"><EditButton disabled={multiGame} aria-describedby={multiGame ? 'catalog-game-edit-help' : undefined} onClick={() => props.onEdit(enriched, catalog)} /></td>
@@ -82,7 +92,8 @@ export function CatalogTable(props: Props) {
   const multiGame = props.catalogs.some(catalog => isGameCatalog(catalog) && selected.filter(row => row.catalog_id === catalog.catalog_id && row.definition_version === catalog.version).length > 1);
   return <div className="overflow-x-auto">{multiGame && <p id="catalog-game-edit-help" className="pb-2 text-sm">{t('a2.care.gameEditHelp')}</p>}<table className="w-full text-left text-sm" aria-label={t('b22.catalog.entryList')}><thead><tr>
     {[t('b26.catalog.selection'), t('b26.catalog.titleVersion'), t('b26.catalog.role'), t('a2.care.parentMaster'), t('b26.catalog.status'), t('b26.catalog.output'), ...(props.all ? [t('alpha10.catalog.catalog')] : [])].map(label => <th key={label} scope="col" className="p-3"><span className="inline-flex items-center gap-1">{label}{label === t('a2.care.parentMaster') && <InlineHelp text={t('a2.help.master')} />}</span></th>)}
-    <th scope="col" className="p-3"><Button variant="ghost" onClick={props.onClassSort}>{t('alpha10.catalog.class')}</Button></th>
+    {props.catalogs.some(item => !item.class_definitions?.length) && <th scope="col" className="p-3"><Button variant="ghost" onClick={() => props.onClassSort()}>{t('alpha10.catalog.class')}</Button></th>}
+    {uniqueClasses(props.catalogs).map(definition => <th key={definition.class_key} scope="col" className="p-3"><Button variant="ghost" onClick={() => props.onClassSort(definition.class_key)}>{definition.display_name}</Button></th>)}
     {[t('b26.catalog.plays'), t('b26.catalog.lastPlay'), t('b22.object.actions')].map(label => <th key={label} scope="col" className="p-3"><span className="inline-flex items-center gap-1">{label}{label === t('a2.care.parentMaster') && <InlineHelp text={t('a2.help.master')} />}</span></th>)}
   </tr></thead>{props.rows.map(entry => { const catalog = props.catalogs.find(item => item.catalog_id === entry.catalog_id && item.version === entry.definition_version) ?? props.catalogs[0]; return catalog ? <Family key={entryKey(entry)} entry={entry} catalog={catalog} props={props} /> : <Fragment key={entryKey(entry)} />; })}</table></div>;
 }

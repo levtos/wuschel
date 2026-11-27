@@ -38,6 +38,35 @@ Zahlen werden im Rohwert nicht gerundet. Traber liefert HA eine
 0, W/Wh/Stunden/m/s/km/h/mm/hPa/dB 1, kW/km 2, kWh 3 Nachkommastellen.
 HA kann eine vom Nutzer gewählte Anzeigegenauigkeit darüberlegen.
 
+## Benannte Medienklassen nach dem Umzug (b31)
+
+Die Angaben gelten, sobald der Umzug der Katalogklassen übernommen wurde.
+Traber schlägt für die folgenden Verträge Entitäts-IDs vor. Bestehende,
+in Home Assistant individuell vergebene Entitäts-IDs können abweichen.
+Die `unique_id` lautet jeweils `<installation_id>:<contract_id>`.
+
+| Vertrag | Vorgeschlagene HA-Entitäts-ID | Primärfeld | Felder nach dem Umzug |
+| --- | --- | --- | --- |
+| `media.homepods.track_class` | `sensor.wuschel_media_homepods_track_class` | `value` | `value` |
+| `media.homepods.track_adjustment` | `sensor.wuschel_media_homepods_track_adjustment` | `volume_offset` | `volume_offset`, `damped` |
+| `media.ps5.title_class` | `sensor.wuschel_media_ps5_title_class` | `value` | `value`, `sound_mode`, `light_look`, `volume_offset` |
+| `media.pc.title_class` | `sensor.wuschel_media_pc_title_class` | `value` | `value`, `sound_mode`, `light_look`, `volume_offset` |
+| `media.appletv.app_class` | `sensor.wuschel_media_appletv_app_class` | `value` | `value`, `content`, `volume_offset` |
+| `media.appletv.title_class` | `sensor.wuschel_media_appletv_title_class` | `value` | `value`, `content`, `volume_offset` |
+| `media.stash.class` | `sensor.wuschel_media_stash_class` | `value` | `value`, `content`, `volume_offset` |
+
+TV-Gerät und TV-Aktivität behalten ihre bisherigen Feldnamen und Codes.
+`volume_offset` wird in ganzen Punkten geliefert. Ein Punkt entspricht
+0,01 HA-Lautstärke. Für HomePods gilt im bisherigen `value` die Reihenfolge
+`mute` bei Dämpfen, `boost` bei positivem Wert, `quieter` bei negativem
+Wert und sonst `normal`. Bei Stash erhält ein aktiver privater Slot
+Vorrang. Bei mehreren gleichrangigen Slots entscheidet die Slot-Reihenfolge.
+
+Der Apple-TV-Titelvertrag liefert die bereits berechnete Summe aus App- und
+Titelkorrektur (−60 bis +60 Punkte). Bei belegter Nichtanwendbarkeit des
+Titels gilt die App-Korrektur. Bei unbekanntem Titel bleibt die Summe
+unbekannt. Die Engine verwendet die veröffentlichte Summe direkt.
+
 ## Was eine Engine bei welchem Zustand tun muss
 
 Wuschel liefert die Wahrheit. Die Engine entscheidet, was sie damit tut, und

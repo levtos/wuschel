@@ -4,7 +4,7 @@ import copy
 from typing import TYPE_CHECKING, Any
 
 from core_contracts import slots
-from core_contracts.model import checksum
+from core_contracts.model import checksum, semantic_fingerprint
 from core_contracts.persistence import State
 from core_contracts.quality import FieldValue
 from core_contracts.registry import RegistryConfig
@@ -37,7 +37,13 @@ def head_key(catalog: ManagedCatalog) -> str:
 
 
 def definition_digest(catalog: ManagedCatalog) -> str:
-    return checksum(catalog.model_dump(mode="json", exclude={"lifecycle", "reactivation_note"}))
+    document = catalog.model_dump(mode="json", exclude={"lifecycle", "reactivation_note"})
+    if catalog.class_assignments:
+        document["assigned_classes"] = {
+            key: semantic_fingerprint(definition.model_dump(mode="json"))
+            for key, definition in catalog.assigned_classes.items()
+        }
+    return checksum(document)
 
 
 def identity(scope: str, media_type: str, signal_type: str, key: str) -> str:
@@ -93,24 +99,92 @@ def discovered_entries(state: Any, catalog: ManagedCatalog) -> dict[str, Any]:
     return result
 
 
-def effective(
-    entries: dict[str, Any], key: str, catalog: ManagedCatalog
-) -> tuple[str, bool, str | None]:
+def selected_row(entries: dict[str, Any], key: str) -> tuple[dict[str, Any], str | None]:
     row = entries.get(key)
     if not row or row["tombstone"]:
-        return catalog.unassigned_value, False, None
+        return {}, None
     master = row.get("master_identity")
     selected = entries.get(master) if master else row
     if not selected or selected["tombstone"] or selected.get("master_identity"):
         raise ValueError("catalog_master_invalid")
+    return selected, master
+
+
+LEGACY_DIMENSIONS = {
+    "media.ps5": "sound_mode",
+    "media.pc": "sound_mode",
+    "media.appletv": "content",
+    "media.appletv_titles": "content",
+    "media.stash": "content",
+    "media.tv_device": "tv_device",
+    "media.tv_activity": "tv_activity",
+}
+
+
+def effective(
+    entries: dict[str, Any], key: str, catalog: ManagedCatalog, class_key: str | None = None
+) -> tuple[Any, bool, str | None]:
+    selected, master = selected_row(entries, key)
+    values = selected.get("class_values", {})
+    defaults = catalog.class_defaults()
+    if class_key is not None:
+        return values.get(class_key, defaults[class_key]), class_key in values, master
+    if dimension := LEGACY_DIMENSIONS.get(catalog.catalog_id):
+        if dimension in defaults:
+            value = values.get(dimension, defaults[dimension])
+            if value not in catalog.classification_schema.values:
+                from .interface_upgrade import CLASS_CODES
+
+                value = next(
+                    (
+                        old
+                        for old, new in CLASS_CODES.items()
+                        if new == value and old in catalog.classification_schema.values
+                    ),
+                    catalog.unassigned_value,
+                )
+            return value, dimension in values, master
+    if catalog.catalog_id == "media.homepods" and {"damped", "volume_offset"} <= defaults.keys():
+        damped = values.get("damped", defaults["damped"])
+        offset = values.get("volume_offset", defaults["volume_offset"])
+        scalar = (
+            "mute" if damped else "boost" if offset > 0 else "quieter" if offset < 0 else "normal"
+        )
+        # Schema versions before the interface cutover use the legacy German values.
+        scalar = (
+            {"mute": "stumm", "quieter": "leiser"}.get(scalar, scalar)
+            if scalar not in catalog.classification_schema.values
+            else scalar
+        )
+        return scalar, {"damped", "volume_offset"} <= values.keys(), master
     value = selected.get("classification")
     return (value or catalog.unassigned_value), value is not None, master
 
 
-def semantic(entries: dict[str, Any], key: str, catalog: ManagedCatalog) -> str:
+def class_view(entries: dict[str, Any], key: str, catalog: ManagedCatalog) -> dict[str, Any]:
+    if not catalog.class_assignments:
+        return {}
+    selected, master = selected_row(entries, key)
+    values = selected.get("class_values", {})
+    return {
+        "effective_class_values": {**catalog.class_defaults(), **values},
+        "class_origins": {
+            name: ("inherited" if master else "explicit") if name in values else "default"
+            for name in catalog.assigned_classes
+        },
+    }
+
+
+def semantic(
+    entries: dict[str, Any], key: str, catalog: ManagedCatalog, class_key: str | None = None
+) -> str:
     # A different parent with the same effective class/completeness changes no basis.
-    value, complete, _master = effective(entries, key, catalog)
+    value, complete, _master = effective(entries, key, catalog, class_key)
     return checksum([value, complete, bool(entries.get(key, {}).get("tombstone"))])
+
+
+def trace_key(key: str, class_key: str | None) -> str:
+    return f"{key}.{class_key}" if class_key else key
 
 
 def token(catalog: ManagedCatalog, key: str, digest: str) -> str:
@@ -164,13 +238,18 @@ def lookup(ctx: Any, rule: Any, args: list[FieldValue]) -> FieldValue:
 
         if hierarchy := music_hierarchy(raw):
             return family_lookup(ctx, rule, args, raw, hierarchy)
-    value, complete, master = effective(current["entries"], key, catalog)
-    digest = semantic(current["entries"], key, catalog)
+    class_key = getattr(rule, "class_key", None)
+    value, complete, master = effective(current["entries"], key, catalog, class_key)
+    digest = semantic(current["entries"], key, catalog, class_key)
+    dependency = trace_key(key, class_key)
     result = derive(value, args, ctx.now)
-    result = result.model_copy(update={"evidence": (*result.evidence, token(catalog, key, digest))})
-    ctx.node.setdefault("catalog_lookups", {})[head_key(catalog) + ":" + key] = {
+    result = result.model_copy(
+        update={"evidence": (*result.evidence, token(catalog, dependency, digest))}
+    )
+    ctx.node.setdefault("catalog_lookups", {})[head_key(catalog) + ":" + dependency] = {
         "catalog": head_key(catalog),
         "key": key,
+        **({"class_key": class_key} if class_key else {}),
         "content_revision": current["revision"],
         "master": master,
         "semantic_digest": digest,
@@ -210,6 +289,7 @@ def prepare(
     now: Any,
     *,
     expanded_limit: int = 1000,
+    force_revision: bool = False,
 ) -> dict[str, Any]:
     if request.expected_active_revision != state.active_revision:
         raise ValueError("active_revision_conflict")
@@ -269,8 +349,14 @@ def prepare(
             and change.classification not in catalog.classification_schema.values
         ):
             raise ValueError("catalog_class_invalid")
-        if change.master_key and change.classification is not None:
+        if "class_values" not in change.model_fields_set and not change.master_key:
+            if old_values := entries.get(key, {}).get("class_values"):
+                row["class_values"] = old_values
+        catalog.validate_classes(row.get("class_values", {}))
+        if change.master_key and (change.classification is not None or row.get("class_values")):
             raise ValueError("catalog_variant_override")
+        if catalog.class_assignments and change.classification is not None:
+            raise ValueError("catalog_named_classes_required")
         row["master_identity"] = (
             identity(change.scope, change.media_type, change.signal_type, change.master_key)
             if change.master_key
@@ -294,16 +380,19 @@ def prepare(
         for key, row in rows.items()
         if row.get("master_identity") in direct
     }
-    affected = {
-        key
+    affected_traces = {
+        trace_key(key, class_key)
         for key in candidates
-        if semantic(after_view, key, catalog) != semantic(before_view, key, catalog)
+        for class_key in (None, *catalog.assigned_classes)
+        if semantic(after_view, key, catalog, class_key)
+        != semantic(before_view, key, catalog, class_key)
     }
+    affected = {item.partition(".")[0] for item in affected_traces}
     if len(affected) > expanded_limit:
         raise ValueError("catalog_expansion_limit")
     changed = {key for key in direct if entries[key] != old["entries"].get(key)}
-    revision = old["revision"] + bool(changed)
-    if changed:
+    revision = old["revision"] + bool(changed or force_revision)
+    if changed or force_revision:
         revision_key = f"{head_key(catalog)}:{revision}"
         state.tables["catalog_content_revision"][revision_key] = {
             "catalog": head_key(catalog),
@@ -332,6 +421,7 @@ def prepare(
         "content_revision": revision,
         "changed": len(changed),
         "affected_keys": sorted(affected),
+        **({"affected_traces": sorted(affected_traces)} if catalog.class_assignments else {}),
         "catalog": head_key(catalog),
     }
 
@@ -343,7 +433,8 @@ def invalidate(
     effects: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     latches = copy.deepcopy(latches)
-    prefixes = {f"catalog:{result['catalog']}:{key}" for key in result["affected_keys"]}
+    traces = result.get("affected_traces", result["affected_keys"])
+    prefixes = {f"catalog:{result['catalog']}:{key}" for key in traces}
     selected = affected_contracts(state, result)
     state.detach_rows("node_state", selected)
     for contract_id in state.tables["node_state"]:
@@ -394,12 +485,14 @@ def invalidate(
 
 
 def affected_contracts(state: Any, result: dict[str, Any]) -> set[str]:
-    prefixes = {f"catalog:{result['catalog']}:{key}" for key in result["affected_keys"]}
+    traces = set(result.get("affected_traces", result["affected_keys"]))
+    prefixes = {f"catalog:{result['catalog']}:{key}" for key in traces}
     return {
         contract_id
         for contract_id, root in state.tables["node_state"].items()
         if any(
-            item["catalog"] == result["catalog"] and item["key"] in result["affected_keys"]
+            item["catalog"] == result["catalog"]
+            and trace_key(item["key"], item.get("class_key")) in traces
             for item in root.get("catalog_lookups", {}).values()
         )
         or any(
@@ -431,6 +524,11 @@ def validate_heads(state: Any, config: Any) -> None:
                 and row["classification"] not in catalog.classification_schema.values
             ):
                 raise ValueError("catalog_restore_incompatible")
+            catalog.validate_classes(row.get("class_values", {}))
+            if row.get("class_values") and row.get("master_identity"):
+                raise ValueError("catalog_restore_incompatible")
+            if catalog.class_assignments and row.get("classification") is not None:
+                raise ValueError("catalog_restore_incompatible")
             effective(current["entries"], key, catalog)
 
 
@@ -443,6 +541,7 @@ def entry_view(state: State, catalog: ManagedCatalog, key: str) -> dict[str, Any
         "content_revision": current["revision"],
         "active_revision": state.active_revision,
         "entry": row,
+        **class_view(entries, key, catalog),
         "effective_classification": value,
         "complete": complete,
         "master": master,
@@ -521,6 +620,7 @@ def page(
         selected.append(
             {
                 **row,
+                **class_view(entries, key, catalog),
                 "effective_classification": value,
                 "complete": complete,
                 "semantic_digest": semantic(entries, key, catalog),

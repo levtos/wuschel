@@ -8,12 +8,18 @@ from typing import Annotated, Any, Literal, Self
 
 from pydantic import Field, SerializerFunctionWrapHandler, model_serializer, model_validator
 
-from core_contracts.rules.catalog_models import ManagedCatalog
+from core_contracts.rules.catalog_models import CatalogClass, ManagedCatalog
 
 from .adapter_config import AdapterConfig
 from .declarative_models import MAX_DEFINITIONS, DeclarativeDefinition
 from .evidence import Freshness
-from .freshness_templates import FreshnessSelection, FreshnessTemplate, SensorKind
+from .freshness_templates import (
+    LEGACY_SENSOR_KINDS,
+    FreshnessSelection,
+    FreshnessTemplate,
+    SensorKind,
+    SensorType,
+)
 from .ha_context import ContextProducer
 from .lifecycle import Lifecycle
 from .model import Model, canonical, semantic_fingerprint
@@ -198,8 +204,14 @@ class Catalog(Model):
 
 
 class RegistryConfig(Model):
-    config_schema_version: Literal[1, 2, 3, 4]
+    config_schema_version: Literal[1, 2, 3, 4, 5]
     fingerprint_version: Literal[1, 2, 3, 4] = 1
+    catalog_classes: tuple[CatalogClass, ...] = Field(
+        default=(), max_length=256, exclude_if=lambda value: not value
+    )
+    sensor_kinds: tuple[SensorType, ...] = Field(
+        default=(), max_length=256, exclude_if=lambda value: not value
+    )
     freshness_templates: tuple[FreshnessTemplate, ...] = Field(
         default=(), max_length=256, exclude_if=lambda v: not v
     )
@@ -212,7 +224,7 @@ class RegistryConfig(Model):
         import copy
 
         document = copy.deepcopy(value)
-        modern = document.get("config_schema_version") == 4
+        modern = document.get("config_schema_version") in {4, 5}
         if modern and document.get("fingerprint_version") != 4:
             raise ValueError("registry_fingerprint_4_required")
         if not modern and document.get("fingerprint_version") == 4:
@@ -286,6 +298,28 @@ class RegistryConfig(Model):
 
     @model_validator(mode="after")
     def versioned_capabilities(self) -> Self:
+        named_classes = {item.class_key: item for item in self.catalog_classes}
+        sensor_kinds = {item.sensor_kind for item in self.sensor_kinds}
+        managed = [item for item in self.catalogs if isinstance(item, ManagedCatalog)]
+        allowed_kinds: set[str] | frozenset[str]
+        if self.config_schema_version < 5:
+            if named_classes or sensor_kinds or any(item.class_assignments for item in managed):
+                raise ValueError("registry_schema_5_required")
+            allowed_kinds = LEGACY_SENSOR_KINDS
+        else:
+            if len(named_classes) != len(self.catalog_classes):
+                raise ValueError("duplicate_catalog_class")
+            if len(sensor_kinds) != len(self.sensor_kinds):
+                raise ValueError("duplicate_sensor_kind")
+            allowed_kinds = sensor_kinds
+            for catalog in managed:
+                catalog.resolve_assignments(named_classes)
+        referenced_kinds = {item.sensor_kind for item in self.freshness_templates}
+        referenced_kinds.update(
+            source.sensor_kind for source in self.sources if source.sensor_kind is not None
+        )
+        if not referenced_kinds <= allowed_kinds:
+            raise ValueError("sensor_kind_unknown")
         for source in self.sources:
             if source.calendar_coverage_months is not None and not any(
                 b.source_id == source.source_id and b.adapter.kind == "ha_calendar"
@@ -620,7 +654,10 @@ def legacy_context_compatibility(config: RegistryConfig, types: TypeRegistry) ->
     # Reuse the proven transitive v3 graph and type/parameter compatibility.
     document["config_schema_version"] = 3
     document["fingerprint_version"] = 3
-    document.pop("freshness_templates", None)
+    for key in ("freshness_templates", "sensor_kinds", "catalog_classes"):
+        document.pop(key, None)
+    for catalog in document["catalogs"]:
+        catalog.pop("class_assignments", None)
     for row, source in zip(document["sources"], config.sources, strict=True):
         row.pop("freshness_selection", None)
         row.pop("sensor_kind", None)
@@ -727,7 +764,13 @@ def diff(
         ("contracts", "contract_id"),
         ("definitions", "type_id"),
         ("freshness_templates", "template_id"),
+        ("catalog_classes", "class_key"),
+        ("sensor_kinds", "sensor_kind"),
     ):
+        if group in {"catalog_classes", "sensor_kinds"} and (
+            after.config_schema_version < 5 and (before is None or before.config_schema_version < 5)
+        ):
+            continue
 
         def entries(config: RegistryConfig | None) -> dict[str, Any]:
             return (
@@ -784,19 +827,18 @@ def diff(
     )
     changed_sources.update(key for key in fingerprint_changed if key in source_ids)
     effective_changes: list[str] = []
-    if after.config_schema_version in (1, 2, 3, 4):
-        old_observations = observation_fingerprints(before) if before else {}
-        new_observations = observation_fingerprints(after)
-        old_assessments = assessment_fingerprints(before) if before else {}
-        new_assessments = assessment_fingerprints(after)
-        effective_changes = sorted(
-            key for key in source_ids if old_assessments.get(key) != new_assessments.get(key)
-        )
-        changed_sources = {
-            key
-            for key in source_ids
-            if old_observations.get(key) != new_observations.get(key) or key in effective_changes
-        }
+    old_observations = observation_fingerprints(before) if before else {}
+    new_observations = observation_fingerprints(after)
+    old_assessments = assessment_fingerprints(before) if before else {}
+    new_assessments = assessment_fingerprints(after)
+    effective_changes = sorted(
+        key for key in source_ids if old_assessments.get(key) != new_assessments.get(key)
+    )
+    changed_sources = {
+        key
+        for key in source_ids
+        if old_observations.get(key) != new_observations.get(key) or key in effective_changes
+    }
     direct = set(result["added"] + result["changed"] + result["removed"])
     for config in (before, after):
         if not config:

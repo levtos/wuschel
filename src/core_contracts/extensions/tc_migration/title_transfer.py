@@ -63,6 +63,56 @@ def classification(profile: str, value: int, catalog: Any = None) -> str:
     return result
 
 
+def mapped_classes(profile: str, value: int, catalog: Any) -> tuple[dict[str, Any], bool]:
+    if not catalog.class_assignments:
+        return {"classification": classification(profile, value, catalog)}, False
+    defaults = catalog.class_defaults()
+    if profile == "game":
+        sounds = {0: "home_cinema", 1: "grind", 2: "headset", 3: "grind"}
+        look = next(item for item in catalog.class_assignments if item.class_key == "light_look")
+        result = {
+            "sound_mode": sounds.get(value, defaults["sound_mode"]),
+            "light_look": look.title_catalog_mapping.get(str(value), defaults["light_look"])
+            if value in sounds
+            else defaults["light_look"],
+        }
+        unknown = value not in sounds
+    elif profile == "music":
+        offsets = {0: 0, 1: 15, 2: 0}
+        result = {
+            "volume_offset": offsets.get(value, defaults["volume_offset"]),
+            "damped": value == 2 if value in offsets else defaults["damped"],
+        }
+        unknown = value not in offsets
+    elif profile == "private":
+        result = {"content": "normal" if value == 0 else "private"}
+        unknown = False
+    else:
+        raise ValueError("title_import_profile")
+    catalog.validate_classes(result)
+    return {"class_values": result}, unknown
+
+
+def write_classes(
+    mapped: dict[str, Any], previous: dict[str, Any], *, variant: bool
+) -> dict[str, Any]:
+    if "class_values" in mapped:
+        return {
+            "class_values": {}
+            if variant
+            else {**previous.get("class_values", {}), **mapped["class_values"]}
+        }
+    return {"classification": None if variant else mapped["classification"]}
+
+
+def format_warnings(warnings: set[tuple[str, int, int]]) -> list[dict[str, Any]]:
+    counts = Counter((catalog, number) for catalog, number, _ in warnings)
+    return [
+        {"catalog_id": catalog, "number": number, "count": count}
+        for (catalog, number), count in sorted(counts.items())
+    ]
+
+
 def target_key(item: dict[str, Any], profile: str) -> str:
     key = str(item["display_name"])
     return next(music_forms(key)) if profile == "music" else key
@@ -145,6 +195,7 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
         owners.setdefault(group, {})[ident] = owner
         return ident
 
+    warnings: set[tuple[str, int, int]] = set()
     counts: Counter[str] = Counter()
     outcomes: list[dict[str, Any]] = []
     errors = [row for row in parsed["rejected_rows"] if row["row"] not in excluded_set]
@@ -253,19 +304,25 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                         (c for c in master_row.get("contexts", []) if context_key(c) == key), {}
                     )
                     master_value = master_context.get("enum_override")
-                    if classification(profile, value, catalog) != classification(
-                        profile,
-                        master_row["enum"] if master_value is None else master_value,
-                        catalog,
+                    if (
+                        mapped_classes(profile, value, catalog)[0]
+                        != mapped_classes(
+                            profile,
+                            master_row["enum"] if master_value is None else master_value,
+                            catalog,
+                        )[0]
                     ):
                         raise ValueError("title_sync_variant_override")
+                mapped, unknown = mapped_classes(profile, value, catalog)
+                if unknown:
+                    warnings.add((catalog.catalog_id, value, item["row"]))
                 return EntryChange(
                     scope=mapping["scope"],
                     media_type=source_row["media_type"],
                     signal_type=source_row["signal_type"],
                     key=primary,
                     display_name=item["display_name"],
-                    classification=None if master else classification(profile, value, catalog),
+                    **write_classes(mapped, old, variant=master is not None),
                     master_key=parent_primary,
                     note=old.get("note", ""),
                     reviewed_at=source_row.get("reviewed_at"),
@@ -361,6 +418,7 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
                 "master_key": primary["master_key"] or primary["key"],
                 "tc_metadata": {**primary["tc_metadata"], "is_alias": True},
             }
+            value.pop("class_values", None)
             put(group, value, owner)
             created_forms += 1
     rejected = sum(row["row"] not in excluded_set for row in parsed["rejected_rows"])
@@ -389,6 +447,8 @@ def preview(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]
         already_applied=False,
         unresolved=["title_import_errors"] if errors else [],
     )
+    if warnings:
+        report["class_warnings"] = format_warnings(warnings)
     if errors:
         return result
     package = export(runtime, state, {"expected_active_revision": state.active_revision})

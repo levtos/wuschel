@@ -2,42 +2,8 @@
 
 from typing import Any
 
-# Projection metadata only: never depends on JSON object order or changes truth.
-PRIMARY_FIELDS = {
-    "climate.thermostat": "temperature",
-    "device.console_state": "value",
-    "device.pc_power": "value",
-    "media.activity_flow": "value",
-    "media.device_power_facts": "value",
-    "media.device_state": "value",
-    "media.playback_facts": "playing",
-    "media.privacy_facts": "active",
-    "media.quiet_facts": "entry_door_open",
-    "media.stash_slot": "value",
-    "opening_zone.facts": "unclear",
-    "sleep.flow": "value",
-    "sleep.state_view": "value",
-    "wake.plan_view": "status",
-}
-
-
-def primary_field(schema: Any, type_id: str | None = None) -> str | None:
-    scalar = {"bool", "number", "text", "enum", "timestamp"}
-    selected = PRIMARY_FIELDS.get(type_id or "")
-    if selected is not None:
-        return (
-            selected
-            if selected in schema.fields and schema.fields[selected].type in scalar
-            else None
-        )
-    return next(
-        (
-            name
-            for name in dict.fromkeys(["value", *schema.available_projection, *schema.fields])
-            if name in schema.fields and schema.fields[name].type in scalar
-        ),
-        None,
-    )
+from .schema import PRIMARY_FIELDS as PRIMARY_FIELDS
+from .schema import primary_field as primary_field
 
 
 def snapshot(runtime: Any, *, include_fields: bool = True) -> dict[str, Any]:

@@ -42,6 +42,8 @@ GROUPS = {
     "definitions": "type_id",
     "context_producers": "producer_id",
     "freshness_templates": "template_id",
+    "catalog_classes": "class_key",
+    "sensor_kinds": "sensor_kind",
 }
 MAX_BYTES = 50 * 1024 * 1024
 
@@ -97,6 +99,8 @@ def closure(config: RegistryConfig, root: str) -> dict[str, Any]:
             return
         selected["sources"].add(key)
         item = sources[key]
+        if item.sensor_kind:
+            selected["sensor_kinds"].add(item.sensor_kind)
         if item.freshness_selection:
             selection = item.freshness_selection
             template_id = (
@@ -149,6 +153,14 @@ def closure(config: RegistryConfig, root: str) -> dict[str, Any]:
                 source(target)
 
     contract(root)
+    for item in document.get("freshness_templates", []):
+        if item["template_id"] in selected["freshness_templates"]:
+            selected["sensor_kinds"].add(item["sensor_kind"])
+    for item in document.get("catalogs", []):
+        if item["catalog_id"] in selected["catalogs"]:
+            selected["catalog_classes"].update(
+                assignment["class_key"] for assignment in item.get("class_assignments", [])
+            )
     # Context proofs are global declarations; retain the explicit allowlist.
     selected["context_producers"] = {p.producer_id for p in config.context_producers}
     for group, field in GROUPS.items():
@@ -180,7 +192,7 @@ def package_checksum(value: Any, format_version: int) -> str:
             return int(item)
         return item
 
-    return checksum(normalize(value) if format_version == 2 else value)
+    return checksum(normalize(value) if format_version >= 2 else value)
 
 
 def payload_digest(package: dict[str, Any]) -> str:
@@ -189,6 +201,12 @@ def payload_digest(package: dict[str, Any]) -> str:
         | {"roots": package["manifest"]["roots"]},
         package["format_version"],
     )
+
+
+def package_format(config_schema_version: Any) -> int:
+    if config_schema_version == 5:
+        return 3
+    return 2 if config_schema_version == 4 else 1
 
 
 def export(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]:
@@ -234,9 +252,10 @@ def export(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]:
     )
     if sum(len(c["entries"]) for c in contents) > 100_000:
         raise ValueError("export_entry_limit")
+    format_version = package_format(config.config_schema_version)
     result: dict[str, Any] = {
         "format": "wuschel.configuration",
-        "format_version": 2 if config.config_schema_version == 4 else 1,
+        "format_version": format_version,
         "scope": "contract" if roots else "configuration",
         "producer": {"name": "Wuschel", "version": __version__},
         "config": document,
@@ -245,12 +264,9 @@ def export(runtime: Any, state: Any, request: dict[str, Any]) -> dict[str, Any]:
         "manifest": {
             "roots": roots,
             "object_digests": {
-                key: package_checksum(row, 2 if config.config_schema_version == 4 else 1)
-                for key, row in objects(document).items()
+                key: package_checksum(row, format_version) for key, row in objects(document).items()
             },
-            "config_digest": package_checksum(
-                document, 2 if config.config_schema_version == 4 else 1
-            ),
+            "config_digest": package_checksum(document, format_version),
         },
     }
     result["manifest"]["payload_digest"] = payload_digest(result)
@@ -294,16 +310,17 @@ def read_package(value: Any) -> dict[str, Any]:
             "manifest",
         }
         or value["format"] != "wuschel.configuration"
-        or value["format_version"] not in (1, 2)
+        or value["format_version"] not in (1, 2, 3)
         or not isinstance(value["scope"], str)
         or value["scope"] not in {"configuration", "contract"}
         or type(value["format_version"]) is not int
     ):
         raise ValueError("import_format_unknown")
     manifest = value["manifest"]
-    if isinstance(value.get("config"), dict) and (
-        value["config"].get("config_schema_version") == 4
-    ) != (value["format_version"] == 2):
+    if (
+        isinstance(value.get("config"), dict)
+        and package_format(value["config"].get("config_schema_version")) != value["format_version"]
+    ):
         raise ValueError("import_schema_format_mismatch")
     producer = value["producer"]
     if (
@@ -449,11 +466,12 @@ def preview(
     incoming_doc = preserve_config(incoming_doc, existing)
     if restored is not None:
         incoming_doc = preserve_config(incoming_doc, restored)
-    if incoming.config_schema_version == 4 or existing.get("config_schema_version") == 4:
+    version = max(incoming.config_schema_version, existing.get("config_schema_version", 1))
+    if version in {4, 5}:
         from .freshness_templates import upgrade_document
 
-        incoming_doc = upgrade_document(incoming_doc)
-        existing = upgrade_document(existing) if existing else {}
+        incoming_doc = upgrade_document(incoming_doc, version=version)
+        existing = upgrade_document(existing, version=version) if existing else {}
     old_names = {
         row["contract_id"]: row.get("display_name", "") for row in existing.get("contracts", [])
     }
@@ -590,7 +608,7 @@ def preview(
             else:
                 document.pop(name, None)
         document["config_schema_version"] = max(
-            incoming.config_schema_version, existing.get("config_schema_version", 1)
+            incoming_doc["config_schema_version"], existing.get("config_schema_version", 1)
         )
         document["fingerprint_version"] = max(
             incoming.fingerprint_version, existing.get("fingerprint_version", 1)
@@ -817,7 +835,7 @@ def apply(
         raise ValueError("import_plan_conflict")
     if state.active_revision != plan["expected_active_revision"]:
         raise ValueError("import_plan_conflict")
-    slots.PORTABLE["catalog_migrations"](state, plan["package"]["catalog_contents"])
+    slots.PORTABLE["catalog_migrations"](state, plan["package"]["catalog_contents"], config)
     title_import = plan.get("title_import")
     if title_import:
         import_key = "title:" + title_import["import_id"]

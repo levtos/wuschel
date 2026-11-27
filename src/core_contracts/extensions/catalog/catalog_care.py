@@ -14,6 +14,7 @@ from pydantic import Field
 
 from core_contracts.extensions.catalog.catalog_families import VERSION_PATTERN
 from core_contracts.extensions.catalog.managed_catalog import (
+    class_view,
     discovered_entries,
     effective,
     head,
@@ -22,7 +23,13 @@ from core_contracts.extensions.catalog.managed_catalog import (
     semantic,
 )
 from core_contracts.model import Model, canonical, checksum
-from core_contracts.rules.catalog_models import CatalogWrite, EntryChange, ManagedCatalog
+from core_contracts.rules.catalog_models import (
+    CatalogWrite,
+    ClassKey,
+    ClassValue,
+    EntryChange,
+    ManagedCatalog,
+)
 from core_contracts.text_rules import normalize_key
 
 
@@ -50,6 +57,11 @@ class CareRequest(Model):
         default=None, min_length=1, max_length=1024, exclude_if=lambda value: value is None
     )
     classification: str | None = None
+    class_key: ClassKey | None = Field(default=None, exclude_if=lambda value: value is None)
+    class_value: ClassValue | None = Field(default=None, exclude_if=lambda value: value is None)
+    class_values: dict[ClassKey, ClassValue] | None = Field(
+        default=None, max_length=64, exclude_if=lambda value: value is None
+    )
     confirm_class_change: bool = Field(default=False, exclude_if=lambda value: not value)
 
 
@@ -189,6 +201,10 @@ def all_rows(
     clusters: dict[str, list[str]] = defaultdict(list)
     for key, row in rows.items():
         value, complete, master = effective(entries, key, catalog)
+        dimensions = class_view(entries, key, catalog)
+        row.update(dimensions)
+        if dimensions:
+            complete = all(origin != "default" for origin in dimensions["class_origins"].values())
         row.update(
             effective_classification=value,
             complete=complete,
@@ -368,6 +384,17 @@ def filtered(
             row["effective_classification"],
         }:
             continue
+        key = filters.get("class_key")
+        expected = filters.get("class_value")
+        if (
+            key
+            and expected
+            and (
+                key not in row.get("effective_class_values", {})
+                or canonical(row["effective_class_values"][key]) != expected
+            )
+        ):
+            continue
         result.append(row)
     return result
 
@@ -378,7 +405,10 @@ def epoch(value: Any) -> float:
 
 def validate_page(query: str, view: str, filters: dict[str, str], sort: str, limit: int) -> None:
     if (
-        sort not in {"identity", "newest", "oldest", "title", "classification"}
+        (
+            sort not in {"identity", "newest", "oldest", "title", "classification"}
+            and not re.fullmatch(r"class:[a-z][a-z0-9_]{0,63}", sort)
+        )
         or view not in {"all", "unassigned", "masters", "open", "reviewed", "hidden"}
         or filters.keys()
         - {
@@ -391,6 +421,8 @@ def validate_page(query: str, view: str, filters: dict[str, str], sort: str, lim
             "live_tv",
             "sender",
             "classification",
+            "class_key",
+            "class_value",
         }
         or any(len(value) > 16384 for value in filters.values())
         or len(query) > 1024
@@ -425,6 +457,14 @@ def listing(
     selected = filtered(rows, query, view, filters)
 
     def order(row: dict[str, Any]) -> tuple[Any, ...]:
+        if sort.startswith("class:"):
+            value = row.get("effective_class_values", {}).get(sort[6:])
+            return (
+                0 if variants_first and row["candidate"] else 1,
+                value is None,
+                value,
+                row["identity"],
+            )
         key = (
             row["effective_classification"]
             if sort == "classification"
@@ -608,6 +648,13 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
         raise ValueError("catalog_page_invalid")
     selected = {key: fields(rows[key]) for key in request.identities}
     action = request.action
+    named = bool(catalog.class_assignments)
+    if request.class_key and request.class_key not in catalog.assigned_classes:
+        raise ValueError("catalog_class_invalid")
+    if request.class_value is not None and not request.class_key:
+        raise ValueError("catalog_class_invalid")
+    if request.class_values is not None:
+        catalog.validate_classes(request.class_values)
     if action == "promote":
         if len(request.identities) != 1:
             raise ValueError("catalog_page_invalid")
@@ -628,17 +675,26 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
             if request.classification is not None
             else family[old_root]["effective_classification"]
         )
-        if (
-            value != family[old_root]["effective_classification"]
-            and not request.confirm_class_change
-        ):
+        dimensions = (
+            request.class_values
+            if request.class_values is not None
+            else family[old_root].get("class_values", {})
+        )
+        changes_class = (
+            dimensions != family[old_root].get("class_values", {})
+            if named
+            else value != family[old_root]["effective_classification"]
+        )
+        if changes_class and not request.confirm_class_change:
             raise ValueError("catalog_confirm_class_change")
         for key, row in selected.items():
             row.update(
                 master_key=None if key == child["identity"] else child["key"],
-                classification=value if key == child["identity"] else None,
+                classification=value if key == child["identity"] and not named else None,
                 reviewed_at=now.isoformat(),
             )
+            if named:
+                row["class_values"] = dimensions if key == child["identity"] else {}
     target_master = request.master
     if request.new_master_name is not None and action != "group":
         raise ValueError("catalog_master_name_invalid")
@@ -657,7 +713,7 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
                 or head_key(catalog) + ":" + target_master in state.tables["catalog_sighting"]
             ):
                 raise ValueError("catalog_master_name_conflict")
-            if request.classification is None:
+            if request.classification is None and not named:
                 raise ValueError("catalog_class_invalid")
             master_row = {
                 **{field: first[field] for field in ("scope", "media_type", "signal_type")},
@@ -699,16 +755,40 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
             )
             selected.update({key: fields(rows[key]) for key in rows})
         effective_class = value if value is not None else catalog.unassigned_value
-        if not request.confirm_class_change and any(
-            (
-                key in roots
-                or rows[key].get("master_identity") not in (None, target_master)
-                or request.classification is None
-                and key != target_master
+        dimensions = request.class_values
+        if dimensions is None:
+            dimensions = {
+                key: val
+                for key, val in master_row.get("effective_class_values", {}).items()
+                if master_row.get("class_origins", {}).get(key) != "default"
+            }
+        if (
+            named
+            and not request.confirm_class_change
+            and any(
+                key != target_master
+                and any(
+                    val != ({**catalog.class_defaults(), **dimensions}).get(name)
+                    for name, val in rows[key].get("effective_class_values", {}).items()
+                )
+                for key in selected
             )
-            and rows[key]["complete"]
-            and rows[key]["effective_classification"] != effective_class
-            for key in selected
+        ):
+            raise ValueError("catalog_confirm_class_change")
+        if (
+            not named
+            and not request.confirm_class_change
+            and any(
+                (
+                    key in roots
+                    or rows[key].get("master_identity") not in (None, target_master)
+                    or request.classification is None
+                    and key != target_master
+                )
+                and rows[key]["complete"]
+                and rows[key]["effective_classification"] != effective_class
+                for key in selected
+            )
         ):
             raise ValueError("catalog_confirm_class_change")
         # Re-selecting an existing family is a no-op, including its review timestamps.
@@ -716,7 +796,12 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
             key: row
             for key, row in selected.items()
             if (
-                row.get("master_key") is not None or row.get("classification") != value
+                row.get("master_key") is not None
+                or (
+                    row.get("class_values", {}) != dimensions
+                    if named
+                    else row.get("classification") != value
+                )
                 if key == target_master
                 else rows[key].get("master_identity") != target_master
             )
@@ -728,18 +813,35 @@ def change_request(state: Any, catalog: Any, request: CareRequest, now: Any) -> 
             selected[target_master] = master_row
     for key, row in selected.items():
         if action in {"classify", "ungroup"}:
-            if (
-                request.classification is None
-                or action == "classify"
-                and rows[key].get("master_identity")
-            ):
+            if action == "classify" and rows[key].get("master_identity"):
                 raise ValueError("catalog_variant_override")
-            row.update(classification=request.classification, master_key=None)
+            if named:
+                updated = dict(row.get("class_values", {}))
+                if action == "ungroup":
+                    updated = {
+                        name: val
+                        for name, val in rows[key].get("effective_class_values", {}).items()
+                        if rows[key].get("class_origins", {}).get(name) == "inherited"
+                    }
+                if request.class_key:
+                    if request.class_value is None:
+                        updated.pop(request.class_key, None)
+                    else:
+                        updated[request.class_key] = request.class_value
+                elif action == "classify":
+                    raise ValueError("catalog_class_invalid")
+                row.update(classification=None, class_values=updated, master_key=None)
+            else:
+                if request.classification is None:
+                    raise ValueError("catalog_variant_override")
+                row.update(classification=request.classification, master_key=None)
         if action == "group":
             if key == target_master:
-                row.update(classification=value, master_key=None)
+                row.update(classification=None if named else value, master_key=None)
             else:
                 row.update(classification=None, master_key=master_row["key"])
+            if named:
+                row["class_values"] = dimensions if key == target_master else {}
         if action in {"review", "standalone_review", "group", "classify", "ungroup"}:
             row["reviewed_at"] = now.isoformat()
         if action == "open":
@@ -824,6 +926,8 @@ def detail(
             "live_tv",
             "sender",
             "classification",
+            "class_key",
+            "class_value",
         }
         or any(len(value) > 16384 for value in filters.values())
     ):

@@ -19,6 +19,7 @@ interface Preview {
   plan_id: string; plan_digest: string; at: string; counts: Record<string, number>;
   can_apply: boolean; mapping: Mapping; mapping_version: number; page: number; page_count: number; page_source_rows: number;
   contexts: { key: string; context: string; source_app: string }[];
+  class_warnings?: { catalog_id: string; number: number; count: number }[];
   error_groups: { context: string; reason: string; count: number; details: Finding[] }[];
 }
 interface Row { catalog_id: string; old_class: string; new_class: string; master?: string; change: string;
@@ -110,7 +111,10 @@ export function TitleSync({ catalogs }: { catalogs: SyncCatalog[] }) {
         </fieldset>; })}
         <Button disabled={locked || !dirty} onClick={() => void read(true)}>{t('b17.checkMapping')}</Button>
       </details>
-      {!!preview.error_groups.length && <section aria-label={t('b18.findings')}>{preview.error_groups.map((group, index) => <details key={index} onToggle={event => { const shown = event.currentTarget.open; setExpanded(previous => ({ ...previous, [index]: shown })); }}><summary>{contextName(group.context)} · {codeLabel(group.reason)} · {t('b18.findingCount', { n: group.count })}</summary>
+      {!!preview.class_warnings?.length && <Notice tone="warn"><ul>{preview.class_warnings.map(row =>
+          <li key={`${row.catalog_id}:${row.number}`}>{t('b31.classes.tcFallback', { catalog: row.catalog_id, count: row.count, number: row.number })}</li>
+        )}</ul></Notice>}
+        {!!preview.error_groups.length && <section aria-label={t('b18.findings')}>{preview.error_groups.map((group, index) => <details key={index} onToggle={event => { const shown = event.currentTarget.open; setExpanded(previous => ({ ...previous, [index]: shown })); }}><summary>{contextName(group.context)} · {codeLabel(group.reason)} · {t('b18.findingCount', { n: group.count })}</summary>
         {expanded[index] && <ul>{group.details.map((finding, i) => <li key={i}>{finding.key ? titleLabel({ key: finding.key }) : t('b18.sourceRow', { n: finding.row })}
           {finding.standalone_key && group.reason === 'title_sync_variant_override' && <Button disabled={locked} onClick={() => { if (mapping) { setMapping({ ...mapping, standalone: [...mapping.standalone, finding.standalone_key!] }); setDirty(true); } }}>{t('b17.standalone')}</Button>}</li>)}</ul>}
       </details>)}</section>}

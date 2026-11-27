@@ -106,17 +106,19 @@ export default function DraftPage() {
   const closed = !!server.data?.lifecycle && server.data.lifecycle !== 'open';
   const current = currentDraft(server.data ?? draft, active.data?.revision ?? 0);
   if (closed && !activationTarget) return <><Back /><PageHeader title={draftLabel(draft)} description={uiText('beta3.88e34492c718')} actions={server.data?.completed_revision ? <Link to={`/changes/versions?revision=${server.data.completed_revision}`}><Button variant="primary" onClick={doc.close}>{uiText('beta3.838cb6772119')}</Button></Link> : <Link to={`/changes/drafts/${server.data?.continued_to_draft_id}`}><Button variant="primary">{uiText('beta3.533a922fbb99')}</Button></Link>} /><Notice tone="ok" title={draftState(server.data!, active.data?.revision)}>{server.data?.continued_to_draft_id && <Link to={`/changes/drafts/${server.data.continued_to_draft_id}`}>{uiText('beta3.533a922fbb99')}</Link>}</Notice></>;
+  const legacySchema = active.data?.config.config_schema_version === 5 && Number(config.config_schema_version) < 5;
   const validNow = !doc.dirty && validation.state === 'done' && validation.result?.valid === true && !validation.stale;
 
   return (
     <>
       <Back />
+      {legacySchema && <Notice tone="warn">{uiText('codes.legacy_draft_upgrade_required')}</Notice>}
       <PageHeader
         title={draftLabel({ draft_id: draft.draft_id, display_name: doc.displayName })}
         description={uiText('alpha9.pages.draft')}
         actions={
           <>
-            {current ? <ReviewDraftButton size="md" checkFirst={!validNow} onReview={setActivationTarget}>{validNow && effect.data?.no_effect ? uiText('b3.complete') : undefined}</ReviewDraftButton> : <Button variant="primary" onClick={() => void (async () => { if (!doc.dirty || await doc.save() === 'saved') setContinuing(true); })()}>{draft.base_status === 'needs_review' ? uiText('beta3.c902a9a3c590') : CONTINUE}</Button>}
+            {current && !legacySchema ? <ReviewDraftButton size="md" checkFirst={!validNow} onReview={setActivationTarget}>{validNow && effect.data?.no_effect ? uiText('b3.complete') : undefined}</ReviewDraftButton> : <Button variant="primary" onClick={() => void (async () => { if (!doc.dirty || await doc.save() === 'saved') setContinuing(true); })()}>{draft.base_status === 'needs_review' ? uiText('beta3.c902a9a3c590') : CONTINUE}</Button>}
             <Button disabled={doc.dirty} onClick={() => void downloadDraft(draft, active.data?.revision ?? 0, doc.displayName || draft.draft_id).catch(error => setExportError(describeError(error)))}><Download size={14} /> {uiText("features.registry.DraftPage.export_366489")}</Button>
           </>
         }

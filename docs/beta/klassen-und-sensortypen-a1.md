@@ -110,12 +110,13 @@ bereits belegten Alias-Paare normalisiert.
 
 | Katalog | Überführung vorhandener Werte |
 | --- | --- |
-| HomePods | normal → 0 Punkte und Nein. boost → +15 und Nein. mute/stumm → 0 und Ja. quieter/leiser → −10 und Nein. |
-| PS5 und PC | Bisheriger Wert → Soundmodus. Licht-Look Standard. Korrektur 0. |
-| Stash und Apple TV Apps/Titel | Bisheriger Wert → Inhalt. Korrektur 0. |
+| HomePods | boost → +15 Punkte. mute/stumm → Dämpfen Ja. quieter/leiser → −10 Punkte. normal bleibt ungepflegt. |
+| PS5 und PC | Bisheriger Wert → Soundmodus. |
+| Stash und Apple TV Apps/Titel | Bisheriger Wert → Inhalt. |
 | TV-Gerät und TV-Aktivität | Bestehende Werteschlüssel bleiben erhalten und erhalten den jeweiligen Klassenschlüssel. |
 
-Ungepflegte Einträge bleiben ungepflegt und verwenden den jeweiligen Standard.
+Ungepflegte Einträge und beim Umzug nicht belegte Dimensionen verwenden den
+jeweiligen Standard. Die Vorschau zeigt die tatsächlich gespeicherten Werte.
 Ein gespeicherter Altwert ohne bestätigte Zuordnung wird in der Vorschau
 angezeigt und blockiert seine Migration. Die Fallback-Regel für unbekannte
 TC-Zahlen gilt nur im Abgleich. Der Umzug übernimmt Klassendefinitionen,
@@ -130,10 +131,10 @@ Die Historie verbindet alten und neuen Katalogstand. Rücknahme innerhalb der
 neuen Definition erfolgt als neue Inhaltsrevision. Für die Rücknahme des
 Umzugs zeigt die Historie den zugehörigen alten Registry- und Katalogstand.
 Die Vorschau benennt seit dem Umzug hinzugekommene Pflege und Sichtungen.
-Die ältere Definition bleibt lesbar. Zurückschalten der Konfiguration und
-Auswahl des wiederherzustellenden Inhalts folgen den getrennten Verfahren
-aus ADR 0025. Geprüfter Snapshot und UI-Übernahme müssen vor A2 zusammen
-belegt sein. Eine Installation des Releases allein ändert den aktiven Stand nicht.
+Die ältere Definition bleibt lesbar. Über **Umzug zurücknehmen** wird der
+gemeinsam geprüfte Registry- und Inhaltsstand in einem Writer-Commit als
+neue Revision übernommen. Eine Installation des Releases allein ändert den
+aktiven Stand nicht.
 
 ### Title Classifier, Verträge und Traber
 
@@ -154,26 +155,30 @@ Der Abgleich erfindet keine Szenennamen und schreibt jede bestätigte
 
 Ein typisierter Katalog-Lookup benennt die Katalogdefinition und
 Klassendimension. Validierung prüft den Rückgabetyp gegen die Klassendefinition.
-Die jeweils neue Vertragsvorlage publiziert ein separates Feld pro Dimension.
+Bei einer Katalogabfrage im Vorlagen-Editor sind die dem Katalog zugeordneten
+Klassen wählbar. Die Klassendefinition liefert den Ergebnistyp. Beim Zuordnen
+einer Klasse kann die Katalogpflege aus einer vorhandenen Katalogabfrage ein
+zusätzliches Feld für den gewählten Vertrag ableiten. Die Vorschau zeigt die
+neue Vorlagenversion und gegebenenfalls ihre HA-Projektion. Katalogzuordnung
+und Vertragsfeld werden gemeinsam im Entwurf abgelegt und übernommen.
 Apple TV summiert die tatsächlichen App- und Titel-Korrekturen in Wuschel.
 Aus je −30 bis +30 folgt ein Summenbereich von −60 bis +60 Punkten. Die
-Summe behält Qualität und Evidence beider Komponenten. Vorschlag für die
-Prüfung: Ein belegtes `not_applicable` des Titels erlaubt App allein. Ein
-unbekannter oder unbrauchbarer Titel macht die Summe unbekannt. Ein bekannter
-Titel ohne Pflege erhält seinen deklarierten Standard. Dieser Fall und das
-Primärfeld der neuen Projektionen werden im Review bestätigt.
+Summe behält Qualität und Evidence beider Komponenten. Bei belegtem
+`not_applicable` des Titels gilt die Korrektur der App. Bei unbekanntem
+oder unbrauchbarem Titel ist die Summe unbekannt. Ein bekannter Titel ohne
+Pflege erhält seinen deklarierten Standard.
 
 Die [eingefrorene HA-Schnittstelle](../ha-interface.md) lässt in v1 neue Felder
 und Verträge zu. Für die bestehenden Sensoren bleiben IDs, Primärzustand
-und Attributnamen erhalten. Vorschlag für den Übergang: Benannte Felder
-ergänzen die vorhandene Projektion, sofern das Primärfeld gleich bleibt.
-Andernfalls erhält die neue Mehrfeld-Aussage einen parallelen Vertrag mit
-explizitem Primärfeld. Der bestehende Vertrag bleibt während der späteren
-Engine-Umstellung in Betrieb. Bestehende IDs oder Felder abzuschalten
+und Attributnamen erhalten. Benannte Felder ergänzen die vorhandene
+Projektion. Nur HomePods erhält einen parallelen Vertrag mit dem Primärfeld
+`volume_offset`. Der bestehende HomePods-Vertrag leitet seinen Skalarwert
+aus Korrektur und Dämpfen ab und bleibt während der Engine-Umstellung in
+Betrieb. Bestehende IDs oder Felder abzuschalten
 braucht eine eigene Freigabe und Übergangszeit. Die Umsetzung liefert ein
 Inventar je betroffenem Vertrag mit alten und neuen Feldern, vorgeschlagenen
-Entitäts-IDs und tatsächlicher `unique_id`. Keine Änderungen an den Engines
-oder an der Apple-TV-Erfassung sind Teil dieses Auftrags.
+Entitäts-IDs und tatsächlicher `unique_id`. Die beiden Apple-TV-Modi mit
+zweiter Zeile erfassen Titel ohne zweite Zeile als Einzeltitel.
 
 ## Paket 2 – Sensortypen und gemeinsame Aktualität
 
@@ -187,9 +192,9 @@ Vorlagen. Die bisherige Sonderregel für manuelle Quellen bleibt erhalten.
 
 Der Dialog **Vorhandene Quellen zuordnen** ordnet Quellen Vorschlagsgruppen
 zu und nennt pro Zeile den Grund. Bestätigte Zuordnungen behalten Vorrang.
-Eine klare Werteart oder Einheit führt zu einem Vorschlag, etwa °C zu
-Temperatur, W zu Leistung, lx zu Helligkeit, m/s zu Wind und W/m² zu
-Strahlung. Prozent allein belegt keine Luftfeuchte. Ja/Nein allein
+Die Geräteklasse aus Home Assistant hat Vorrang. Eine klare Einheit oder
+Wertart kann einen Vorschlag begründen, etwa °C für Temperatur, W für
+Leistung, lx für Helligkeit, m/s für Wind und W/m² für Strahlung. Prozent allein belegt keine Luftfeuchte. Ja/Nein allein
 unterscheidet Kontakt und Bewegung nicht. Wenn eindeutige Metadaten fehlen,
 erscheint die Quelle in der Gruppe „Unklar“. Einheiten, die nur einen
 Vorschlag begründen, werden als solcher sichtbar gekennzeichnet. Titel,
@@ -225,7 +230,7 @@ eingefrorene Liveness- und Safety-Semantik bleibt wirksam.
 
 ## Formate und Umsetzungsschritte nach Go
 
-Vorschlag für die Versionsgrenze: Registry-Schema 5 führt die beiden
+Registry-Schema 5 führt die beiden
 Stammlisten und die mehrdimensionalen Katalogdefinitionen ein. Es
 behält Fingerprint-Version 4 und die bestehende Semantik für Quellen ohne
 fachliche Änderung. Die Versionsprüfungen, das Capability-Schema und die

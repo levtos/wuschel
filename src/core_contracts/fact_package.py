@@ -275,7 +275,7 @@ def assemble(
     ):
         existing = {row[key] for row in config[group]}
         rows = copy.deepcopy(additions.get(group, []))
-        if group == "sources" and config["config_schema_version"] == 4:
+        if group == "sources" and config["config_schema_version"] in {4, 5}:
             for source in rows:
                 if "freshness" in source:
                     if "freshness_selection" in source:

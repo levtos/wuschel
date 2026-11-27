@@ -126,6 +126,22 @@ def build(
                 if master
                 else row
             )
+            if catalog.class_assignments and not chosen.get("tombstone"):
+                values = chosen.get("class_values", {})
+                labels = []
+                for name, item in catalog.assigned_classes.items():
+                    if name in values:
+                        value = values[name]
+                        legend = (item.values or {}).get(value) if isinstance(value, str) else None
+                        text = (
+                            legend.display_name
+                            if legend
+                            else ("Ja" if value else "Nein")
+                            if isinstance(value, bool)
+                            else str(value)
+                        )
+                        labels.append(f"{item.display_name}: {text}")
+                return " · ".join(labels) or "–"
             value = chosen.get("classification")
             if value is None or chosen.get("tombstone"):
                 return "–"

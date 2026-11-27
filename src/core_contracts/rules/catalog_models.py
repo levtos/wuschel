@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, model_validator
+from pydantic import Field, PrivateAttr, StrictBool, StrictInt, StrictStr, model_validator
 
 from core_contracts.lifecycle import Lifecycle
 from core_contracts.model import Model
@@ -64,6 +64,78 @@ class ClassificationSchema(Model):
         )
 
 
+ClassKey = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
+ClassValue = StrictBool | StrictInt | StrictStr
+
+
+class CatalogClass(Model):
+    class_key: ClassKey
+    display_name: str = Field(min_length=1, max_length=80)
+    kind: Literal["enum", "integer", "boolean"]
+    default: ClassValue
+    values: dict[ClassKey, ClassLegend] | None = Field(default=None, max_length=64)
+    unit: str | None = Field(default=None, min_length=1, max_length=32)
+    minimum: StrictInt | None = None
+    maximum: StrictInt | None = None
+
+    @model_validator(mode="after")
+    def coherent(self) -> Self:
+        if not self.display_name.strip() or self.display_name != self.display_name.strip():
+            raise ValueError("catalog_class_label")
+        if self.kind == "integer":
+            if (
+                not self.unit
+                or not self.unit.strip()
+                or self.minimum is None
+                or self.maximum is None
+                or self.minimum > self.maximum
+                or self.values is not None
+            ):
+                raise ValueError("catalog_class_integer_schema")
+        elif any(item is not None for item in (self.unit, self.minimum, self.maximum)):
+            raise ValueError("catalog_class_unexpected_numeric_schema")
+        elif (self.kind == "enum") != bool(self.values):
+            raise ValueError("catalog_class_enum_schema")
+        self.validate_value(self.default)
+        return self
+
+    def field_schema(self) -> FieldSchema:
+        if self.kind == "enum":
+            return FieldSchema(
+                type="enum",
+                required=True,
+                physical_state=False,
+                value_catalog=tuple(sorted(self.values or {})),
+            )
+        if self.kind == "boolean":
+            return FieldSchema(type="bool", required=True, physical_state=False)
+        return FieldSchema(type="number", required=True, physical_state=False, unit=self.unit)
+
+    def validate_value(self, value: ClassValue) -> None:
+        match self.kind:
+            case "enum":
+                valid = type(value) is str and value in (self.values or {})
+            case "integer":
+                valid = (
+                    type(value) is int
+                    and self.minimum is not None
+                    and self.maximum is not None
+                    and self.minimum <= value <= self.maximum
+                )
+            case "boolean":
+                valid = type(value) is bool
+        if not valid:
+            raise ValueError(f"catalog_class_value_invalid:{self.class_key}")
+
+
+class CatalogClassAssignment(Model):
+    class_key: ClassKey
+    default: ClassValue | None = Field(default=None, exclude_if=lambda value: value is None)
+    title_catalog_mapping: dict[Annotated[str, Field(pattern=r"^[0-9]+$")], ClassValue] = Field(
+        default_factory=dict, max_length=100, exclude_if=lambda value: not value
+    )
+
+
 class ManagedCatalog(Model):
     catalog_id: str
     kind: Literal["managed"]
@@ -71,6 +143,10 @@ class ManagedCatalog(Model):
     identity_rule: IdentityRule
     classification_schema: ClassificationSchema
     unassigned_value: str
+    class_assignments: tuple[CatalogClassAssignment, ...] = Field(
+        default=(), max_length=64, exclude_if=lambda value: not value
+    )
+    _assigned_classes: dict[str, CatalogClass] = PrivateAttr(default_factory=dict)
     master_depth: Literal[1] = 1
     lifecycle: Lifecycle = Field(default="active", exclude_if=lambda value: value == "active")
     reactivation_note: str | None = Field(
@@ -82,6 +158,43 @@ class ManagedCatalog(Model):
         if self.unassigned_value not in self.classification_schema.values:
             raise ValueError("catalog_default_class")
         return self
+
+    def resolve_assignments(self, definitions: dict[str, CatalogClass]) -> None:
+        classes: dict[str, CatalogClass] = {}
+        for assignment in self.class_assignments:
+            key = assignment.class_key
+            if key in classes:
+                raise ValueError(f"catalog_class_assignment_duplicate:{self.catalog_id}:{key}")
+            definition = definitions.get(key)
+            if definition is None:
+                raise ValueError(f"catalog_class_assignment_missing:{self.catalog_id}:{key}")
+            if assignment.default is not None:
+                definition.validate_value(assignment.default)
+            for value in assignment.title_catalog_mapping.values():
+                definition.validate_value(value)
+            classes[key] = definition
+        self._assigned_classes = classes
+
+    def class_defaults(self) -> dict[str, ClassValue]:
+        return {
+            assignment.class_key: (
+                assignment.default
+                if assignment.default is not None
+                else self._assigned_classes[assignment.class_key].default
+            )
+            for assignment in self.class_assignments
+        }
+
+    def validate_classes(self, values: dict[str, ClassValue]) -> None:
+        for key, value in values.items():
+            definition = self._assigned_classes.get(key)
+            if definition is None:
+                raise ValueError(f"catalog_class_unassigned:{self.catalog_id}:{key}")
+            definition.validate_value(value)
+
+    @property
+    def assigned_classes(self) -> dict[str, CatalogClass]:
+        return dict(self._assigned_classes)
 
 
 class TitleSightings(Model):
@@ -134,6 +247,9 @@ class EntryChange(Model):
     signal_type: str = Field(min_length=1, max_length=128)
     key: str = Field(min_length=1, max_length=1024)
     classification: str | None = None
+    class_values: dict[ClassKey, ClassValue] = Field(
+        default_factory=dict, max_length=64, exclude_if=lambda value: not value
+    )
     master_key: str | None = Field(default=None, max_length=1024)
     tombstone: bool = False
     display_name: str = Field(default="", max_length=1024)

@@ -35,8 +35,10 @@ from core_contracts.extensions.tc_migration.title_import import (
 )
 from core_contracts.extensions.tc_migration.title_transfer import (
     TargetMapping,
-    classification,
     context_key,
+    format_warnings,
+    mapped_classes,
+    write_classes,
 )
 from core_contracts.model import canonical
 from core_contracts.rules.catalog_models import EntryChange, TitleMetadata
@@ -173,6 +175,7 @@ def plan(
         for ctx in row.get("contexts") or [{"context": "", "source_app": ""}]
     }
     errors = list(parsed["rejected_rows"])
+    warnings: set[tuple[str, int, int]] = set()
     groups: dict[str, dict[str, Any]] = {}
     source_outcomes: dict[int, set[str]] = {}
     aliases: dict[tuple[str, str], list[dict[str, Any]]] = {}
@@ -225,19 +228,20 @@ def plan(
                 {},
             )
             parent_value = parent_ctx.get("enum_override")
-            parent_class = classification(
+            parent_class, _ = mapped_classes(
                 target.profile, parent["enum"] if parent_value is None else parent_value, catalog
             )
             if (
                 ctx.get("enum_override") is not None
-                and classification(target.profile, ctx["enum_override"], catalog) != parent_class
+                and mapped_classes(target.profile, ctx["enum_override"], catalog)[0] != parent_class
             ):
                 raise ValueError("title_sync_variant_override")
             parent_key = add(parent, target, parent_ctx, number, dependency=True)
         override = ctx.get("enum_override")
-        value = classification(
-            target.profile, row["enum"] if override is None else override, catalog
-        )
+        number_value = row["enum"] if override is None else override
+        mapped, unknown = mapped_classes(target.profile, number_value, catalog)
+        if unknown and not dependency:
+            warnings.add((catalog.catalog_id, number_value, number))
         primary = own_keys[0]
         ident = identity(target.scope, row["media_type"], row["signal_type"], primary)
         old = target_head(catalog)["entries"].get(ident, {})
@@ -249,7 +253,7 @@ def plan(
                 "media_type": row["media_type"],
                 "signal_type": row["signal_type"],
                 "key": primary,
-                "classification": None if parent_key else value,
+                **write_classes(mapped, old, variant=parent_key is not None),
                 "master_key": parent_key,
                 "display_name": row["key"],
                 "note": old.get("note", ""),
@@ -285,6 +289,7 @@ def plan(
                 "note": extra_old.get("note", ""),
                 "tc_metadata": {**change["tc_metadata"], "is_alias": True},
             }
+            alias.pop("class_values", None)
             bucket = aliases.setdefault((group_key, extra_id), [])
             if alias not in bucket:
                 bucket.append(alias)
@@ -382,6 +387,8 @@ def plan(
         "source_digest": checksum(document),
         "can_apply": not errors,
     }
+    if warnings:
+        result["class_warnings"] = format_warnings(warnings)
     probe = state.clone()
     effects: list[dict[str, str]] = []
     affected: set[str] = set()

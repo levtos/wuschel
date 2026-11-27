@@ -13,6 +13,8 @@ OBJECT_KEYS = {
     "definitions": ("type_id", "type_version"),
     "context_producers": ("producer_id",),
     "freshness_templates": ("template_id",),
+    "catalog_classes": ("class_key",),
+    "sensor_kinds": ("sensor_kind",),
 }
 
 

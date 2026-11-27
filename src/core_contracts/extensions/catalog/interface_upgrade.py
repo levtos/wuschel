@@ -233,12 +233,22 @@ def upgrade_package(package: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def migration_preview(state: Any, contents: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def migration_preview(
+    state: Any, contents: list[dict[str, Any]], incoming: Any = None
+) -> list[dict[str, Any]]:
     """Verify exact preservation and OCC before preview and again before activation."""
     findings = []
     for content in contents:
         proof = content.get("class_migration")
         if proof is None:
+            continue
+        if isinstance(proof, dict) and proof.get("operation") in {
+            "named_classes",
+            "named_classes_reconfigure",
+        }:
+            from .named_class_migration import migration_proof
+
+            findings.append(migration_proof(state, content, incoming))
             continue
         if (
             not isinstance(proof, dict)
@@ -314,7 +324,12 @@ def migrate_runtime(state: Any, contents: list[dict[str, Any]], now: Any) -> Non
 
     upgrades = {row["catalog_id"]: row for row in contents if row.get("class_migration")}
     for catalog_id, content in upgrades.items():
-        old_key, new_key = checksum([catalog_id, 1]), checksum([catalog_id, 2])
+        proof = content["class_migration"]
+        source_version = proof["source_version"]
+        target_version = content["definition_version"]
+        retain_original = proof.get("operation") in {"named_classes", "named_classes_reconfigure"}
+        old_key = checksum([catalog_id, source_version])
+        new_key = checksum([catalog_id, target_version])
         for key, row in list(state.tables["catalog_sighting"].items()):
             if row["catalog"] != old_key:
                 continue
@@ -322,13 +337,14 @@ def migrate_runtime(state: Any, contents: list[dict[str, Any]], now: Any) -> Non
             if target in state.tables["catalog_sighting"]:
                 raise ValueError("interface_upgrade_conflict")
             state.tables["catalog_sighting"][target] = {**row, "catalog": new_key}
-            del state.tables["catalog_sighting"][key]
+            if not retain_original:
+                del state.tables["catalog_sighting"][key]
             if row.get("source"):
                 suffix = [row["scope"], row["media_type"], row["signal_type"], row["source"]]
                 old_stream, new_stream = (
                     PREFIX + checksum([catalog, *suffix]) for catalog in (old_key, new_key)
                 )
-                tracker = state.tables["service_state"].pop(old_stream, None)
+                tracker = state.tables["service_state"].get(old_stream)
                 if tracker:
                     tracker = copy.deepcopy(tracker)
                     if pending := tracker.pop("pending", None):
@@ -338,11 +354,19 @@ def migrate_runtime(state: Any, contents: list[dict[str, Any]], now: Any) -> Non
                             last_session=pending["session"],
                         )
                     state.tables["service_state"][new_stream] = tracker
+                    if retain_original:
+                        state.tables["service_state"][old_stream] = copy.deepcopy(tracker)
+                    else:
+                        state.tables["service_state"].pop(old_stream, None)
     saved = current_mapping(state)
     mapping = copy.deepcopy(saved["mapping"])
     for target in mapping["mappings"].values():
-        if target["catalog_id"] in upgrades and target["definition_version"] == 1:
-            target["definition_version"] = 2
+        migration = upgrades.get(target["catalog_id"])
+        if (
+            migration
+            and target["definition_version"] == migration["class_migration"]["source_version"]
+        ):
+            target["definition_version"] = migration["definition_version"]
     if mapping != saved["mapping"]:
         version = saved["version"] + 1
         state.tables["title_sync_mapping"][str(version)] = {

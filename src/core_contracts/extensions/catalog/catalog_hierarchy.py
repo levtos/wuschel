@@ -33,6 +33,7 @@ def lookup(
         identity,
         semantic,
         token,
+        trace_key,
     )
     from core_contracts.registry import RegistryConfig
 
@@ -49,17 +50,20 @@ def lookup(
         else key
     )
     selected = key if key in current["entries"] else parent
-    value, complete, master = effective(current["entries"], selected, catalog)
+    class_key = getattr(rule, "class_key", None)
+    value, complete, master = effective(current["entries"], selected, catalog, class_key)
     result = derive(value, args, ctx.now)
     tokens = []
     for dependency in dict.fromkeys([key, selected]):
         # An unsaved child already uses the parent's effective truth. Persisting
         # that same relation must not manufacture a later basis change.
-        digest = semantic(current["entries"], selected, catalog)
-        tokens.append(token(catalog, dependency, digest))
-        ctx.node.setdefault("catalog_lookups", {})[head_key(catalog) + ":" + dependency] = {
+        digest = semantic(current["entries"], selected, catalog, class_key)
+        trace = trace_key(dependency, class_key)
+        tokens.append(token(catalog, trace, digest))
+        ctx.node.setdefault("catalog_lookups", {})[head_key(catalog) + ":" + trace] = {
             "catalog": head_key(catalog),
             "key": dependency,
+            **({"class_key": class_key} if class_key else {}),
             "content_revision": current["revision"],
             "master": master,
             "semantic_digest": digest,

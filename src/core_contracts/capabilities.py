@@ -194,7 +194,7 @@ def configuration_schema() -> dict[str, Any]:
         {
             "if": {
                 "required": ["config_schema_version"],
-                "properties": {"config_schema_version": {"const": 4}},
+                "properties": {"config_schema_version": {"enum": [4, 5]}},
             },
             "then": {
                 "required": ["fingerprint_version"],
@@ -377,11 +377,11 @@ def capabilities(config: RegistryConfig | None, base: TypeRegistry) -> dict[str,
         "machine_deadline_v2": True,
         "api_protocol": 1,
         "config_schema_version": 1,
-        "config_schema_versions": [1, 2, 3, 4],
+        "config_schema_versions": [1, 2, 3, 4, 5],
         "bridge_protocol_versions": [1, 2],
         "fingerprint_versions": [1, 2, 3, 4],
         "freshness_templates": True,
-        "portable_format_versions": [1, 2],
+        "portable_format_versions": [1, 2, 3],
         "managed_catalog": {
             "language_version": 4,
             "fingerprint_version": 3,
@@ -467,6 +467,7 @@ def capabilities(config: RegistryConfig | None, base: TypeRegistry) -> dict[str,
                 ("opening_zone", "OpeningZoneRule"),
                 ("machine", "MachineRule"),
                 ("not_applicable", "NotApplicableRule"),
+                ("catalog_offset_sum", "CatalogOffsetSumRule"),
             )
         ],
         "formulas": [
