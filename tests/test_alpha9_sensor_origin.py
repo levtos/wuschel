@@ -256,7 +256,7 @@ async def test_sensor_parameters_change_baseline_without_changing_profile_defini
     after = runtime.state.tables["service_state"].get("sensor:source.a")
     assert after is None or after["report_count"] == 0
     assert (
-        runtime._evaluation_plan(runtime.state, runtime.config)[0]["source.a"]
+        runtime._evaluation_plan(runtime.state, runtime.config).fingerprints["source.a"]
         != before["fingerprint"]
     )
     assert (await runtime.store.sensor_profile(profile["id"], 1))["stuck"]["tolerance"] == {

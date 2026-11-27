@@ -42,6 +42,7 @@ from .registry import (
     RegistryConfig,
     affected_sources,
     fingerprints,
+    legacy_context_compatibility,
     observation_fingerprints,
     registry_types,
     resolve_ref,
@@ -94,6 +95,14 @@ class SnapshotBatch:
     complete: bool = True
 
 
+@dataclass(frozen=True)
+class EvaluationPlan:
+    fingerprints: dict[str, str]
+    types: TypeRegistry
+    order: list[Contract]
+    refresh_fingerprints: dict[str, str]
+
+
 class Runtime:
     def __init__(
         self,
@@ -122,7 +131,7 @@ class Runtime:
         self.context_index: ContextIndex | None = None
         self.state = State()
         self._config_cache: tuple[int, str, RegistryConfig | None] | None = None
-        self._plans: dict[tuple[Any, ...], tuple[dict[str, str], TypeRegistry, list[Contract]]] = {}
+        self._plans: dict[tuple[Any, ...], EvaluationPlan] = {}
         self._structures: dict[int, Any] = {}
         self._observation_models: dict[str, tuple[dict[str, Any], Observation]] = {}
         self._field_models: dict[str, tuple[dict[str, Any], FieldValue]] = {}
@@ -380,9 +389,7 @@ class Runtime:
             self._config_cache = (*key, self._config(self.state))
         return self._config_cache[2]
 
-    def _evaluation_plan(
-        self, state: State, config: RegistryConfig
-    ) -> tuple[dict[str, str], TypeRegistry, list[Contract]]:
+    def _evaluation_plan(self, state: State, config: RegistryConfig) -> EvaluationPlan:
         revision = state.tables["registry_revision"].get(str(state.active_revision), {})
         key = (
             state.active_revision,
@@ -390,10 +397,17 @@ class Runtime:
             tuple((key, id(value)) for key, value in self.types.types.items()),
         )
         if key not in self._plans:
-            self._plans[key] = (
-                fingerprints(config, self.types),
-                registry_types(config, self.types),
-                topological(config),
+            lineage = fingerprints(config, self.types)
+            self._plans[key] = EvaluationPlan(
+                fingerprints=lineage,
+                types=registry_types(config, self.types),
+                order=topological(config),
+                # Refresh jobs keep their original lineage across fingerprint upgrades.
+                refresh_fingerprints=(
+                    legacy_context_compatibility(config, self.types)
+                    if config.fingerprint_version == 4
+                    else lineage
+                ),
             )
             if len(self._plans) > 4:
                 self._plans.pop(next(iter(self._plans)))
@@ -1492,7 +1506,7 @@ class Runtime:
                 and manual_observation
                 and manual_observation.manual
                 and manual_observation.manual.source_fingerprint
-                != self._evaluation_plan(state, config)[0][ref]
+                != self._evaluation_plan(state, config).fingerprints[ref]
             ):
                 return unknown(ReasonCode.RESTORE_INCOMPATIBLE, ref, now)
             calendar_binding = next(
@@ -1534,7 +1548,8 @@ class Runtime:
             if (
                 observation
                 and observation.mqtt_revalidated
-                and observation.mqtt_device_proof != self._evaluation_plan(state, config)[0][ref]
+                and observation.mqtt_device_proof
+                != self._evaluation_plan(state, config).fingerprints[ref]
             ):
                 observation = observation.model_copy(update={"mqtt_revalidated": False})
             value = assess(observation, source.freshness, now, ref, liveness)
@@ -1572,7 +1587,7 @@ class Runtime:
                     source,
                     reference_value,
                     state.tables["service_state"],
-                    self._evaluation_plan(state, config)[0][ref],
+                    self._evaluation_plan(state, config).fingerprints[ref],
                     now,
                     new_report=trigger_source == ref,
                 )
@@ -1636,7 +1651,8 @@ class Runtime:
         self.pending_latches = copy.deepcopy(
             self.latches if initial_latches is None else initial_latches
         )
-        fps, types, order = self._evaluation_plan(state, config)
+        plan = self._evaluation_plan(state, config)
+        fps, types, order = plan.fingerprints, plan.types, plan.order
         profiled_sources = {
             f"sensor:{source.source_id}" for source in config.sources if source.sensor_profile
         }
@@ -1885,7 +1901,6 @@ class Runtime:
 
             plan_notices(state, config, now, self.installation_id, self.ingress_slug)
         from .refresh_plan import plan_refreshes
-        from .registry import legacy_context_compatibility
 
         plan_refreshes(
             state,
@@ -1893,9 +1908,7 @@ class Runtime:
             now,
             origin,
             self.bridge == "connected" and self.bridge_protocol_selected == 2,
-            legacy_context_compatibility(config, self.types)
-            if config.fingerprint_version == 4
-            else fps,
+            plan.refresh_fingerprints,
         )
         return evaluation_errors
 
@@ -2232,7 +2245,7 @@ class Runtime:
                 for binding in config.bindings
                 if binding.adapter.calendar is not None
             )
-            _, types, _ = self._evaluation_plan(self.state, config)
+            types = self._evaluation_plan(self.state, config).types
             bindings = {b.source_id: b.binding_id for b in config.bindings}
             observations = self.state.tables["source_observation_current"]
             for source in config.sources:
