@@ -3,11 +3,11 @@
 import asyncio
 import copy
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import uuid4
 
 from core_contracts import slots
-from core_contracts.model import checksum
+from core_contracts.model import Model, checksum
 from core_contracts.persistence import State
 from core_contracts.registry import RegistryConfig
 
@@ -314,7 +314,13 @@ def page_view(runtime: Any, actor: Any, plan_id: str) -> dict[str, Any]:
 
 
 def prepare_page(
-    runtime: Any, original: Any, run: dict[str, Any], body: dict[str, Any], now: Any
+    runtime: Any,
+    original: Any,
+    run: dict[str, Any],
+    body: dict[str, Any],
+    now: Any,
+    *,
+    prepare_only: bool = False,
 ) -> tuple[Any, dict[str, Any]]:
     state = original.clone()
     config = runtime._config(state)
@@ -332,6 +338,7 @@ def prepare_page(
     latches = copy.deepcopy(runtime.latches)
     revisions = {}
     changed = 0
+    effects = []
     for key, group in run["groups"].items():
         group = {**group, "expected": run["_heads"][key]}
         prepared = prepare(
@@ -344,8 +351,10 @@ def prepare_page(
         )
         revisions[key] = prepared["content_revision"]
         changed += prepared["changed"]
-        affected.update(affected_contracts(state, prepared))
-        latches = invalidate(state, prepared, latches)
+        effects.append(prepared)
+        if not prepare_only:
+            affected.update(affected_contracts(state, prepared))
+            latches = invalidate(state, prepared, latches)
     if affected and runtime._evaluate(
         state, config, origin="revision", initial_latches=latches, affected_contracts=affected
     ):
@@ -360,12 +369,23 @@ def prepare_page(
             "mapping": run["mapping"],
             "at": now.isoformat(),
         }
-    return state, {"revisions": revisions, "changed": changed, "affected": affected}
+    return state, {
+        "revisions": revisions,
+        "changed": changed,
+        "affected": affected,
+        "effects": effects,
+    }
 
 
 async def process(
-    runtime: Any, state: Any, operation: str, body: dict[str, Any], now: Any
-) -> dict[str, Any]:
+    runtime: Any,
+    state: Any,
+    operation: str,
+    body: dict[str, Any],
+    now: Any,
+    *,
+    prepare_only: bool = False,
+) -> Any:
     if operation == "title_sync_preview":
         return await preview(runtime, body)
     request_id = str(UUID(body["request_id"]))
@@ -382,6 +402,8 @@ async def process(
         raise ValueError("title_sync_plan_conflict")
     if not run["can_apply"]:
         raise ValueError("title_sync_mapping_invalid")
+    if prepare_only:
+        return prepare_work_page(runtime, state, run, body, request_id, digest, now)
     run["_busy"] = True
     committed = False
     try:
@@ -432,6 +454,151 @@ async def process(
         if not committed:
             runtime.pending_latches = None
             runtime.pending_refresh.clear()
+
+
+type TitleWriteTable = Literal[
+    "catalog_head", "catalog_content_revision", "catalog_entry_revision", "title_sync_mapping"
+]
+TITLE_WRITE_TABLES: tuple[TitleWriteTable, ...] = (
+    "catalog_head",
+    "catalog_content_revision",
+    "catalog_entry_revision",
+    "title_sync_mapping",
+)
+
+
+class PreparedTitlePage(Model):
+    expected_active_revision: int | None
+    expected_mapping_version: int
+    expected_heads: dict[str, int]
+    sightings: dict[str, str]
+    progress: dict[str, Any]
+    request_id: str
+    request_digest: str
+    effects: list[dict[str, Any]]
+    rows: dict[TitleWriteTable, dict[str, dict[str, Any]]]
+    result: dict[str, Any]
+
+
+def prepare_work_page(
+    runtime: Runtime,
+    state: State,
+    run: dict[str, Any],
+    body: dict[str, Any],
+    request_id: str,
+    digest: str,
+    now: datetime,
+) -> PreparedTitlePage:
+    from core_contracts.extensions.catalog.catalog_operations import sighting_digest
+
+    staged, page = prepare_page(runtime, state, run, body, now, prepare_only=True)
+    complete = run["_index"] + 1 == len(run["_pages"])
+    version = current_mapping(staged)["version"]
+    return PreparedTitlePage(
+        expected_active_revision=state.active_revision,
+        expected_mapping_version=run["mapping_version"],
+        expected_heads=run["_heads"],
+        sightings={key: sighting_digest(state, key) for key in run["groups"]},
+        progress={
+            "plan_id": body["plan_id"],
+            "owner": checksum(body.get("_actor")),
+            "applied_page": run["_index"],
+            "page_digest": body["plan_digest"],
+            "mapping_version": version,
+            "heads": {**run["_heads"], **page["revisions"]},
+            "complete": complete,
+        },
+        request_id=request_id,
+        request_digest=digest,
+        effects=page["effects"],
+        rows={
+            table: {
+                key: staged.tables[table][key] for key in staged._changes.changed.get(table, ())
+            }
+            for table in TITLE_WRITE_TABLES
+        },
+        result={
+            "request_id": request_id,
+            "revisions": page["revisions"],
+            "changed": page["changed"],
+            "counts": run["counts"],
+            "publication_seq": state.publication_seq,
+            "mapping_version": version,
+            "page": run["page"],
+            "complete": complete,
+        },
+    )
+
+
+async def prepare_work_title_apply(runtime: Runtime, body: dict[str, Any]) -> Any:
+    return await process(
+        runtime,
+        runtime.state,
+        "title_sync_apply",
+        body,
+        runtime.clock.now_utc(),
+        prepare_only=True,
+    )
+
+
+async def publish_title_page(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: PreparedTitlePage,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> dict[str, Any]:
+    from core_contracts.extensions.catalog.catalog_operations import sighting_digest
+
+    if previous := await runtime.store.get("catalog_request", payload.request_id):
+        if previous["digest"] != payload.request_digest:
+            raise ValueError("catalog_request_conflict")
+        result: dict[str, Any] = previous["result"]
+        return result
+    if state.active_revision != payload.expected_active_revision or config is None:
+        raise ValueError("active_revision_conflict")
+    if current_mapping(state)["version"] != payload.expected_mapping_version:
+        raise ValueError("title_sync_mapping_conflict")
+    if any(
+        state.tables["catalog_head"].get(key, {}).get("revision", 0) != revision
+        for key, revision in payload.expected_heads.items()
+    ) or any(
+        sighting_digest(state, key) != expected for key, expected in payload.sightings.items()
+    ):
+        raise ValueError("catalog_content_conflict")
+    progress = payload.progress
+    current = await runtime.store.work_title_progress(progress["plan_id"], progress["owner"])
+    if current is None or current.get("applied_page", -1) != progress["applied_page"] - 1:
+        raise ValueError("title_sync_plan_conflict")
+    for table, rows in payload.rows.items():
+        if table != "title_sync_mapping":
+            state.tables[table].update(rows)
+    latches = copy.deepcopy(runtime.latches)
+    affected: set[str] = set()
+    for prepared in payload.effects:
+        affected.update(affected_contracts(state, prepared))
+        latches = invalidate(state, prepared, latches)
+    if affected and runtime._evaluate(
+        state, config, origin="revision", initial_latches=latches, affected_contracts=affected
+    ):
+        runtime.pending_latches = None
+        runtime.pending_refresh.clear()
+        raise ValueError("catalog_evaluation_failed")
+    state.tables["title_sync_mapping"].update(payload.rows.get("title_sync_mapping", {}))
+    result = {**payload.result, "publication_seq": state.publication_seq}
+    state.tables["catalog_request"][payload.request_id] = {
+        "digest": payload.request_digest,
+        "result": result,
+        "title_sync_progress": progress,
+    }
+    await runtime._commit(state, publication=bool(affected))
+    return result
+
+
+slots.OPERATIONS["title_sync_apply_prepared"] = slots.Operation(
+    publish_title_page, state="catalog", early=False
+)
 
 
 async def operation_title_sync_preview(

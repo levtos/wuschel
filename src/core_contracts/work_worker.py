@@ -8,6 +8,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, BinaryIO, cast
+from uuid import UUID
 
 import aiohttp
 import asyncpg
@@ -18,17 +19,33 @@ from . import wiring  # noqa: F401
 from .api import API
 from .clock import SystemClock
 from .contract_types import type_registry
-from .model import canonical, checksum
+from .model import Model, canonical, checksum
 from .operations import OperationsSettings
 from .persistence import PostgresStore, State
+from .portable_stage_work import PreparedPortableStage, prepare_stage
 from .retention import RetentionPolicy, maintain_postgres, pinned_references
+from .retention_work import prepare_retention
 from .runtime import Runtime
 from .setup import Connection
-from .wiring import Credentials, read_titles
+from .wiring import (
+    Credentials,
+    PreparedCatalogCleanup,
+    PreparedCatalogWrite,
+    PreparedClassRollback,
+    PreparedScopeWrite,
+    PreparedTitlePage,
+    prepare_work_catalog_write,
+    prepare_work_cleanup,
+    prepare_work_rollback,
+    prepare_work_scope,
+    prepare_work_title_apply,
+    prepare_work_title_stage,
+    read_titles,
+)
 from .work_artifacts import load_plan
 from .work_capacity import effective_cpu_count
 from .work_process import FRAME_LIMIT, exit_with_parent, read_frame, write_frame
-from .work_routes import read_route
+from .work_routes import WRITE_PLANS, work_route
 
 READ_OPERATIONS = frozenset(
     {
@@ -61,6 +78,9 @@ class WorkerStore(PostgresStore):
 
 class WorkerRuntime(Runtime):
     service_snapshot: dict[str, Any] | None = None
+    prepared_work: Model | None = None
+    job_id: UUID
+    retention_scheduled = False
 
     def service_state(self) -> dict[str, Any]:
         return (
@@ -68,6 +88,57 @@ class WorkerRuntime(Runtime):
         )
 
     async def submit(self, operation: str, payload: Any = None) -> Any:
+        if operation == "portable_stage":
+            result, self.prepared_work = await prepare_stage(self, payload)
+            return result
+        if operation == "title_stage":
+            result = await prepare_work_title_stage(self, payload)
+            if isinstance(result, PreparedPortableStage):
+                self.prepared_work = result
+                return result.draft
+            return result
+        if operation == "retention_run":
+            connection = getattr(self.store, "pool", None)
+            if not isinstance(connection, asyncpg.Connection):
+                raise RuntimeError("work_read_only")
+            prepared = await prepare_retention(
+                self,
+                connection,
+                self.job_id,
+                scheduled=self.retention_scheduled,
+            )
+            self.prepared_work = prepared
+            return prepared.batch.receipt(dry_run=False)
+        if operation in {"catalog_write", "catalog_care_write"}:
+            result = await prepare_work_catalog_write(self, operation, payload)
+            if isinstance(result, PreparedCatalogWrite):
+                self.prepared_work = result
+                return result.result
+            return result
+        if operation == "catalog_cleanup_apply":
+            result = await prepare_work_cleanup(self, payload)
+            if isinstance(result, PreparedCatalogCleanup):
+                self.prepared_work = result
+                return result.result
+            return result
+        if operation == "title_sync_apply":
+            result = await prepare_work_title_apply(self, payload)
+            if isinstance(result, PreparedTitlePage):
+                self.prepared_work = result
+                return result.result
+            return result
+        if operation == "catalog_scope_apply":
+            result = await prepare_work_scope(self, payload)
+            if isinstance(result, PreparedScopeWrite):
+                self.prepared_work = result
+                return result.result
+            return result
+        if operation == "rollback":
+            result = await prepare_work_rollback(self, payload)
+            if isinstance(result, PreparedClassRollback):
+                self.prepared_work = result
+                return {}
+            return result
         if operation not in READ_OPERATIONS:
             raise RuntimeError("work_read_only")
         return await self.process(operation, payload)
@@ -80,7 +151,7 @@ async def run(
     directory: Path,
 ) -> None:
     method, path = metadata["method"], metadata["path"]
-    if not read_route(method, path):
+    if not work_route(method, path):
         raise ValueError("work_route_invalid")
     database = Connection.model_validate(configuration["connection"])
     settings = OperationsSettings.model_validate(configuration["operations"])
@@ -129,6 +200,8 @@ async def run(
         runtime = WorkerRuntime(store, SystemClock(), type_registry(), operations=settings)
         runtime.persistence = runtime.confirmed = True
         runtime.installation_id = configuration["installation_id"]
+        runtime.job_id = UUID(metadata["job_id"])
+        runtime.retention_scheduled = metadata["actor"]["kind"] == "internal"
         async with connection.transaction(isolation="repeatable_read", readonly=True):
             tables = (
                 {"registry_revision"} if method == "GET" and path.startswith("history/") else None
@@ -192,9 +265,15 @@ async def run(
                         if response.status < 400 and plan_kind is not None and plans:
                             key, artifact = next(iter(plans.items()))
                             plan_info = (plan_kind, key)
+                        commit = None
+                        if response.status < 400 and runtime.prepared_work is not None:
+                            artifact = runtime.prepared_work.model_dump(mode="json")
+                            commit = WRITE_PLANS[method, path]
                         write_frame(
                             sys.stdout.buffer,
-                            canonical({"status": response.status, "plan": plan_info}).encode(),
+                            canonical(
+                                {"status": response.status, "plan": plan_info, "commit": commit}
+                            ).encode(),
                         )
                         async for part in response.content.iter_chunked(FRAME_LIMIT):
                             write_frame(sys.stdout.buffer, part)

@@ -144,6 +144,7 @@ class Runtime:
         self.ha_changed_at = self.clock.now_utc()
         self.next_retention = self.clock.now_utc()
         self.retention_receipt: dict[str, Any] | None = None
+        self.retention_dispatch: Callable[[], None] | None = None
         self.mqtt = "disabled"
         self.mqtt_queue: asyncio.Queue[Any] | None = None
         self.mqtt_overflow = 0
@@ -1072,12 +1073,18 @@ class Runtime:
                 and (policy := self.config.history_retention)
                 and now >= self.next_retention
             ):
-                self.retention_receipt = await self.store.maintain_history(self.state, now, policy)
-                self.next_retention = now + timedelta(
-                    seconds=60
-                    if self.retention_receipt["selected"] == policy.batch_size
-                    else policy.interval_s
-                )
+                if self.retention_dispatch is not None:
+                    self.retention_dispatch()
+                    self.next_retention = now + timedelta(seconds=policy.interval_s)
+                else:
+                    self.retention_receipt = await self.store.maintain_history(
+                        self.state, now, policy
+                    )
+                    self.next_retention = now + timedelta(
+                        seconds=60
+                        if self.retention_receipt["selected"] == policy.batch_size
+                        else policy.interval_s
+                    )
                 self._plan_evaluation()
             clock_went_back = now < self.last_clock
             self.last_clock = now

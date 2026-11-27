@@ -1,10 +1,10 @@
 """Writer operations owned by catalog_operations."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from core_contracts import slots
-from core_contracts.model import checksum
+from core_contracts.model import Model, checksum
 from core_contracts.persistence import State
 from core_contracts.registry import RegistryConfig, resolve_ref, topological
 
@@ -89,6 +89,77 @@ slots.OPERATIONS["catalog_cleanup_apply"] = slots.Operation(
 )
 
 
+class PreparedCatalogCleanup(Model):
+    request: dict[str, Any]
+    plan: dict[str, Any]
+    result: dict[str, Any]
+
+
+async def prepare_work_cleanup(runtime: Runtime, payload: dict[str, Any]) -> Any:
+    from uuid import UUID
+
+    from core_contracts.extensions.catalog.catalog_cleanup import apply, owned
+
+    state = runtime.state.clone()
+    request_id = str(UUID(payload["request_id"]))
+    if previous := await runtime.store.get("catalog_request", request_id):
+        state.tables["catalog_request"][request_id] = previous
+        return apply(runtime, state, payload)
+    plan = owned(runtime, payload)
+    selected = set(plan["selected"])
+    sealed = {
+        key: plan[key]
+        for key in (
+            "owner",
+            "at",
+            "digest",
+            "basis",
+            "catalog",
+            "selected",
+            "reset",
+            "catalog_count",
+        )
+    }
+    sealed["sighting_basis"] = {
+        key: plan["sighting_basis"][key] for key in selected if key in plan["sighting_basis"]
+    }
+    sealed["rows"] = [
+        {"identity": row["identity"], "key": row["key"]}
+        for row in plan["rows"]
+        if row["identity"] in selected
+    ]
+    return PreparedCatalogCleanup(
+        request=payload, plan=sealed, result=apply(runtime, state, payload, sealed=sealed)
+    )
+
+
+async def publish_cleanup(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: PreparedCatalogCleanup,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> dict[str, Any]:
+    from uuid import UUID
+
+    from core_contracts.extensions.catalog.catalog_cleanup import apply
+
+    request_id = str(UUID(payload.request["request_id"]))
+    previous = await runtime.store.get("catalog_request", request_id)
+    if previous is not None:
+        state.tables["catalog_request"][request_id] = previous
+    result = apply(runtime, state, payload.request, sealed=payload.plan)
+    if previous is None:
+        await runtime._commit(state)
+    return result
+
+
+slots.OPERATIONS["catalog_cleanup_prepared"] = slots.Operation(
+    publish_cleanup, state="full", early=False
+)
+
+
 async def operation_catalog_tick(
     runtime: Runtime,
     state: State,
@@ -144,6 +215,8 @@ async def operation_catalog_write(
     payload: Any,
     now: datetime,
     config: RegistryConfig | None,
+    *,
+    prepare_only: bool = False,
 ) -> Any:
     from core_contracts.extensions.catalog.managed_catalog import (
         affected_contracts,
@@ -250,6 +323,40 @@ async def operation_catalog_write(
                 else {}
             ),
         }
+    if prepare_only:
+        key = result["catalog"]
+        return PreparedCatalogWrite(
+            expected_active_revision=state.active_revision,
+            expected_content_revision=request.expected_content_revision,
+            sighting_digest=sighting_digest(runtime.state, key),
+            request_id=request.request_id,
+            request_digest=digest,
+            care=care,
+            result=result,
+            rows={
+                table: {
+                    key: state.tables[table][key] for key in state._changes.changed.get(table, ())
+                }
+                for table in CATALOG_WRITE_TABLES
+            },
+        )
+    return await finalize_catalog_write(
+        runtime, state, config, result, request.request_id, digest, care, care_phase
+    )
+
+
+async def finalize_catalog_write(
+    runtime: Runtime,
+    state: State,
+    config: RegistryConfig | None,
+    result: dict[str, Any],
+    request_id: str,
+    digest: str,
+    care: bool,
+    care_phase: float,
+) -> dict[str, Any]:
+    from core_contracts.extensions.catalog.managed_catalog import affected_contracts, invalidate
+
     if result["affected_keys"]:
         assert config is not None
         direct_catalog_contracts = affected_contracts(state, result)
@@ -268,7 +375,7 @@ async def operation_catalog_write(
     result["publication_seq"] = state.publication_seq
     if care:
         runtime.catalog_care_timings["impact_ms"] = (runtime.clock.monotonic() - care_phase) * 1000
-    state.tables["catalog_request"][request.request_id] = {
+    state.tables["catalog_request"][request_id] = {
         "digest": digest,
         "result": result,
     }
@@ -277,6 +384,90 @@ async def operation_catalog_write(
     if care:
         runtime.catalog_care_timings["commit_ms"] = (runtime.clock.monotonic() - care_phase) * 1000
     return result
+
+
+type CatalogWriteTable = Literal[
+    "catalog_head", "catalog_content_revision", "catalog_entry_revision"
+]
+CATALOG_WRITE_TABLES: tuple[CatalogWriteTable, ...] = (
+    "catalog_head",
+    "catalog_content_revision",
+    "catalog_entry_revision",
+)
+
+
+class PreparedCatalogWrite(Model):
+    expected_active_revision: int | None
+    expected_content_revision: int
+    sighting_digest: str
+    request_id: str
+    request_digest: str
+    care: bool
+    result: dict[str, Any]
+    rows: dict[CatalogWriteTable, dict[str, dict[str, Any]]]
+
+
+def sighting_digest(state: State, catalog: str) -> str:
+    return checksum(
+        {
+            key: row
+            for key, row in state.tables["catalog_sighting"].items()
+            if row["catalog"] == catalog
+        }
+    )
+
+
+async def prepare_work_catalog_write(runtime: Runtime, operation: str, payload: Any) -> Any:
+    return await operation_catalog_write(
+        runtime,
+        runtime.state.catalog_clone(),
+        operation,
+        payload,
+        runtime.clock.now_utc(),
+        runtime.config,
+        prepare_only=True,
+    )
+
+
+async def publish_catalog_write(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: PreparedCatalogWrite,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> dict[str, Any]:
+    if previous := await runtime.store.get("catalog_request", payload.request_id):
+        if previous["digest"] != payload.request_digest:
+            raise ValueError("catalog_request_conflict")
+        result: dict[str, Any] = previous["result"]
+        return result
+    if state.active_revision != payload.expected_active_revision:
+        raise ValueError("active_revision_conflict")
+    key = payload.result["catalog"]
+    if (
+        state.tables["catalog_head"].get(key, {}).get("revision", 0)
+        != payload.expected_content_revision
+        or sighting_digest(state, key) != payload.sighting_digest
+    ):
+        raise ValueError("catalog_content_conflict")
+    for table, rows in payload.rows.items():
+        state.tables[table].update(rows)
+    return await finalize_catalog_write(
+        runtime,
+        state,
+        config,
+        payload.result,
+        payload.request_id,
+        payload.request_digest,
+        payload.care,
+        runtime.clock.monotonic(),
+    )
+
+
+slots.OPERATIONS["catalog_write_prepared"] = slots.Operation(
+    publish_catalog_write, state="catalog", early=False
+)
 
 
 slots.OPERATIONS["catalog_write"] = slots.Operation(

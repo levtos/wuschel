@@ -42,6 +42,32 @@ def change(key="Synthetic First", **extra):
     }
 
 
+async def test_prepared_catalog_write_is_atomic_and_checks_live_basis(runtime, config):
+    from core_contracts.extensions.catalog.catalog_operations import (
+        PreparedCatalogWrite,
+        prepare_work_catalog_write,
+    )
+
+    await activate(runtime, configured(config))
+    staged = await prepare_work_catalog_write(
+        runtime, "catalog_write", {"request": request(runtime)}
+    )
+    assert isinstance(staged, PreparedCatalogWrite)
+    assert not runtime.state.tables["catalog_head"]
+    result = await runtime.submit("catalog_write_prepared", staged)
+    assert result["content_revision"] == 1
+    assert await runtime.submit("catalog_write_prepared", staged) == result
+
+    old = await prepare_work_catalog_write(
+        runtime, "catalog_write", {"request": request(runtime, revision=1)}
+    )
+    assert isinstance(old, PreparedCatalogWrite)
+    old = old.model_copy(update={"expected_content_revision": 0})
+    with pytest.raises(ValueError, match="catalog_content_conflict"):
+        await runtime.submit("catalog_write_prepared", old)
+    assert await runtime.store.get("catalog_request", old.request_id) is None
+
+
 def request(runtime, changes=None, revision=0, request_id=None):
     return {
         "catalog_id": "example.titles",

@@ -155,10 +155,10 @@ class API:
                 and job_route("GET", request.path.removeprefix("/api/v1/"))
             )
             if work_actor is not None:
-                from .work_routes import read_route
+                from .work_routes import work_route
 
                 path = request.path.removeprefix("/api/v1/")
-                if not read_route(request.method, path):
+                if not work_route(request.method, path):
                     raise web.HTTPNotFound()
                 role = work_actor["role"]
             elif ingress:
@@ -1090,9 +1090,12 @@ class API:
             else:
                 raise web.HTTPMethodNotAllowed(method, ["GET", "PUT", "POST"])
         elif path == "registry/rollback" and method == "POST":
-            result = await runtime.submit(
-                "rollback", {**await self.object_body(request), "_actor": request["actor"]}
-            )
+            body = await self.object_body(request)
+            if self.work and body.get("catalog_migration_revision") is not None:
+                queued = await self.work.queue(request, "catalogs/classes/rollback", body=body)
+                assert queued is not None
+                return queued
+            result = await runtime.submit("rollback", {**body, "_actor": request["actor"]})
         elif path == "tokens" and method == "GET":
             result = {"roles": ["consumer", "admin"], "tokens_visible": False}
         elif path == "tokens/rotate" and method == "POST":

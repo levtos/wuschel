@@ -1,7 +1,8 @@
 """Preview and restore registry and catalog contents in the same writer transaction."""
 
 from copy import deepcopy
-from typing import Any
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from core_contracts import slots
@@ -14,12 +15,39 @@ from core_contracts.extensions.catalog.managed_catalog import (
     prepare,
     validate_heads,
 )
-from core_contracts.model import checksum
+from core_contracts.model import Model, checksum
+from core_contracts.persistence import State
 from core_contracts.registry import RegistryConfig
 from core_contracts.rules.catalog_models import CatalogWrite, EntryChange, ManagedCatalog
 
+if TYPE_CHECKING:
+    from core_contracts.runtime import Runtime
+
 PREFIX = "catalog_class_migration:"
 RECEIPT = "catalog_class_rollback:"
+ROLLBACK_TABLES = (
+    "catalog_head",
+    "catalog_content_revision",
+    "catalog_entry_revision",
+    "title_sync_mapping",
+)
+
+
+class PreparedClassRollback(Model):
+    request: dict[str, Any]
+    legacy_heads: dict[str, int]
+    legacy_sightings: str
+    catalog_rows: dict[str, dict[str, dict[str, Any]]]
+
+
+def legacy_sightings(state: State, keys: dict[str, int]) -> str:
+    return checksum(
+        {
+            key: row
+            for key, row in state.tables["catalog_sighting"].items()
+            if row["catalog"] in keys
+        }
+    )
 
 
 def register_migration(state: Any, contents: list[dict[str, Any]]) -> None:
@@ -177,6 +205,8 @@ async def apply(
     current: RegistryConfig | None,
     restored: RegistryConfig,
     now: Any,
+    *,
+    prepared: PreparedClassRollback | None = None,
 ) -> None:
     movement = payload.get("catalog_migration_revision")
     if movement is None:
@@ -198,6 +228,21 @@ async def apply(
         raise ValueError("catalog_migration_conflict")
     record = record_for(state, current, migration_revision=movement)
     assert record is not None
+    if prepared is not None:
+        if (
+            any(
+                state.tables["catalog_head"].get(key, {}).get("revision") != revision
+                for key, revision in prepared.legacy_heads.items()
+            )
+            or legacy_sightings(state, prepared.legacy_heads) != prepared.legacy_sightings
+        ):
+            raise ValueError("catalog_migration_conflict")
+        for table in ROLLBACK_TABLES:
+            for key, row in prepared.catalog_rows.get(table, {}).items():
+                if "at" in row:
+                    row = {**row, "at": now.isoformat()}
+                state.tables[table][key] = row
+        return
     actor = payload.get("_actor")
     for item in record["catalogs"]:
         catalog = definition(restored, item["catalog_id"], item["old_version"])
@@ -239,6 +284,56 @@ async def apply(
         }
 
 
+async def prepare_work_rollback(runtime: Runtime, payload: dict[str, Any]) -> Any:
+    movement = payload.get("catalog_migration_revision")
+    if type(movement) is not int:
+        raise ValueError("catalog_migration_conflict")
+    if previous := prior(runtime.state, payload):
+        return previous
+    if type(payload.get("expected_active_revision")) is not int:
+        raise ValueError("invalid_expected_revision")
+    if payload["expected_active_revision"] != runtime.state.active_revision:
+        raise ValueError("active_revision_conflict")
+    current = runtime.config
+    record = record_for(runtime.state, current, migration_revision=movement) if current else None
+    if record is None:
+        raise ValueError("catalog_migration_conflict")
+    historical = await runtime.store.get("registry_revision", str(payload["revision"]))
+    if historical is None:
+        raise ValueError("revision_not_found")
+    restored = await runtime._checked_config(historical["config"], restore=False)
+    state = runtime.state.catalog_clone()
+    await apply(runtime, state, payload, current, restored, runtime.clock.now_utc())
+    keys = {
+        head_key(definition(restored, row["catalog_id"], row["old_version"])): row["old_revision"]
+        for row in record["catalogs"]
+    }
+    return PreparedClassRollback(
+        request=payload,
+        legacy_heads=keys,
+        legacy_sightings=legacy_sightings(runtime.state, keys),
+        catalog_rows={
+            table: {key: state.tables[table][key] for key in state._changes.changed.get(table, ())}
+            for table in ROLLBACK_TABLES
+        },
+    )
+
+
+async def publish_rollback(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: PreparedClassRollback,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> Any:
+    from core_contracts.authoring import operation_activate
+
+    return await operation_activate(
+        runtime, state, "rollback", payload.request, now, config, prepared_rollback=payload
+    )
+
+
 def complete(state: Any, payload: Any, result: Any) -> None:
     if (movement := payload.get("catalog_migration_revision")) is None:
         return
@@ -252,6 +347,10 @@ def complete(state: Any, payload: Any, result: Any) -> None:
         "result": result,
     }
 
+
+slots.OPERATIONS["catalog_class_rollback_prepared"] = slots.Operation(
+    publish_rollback, state="full", early=False
+)
 
 slots.AUTHORING.update(
     catalog_rollback_prior=prior,

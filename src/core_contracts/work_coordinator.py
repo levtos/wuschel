@@ -22,7 +22,7 @@ from .work_artifacts import ARTIFACT_CHUNK, PLAN_KINDS
 from .work_capacity import WORKER_IDLE_S, WorkCapacity
 from .work_journal import JobConflict, WorkJournal
 from .work_process import WorkProcess, exit_with_parent, read_frame, write_frame
-from .work_routes import is_long, read_route
+from .work_routes import WRITE_PLANS, is_long, work_route
 
 WORKER_READY_TIMEOUT = 15
 MAX_BODY = 50 * 1024 * 1024
@@ -84,7 +84,7 @@ class Coordinator:
     async def execute(self, worker: Worker, job_id: UUID, metadata: dict[str, Any]) -> None:
         try:
             async with asyncio.timeout(600 if worker.long else 90):
-                await worker.child.send(canonical(metadata).encode())
+                await worker.child.send(canonical({**metadata, "job_id": str(job_id)}).encode())
                 async for piece in self.journal.artifact(job_id, "request"):
                     await worker.child.send(piece)
                 await worker.child.send(b"")
@@ -97,6 +97,16 @@ class Coordinator:
                     await self.journal.append(job_id, "result", part, piece)
                     part += 1
                 plan = None
+                commit = envelope.get("commit")
+                if commit is not None:
+                    if status >= 400 or commit != WRITE_PLANS.get(
+                        (metadata["method"], metadata["path"])
+                    ):
+                        raise ValueError("work_commit_invalid")
+                    part = 0
+                    while piece := await worker.child.receive():
+                        await self.journal.append(job_id, "plan", part, piece)
+                        part += 1
                 if published := envelope.get("plan"):
                     kind, key = published
                     if kind not in PLAN_KINDS or not isinstance(key, str) or len(key) > 64:
@@ -106,6 +116,9 @@ class Coordinator:
                         await self.journal.append(job_id, "plan", part, piece)
                         part += 1
                     plan = (kind, key, checksum(metadata["actor"]))
+            if commit is not None:
+                await self.journal.prepare_commit(job_id, commit)
+                return
             await self.journal.complete(
                 job_id,
                 "finished" if status < 400 else "failed",
@@ -214,10 +227,12 @@ class Coordinator:
         try:
             metadata = json.loads(request.headers["X-Work-Request"])
             method, path = metadata["method"], metadata["path"]
-            if not read_route(method, path):
+            if not work_route(method, path):
                 raise web.HTTPNotFound()
             job_id = UUID(request.headers["X-Work-Id"])
-            limit = TITLE_BODY if path == "title-import/preview" else MAX_BODY
+            limit = (
+                TITLE_BODY if path in {"title-import/preview", "title-import/stage"} else MAX_BODY
+            )
 
             async def chunks() -> AsyncIterator[bytes]:
                 size = 0
@@ -274,6 +289,29 @@ class Coordinator:
         await self.journal.cancel_plan(body["kind"], body["key"], checksum(body["actor"]))
         return web.Response(status=204)
 
+    async def claim_commit(self, request: web.Request) -> web.StreamResponse:
+        row = await self.journal.claim_commit()
+        if row is None:
+            return web.Response(status=204)
+        response = web.StreamResponse(
+            headers={
+                "Content-Type": "application/json",
+                "X-Work-Id": str(row["id"]),
+                "X-Work-Operation": row["prepared_operation"],
+            }
+        )
+        await response.prepare(request)
+        async for part in self.journal.artifact(row["id"], "plan"):
+            await response.write(part)
+        return response
+
+    async def commit_receipt(self, request: web.Request) -> web.Response:
+        job_id = UUID(request.match_info["id"])
+        status = int(request.headers["X-Work-Status"])
+        replacement = await request.read()
+        await self.journal.seal_receipt(job_id, status, replacement or None)
+        return web.Response(status=204)
+
     def app(self) -> web.Application:
         app = web.Application(client_max_size=TITLE_BODY)
         app.add_routes(
@@ -285,6 +323,8 @@ class Coordinator:
                 web.delete("/jobs/{id}", self.job),
                 web.put("/pressure", self.pressure_update),
                 web.delete("/plans", self.cancel_plan),
+                web.post("/commits/claim", self.claim_commit),
+                web.post("/commits/{id}", self.commit_receipt),
             ]
         )
         return app

@@ -14,26 +14,33 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import aiohttp
+import asyncpg
 from aiohttp import web
 
 from .clock import Clock
+from .errors import AuthoringError
 from .model import canonical
 from .work_process import FRAME_LIMIT, WorkProcess
-from .work_routes import read_route
+from .work_routes import work_route
 
 LOGGER = logging.getLogger(__name__)
 
 
 class WorkClient:
     def __init__(
-        self, clock: Clock, discovery: Callable[[], Awaitable[list[dict[str, Any]]]] | None = None
+        self,
+        clock: Clock,
+        discovery: Callable[[], Awaitable[list[dict[str, Any]]]] | None = None,
+        apply: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]] | None = None,
     ) -> None:
         self.clock = clock
         self.discovery = discovery
+        self.apply = apply
         self.ready = asyncio.Event()
         self.session: aiohttp.ClientSession | None = None
         self.pressure = "normal"
         self.changed = asyncio.Event()
+        self.retention_due = asyncio.Event()
         self.status_by_owner: dict[str, dict[str, Any]] = {}
 
     async def supervise(self, configuration: dict[str, Any]) -> None:
@@ -89,11 +96,15 @@ class WorkClient:
                     async with asyncio.TaskGroup() as group:
                         pressure = group.create_task(self.send_pressure())
                         status = group.create_task(self.refresh_status())
+                        commits = group.create_task(self.publish_commits())
+                        retention = group.create_task(self.queue_scheduled_retention())
                         self.ready.set()
                         delay = 0.25
                         await child.process.wait()
                         pressure.cancel()
                         status.cancel()
+                        commits.cancel()
+                        retention.cancel()
             except OSError, EOFError, ValueError, TimeoutError, aiohttp.ClientError:
                 LOGGER.warning("work_coordinator_unavailable")
             finally:
@@ -126,6 +137,114 @@ class WorkClient:
                 continue
             await self.changed.wait()
 
+    async def queue_scheduled_retention(self) -> None:
+        while self.session is not None:
+            await self.retention_due.wait()
+            owner = "internal:system"
+            key = str(uuid4())
+            metadata = canonical(
+                {
+                    "method": "POST",
+                    "path": "history/retention/run",
+                    "query": [],
+                    "headers": {},
+                    "actor": {"kind": "internal", "role": "admin"},
+                    "service": None,
+                }
+            )
+            while self.session is not None:
+                try:
+                    async with self.session.post(
+                        "http://localhost/jobs",
+                        headers={
+                            "X-Work-Owner": owner,
+                            "X-Work-Id": key,
+                            "X-Work-Request": metadata,
+                        },
+                    ) as response:
+                        response.raise_for_status()
+                    self.retention_due.clear()
+                    break
+                except aiohttp.ClientError:
+                    await self.clock.sleep(1)
+
+    async def publish_commits(self) -> None:
+        if self.apply is None:
+            return
+        while self.session is not None:
+            try:
+                if self.pressure != "geschützt":
+                    await self.publish_next_commit(self.session, self.apply)
+            except (
+                aiohttp.ClientError,
+                TimeoutError,
+                OSError,
+                RuntimeError,
+                asyncpg.PostgresError,
+                asyncpg.InterfaceError,
+            ):
+                # A lost acknowledgement is reconciled by the domain receipt
+                # on the next claim, including after restart.
+                await self.clock.sleep(0.5)
+            await self.clock.sleep(0.1)
+
+    async def publish_next_commit(
+        self,
+        session: aiohttp.ClientSession,
+        apply: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]],
+    ) -> None:
+        async with session.post("http://localhost/commits/claim") as response:
+            if response.status == 204:
+                return
+            response.raise_for_status()
+            job_id = str(UUID(response.headers["X-Work-Id"]))
+            operation = response.headers["X-Work-Operation"]
+            encoded = await response.read()
+        status = 200
+        replacement = b""
+        try:
+            plan = await asyncio.to_thread(json.loads, encoded)
+            result = await apply(operation, plan)
+            if (
+                operation != "portable_stage_prepared"
+                or result.get("draft_id") != plan["draft"]["draft_id"]
+            ):
+                replacement = (await asyncio.to_thread(canonical, result)).encode()
+        except AuthoringError as error:
+            status = 409
+            replacement = canonical(
+                {"error": error.code, "cause": error.code, "details": error.details}
+            ).encode()
+        except (ValueError, KeyError) as error:
+            code = (
+                str(error)
+                if type(error) is ValueError
+                and str(error)
+                in {
+                    "import_plan_conflict",
+                    "retention_plan_conflict",
+                    "draft_limit",
+                    "active_revision_conflict",
+                    "catalog_content_conflict",
+                    "catalog_request_conflict",
+                    "catalog_evaluation_failed",
+                    "catalog_cleanup_conflict",
+                    "catalog_migration_conflict",
+                    "catalog_rollback_request_conflict",
+                    "title_sync_plan_conflict",
+                    "title_sync_mapping_conflict",
+                }
+                else "invalid_request"
+            )
+            status = 409 if "conflict" in code else 400
+            replacement = canonical({"error": code}).encode()
+        async with session.post(
+            "http://localhost/commits/" + job_id,
+            headers={"X-Work-Status": str(status)},
+            data=replacement,
+        ) as response:
+            response.raise_for_status()
+
     async def connected(self) -> aiohttp.ClientSession:
         try:
             async with asyncio.timeout(5):
@@ -143,9 +262,14 @@ class WorkClient:
         return {"X-Work-Owner": kind + ":" + role}
 
     async def queue(
-        self, request: web.Request, path: str, *, service: dict[str, Any] | None = None
+        self,
+        request: web.Request,
+        path: str,
+        *,
+        service: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
     ) -> web.StreamResponse | None:
-        if not read_route(request.method, path):
+        if not work_route(request.method, path):
             return None
         value = request.headers.get("Idempotency-Key")
         try:
@@ -175,7 +299,11 @@ class WorkClient:
             async with session.post(
                 "http://localhost/jobs",
                 headers=headers,
-                data=request.content.iter_chunked(FRAME_LIMIT),
+                data=(
+                    canonical(body).encode()
+                    if body is not None
+                    else request.content.iter_chunked(FRAME_LIMIT)
+                ),
             ) as response:
                 if response.status != 202:
                     return await self.forward(request, response)

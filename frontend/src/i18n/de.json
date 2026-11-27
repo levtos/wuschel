@@ -22,6 +22,7 @@
   "work.diagnostics": "Probleme ermitteln",
   "work.phase.waiting": "Wartet",
   "work.phase.running": "Läuft",
+  "work.phase.committing": "Wird übernommen",
   "work.phase.finished": "Fertig",
   "work.phase.failed": "Fehlgeschlagen",
   "work.phase.cancelled": "Abgebrochen",

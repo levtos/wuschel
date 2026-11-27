@@ -516,8 +516,14 @@ def prepare(
 
 
 async def process(
-    runtime: Any, state: Any, operation: str, request: dict[str, Any], now: Any
-) -> dict[str, Any]:
+    runtime: Any,
+    state: Any,
+    operation: str,
+    request: dict[str, Any],
+    now: Any,
+    *,
+    prepare_only: bool = False,
+) -> Any:
     if operation == "title_preview":
         plan = preview(runtime, state, request)
         applied = await runtime.store.get("catalog_import", "title:" + plan["import_id"])
@@ -537,9 +543,24 @@ async def process(
     if applied:
         return {**applied["result"], "already_applied": True}
     result = prepare(runtime, state, request, now, plan)
+    if prepare_only:
+        from core_contracts.portable_stage_work import seal_stage
+
+        return seal_stage(UUID(request_id), digest, result, kind="title-stage")
     state.tables["catalog_import"][key] = {"digest": digest, "result": result}
     await runtime._commit(state)
     return result
+
+
+async def prepare_work_title_stage(runtime: Runtime, payload: Any) -> Any:
+    return await process(
+        runtime,
+        runtime.state.catalog_clone(),
+        "title_stage",
+        payload,
+        runtime.clock.now_utc(),
+        prepare_only=True,
+    )
 
 
 async def operation_title_preview(

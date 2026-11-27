@@ -295,14 +295,21 @@ def test_registered_operations_have_a_closed_classification():
     prepared = {
         "catalog_care_write",
         "catalog_cleanup_apply",
+        "catalog_cleanup_prepared",
+        "catalog_class_rollback_prepared",
         "catalog_scope_apply",
+        "catalog_scope_prepared",
         "catalog_write",
+        "catalog_write_prepared",
         "draft_complete",
         "draft_reconcile",
         "portable_stage",
+        "portable_stage_prepared",
         "retention_run",
+        "retention_run_prepared",
         "title_stage",
         "title_sync_apply",
+        "title_sync_apply_prepared",
     }
     assert not (local & prepared or local & READ_OPERATIONS or prepared & READ_OPERATIONS)
     assert set(slots.OPERATIONS) == local | prepared | READ_OPERATIONS
@@ -327,7 +334,7 @@ async def test_worker_disallows_truth_write_before_dispatch(runtime):
     with pytest.raises(RuntimeError, match="work_read_only"):
         await worker.submit("activate", {})
     with pytest.raises(RuntimeError, match="work_read_only"):
-        await worker.submit("catalog_write", {})
+        await worker.submit("catalog_write_prepared", {})
     assert worker.queue.empty()
 
 

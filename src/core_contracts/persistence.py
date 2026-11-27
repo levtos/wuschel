@@ -24,11 +24,14 @@ from .model import canonical
 from .operations import OperationsSettings
 from .retention import (
     EvidenceOutsideRetention,
+    RetentionBatch,
     RetentionPolicy,
+    apply_retention_batch,
     maintain_postgres,
     pinned_references,
     reference_scope,
     summaries,
+    verify_retention_batch,
 )
 from .state_tracking import PUBLICATIONS, Changes, Owner, RowDict, Rows, Tables, detached
 
@@ -390,6 +393,7 @@ class Store(Protocol):
     async def close(self) -> None: ...
     async def get(self, table: str, key: str) -> dict[str, Any] | None: ...
     async def work_plan(self, kind: str, key: str, owner: str) -> dict[str, Any] | None: ...
+    async def work_title_progress(self, key: str, owner: str) -> dict[str, Any] | None: ...
     async def rows(
         self, table: str, *, contract_id: str | None = None, limit: int = 100
     ) -> list[dict[str, Any]]: ...
@@ -582,6 +586,23 @@ class PostgresStore:
             return await maintain_postgres(
                 self._writer(), now, policy, pinned_references(state), dry_run=dry_run
             )
+
+    async def apply_prepared_retention(
+        self, state: State, key: str, batch: RetentionBatch
+    ) -> dict[str, Any]:
+        async with self._mutex:
+            await self.probe()
+            connection = self._writer()
+            async with connection.transaction():
+                await verify_retention_batch(connection, batch, pinned_references(state))
+                await apply_retention_batch(connection, batch)
+                result = batch.receipt(dry_run=False)
+                await connection.execute(
+                    "INSERT INTO catalog_request (key,payload) VALUES ($1,$2::jsonb)",
+                    key,
+                    canonical({"result": result}),
+                )
+                return result
 
     async def rollups(self, query: HistoryQuery) -> dict[str, Any]:
         if self.pool is None:
@@ -810,6 +831,13 @@ class PostgresStore:
         if self.pool is None:
             raise PersistenceUnavailable("persistence_unavailable")
         return await load_plan(self.pool, kind, key, owner)
+
+    async def work_title_progress(self, key: str, owner: str) -> dict[str, Any] | None:
+        from .work_artifacts import title_progress
+
+        if self.pool is None:
+            raise PersistenceUnavailable("persistence_unavailable")
+        return await title_progress(self.pool, key, owner)
 
     async def managed_entries(self, catalog: str, revision: int) -> dict[str, Any]:
         if self.pool is None:
@@ -1134,6 +1162,9 @@ class MemoryStore:
         return copy.deepcopy(self.state.tables[table].get(key))
 
     async def work_plan(self, kind: str, key: str, owner: str) -> dict[str, Any] | None:
+        return None
+
+    async def work_title_progress(self, key: str, owner: str) -> dict[str, Any] | None:
         return None
 
     async def managed_entries(self, catalog: str, revision: int) -> dict[str, Any]:

@@ -348,7 +348,9 @@ async def preview(runtime: Any, body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def apply(runtime: Any, state: Any, body: dict[str, Any]) -> dict[str, Any]:
+def apply(
+    runtime: Any, state: Any, body: dict[str, Any], *, sealed: dict[str, Any] | None = None
+) -> dict[str, Any]:
     request_id = str(UUID(body["request_id"]))
     digest = checksum({k: v for k, v in body.items() if k != "request_id"})
     previous = state.tables["catalog_request"].get(request_id)
@@ -356,9 +358,12 @@ def apply(runtime: Any, state: Any, body: dict[str, Any]) -> dict[str, Any]:
         if previous["digest"] != digest:
             raise ValueError("catalog_cleanup_conflict")
         return copy.deepcopy(previous["result"])
-    plan = owned(runtime, body)
+    plan = sealed if sealed is not None else owned(runtime, body)
     if (
-        body.get("confirmed") is not True
+        plan["owner"] != checksum(body.get("_actor"))
+        or (runtime.clock.now_utc() - datetime.fromisoformat(plan["at"])).total_seconds()
+        >= PLAN_SECONDS
+        or body.get("confirmed") is not True
         or body.get("plan_digest") != plan["digest"]
         or basis(state) != plan["basis"]
     ):

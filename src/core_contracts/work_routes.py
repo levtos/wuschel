@@ -51,6 +51,7 @@ PLAN_ROUTES = frozenset(
         "catalogs/care/write",
         "catalogs/scope/apply",
         "catalogs/cleanup/apply",
+        "catalogs/classes/rollback",
         "history/retention/run",
     }
 )
@@ -65,6 +66,23 @@ def job_route(method: str, path: str) -> bool:
         return method == "GET"
     match = _JOB_PATH.fullmatch(path)
     return match is not None and (method == "GET" or method == "DELETE" and not match["result"])
+
+
+WRITE_PLANS = {
+    ("POST", "portable/stage"): "portable_stage_prepared",
+    ("POST", "title-import/stage"): "portable_stage_prepared",
+    ("POST", "history/retention/run"): "retention_run_prepared",
+    ("POST", "catalogs/entries"): "catalog_write_prepared",
+    ("POST", "catalogs/care/write"): "catalog_write_prepared",
+    ("POST", "catalogs/cleanup/apply"): "catalog_cleanup_prepared",
+    ("POST", "catalogs/scope/apply"): "catalog_scope_prepared",
+    ("POST", "title-sync/apply"): "title_sync_apply_prepared",
+    ("POST", "catalogs/classes/rollback"): "catalog_class_rollback_prepared",
+}
+
+
+def work_route(method: str, path: str) -> bool:
+    return read_route(method, path) or (method, path) in WRITE_PLANS
 
 
 def read_route(method: str, path: str) -> bool:
