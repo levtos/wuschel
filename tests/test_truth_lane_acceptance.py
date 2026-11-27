@@ -162,7 +162,8 @@ async def migrate(client, headers, runtime):
     preview = await accepted(
         client, headers, runtime.clock, "POST", "catalogs/classes/migration", apply
     )
-    assert preview["preview"]["can_stage"] and not preview["preview"]["unresolved"]
+    assert preview["preview"].get("can_stage") is not False
+    assert not preview["preview"]["unresolved"]
     draft = await accepted(
         client,
         headers,
@@ -250,14 +251,23 @@ async def check_worker_failure(runtime, client, headers, coordinator):
                     assert response.status == 204
             else:
                 os.kill(worker, signal.SIGKILL)
+            terminal = "cancelled" if abort else "failed"
             async with asyncio.timeout(10):
                 while True:
                     async with client.get(location, headers=headers) as response:
                         current = await response.json()
                     if current["phase"] in {"cancelled", "failed"}:
-                        assert current["phase"] == ("cancelled" if abort else "failed")
+                        assert current["phase"] == terminal
                         break
                     await runtime.clock.sleep(0.05)
+            async with asyncio.timeout(5):
+                while True:
+                    async with client.get("/api/v1/system/state", headers=headers) as response:
+                        state = await response.json()
+                    jobs = state["work"]["jobs"]
+                    if any(job["id"] == current["id"] and job["phase"] == terminal for job in jobs):
+                        break
+                    await runtime.clock.sleep(0.25)
         finally:
             if worker in current_children():
                 try:
@@ -347,6 +357,15 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
     lag = []
     expected, observed_events = [], []
     latest = {entity: False for entity in entities}
+    entities_by_source = {
+        binding.source_id: binding.adapter.ha_entity_id
+        for binding in runtime.config.bindings
+        if binding.adapter.kind == "ha_state"
+    }
+
+    def expected_value(contract):
+        return latest[entities_by_source[contract.inputs[0].ref]]
+
     history_queries = 0
     store = runtime.store
     commit = store.commit
@@ -415,7 +434,7 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
                 "last_reported": stamp,
             }
             fake.states[entity] = state
-            if entity == entities[0]:
+            if entity == entities_by_source["source.synthetic_1"]:
                 expected.append((datetime.fromisoformat(stamp), latest[entity]))
             await fake.emit(
                 {"kind": "changed", "entity_id": entity, "new_state": state, "time_fired": stamp}
@@ -428,6 +447,18 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
         )
         parsed = [(datetime.fromisoformat(stamp), value) for stamp, value in observed_events]
         assert parsed == expected
+        await wait_for(
+            lambda: all(
+                row.get("value") is expected_value(contract)
+                for contract in runtime.config.contracts
+                for row in [fake.projection_cache.rows.get(contract.contract_id, {})]
+            )
+        )
+        contracts = runtime.snapshot()["contracts"]
+        assert all(
+            contracts[contract.contract_id]["fields"]["value"]["value"] is expected_value(contract)
+            for contract in runtime.config.contracts
+        )
         assert len(fake.connections) == 1 and not runtime.resubscribe.is_set()
         assert history_queries > 0
         assert lag and max(lag) <= 1000, max(lag, default=0)
