@@ -2,7 +2,7 @@
 
 from copy import deepcopy
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from core_contracts import slots
@@ -19,7 +19,9 @@ from core_contracts.model import Model, checksum
 from core_contracts.persistence import State
 from core_contracts.registry import RegistryConfig
 from core_contracts.rules.catalog_models import CatalogWrite, EntryChange, ManagedCatalog
-from core_contracts.runtime import Runtime
+
+if TYPE_CHECKING:
+    from core_contracts.runtime import Runtime
 
 PREFIX = "catalog_class_migration:"
 RECEIPT = "catalog_class_rollback:"
