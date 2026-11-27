@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.0b31 - Katalogklassen und Sensortypen
+
+- Kataloge können benannte Auswahl-, Ganzzahl- und Ja/Nein-Klassen mit eigenen Standards verwenden. Die Katalogpflege zeigt die einzelnen Werte, ihre Herkunft und betroffene Varianten.
+- Der Umzug und seine Rücknahme verwenden eine gemeinsame Registry- und Katalogübernahme. Die Vorschau zeigt alte Werte, neue Zuordnungen und betroffene Entitäten. Der Titelabgleich zeigt unbekannte Zahlen mit dem verwendeten Standard.
+- Neu zugeordnete Katalogklassen lassen sich über einen Entwurf im zugehörigen Vertrag ausgeben. Beim Umzug greifen für ungepflegte Dimensionen die jeweiligen Standards.
+- Apple TV erfasst Filme ohne zweite Titelzeile auch in Apps mit Serienerkennung als Einzeltitel.
+- Sensortypen lassen sich pflegen und anhand von Geräteklasse, Einheit und Wertart gesammelt zuordnen. Präsenzmelder werden als Bewegung vorgeschlagen. Gleiche Aktualitätsregeln können zu einer Vorlage zusammengefasst werden, während Quellen ihre bisherigen Fristen und Lebenszeichengeber behalten. [#169](https://github.com/Levtos/wuschel/issues/169)
+
+## 1.0.0b30 - Schnellere Ansichten und verständliche Diagnose
+
+- Die Entwurfsliste lädt Kopfdaten. Inhalte folgen bei Auswahl, abgeschlossene Entwürfe auf Wunsch.
+- Katalogzahlen und Katalogpflege verwenden dieselbe aus Katalogstand und Sichtungen abgeleitete Zeilengrundlage. Warnungen nennen den logischen Anfragepfad.
+- Die Übersicht nennt die Zahl gestörter Signale und unvollständiger Einstellungen. Sie zeigt Störungen, Erholung und Verbindungswechsel. „Regel ansehen“ führt zu den Ausgaben der Vorlage. [#171](https://github.com/levtos/wuschel/issues/171)
+
+## 1.0.0b29 - Lastdiagnose im Log
+
+- Die Zeitmessungen für Vorgänge, Beobachtungen und PostgreSQL-Commits erscheinen bei DEBUG. Beobachtungsblöcke werden einmal protokolliert.
+- Das Log nennt bei Lastwechseln beide Zustände, Gründe, Messwerte und den laufenden oder zuletzt beendeten Vorgang.
+- Für aufeinanderfolgende verzögerte Messungen der Ereignisschleife gibt es eine Warnzeile mit Spitzenwert und den dabei überlappenden Vorgängen oder HTTP-Routenmustern. [#167](https://github.com/Levtos/wuschel/issues/167)
+
 ## 1.0.0b28 — Verständliche Bedienung (A2)
 
 - Verträge zeigen Ursache, Kette bis zur verantwortlichen Quelle und den nächsten Schritt. Ansehen legt keinen Entwurf mehr an.

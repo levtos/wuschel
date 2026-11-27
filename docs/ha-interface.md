@@ -150,3 +150,66 @@ Zustandsschreibungen ihrer Sensoren aus. Verbindungsaufbau und -trennung,
 Karenzablauf sowie Wechsel der Installations- oder Epochenkennung aktualisieren
 alle Sensoren. Vollständige Projektion, Protokoll und Entitätskennungen bleiben
 unverändert; neue Verträge werden weiterhin automatisch angelegt.
+
+## Schaltungen anmelden
+
+> Geplante Ergänzung zu Schnittstellenversion 1 für b32. Der
+> [A1-Entwurf](beta/schaltungen-anmelden-a1.md) beschreibt die Freigabe und die
+> Prüffälle.
+
+`traber.register_context` meldet die Herkunft einer ausgeführten HA-Aktion an.
+Die Engine, in deren Auftrag geschaltet wurde, ist der Erzeuger. Ein gemeinsamer
+Ausführer verwendet bei getrennten Aktionen die jeweils beauftragende Engine.
+Die Anmeldung läuft über die bestehende Traber-Verbindung zur Wuschel-App
+derselben HA-Installation. Für den Aufruf gelten HA-Adminrechte.
+
+| Eingabe | Bedeutung |
+| --- | --- |
+| `context_id` | Originale HA-Kontext-ID der ausgeführten Aktion. Nicht leer, höchstens 128 Zeichen. |
+| `producer_id` | Kennung einer in Wuschel übernommenen Steuerung. Es gilt die Kennung aus der Erzeugerpflege. |
+| `lifetime_s` | Optional. Ganze Sekunden von 1 bis 600, Standard 600. |
+
+Bei `status: accepted` liefert Wuschel `expires_at` als ISO-8601-Zeitpunkt in
+UTC. Die Quittung bestätigt die Anmeldung. Der Zustand des Geräts folgt aus
+der tatsächlichen Beobachtung. Eine Wiederholung in derselben Epoche für
+denselben Erzeuger innerhalb der Gültigkeit behält die ursprüngliche Frist.
+
+| Antwort | Bedeutung |
+| --- | --- |
+| `rejected` · `producer_not_allowed` | Der Erzeuger ist unbekannt oder seine Rolle gestattet diese Anmeldung nicht. |
+| `rejected` · `context_conflict`, `context_epoch_conflict`, `context_expired` | Abweichender Erzeuger für dieselbe Kontext-ID, veraltete HA-Epoche oder bekannte abgelaufene Anmeldung. |
+| `rejected` · `disconnected`, `unsupported_protocol`, `busy`, `storage_unavailable` | Die Anmeldung konnte über die aktuelle Verbindung nicht verarbeitet oder gesichert werden. |
+| `unknown_result` · `timeout` | Die Frist für die Quittung ist abgelaufen. Der Ausgang der Anmeldung ist unbekannt. |
+
+Bei ungültigen Eingabefeldern oder fehlender Berechtigung gilt HA-Validierung.
+Aus einer Ablehnung oder einer unklaren Antwort ergibt sich keine Anweisung,
+eine Aktion erneut auszuführen. Nach HA-Neustart gilt die neue Epoche.
+
+Beispiel für eine synthetische Engine mit eigenem Ausführer über die
+HA-WebSocket-API. Der Ausführer führt zuerst den normalen HA-Aufruf aus.
+
+```json
+{"id":41,"type":"call_service","domain":"switch","service":"turn_on",
+ "target":{"entity_id":"switch.example"}}
+```
+
+Nach Erfolg übernimmt er `result.context.id` genau dieses Aufrufs in eine
+zweite Anfrage. Für die Rückmeldung des Anmeldedienstes fordert er die
+HA-Antwortdaten an. [HA-WebSocket-API](https://contributors.home-assistant.io/core/internals/websocket-api/#call-an-action)
+
+```json
+{"id":42,"type":"call_service","domain":"traber","service":"register_context",
+ "return_response":true,
+ "service_data":{"context_id":"01KFX00ABCDEF1234567890GHJ",
+                 "producer_id":"example.engine","lifetime_s":60}}
+```
+
+Die Anmeldequittung steht bei erfolgreichem HA-Aufruf in `result.response`,
+zum Beispiel `{"status":"accepted","expires_at":"2026-11-27T10:01:00Z"}`.
+`result.context.id` dieser zweiten Anfrage gehört zum Anmeldedienst selbst.
+
+Ein freigegebener Vertrag aus der Vorlage **Manuell geändert** liefert `value`
+als Ja bei belegter menschlicher Bedienung, als Nein bei belegter Automatik
+und mit Status `unknown` bei offener Herkunft. `changed_at` liefert den
+belegten Zeitpunkt des Quellwechsels. Es gilt die bestehende HA-Abbildung
+für diese Feldtypen.
