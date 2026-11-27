@@ -89,6 +89,77 @@ slots.OPERATIONS["catalog_cleanup_apply"] = slots.Operation(
 )
 
 
+class PreparedCatalogCleanup(Model):
+    request: dict[str, Any]
+    plan: dict[str, Any]
+    result: dict[str, Any]
+
+
+async def prepare_work_cleanup(runtime: Runtime, payload: dict[str, Any]) -> Any:
+    from uuid import UUID
+
+    from core_contracts.extensions.catalog.catalog_cleanup import apply, owned
+
+    state = runtime.state.clone()
+    request_id = str(UUID(payload["request_id"]))
+    if previous := await runtime.store.get("catalog_request", request_id):
+        state.tables["catalog_request"][request_id] = previous
+        return apply(runtime, state, payload)
+    plan = owned(runtime, payload)
+    selected = set(plan["selected"])
+    sealed = {
+        key: plan[key]
+        for key in (
+            "owner",
+            "at",
+            "digest",
+            "basis",
+            "catalog",
+            "selected",
+            "reset",
+            "catalog_count",
+        )
+    }
+    sealed["sighting_basis"] = {
+        key: plan["sighting_basis"][key] for key in selected if key in plan["sighting_basis"]
+    }
+    sealed["rows"] = [
+        {"identity": row["identity"], "key": row["key"]}
+        for row in plan["rows"]
+        if row["identity"] in selected
+    ]
+    return PreparedCatalogCleanup(
+        request=payload, plan=sealed, result=apply(runtime, state, payload, sealed=sealed)
+    )
+
+
+async def publish_cleanup(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: PreparedCatalogCleanup,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> dict[str, Any]:
+    from uuid import UUID
+
+    from core_contracts.extensions.catalog.catalog_cleanup import apply
+
+    request_id = str(UUID(payload.request["request_id"]))
+    previous = await runtime.store.get("catalog_request", request_id)
+    if previous is not None:
+        state.tables["catalog_request"][request_id] = previous
+    result = apply(runtime, state, payload.request, sealed=payload.plan)
+    if previous is None:
+        await runtime._commit(state)
+    return result
+
+
+slots.OPERATIONS["catalog_cleanup_prepared"] = slots.Operation(
+    publish_cleanup, state="full", early=False
+)
+
+
 async def operation_catalog_tick(
     runtime: Runtime,
     state: State,

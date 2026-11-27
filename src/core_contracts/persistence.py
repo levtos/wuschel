@@ -393,6 +393,7 @@ class Store(Protocol):
     async def close(self) -> None: ...
     async def get(self, table: str, key: str) -> dict[str, Any] | None: ...
     async def work_plan(self, kind: str, key: str, owner: str) -> dict[str, Any] | None: ...
+    async def work_title_progress(self, key: str, owner: str) -> dict[str, Any] | None: ...
     async def rows(
         self, table: str, *, contract_id: str | None = None, limit: int = 100
     ) -> list[dict[str, Any]]: ...
@@ -831,6 +832,13 @@ class PostgresStore:
             raise PersistenceUnavailable("persistence_unavailable")
         return await load_plan(self.pool, kind, key, owner)
 
+    async def work_title_progress(self, key: str, owner: str) -> dict[str, Any] | None:
+        from .work_artifacts import title_progress
+
+        if self.pool is None:
+            raise PersistenceUnavailable("persistence_unavailable")
+        return await title_progress(self.pool, key, owner)
+
     async def managed_entries(self, catalog: str, revision: int) -> dict[str, Any]:
         if self.pool is None:
             raise PersistenceUnavailable("persistence_unavailable")
@@ -1154,6 +1162,9 @@ class MemoryStore:
         return copy.deepcopy(self.state.tables[table].get(key))
 
     async def work_plan(self, kind: str, key: str, owner: str) -> dict[str, Any] | None:
+        return None
+
+    async def work_title_progress(self, key: str, owner: str) -> dict[str, Any] | None:
         return None
 
     async def managed_entries(self, catalog: str, revision: int) -> dict[str, Any]:

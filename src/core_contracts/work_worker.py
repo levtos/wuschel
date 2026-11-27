@@ -19,25 +19,31 @@ from . import wiring  # noqa: F401
 from .api import API
 from .clock import SystemClock
 from .contract_types import type_registry
-from .model import canonical, checksum
+from .model import Model, canonical, checksum
 from .operations import OperationsSettings
 from .persistence import PostgresStore, State
 from .portable_stage_work import PreparedPortableStage, prepare_stage
 from .retention import RetentionPolicy, maintain_postgres, pinned_references
-from .retention_work import PreparedRetention, prepare_retention
+from .retention_work import prepare_retention
 from .runtime import Runtime
 from .setup import Connection
 from .wiring import (
     Credentials,
+    PreparedCatalogCleanup,
     PreparedCatalogWrite,
+    PreparedScopeWrite,
+    PreparedTitlePage,
     prepare_work_catalog_write,
+    prepare_work_cleanup,
+    prepare_work_scope,
+    prepare_work_title_apply,
     prepare_work_title_stage,
     read_titles,
 )
 from .work_artifacts import load_plan
 from .work_capacity import effective_cpu_count
 from .work_process import FRAME_LIMIT, exit_with_parent, read_frame, write_frame
-from .work_routes import work_route
+from .work_routes import WRITE_PLANS, work_route
 
 READ_OPERATIONS = frozenset(
     {
@@ -70,9 +76,7 @@ class WorkerStore(PostgresStore):
 
 class WorkerRuntime(Runtime):
     service_snapshot: dict[str, Any] | None = None
-    prepared_stage: PreparedPortableStage | None = None
-    prepared_retention: PreparedRetention | None = None
-    prepared_catalog: PreparedCatalogWrite | None = None
+    prepared_work: Model | None = None
     job_id: UUID
     retention_scheduled = False
 
@@ -83,27 +87,46 @@ class WorkerRuntime(Runtime):
 
     async def submit(self, operation: str, payload: Any = None) -> Any:
         if operation == "portable_stage":
-            result, self.prepared_stage = await prepare_stage(self, payload)
+            result, self.prepared_work = await prepare_stage(self, payload)
             return result
         if operation == "title_stage":
             result = await prepare_work_title_stage(self, payload)
             if isinstance(result, PreparedPortableStage):
-                self.prepared_stage = result
+                self.prepared_work = result
                 return result.draft
             return result
         if operation == "retention_run":
             assert isinstance(self.store, PostgresStore)
-            self.prepared_retention = await prepare_retention(
+            prepared = await prepare_retention(
                 self,
                 self.store.pool,
                 self.job_id,
                 scheduled=self.retention_scheduled,
             )
-            return self.prepared_retention.batch.receipt(dry_run=False)
+            self.prepared_work = prepared
+            return prepared.batch.receipt(dry_run=False)
         if operation in {"catalog_write", "catalog_care_write"}:
             result = await prepare_work_catalog_write(self, operation, payload)
             if isinstance(result, PreparedCatalogWrite):
-                self.prepared_catalog = result
+                self.prepared_work = result
+                return result.result
+            return result
+        if operation == "catalog_cleanup_apply":
+            result = await prepare_work_cleanup(self, payload)
+            if isinstance(result, PreparedCatalogCleanup):
+                self.prepared_work = result
+                return result.result
+            return result
+        if operation == "title_sync_apply":
+            result = await prepare_work_title_apply(self, payload)
+            if isinstance(result, PreparedTitlePage):
+                self.prepared_work = result
+                return result.result
+            return result
+        if operation == "catalog_scope_apply":
+            result = await prepare_work_scope(self, payload)
+            if isinstance(result, PreparedScopeWrite):
+                self.prepared_work = result
                 return result.result
             return result
         if operation not in READ_OPERATIONS:
@@ -233,15 +256,9 @@ async def run(
                             key, artifact = next(iter(plans.items()))
                             plan_info = (plan_kind, key)
                         commit = None
-                        if response.status < 400 and runtime.prepared_stage is not None:
-                            artifact = runtime.prepared_stage.model_dump(mode="json")
-                            commit = "portable_stage_prepared"
-                        elif response.status < 400 and runtime.prepared_retention is not None:
-                            artifact = runtime.prepared_retention.model_dump(mode="json")
-                            commit = "retention_run_prepared"
-                        elif response.status < 400 and runtime.prepared_catalog is not None:
-                            artifact = runtime.prepared_catalog.model_dump(mode="json")
-                            commit = "catalog_write_prepared"
+                        if response.status < 400 and runtime.prepared_work is not None:
+                            artifact = runtime.prepared_work.model_dump(mode="json")
+                            commit = WRITE_PLANS[method, path]
                         write_frame(
                             sys.stdout.buffer,
                             canonical(

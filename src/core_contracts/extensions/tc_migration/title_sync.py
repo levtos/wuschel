@@ -433,7 +433,8 @@ async def process(
 ) -> dict[str, Any]:
     from core_contracts.extensions.tc_migration.title_sync_runs import process as process_run
 
-    return await process_run(runtime, state, operation, body, now)
+    result: dict[str, Any] = await process_run(runtime, state, operation, body, now)
+    return result
 
 
 async def recover_capture(runtime: Runtime, state: State, context: Any) -> None:

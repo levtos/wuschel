@@ -228,6 +228,9 @@ class WorkClient:
                     "catalog_content_conflict",
                     "catalog_request_conflict",
                     "catalog_evaluation_failed",
+                    "catalog_cleanup_conflict",
+                    "title_sync_plan_conflict",
+                    "title_sync_mapping_conflict",
                 }
                 else "invalid_request"
             )

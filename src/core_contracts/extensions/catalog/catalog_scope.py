@@ -2,9 +2,11 @@
 
 import copy
 from collections import defaultdict
-from typing import Any
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
 
+from core_contracts import slots
 from core_contracts.extensions.catalog.catalog_care import fields
 from core_contracts.extensions.catalog.catalog_mapping import ImportWrite, current_mapping
 from core_contracts.extensions.catalog.managed_catalog import (
@@ -17,7 +19,12 @@ from core_contracts.extensions.catalog.managed_catalog import (
     invalidate,
     prepare,
 )
-from core_contracts.model import canonical, checksum
+from core_contracts.model import Model, canonical, checksum
+from core_contracts.persistence import State
+from core_contracts.registry import RegistryConfig
+
+if TYPE_CHECKING:
+    from core_contracts.runtime import Runtime
 from core_contracts.text_rules import normalize_key
 
 RECEIPT = "catalog_scope_repair:v1"
@@ -353,8 +360,14 @@ def basis(state: Any, clear_pc: bool) -> str:
 
 
 async def process(
-    runtime: Any, state: Any, operation: str, body: dict[str, Any], now: Any
-) -> dict[str, Any]:
+    runtime: Any,
+    state: Any,
+    operation: str,
+    body: dict[str, Any],
+    now: Any,
+    *,
+    prepare_only: bool = False,
+) -> Any:
     request_id = (
         str(UUID(body["request_id"])) if operation == "catalog_scope_apply" else str(UUID(int=0))
     )
@@ -396,6 +409,7 @@ async def process(
     from core_contracts.rules.catalog_models import EntryChange
 
     affected: set[str] = set()
+    effects = []
     latches = copy.deepcopy(runtime.latches)
     for group in plan["groups"]:
         if not group["entries"]:
@@ -413,8 +427,11 @@ async def process(
         )
         prepared = prepare(state, config, request, body.get("_actor"), now, expanded_limit=LIMIT)
         if not previewing:
-            affected.update(affected_contracts(state, prepared))
-            latches = invalidate(state, prepared, latches)
+            if prepare_only:
+                effects.append(prepared)
+            else:
+                affected.update(affected_contracts(state, prepared))
+                latches = invalidate(state, prepared, latches)
     if previewing:
         return result
     state.tables["catalog_sighting"] = plan["sightings"]
@@ -434,24 +451,165 @@ async def process(
         and clear_pc
         and device_scope(config, c.catalog_id, c.version) == "pc"
     }
-    for key, tracker in state.tables["service_state"].items():
-        if (
-            key.startswith("catalog_playback:")
-            and tracker.get("pending", {}).get("catalog") in cleared
-        ):
-            tracker.pop("pending", None)
+    if prepare_only:
+        original = runtime.state
+        return PreparedScopeWrite(
+            expected_active_revision=original.active_revision,
+            expected_heads=head_revisions(original),
+            expected_sightings=sighting_checksum(original),
+            expected_mapping_version=current_mapping(original)["version"],
+            request_id=request_id,
+            request_digest=request_digest,
+            actor=body.get("_actor"),
+            cleared=sorted(cleared),
+            effects=effects,
+            sightings=plan["sightings"],
+            result=result,
+            rows={
+                table: {
+                    key: state.tables[table][key] for key in state._changes.changed.get(table, ())
+                }
+                for table in SCOPE_WRITE_TABLES
+            },
+        )
+    clear_pending(state, cleared)
     if affected and runtime._evaluate(
         state, config, origin="revision", initial_latches=latches, affected_contracts=affected
     ):
         runtime.pending_latches = None
         runtime.pending_refresh.clear()
         raise ValueError("catalog_evaluation_failed")
+    return await save_scope(
+        runtime, state, result, request_id, request_digest, body.get("_actor"), now, bool(affected)
+    )
+
+
+def clear_pending(state: State, cleared: set[str]) -> None:
+    for key, tracker in state.tables["service_state"].items():
+        if (
+            key.startswith("catalog_playback:")
+            and tracker.get("pending", {}).get("catalog") in cleared
+        ):
+            tracker.pop("pending", None)
+
+
+async def save_scope(
+    runtime: Runtime,
+    state: State,
+    result: dict[str, Any],
+    request_id: str,
+    request_digest: str,
+    actor: Any,
+    now: datetime,
+    publication: bool,
+) -> dict[str, Any]:
     result.update(complete=True, request_id=request_id, publication_seq=state.publication_seq)
     state.tables["catalog_request"][request_id] = {"digest": request_digest, "result": result}
     state.tables["catalog_request"][RECEIPT] = {
         "result": result,
         "at": now.isoformat(),
-        "actor": body.get("_actor"),
+        "actor": actor,
     }
-    await runtime._commit(state, publication=bool(affected))
+    await runtime._commit(state, publication=publication)
     return result
+
+
+type ScopeWriteTable = Literal[
+    "catalog_head", "catalog_content_revision", "catalog_entry_revision", "title_sync_mapping"
+]
+SCOPE_WRITE_TABLES: tuple[ScopeWriteTable, ...] = (
+    "catalog_head",
+    "catalog_content_revision",
+    "catalog_entry_revision",
+    "title_sync_mapping",
+)
+
+
+class PreparedScopeWrite(Model):
+    expected_active_revision: int | None
+    expected_heads: dict[str, int]
+    expected_sightings: str
+    expected_mapping_version: int
+    request_id: str
+    request_digest: str
+    actor: Any
+    cleared: list[str]
+    effects: list[dict[str, Any]]
+    sightings: dict[str, dict[str, Any]]
+    result: dict[str, Any]
+    rows: dict[ScopeWriteTable, dict[str, dict[str, Any]]]
+
+
+def head_revisions(state: State) -> dict[str, int]:
+    return {key: row["revision"] for key, row in state.tables["catalog_head"].items()}
+
+
+def sighting_checksum(state: State) -> str:
+    return checksum(state.tables["catalog_sighting"])
+
+
+async def prepare_work_scope(runtime: Runtime, body: dict[str, Any]) -> Any:
+    return await process(
+        runtime,
+        runtime.state.clone(),
+        "catalog_scope_apply",
+        body,
+        runtime.clock.now_utc(),
+        prepare_only=True,
+    )
+
+
+async def publish_scope(
+    runtime: Runtime,
+    state: State,
+    operation: str,
+    payload: PreparedScopeWrite,
+    now: datetime,
+    config: RegistryConfig | None,
+) -> dict[str, Any]:
+    if previous := await runtime.store.get("catalog_request", payload.request_id):
+        if previous["digest"] != payload.request_digest:
+            raise ValueError("catalog_request_conflict")
+        result: dict[str, Any] = copy.deepcopy(previous["result"])
+        return result
+    if previous := await runtime.store.get("catalog_request", RECEIPT):
+        prior: dict[str, Any] = copy.deepcopy(previous["result"])
+        return prior
+    if config is None or state.active_revision != payload.expected_active_revision:
+        raise ValueError("active_revision_conflict")
+    if (
+        head_revisions(state) != payload.expected_heads
+        or sighting_checksum(state) != payload.expected_sightings
+        or current_mapping(state)["version"] != payload.expected_mapping_version
+    ):
+        raise ValueError("catalog_content_conflict")
+    for table, rows in payload.rows.items():
+        state.tables[table].update(rows)
+    latches = copy.deepcopy(runtime.latches)
+    affected: set[str] = set()
+    for prepared in payload.effects:
+        affected.update(affected_contracts(state, prepared))
+        latches = invalidate(state, prepared, latches)
+    state.tables["catalog_sighting"] = payload.sightings
+    clear_pending(state, set(payload.cleared))
+    if affected and runtime._evaluate(
+        state, config, origin="revision", initial_latches=latches, affected_contracts=affected
+    ):
+        runtime.pending_latches = None
+        runtime.pending_refresh.clear()
+        raise ValueError("catalog_evaluation_failed")
+    return await save_scope(
+        runtime,
+        state,
+        payload.result,
+        payload.request_id,
+        payload.request_digest,
+        payload.actor,
+        now,
+        bool(affected),
+    )
+
+
+slots.OPERATIONS["catalog_scope_prepared"] = slots.Operation(
+    publish_scope, state="full", early=False
+)

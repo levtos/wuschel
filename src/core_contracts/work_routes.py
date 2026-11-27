@@ -73,6 +73,9 @@ WRITE_PLANS = {
     ("POST", "history/retention/run"): "retention_run_prepared",
     ("POST", "catalogs/entries"): "catalog_write_prepared",
     ("POST", "catalogs/care/write"): "catalog_write_prepared",
+    ("POST", "catalogs/cleanup/apply"): "catalog_cleanup_prepared",
+    ("POST", "catalogs/scope/apply"): "catalog_scope_prepared",
+    ("POST", "title-sync/apply"): "title_sync_apply_prepared",
 }
 
 

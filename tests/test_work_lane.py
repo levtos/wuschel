@@ -275,7 +275,9 @@ def test_registered_operations_have_a_closed_classification():
     prepared = {
         "catalog_care_write",
         "catalog_cleanup_apply",
+        "catalog_cleanup_prepared",
         "catalog_scope_apply",
+        "catalog_scope_prepared",
         "catalog_write",
         "catalog_write_prepared",
         "draft_complete",
@@ -286,6 +288,7 @@ def test_registered_operations_have_a_closed_classification():
         "retention_run_prepared",
         "title_stage",
         "title_sync_apply",
+        "title_sync_apply_prepared",
     }
     assert not (local & prepared or local & READ_OPERATIONS or prepared & READ_OPERATIONS)
     assert set(slots.OPERATIONS) == local | prepared | READ_OPERATIONS

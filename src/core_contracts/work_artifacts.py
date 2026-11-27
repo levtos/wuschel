@@ -29,15 +29,21 @@ async def load_plan(
     if not parts:
         return None
     plan = cast(dict[str, Any], json.loads(b"".join(row["content"] for row in parts)))
-    if kind == "title_sync":
-        progress = await reader.fetchval(
-            "SELECT payload->'title_sync_progress' FROM catalog_request "
-            "WHERE payload ? 'title_sync_progress' AND payload->'title_sync_progress'->>'plan_id'=$1 "
-            "AND payload->'title_sync_progress'->>'owner'=$2 "
-            "ORDER BY (payload->'title_sync_progress'->>'applied_page')::integer DESC LIMIT 1",
-            key,
-            owner,
-        )
-        if progress is not None:
-            plan["_work_progress"] = json.loads(progress)
+    if kind == "title_sync" and (progress := await title_progress(reader, key, owner)):
+        plan["_work_progress"] = progress
     return plan
+
+
+async def title_progress(
+    reader: asyncpg.Connection[Any] | asyncpg.Pool[Any], key: str, owner: str
+) -> dict[str, Any] | None:
+    row = await reader.fetchval(
+        "SELECT COALESCE((SELECT payload->'title_sync_progress' FROM catalog_request "
+        "WHERE payload ? 'title_sync_progress' AND payload->'title_sync_progress'->>'plan_id'=$1 "
+        "AND payload->'title_sync_progress'->>'owner'=$2 "
+        "ORDER BY (payload->'title_sync_progress'->>'applied_page')::integer DESC LIMIT 1), '{}'::jsonb) "
+        "FROM cc_work_plan WHERE kind='title_sync' AND plan_key=$1 AND owner=$2",
+        key,
+        owner,
+    )
+    return cast(dict[str, Any], json.loads(row)) if row is not None else None

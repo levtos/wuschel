@@ -30,7 +30,13 @@ from .retention_work import PreparedRetention
 from .runtime import Runtime
 from .security import Tokens
 from .setup import Connection, Setup, probe
-from .wiring import Credentials, PreparedCatalogWrite
+from .wiring import (
+    Credentials,
+    PreparedCatalogCleanup,
+    PreparedCatalogWrite,
+    PreparedScopeWrite,
+    PreparedTitlePage,
+)
 from .work_client import WorkClient
 
 LOGGER = logging.getLogger(__name__)
@@ -241,13 +247,24 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
 
     async def apply_work(operation: str, raw: dict[str, Any]) -> dict[str, Any]:
         if operation == "portable_stage_prepared":
-            plan: PreparedPortableStage | PreparedRetention | PreparedCatalogWrite = (
-                PreparedPortableStage.model_validate(raw)
-            )
+            plan: (
+                PreparedPortableStage
+                | PreparedRetention
+                | PreparedCatalogWrite
+                | PreparedCatalogCleanup
+                | PreparedTitlePage
+                | PreparedScopeWrite
+            ) = PreparedPortableStage.model_validate(raw)
         elif operation == "retention_run_prepared":
             plan = PreparedRetention.model_validate(raw)
         elif operation == "catalog_write_prepared":
             plan = PreparedCatalogWrite.model_validate(raw)
+        elif operation == "catalog_cleanup_prepared":
+            plan = PreparedCatalogCleanup.model_validate(raw)
+        elif operation == "title_sync_apply_prepared":
+            plan = PreparedTitlePage.model_validate(raw)
+        elif operation == "catalog_scope_prepared":
+            plan = PreparedScopeWrite.model_validate(raw)
         else:
             raise ValueError("work_commit_invalid")
         result: dict[str, Any] = await runtime.submit(operation, plan)
