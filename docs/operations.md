@@ -11,6 +11,10 @@ logische PostgreSQL-DB, eigene DB-Rolle und eigene Tokens. Keine Verbindung zur
 Legacy-DB herstellen. Alle Beispiele bleiben synthetisch. Die folgenden Schritte
 sind eine Betriebsvorlage; ältere Alpha-Abnahmen belegen keinen aktuellen Live-Stand.
 
+Der geplante Verarbeiter-Pool, die Auftragswarteschlange und der Lastschutz für
+[#180](https://github.com/Levtos/wuschel/issues/180) stehen im
+[A1-Betriebsentwurf](operations/wahrheit-hat-vorfahrt-a1.md).
+
 ## Betriebseinstellungen und Systemzustand ab b26
 
 **Einstellungen → Betrieb** verwaltet 55 Betriebswerte, getrennt von
