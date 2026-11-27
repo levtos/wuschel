@@ -25,7 +25,14 @@ from .evidence import Observation, assess, is_new, is_older
 from .ha_context import MANUAL_CHANGE_TYPE, ContextIndex, EngineRegistration
 from .load_guard import LoadGuard
 from .model import Model, checksum, utc
-from .operation_timing import Activities, ObservationTimings, TimedStore, Timing, current
+from .operation_timing import (
+    Activities,
+    ObservationTimings,
+    TimedStore,
+    Timing,
+    current,
+    timed_sync,
+)
 from .operations import OperationsSettings
 from .persistence import State, Store
 from .producer import Context, Producer
@@ -1559,6 +1566,7 @@ class Runtime:
                 result[item.name] = source_value(ref, set())
         return result
 
+    @timed_sync
     def _evaluate(
         self,
         state: State,
@@ -2028,8 +2036,8 @@ class Runtime:
         started = self.clock.monotonic()
         measured_at = perf_counter()
         catalog_changed = (
-            state.tables["catalog_sighting"] != self.state.tables["catalog_sighting"]
-            or state.tables["catalog_head"] != self.state.tables["catalog_head"]
+            state.table_differs(self.state, "catalog_sighting")
+            or state.table_differs(self.state, "catalog_head")
             or state.tables["service_state"].get("catalog_counter_epoch")
             != self.state.tables["service_state"].get("catalog_counter_epoch")
         )
@@ -2181,6 +2189,7 @@ class Runtime:
             changed.add(binding.source_id)
         return changed
 
+    @timed_sync
     def _plan_evaluation(self, *, schedule: bool = True) -> None:
         now = self.clock.now_utc()
         due: list[datetime] = []

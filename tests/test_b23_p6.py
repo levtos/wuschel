@@ -7,12 +7,32 @@ from types import SimpleNamespace
 import pytest
 
 from core_contracts.adapters.mqtt import MQTTAdapter
+from core_contracts.persistence import State
 from core_contracts.registry import storage_document
 from core_contracts.runtime import Runtime
 from core_contracts.validation import validate_document as validate
 
 from .conftest import activate
 from .test_runtime import obs
+
+
+def test_catalog_changes_survive_the_forks_of_one_observation_block():
+    state = State()
+    table = "catalog_sighting"
+    state.tables[table]["existing"] = {"seen": 1}
+    state.clean()
+    first = state.live_clone()
+    second = first.live_clone()
+    assert not second.table_differs(state, table)
+
+    first.tables[table]["existing"]["seen"] = 2
+    second = first.live_clone()
+    assert second.table_differs(state, table)
+    second.tables[table]["existing"]["seen"] = 1
+    assert not second.table_differs(state, table)
+    del second.tables[table]["existing"]
+    assert second.table_differs(state, table)
+    assert state.tables[table]["existing"] == {"seen": 1}
 
 
 @pytest.mark.parametrize("kind", ["event", "contact"])

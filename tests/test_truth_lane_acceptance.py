@@ -90,7 +90,7 @@ def config(scale):
     return result
 
 
-def worker_config(dsn, operations):
+def worker_config(dsn, operations, installation_id):
     parts = urlsplit(dsn)
     return {
         "connection": {
@@ -102,7 +102,7 @@ def worker_config(dsn, operations):
             "sslmode": "disable",
         },
         "operations": operations.model_dump(mode="json"),
-        "installation_id": "synthetic-acceptance",
+        "installation_id": installation_id,
     }
 
 
@@ -276,7 +276,7 @@ async def test_double_inventory_acceptance(
     store = PostgresStore(database, MIGRATIONS, tls=False, operations=operations)
     await store.open()
     runtime = Runtime(store, clock, type_registry(), operations=operations)
-    runtime.installation_id = "synthetic-acceptance"
+    runtime.installation_id = str(uuid4())
     await runtime.start()
     work = WorkClient(clock, apply=partial(apply_work, runtime))
     tokens = Tokens(tmp_path / "secrets")
@@ -313,7 +313,9 @@ async def test_double_inventory_acceptance(
         async with aiohttp.ClientSession() as session:
             adapter = BridgeAdapter(runtime, session, str(ha.make_url("/websocket")), "synthetic")
             tasks = [
-                asyncio.create_task(work.supervise(worker_config(database, operations))),
+                asyncio.create_task(
+                    work.supervise(worker_config(database, operations, runtime.installation_id))
+                ),
                 asyncio.create_task(clock.run()),
                 asyncio.create_task(adapter.run()),
                 asyncio.create_task(adapter.projection_worker()),
