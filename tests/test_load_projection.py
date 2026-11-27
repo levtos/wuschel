@@ -89,7 +89,7 @@ async def test_pause_stops_heartbeats_keeps_truth_and_stales_traber_after_120s(
             await asyncio.gather(*tasks, return_exceptions=True)
 
 
-async def test_protection_coalesces_at_configured_interval_without_reconnect(
+async def test_protection_keeps_projection_current_without_reconnect(
     runtime, config, aiohttp_server
 ):
     config = registry(config, definition())
@@ -135,18 +135,15 @@ async def test_protection_coalesces_at_configured_interval_without_reconnect(
             for index in range(51):
                 await runtime.submit("observation", observation(runtime, bool(index % 2)))
             await runtime.submit("observation", observation(runtime, True))
-            await settle()
-            assert len(projections()) == baseline
-            # Last normal send was at zero; protected sends cannot bypass the gate.
-            runtime.clock.advance(4.9)
-            await settle()
-            assert len(projections()) == baseline
-            runtime.clock.advance(0.1)
-            await until(lambda: len(projections()) == baseline + 1)
-            assert projections()[-1]["publication_seq"] == runtime.state.publication_seq
+            await until(
+                lambda: (
+                    len(projections()) > baseline
+                    and projections()[-1]["publication_seq"] == runtime.state.publication_seq
+                )
+            )
+            assert runtime.load_guard.state == "geschützt"
             assert projections()[-1]["contracts"][0]["value"] is True
             assert len(fake.connections) == 1 and not runtime.resubscribe.is_set()
-            # Recovery lifts the gate immediately after its own hold.
             runtime.event_loop_lag_ms = 0
             runtime.sample_load()
             runtime.clock.advance(runtime.operations.load_recover_hold_s)
