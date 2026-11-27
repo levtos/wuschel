@@ -56,7 +56,11 @@ Prozessversuch.
 Läufe mit `--scale 1` und `--scale 2`, jeweils mit und ohne `--administration`.
 `--profile` ergänzt ein kumuliertes CPU-Profil. Der manuelle GitHub-Arbeitsablauf
 **Platform Alpha 1** bietet unter **work_acceptance** einen kurzen Probelauf und den
-60-Minuten-Lauf mit doppeltem Bestand und 40 Ereignissen pro Sekunde an.
+60-Minuten-Lauf mit doppeltem Bestand, 10 Ereignissen pro Sekunde und
+Zehn-Sekunden-Spitzen mit 50 Ereignissen pro Sekunde alle fünf Minuten an.
+Grundlage ist das A1-Planungsprofil mit 5 Ereignissen pro Sekunde und
+Spitzen mit 25 pro Sekunde. Die tatsächliche mittlere Live-Rate wurde nicht
+gemessen. Die bisherigen 40 Ereignisse pro Sekunde waren ein konstanter Stresstest.
 
 ## Linux-Abnahme mit PostgreSQL und Traber
 
@@ -79,5 +83,17 @@ Das zugehörige Aktivierungsfenster dauerte rund 15,5 s. Traber hielt die Verbin
 Der Test konnte **20 von 21** erwarteten geschützten Ereignissen in Reihenfolge
 nachweisen und lief beim Warten auf das fehlende Ereignis in einen Zeitablauf.
 Der Ausweichpfad ist aus A2c entfernt. Die Aktivierung unter laufender Wahrheit
-braucht einen Folgeauftrag. Die 60-Minuten-Abnahme bleibt offen.
+ist in [#186](https://github.com/levtos/wuschel/issues/186) erfasst.
 [Probelauf mit Aktivierung im Schreiber](https://github.com/levtos/wuschel/actions/runs/46072658958)
+
+Der gezielte Regressionstest stellt das 21. geschützte Ereignis während der
+Aktivierung in die Warteschlange. Die alte Revisionsprüfung verwarf es beim
+Abarbeiten. Wuschel übernimmt es jetzt mit der aktiven Revision, wenn die
+Beobachtungsgrundlage der Quelle gleich geblieben ist. Der Test prüft alle
+21 Ereignisse in Reihenfolge und veröffentlicht den letzten Wert über dieselbe
+Traber-Verbindung.
+
+Die freigegebene Doppel-Abnahme misst Registeraktivierung und Rollback separat.
+Die 1-s-Grenze gilt außerhalb dieser Fenster. Reihenfolge, Ereigniserhalt und
+eine durchgehende Traber-Verbindung gelten über die gesamte Abnahme.
+[Messbericht und Freigabe im Issue](https://github.com/levtos/wuschel/issues/180)

@@ -389,7 +389,16 @@ async def test_double_inventory_acceptance(
         await store.close()
 
 
-def window_measurements(lag, windows, start, rate):
+def acceptance_schedule(seconds, scale):
+    # ADR 0034's A1 profile, doubled in both steady state and ten-second bursts.
+    schedule = []
+    for second in range(seconds):
+        rate = 25 * scale if 30 <= second % 300 < 40 else 5 * scale
+        schedule.extend(second + event / rate for event in range(rate))
+    return schedule
+
+
+def window_measurements(lag, windows, start, schedule):
     measured = []
     unprotected_lag = [max(0, finish - target) * 1000 for target, finish in lag]
     for operation, begin, end in windows:
@@ -398,7 +407,7 @@ def window_measurements(lag, windows, start, rate):
             max(0, sample - overlap)
             for sample, overlap in zip(unprotected_lag, overlaps, strict=True)
         ]
-        delayed = sum(begin <= start + index / rate < end for index in range(SECONDS * rate))
+        delayed = sum(begin <= start + offset < end for offset in schedule)
         measured.append(
             {
                 "operation": operation,
@@ -413,7 +422,7 @@ def window_measurements(lag, windows, start, rate):
 async def exercise(runtime, work, client, headers, fake, entities, dsn):
     start, cpu = perf_counter(), process_time()
     first_stamp = runtime.clock.now_utc()
-    rate = 20 * SCALE
+    schedule = acceptance_schedule(SECONDS, SCALE)
     lag, windows = [], []
     expected, observed_events = [], []
     latest = {entity: False for entity in entities}
@@ -494,15 +503,15 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
     tasks = (asyncio.create_task(heartbeat()), asyncio.create_task(operating_state()), routing)
     manage = asyncio.create_task(administration())
     try:
-        for index in range(SECONDS * rate):
-            await runtime.clock.sleep(max(0, start + index / rate - perf_counter()))
+        for index, offset in enumerate(schedule):
+            await runtime.clock.sleep(max(0, start + offset - perf_counter()))
             entity = entities[index % len(entities)]
             latest[entity] = not latest[entity]
             if routing.done():
                 await routing
             if manage.done():
                 await manage
-            stamp = (first_stamp + timedelta(seconds=index / rate)).isoformat()
+            stamp = (first_stamp + timedelta(seconds=offset)).isoformat()
             state = {
                 "state": latest[entity],
                 "attributes": {},
@@ -538,7 +547,7 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
         )
         assert len(fake.connections) == 1 and not runtime.resubscribe.is_set()
         assert history_queries > 0
-        measurements, outside = window_measurements(lag, windows, start, rate)
+        measurements, outside = window_measurements(lag, windows, start, schedule)
         assert [window["operation"] for window in measurements] == ["activate", "rollback"]
         assert outside["max_ms"] <= 1000, outside
         assert perf_counter() - start >= SECONDS
@@ -548,8 +557,10 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
             json.dumps(
                 {
                     "elapsed_s": round(perf_counter() - start, 3),
-                    "event_rate_per_s": rate,
-                    "events_sent": SECONDS * rate,
+                    "steady_event_rate_per_s": 5 * SCALE,
+                    "burst_event_rate_per_s": 25 * SCALE,
+                    "offered_event_rate_per_s": round(len(schedule) / SECONDS, 3),
+                    "events_sent": len(schedule),
                     "protected_events": len(parsed),
                     "history_queries": history_queries,
                     "loop": distribution([max(0, end - target) * 1000 for target, end in lag]),
@@ -571,7 +582,9 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
                 {
                     "partial_elapsed_s": round(perf_counter() - start, 3),
                     "loop": distribution([max(0, end - target) * 1000 for target, end in lag]),
-                    "registry_windows": window_measurements(lag, windows, start, rate)[0],
+                    "registry_windows": window_measurements(lag, windows, start, schedule)[0],
+                    "load": runtime.load_guard.view(runtime.clock.monotonic()),
+                    "history_queries": history_queries,
                     "loop_peak_activity": timings.peak,
                     "observed_events": len(observed_events),
                     "expected_events": len(expected),
