@@ -25,7 +25,14 @@ from .evidence import Observation, assess, is_new, is_older
 from .ha_context import MANUAL_CHANGE_TYPE, ContextIndex, EngineRegistration
 from .load_guard import LoadGuard
 from .model import Model, checksum, utc
-from .operation_timing import Activities, ObservationTimings, TimedStore, Timing, current
+from .operation_timing import (
+    Activities,
+    ObservationTimings,
+    TimedStore,
+    Timing,
+    current,
+    timed_sync,
+)
 from .operations import OperationsSettings
 from .persistence import State, Store
 from .producer import Context, Producer
@@ -35,6 +42,8 @@ from .registry import (
     RegistryConfig,
     affected_sources,
     fingerprints,
+    legacy_context_compatibility,
+    observation_fingerprints,
     registry_types,
     resolve_ref,
     topological,
@@ -76,6 +85,7 @@ class Work:
     payload: Any
     future: asyncio.Future[Any] | None = None
     queued_at: float = dataclass_field(default_factory=perf_counter)
+    observation_config: RegistryConfig | None = None
 
 
 @dataclass
@@ -83,6 +93,14 @@ class SnapshotBatch:
     observations: list[Observation]
     registry_revision: int
     complete: bool = True
+
+
+@dataclass(frozen=True)
+class EvaluationPlan:
+    fingerprints: dict[str, str]
+    types: TypeRegistry
+    order: list[Contract]
+    refresh_fingerprints: dict[str, str]
 
 
 class Runtime:
@@ -113,7 +131,7 @@ class Runtime:
         self.context_index: ContextIndex | None = None
         self.state = State()
         self._config_cache: tuple[int, str, RegistryConfig | None] | None = None
-        self._plans: dict[tuple[Any, ...], tuple[dict[str, str], TypeRegistry, list[Contract]]] = {}
+        self._plans: dict[tuple[Any, ...], EvaluationPlan] = {}
         self._structures: dict[int, Any] = {}
         self._observation_models: dict[str, tuple[dict[str, Any], Observation]] = {}
         self._field_models: dict[str, tuple[dict[str, Any], FieldValue]] = {}
@@ -371,9 +389,7 @@ class Runtime:
             self._config_cache = (*key, self._config(self.state))
         return self._config_cache[2]
 
-    def _evaluation_plan(
-        self, state: State, config: RegistryConfig
-    ) -> tuple[dict[str, str], TypeRegistry, list[Contract]]:
+    def _evaluation_plan(self, state: State, config: RegistryConfig) -> EvaluationPlan:
         revision = state.tables["registry_revision"].get(str(state.active_revision), {})
         key = (
             state.active_revision,
@@ -381,10 +397,17 @@ class Runtime:
             tuple((key, id(value)) for key, value in self.types.types.items()),
         )
         if key not in self._plans:
-            self._plans[key] = (
-                fingerprints(config, self.types),
-                registry_types(config, self.types),
-                topological(config),
+            lineage = fingerprints(config, self.types)
+            self._plans[key] = EvaluationPlan(
+                fingerprints=lineage,
+                types=registry_types(config, self.types),
+                order=topological(config),
+                # Refresh jobs keep their original lineage across fingerprint upgrades.
+                refresh_fingerprints=(
+                    legacy_context_compatibility(config, self.types)
+                    if config.fingerprint_version == 4
+                    else lineage
+                ),
             )
             if len(self._plans) > 4:
                 self._plans.pop(next(iter(self._plans)))
@@ -556,8 +579,12 @@ class Runtime:
             dict[str, Any], await slots.CONFIGURATION["_restore_numbers"](self, document, previous)
         )
 
-    async def _portable_numbers(self, request: dict[str, Any]) -> dict[str, Any]:
-        return cast(dict[str, Any], await slots.CONFIGURATION["_portable_numbers"](self, request))
+    async def _portable_numbers(
+        self, request: dict[str, Any], package: dict[str, Any]
+    ) -> dict[str, Any]:
+        return cast(
+            dict[str, Any], await slots.CONFIGURATION["_portable_numbers"](self, request, package)
+        )
 
     async def _definition_versions(self, config: RegistryConfig) -> None:
         await slots.CONFIGURATION["_definition_versions"](self, config)
@@ -744,11 +771,18 @@ class Runtime:
         if not self.persistence:
             self._buffer_outage(observation)
             return
-        if self.config and observation.source_id in self._structure(self.config).protected:
+        config = self.config
+        if config and observation.source_id in self._structure(config).protected:
             from .observation_block import IngestQueue
 
+            basis = (
+                config
+                if observation.adapter in {"ha_state", "ha_attribute"}
+                and observation.observation_kind in {"live_change", "report"}
+                else None
+            )
             assert isinstance(self.queue, IngestQueue)
-            self.queue.put_event(Work("observation", observation))
+            self.queue.put_event(Work("observation", observation, observation_config=basis))
             return
         if observation.binding_id in self.latest:
             self.latest[observation.binding_id] = observation
@@ -760,6 +794,21 @@ class Runtime:
             self.latest[observation.binding_id] = observation
             self.overflow = True
             self.overflow_serial += 1
+
+    def queued_observation(self, work: Work) -> Observation:
+        observation: Observation = work.payload
+        before = work.observation_config
+        revision = self.state.active_revision
+        if before is None or observation.registry_revision in {None, revision}:
+            return observation
+        after = self.config
+        if after and (
+            observation_fingerprints(before, source_id=observation.source_id)
+            == observation_fingerprints(after, source_id=observation.source_id)
+        ):
+            # A compatible queued HA event carries the same evidence across activation.
+            return observation.model_copy(update={"registry_revision": revision})
+        return observation
 
     def tick(self) -> None:
         self.last_heartbeat = self.clock.monotonic()
@@ -817,7 +866,8 @@ class Runtime:
         timing = Timing(asyncio.current_task())
         timing_token = current.set(timing)
         try:
-            result = await self.process(work.operation, work.payload)
+            payload = self.queued_observation(work) if work.observation_config else work.payload
+            result = await self.process(work.operation, payload)
             if work.future and not work.future.done():
                 work.future.set_result(result)
         except Exception as error:
@@ -1456,7 +1506,7 @@ class Runtime:
                 and manual_observation
                 and manual_observation.manual
                 and manual_observation.manual.source_fingerprint
-                != self._evaluation_plan(state, config)[0][ref]
+                != self._evaluation_plan(state, config).fingerprints[ref]
             ):
                 return unknown(ReasonCode.RESTORE_INCOMPATIBLE, ref, now)
             calendar_binding = next(
@@ -1498,7 +1548,8 @@ class Runtime:
             if (
                 observation
                 and observation.mqtt_revalidated
-                and observation.mqtt_device_proof != self._evaluation_plan(state, config)[0][ref]
+                and observation.mqtt_device_proof
+                != self._evaluation_plan(state, config).fingerprints[ref]
             ):
                 observation = observation.model_copy(update={"mqtt_revalidated": False})
             value = assess(observation, source.freshness, now, ref, liveness)
@@ -1536,7 +1587,7 @@ class Runtime:
                     source,
                     reference_value,
                     state.tables["service_state"],
-                    self._evaluation_plan(state, config)[0][ref],
+                    self._evaluation_plan(state, config).fingerprints[ref],
                     now,
                     new_report=trigger_source == ref,
                 )
@@ -1556,6 +1607,7 @@ class Runtime:
                 result[item.name] = source_value(ref, set())
         return result
 
+    @timed_sync
     def _evaluate(
         self,
         state: State,
@@ -1599,7 +1651,8 @@ class Runtime:
         self.pending_latches = copy.deepcopy(
             self.latches if initial_latches is None else initial_latches
         )
-        fps, types, order = self._evaluation_plan(state, config)
+        plan = self._evaluation_plan(state, config)
+        fps, types, order = plan.fingerprints, plan.types, plan.order
         profiled_sources = {
             f"sensor:{source.source_id}" for source in config.sources if source.sensor_profile
         }
@@ -1848,7 +1901,6 @@ class Runtime:
 
             plan_notices(state, config, now, self.installation_id, self.ingress_slug)
         from .refresh_plan import plan_refreshes
-        from .registry import legacy_context_compatibility
 
         plan_refreshes(
             state,
@@ -1856,9 +1908,7 @@ class Runtime:
             now,
             origin,
             self.bridge == "connected" and self.bridge_protocol_selected == 2,
-            legacy_context_compatibility(config, self.types)
-            if config.fingerprint_version == 4
-            else fps,
+            plan.refresh_fingerprints,
         )
         return evaluation_errors
 
@@ -2025,8 +2075,8 @@ class Runtime:
         started = self.clock.monotonic()
         measured_at = perf_counter()
         catalog_changed = (
-            state.tables["catalog_sighting"] != self.state.tables["catalog_sighting"]
-            or state.tables["catalog_head"] != self.state.tables["catalog_head"]
+            state.table_differs(self.state, "catalog_sighting")
+            or state.table_differs(self.state, "catalog_head")
             or state.tables["service_state"].get("catalog_counter_epoch")
             != self.state.tables["service_state"].get("catalog_counter_epoch")
         )
@@ -2178,6 +2228,7 @@ class Runtime:
             changed.add(binding.source_id)
         return changed
 
+    @timed_sync
     def _plan_evaluation(self, *, schedule: bool = True) -> None:
         now = self.clock.now_utc()
         due: list[datetime] = []
@@ -2194,7 +2245,7 @@ class Runtime:
                 for binding in config.bindings
                 if binding.adapter.calendar is not None
             )
-            _, types, _ = self._evaluation_plan(self.state, config)
+            types = self._evaluation_plan(self.state, config).types
             bindings = {b.source_id: b.binding_id for b in config.bindings}
             observations = self.state.tables["source_observation_current"]
             for source in config.sources:

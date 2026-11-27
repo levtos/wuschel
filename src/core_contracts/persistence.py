@@ -342,6 +342,19 @@ class State(BaseModel):
         result._catalog_base = self
         return result
 
+    def table_differs(self, previous: State, table: str) -> bool:
+        # A live block can make several related forks before its one commit.
+        # Their journal preserves edits from every intermediate fork.
+        base = self._catalog_base
+        while base is not None and base is not previous:
+            base = base._catalog_base
+        current_rows = self.tables[table]
+        previous_rows = previous.tables[table]
+        if base is None:
+            return current_rows != previous_rows
+        changed = self._changes.changed.get(table, set()) | self._changes.deleted.get(table, set())
+        return any(dict.get(current_rows, key) != dict.get(previous_rows, key) for key in changed)
+
     def current_tables(self) -> dict[str, dict[str, dict[str, Any]]]:
         result = {}
         for name, rows in self.tables.items():

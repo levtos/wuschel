@@ -83,6 +83,7 @@ class BlockRuntime(Runtime):
 
 
 async def process_block(runtime: Runtime, first: Work) -> None:
+    fork_started = perf_counter()
     worker = BlockRuntime.__new__(BlockRuntime)
     worker.__dict__ = runtime.__dict__.copy()
     worker.__dict__.pop("process", None)
@@ -98,14 +99,14 @@ async def process_block(runtime: Runtime, first: Work) -> None:
     works: list[Work] = []
     work = first
     started = perf_counter()
-    timing = Timing(asyncio.current_task())
+    timing = Timing(asyncio.current_task(), phases_ms={"fork": (started - fork_started) * 1000})
     token = current.set(timing)
     deadline = started + runtime.operations.observation_block_window_s
     error: Exception | None = None
     try:
         while True:
             works.append(work)
-            await worker.process("observation", work.payload)
+            await worker.process("observation", worker.queued_observation(work))
             if (
                 len(works) >= runtime.operations.observation_block_size
                 or perf_counter() >= deadline
@@ -189,6 +190,7 @@ async def process_block(runtime: Runtime, first: Work) -> None:
                 "run_ms": (finished - started) * 1000,
                 "db_calls": timing.db_calls,
                 "db_ms": timing.db_ms,
+                "phases_ms": timing.phases_ms,
             },
         )
         current.reset(token)

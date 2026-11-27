@@ -56,10 +56,14 @@ def children(rule: dm.ManagedCatalogRule) -> list[tuple[str, Any]]:
     return [(name, getattr(rule, name)) for name in ("scope", "media_type", "signal_type", "key")]
 
 
-def export_contents(checked: Any, state: Any, request: Any, draft: Any) -> Any:
+def export_contents(
+    checked: Any, state: Any, request: Any, draft: Any, *, only: set[tuple[str, int]] | None = None
+) -> Any:
     contents = []
     for catalog in checked.catalogs:
-        if isinstance(catalog, ManagedCatalog):
+        if isinstance(catalog, ManagedCatalog) and (
+            only is None or (catalog.catalog_id, catalog.version) in only
+        ):
             current = head(state, catalog)
             contents.append(
                 {

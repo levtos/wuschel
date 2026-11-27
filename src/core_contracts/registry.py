@@ -587,10 +587,14 @@ def fingerprints(config: RegistryConfig, types: TypeRegistry) -> dict[str, str]:
     return result
 
 
-def observation_fingerprints(config: RegistryConfig) -> dict[str, str]:
+def observation_fingerprints(
+    config: RegistryConfig, *, source_id: str | None = None
+) -> dict[str, str]:
     """No assessment or authoring provenance may invent a new observation."""
     result = {}
     for source in config.sources:
+        if source_id is not None and source.source_id != source_id:
+            continue
         document = source.model_dump(mode="json")
         for field in (
             "freshness",

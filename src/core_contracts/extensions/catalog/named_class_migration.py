@@ -2,6 +2,7 @@
 
 import copy
 from collections import Counter
+from collections.abc import Callable
 from typing import Any
 
 from core_contracts.extensions.catalog.interface_upgrade import CLASS_CODES, entry_map
@@ -13,7 +14,7 @@ from core_contracts.extensions.catalog.managed_catalog import (
 )
 from core_contracts.freshness_templates import upgrade_document
 from core_contracts.model import checksum
-from core_contracts.registry import RegistryConfig
+from core_contracts.registry import RegistryConfig, storage_document
 from core_contracts.rules.catalog_models import CatalogClass, ClassValue, ManagedCatalog
 
 MIGRATION = "named_classes"
@@ -473,7 +474,10 @@ def migration_blockers(package: dict[str, Any]) -> list[dict[str, Any]]:
 def build_package(package: dict[str, Any]) -> dict[str, Any]:
     from core_contracts.portable import read_package
 
-    result = copy.deepcopy(read_package(package))
+    return migrate_package(copy.deepcopy(read_package(package)))
+
+
+def migrate_package(result: dict[str, Any]) -> dict[str, Any]:
     if result.get("legacy") or result["scope"] != "configuration":
         raise ValueError("catalog_migration_requires_configuration")
     document = upgrade_document(result["config"], version=5)
@@ -756,7 +760,16 @@ def configure_package(
 ) -> dict[str, Any]:
     from core_contracts.portable import read_package
 
-    result = copy.deepcopy(read_package(package))
+    return reconfigure_package(copy.deepcopy(read_package(package)), classes, assignments, outputs)
+
+
+def reconfigure_package(
+    result: dict[str, Any],
+    classes: Any,
+    assignments: Any,
+    outputs: Any,
+    load_contents: Callable[[set[tuple[str, int]]], list[dict[str, Any]]] | None = None,
+) -> dict[str, Any]:
     document = result["config"]
     if document.get("config_schema_version") != 5 or result["scope"] != "configuration":
         raise ValueError("registry_schema_5_required")
@@ -803,6 +816,8 @@ def configure_package(
     }
     if outputs is not None:
         publish_class_outputs(document, outputs, before, targets)
+    if load_contents is not None:
+        result["catalog_contents"] = load_contents(set(versions))
     for content in result["catalog_contents"]:
         old_key = (content["catalog_id"], content["definition_version"])
         if old_key not in versions:
@@ -821,6 +836,72 @@ def configure_package(
             definition_digest=definition_digest(target),
         )
     return seal(result)
+
+
+def package_from_snapshot(
+    state: Any, config: RegistryConfig | None, body: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
+    from core_contracts import __version__
+    from core_contracts.extensions.catalog.catalog_contributions import export_contents
+    from core_contracts.portable import package_format
+
+    if body.get("expected_active_revision") != state.active_revision:
+        raise ValueError("active_revision_conflict")
+    if config is None:
+        raise ValueError("export_no_configuration")
+    document = storage_document(config)
+    active = copy.deepcopy(document)
+    refs = {f"contract:{row.contract_id}" for row in config.contracts} | {
+        f"template:{row.type_id}" for row in config.definitions
+    }
+    editorial = [
+        {key: row[key] for key in ("object", "category", "room")}
+        for ref, row in state.tables["editorial_current"].items()
+        if ref in refs
+    ]
+
+    def load_contents(keys: set[tuple[str, int]]) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = export_contents(config, state, {}, None, only=keys)
+        if sum(len(row["entries"]) for row in rows) > 100_000:
+            raise ValueError("export_entry_limit")
+        return rows
+
+    package = {
+        "format": "wuschel.configuration",
+        "format_version": package_format(config.config_schema_version),
+        "scope": "configuration",
+        "producer": {"name": "Wuschel", "version": __version__},
+        "config": document,
+        "editorial": editorial,
+        "catalog_contents": [],
+        "manifest": {"roots": []},
+    }
+    if "catalog_classes" in body:
+        return (
+            reconfigure_package(
+                package,
+                body["catalog_classes"],
+                body.get("assignments", {}),
+                body.get("outputs"),
+                load_contents,
+            ),
+            active,
+            [],
+        )
+    package["catalog_contents"] = load_contents(
+        {
+            (row.catalog_id, row.version)
+            for row in config.catalogs
+            if isinstance(row, ManagedCatalog)
+            and row.catalog_id in ASSIGNMENTS
+            and not row.class_assignments
+            and row.lifecycle != "retired"
+        }
+    )
+    blockers = migration_blockers(package)
+    if blockers:
+        return {}, active, blockers
+    return migrate_package(package), active, []
 
 
 def migration_proof(
