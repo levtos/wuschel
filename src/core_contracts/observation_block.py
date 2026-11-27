@@ -136,8 +136,8 @@ async def process_block(runtime: Runtime, first: Work) -> None:
                 observed = [
                     item.queued_at
                     for item in works
-                    if item.payload.adapter == "ha"
-                    and item.payload.observation_kind == "live_change"
+                    if item.payload.adapter == "ha_state"
+                    and item.payload.observation_kind in {"live_change", "report"}
                 ]
                 if observed:
                     runtime.truth_latency.publish(runtime.state.publication_seq, min(observed))

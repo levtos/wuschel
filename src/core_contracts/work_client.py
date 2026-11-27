@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 import tempfile
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
@@ -16,6 +17,7 @@ import aiohttp
 from aiohttp import web
 
 from .clock import Clock
+from .model import canonical
 from .work_process import FRAME_LIMIT, WorkProcess
 from .work_routes import read_route
 
@@ -23,8 +25,11 @@ LOGGER = logging.getLogger(__name__)
 
 
 class WorkClient:
-    def __init__(self, clock: Clock) -> None:
+    def __init__(
+        self, clock: Clock, discovery: Callable[[], Awaitable[list[dict[str, Any]]]] | None = None
+    ) -> None:
         self.clock = clock
+        self.discovery = discovery
         self.ready = asyncio.Event()
         self.session: aiohttp.ClientSession | None = None
         self.pressure = "normal"
@@ -32,48 +37,73 @@ class WorkClient:
         self.status_by_owner: dict[str, dict[str, Any]] = {}
 
     async def supervise(self, configuration: dict[str, Any]) -> None:
-        delay = 0.25
         with tempfile.TemporaryDirectory(prefix="wuschel-work-") as directory:
             socket = Path(directory) / "jobs.sock"
-            while True:
-                child: WorkProcess | None = None
-                try:
-                    child = await WorkProcess.start(
-                        "core_contracts.work_coordinator", configuration, str(socket)
-                    )
-                    async with asyncio.timeout(30):
-                        if await child.receive() != b"ready":
-                            raise ValueError("work_coordinator_invalid_startup")
-                    async with aiohttp.ClientSession(
-                        connector=aiohttp.UnixConnector(path=str(socket)),
-                        timeout=aiohttp.ClientTimeout(total=None, sock_connect=2),
-                    ) as session:
-                        self.session = session
-                        async with (
-                            asyncio.timeout(2),
-                            session.put(
-                                "http://localhost/pressure", json={"state": self.pressure}
-                            ) as response,
-                        ):
-                            response.raise_for_status()
-                        async with asyncio.TaskGroup() as group:
-                            pressure = group.create_task(self.send_pressure())
-                            status = group.create_task(self.refresh_status())
-                            self.ready.set()
-                            delay = 0.25
-                            await child.process.wait()
-                            pressure.cancel()
-                            status.cancel()
-                except OSError, EOFError, ValueError, TimeoutError, aiohttp.ClientError:
-                    LOGGER.warning("work_coordinator_unavailable")
-                finally:
-                    self.ready.clear()
-                    self.session = None
-                    self.status_by_owner = {}
-                    if child:
-                        await child.stop()
-                await self.clock.sleep(delay)
-                delay = min(delay * 2, 10)
+            metadata_socket = Path(directory) / "ha-metadata.sock"
+            app = web.Application()
+            app.router.add_get("/entities", self.entities)
+            runner = web.AppRunner(app, access_log=None)
+            await runner.setup()
+            try:
+                await web.UnixSite(runner, str(metadata_socket)).start()
+                await self.run_coordinator(
+                    {**configuration, "metadata_socket": str(metadata_socket)}, socket
+                )
+            finally:
+                await runner.cleanup()
+
+    async def entities(self, request: web.Request) -> web.Response:
+        if self.discovery is None:
+            raise web.HTTPServiceUnavailable()
+        try:
+            entities = await self.discovery()
+        except aiohttp.ClientError, ConnectionError, TimeoutError, ValueError, TypeError:
+            raise web.HTTPServiceUnavailable() from None
+        return web.Response(
+            text=await asyncio.to_thread(canonical, entities), content_type="application/json"
+        )
+
+    async def run_coordinator(self, configuration: dict[str, Any], socket: Path) -> None:
+        delay = 0.25
+        while True:
+            child: WorkProcess | None = None
+            try:
+                child = await WorkProcess.start(
+                    "core_contracts.work_coordinator", configuration, str(socket)
+                )
+                async with asyncio.timeout(30):
+                    if await child.receive() != b"ready":
+                        raise ValueError("work_coordinator_invalid_startup")
+                async with aiohttp.ClientSession(
+                    connector=aiohttp.UnixConnector(path=str(socket)),
+                    timeout=aiohttp.ClientTimeout(total=None, sock_connect=2),
+                ) as session:
+                    self.session = session
+                    async with (
+                        asyncio.timeout(2),
+                        session.put(
+                            "http://localhost/pressure", json={"state": self.pressure}
+                        ) as response,
+                    ):
+                        response.raise_for_status()
+                    async with asyncio.TaskGroup() as group:
+                        pressure = group.create_task(self.send_pressure())
+                        status = group.create_task(self.refresh_status())
+                        self.ready.set()
+                        delay = 0.25
+                        await child.process.wait()
+                        pressure.cancel()
+                        status.cancel()
+            except OSError, EOFError, ValueError, TimeoutError, aiohttp.ClientError:
+                LOGGER.warning("work_coordinator_unavailable")
+            finally:
+                self.ready.clear()
+                self.session = None
+                self.status_by_owner = {}
+                if child:
+                    await child.stop()
+            await self.clock.sleep(delay)
+            delay = min(delay * 2, 10)
 
     def set_pressure(self, pressure: str) -> None:
         if pressure != self.pressure:
@@ -177,6 +207,17 @@ class WorkClient:
             except aiohttp.ClientConnectionError:
                 pass
             await self.clock.sleep(0.25)
+
+    async def cancel_plan(self, request: web.Request, kind: str, key: str) -> None:
+        session = await self.connected()
+        try:
+            async with session.delete(
+                "http://localhost/plans",
+                json={"kind": kind, "key": key, "actor": request["actor"]},
+            ) as response:
+                response.raise_for_status()
+        except aiohttp.ClientError:
+            raise web.HTTPServiceUnavailable() from None
 
     async def jobs(self, request: web.Request, path: str) -> web.StreamResponse:
         try:

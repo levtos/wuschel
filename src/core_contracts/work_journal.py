@@ -12,8 +12,8 @@ from uuid import UUID
 import asyncpg
 
 from .model import canonical
+from .work_artifacts import ARTIFACT_CHUNK, PLAN_KINDS
 
-ARTIFACT_CHUNK = 128 * 1024
 _ARTIFACT_QUERY = "SELECT content FROM cc_work_artifact WHERE job_id=$1 AND kind=$2 AND part=$3"
 
 
@@ -151,6 +151,7 @@ class WorkJournal:
         *,
         error: str | None = None,
         result_status: int | None = None,
+        plan: tuple[str, str, str] | None = None,
     ) -> None:
         async with self.lock, self.connection.transaction():
             updated = await self.connection.fetchval(
@@ -161,17 +162,29 @@ class WorkJournal:
                 error,
                 result_status,
             )
+            if updated is not None and plan is not None:
+                kind, key, owner = plan
+                if kind not in PLAN_KINDS or not key or len(key) > 64:
+                    raise ValueError("work_plan_identity_invalid")
+                await self.connection.execute(
+                    "INSERT INTO cc_work_plan (kind, plan_key, owner, job_id) VALUES ($1,$2,$3,$4) "
+                    "ON CONFLICT (kind, plan_key, owner) DO UPDATE SET job_id=EXCLUDED.job_id",
+                    kind,
+                    key,
+                    owner,
+                    job_id,
+                )
             await self.connection.execute(
                 "DELETE FROM cc_work_artifact WHERE job_id=$1 AND "
-                "(kind='request' OR ($2 AND kind='result'))",
+                "(kind='request' OR ($2 AND kind!='request'))",
                 job_id,
-                updated is None,
+                updated is None or result_status is None,
             )
 
     async def requeue(self, job_id: UUID) -> None:
         async with self.lock, self.connection.transaction():
             await self.connection.execute(
-                "DELETE FROM cc_work_artifact WHERE job_id=$1 AND kind='result'", job_id
+                "DELETE FROM cc_work_artifact WHERE job_id=$1 AND kind!='request'", job_id
             )
             await self.connection.execute(
                 "UPDATE cc_work_job SET phase='waiting', updated_at=clock_timestamp() "
@@ -206,6 +219,17 @@ class WorkJournal:
                     job_id,
                     owner,
                 )
+            )
+
+    async def cancel_plan(self, kind: str, key: str, owner: str) -> None:
+        if kind not in PLAN_KINDS or len(key) > 64 or not key:
+            return
+        async with self.lock:
+            await self.connection.execute(
+                "DELETE FROM cc_work_plan WHERE kind=$1 AND plan_key=$2 AND owner=$3",
+                kind,
+                key,
+                owner,
             )
 
     async def prune(self) -> None:

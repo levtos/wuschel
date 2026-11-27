@@ -3,7 +3,9 @@
 import asyncio
 import json
 import os
+import shutil
 import sys
+import tempfile
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,11 +15,12 @@ from uuid import UUID
 import asyncpg
 from aiohttp import web
 
-from .model import canonical
+from .model import canonical, checksum
 from .operations import OperationsSettings
 from .setup import Connection
+from .work_artifacts import ARTIFACT_CHUNK, PLAN_KINDS
 from .work_capacity import WORKER_IDLE_S, WorkCapacity
-from .work_journal import ARTIFACT_CHUNK, JobConflict, WorkJournal
+from .work_journal import JobConflict, WorkJournal
 from .work_process import WorkProcess, exit_with_parent, read_frame, write_frame
 from .work_routes import is_long, read_route
 
@@ -30,6 +33,7 @@ TITLE_BODY = 102 * 1024 * 1024
 class Worker:
     child: WorkProcess
     idle_at: float
+    directory: Path
     job: UUID | None = None
     long: bool = False
     task: asyncio.Task[None] | None = None
@@ -38,8 +42,13 @@ class Worker:
 
 class Coordinator:
     def __init__(
-        self, journal: WorkJournal, configuration: dict[str, Any], capacity: WorkCapacity
+        self,
+        journal: WorkJournal,
+        configuration: dict[str, Any],
+        capacity: WorkCapacity,
+        directory: Path,
     ) -> None:
+        self.directory = directory
         self.journal = journal
         self.configuration = configuration
         self.capacity = capacity
@@ -49,21 +58,28 @@ class Coordinator:
         self.loop = asyncio.get_running_loop()
 
     async def start_worker(self) -> Worker:
-        child = await WorkProcess.start("core_contracts.work_worker", self.configuration)
+        directory = Path(tempfile.mkdtemp(prefix="worker-", dir=self.directory))
+        child: WorkProcess | None = None
         try:
+            child = await WorkProcess.start(
+                "core_contracts.work_worker", self.configuration, str(directory)
+            )
             async with asyncio.timeout(WORKER_READY_TIMEOUT):
                 if await child.receive() != b"ready":
                     raise ValueError("work_worker_invalid_startup")
         except BaseException:
-            await child.stop()
+            if child is not None:
+                await child.stop()
+            shutil.rmtree(directory, ignore_errors=True)
             raise
-        worker = Worker(child, self.loop.time())
+        worker = Worker(child, self.loop.time(), directory)
         self.workers.append(worker)
         return worker
 
     async def drop_idle(self, worker: Worker) -> None:
         self.workers.remove(worker)
         await worker.child.stop()
+        shutil.rmtree(worker.directory, ignore_errors=True)
 
     async def execute(self, worker: Worker, job_id: UUID, metadata: dict[str, Any]) -> None:
         try:
@@ -72,15 +88,29 @@ class Coordinator:
                 async for piece in self.journal.artifact(job_id, "request"):
                     await worker.child.send(piece)
                 await worker.child.send(b"")
-                status = int(await worker.child.receive())
-                if not 200 <= status <= 599:
+                envelope = json.loads(await worker.child.receive())
+                status = envelope["status"]
+                if not isinstance(status, int) or not 200 <= status <= 599:
                     raise ValueError("work_response_invalid")
                 part = 0
                 while piece := await worker.child.receive():
                     await self.journal.append(job_id, "result", part, piece)
                     part += 1
+                plan = None
+                if published := envelope.get("plan"):
+                    kind, key = published
+                    if kind not in PLAN_KINDS or not isinstance(key, str) or len(key) > 64:
+                        raise ValueError("work_plan_identity_invalid")
+                    part = 0
+                    while piece := await worker.child.receive():
+                        await self.journal.append(job_id, "plan", part, piece)
+                        part += 1
+                    plan = (kind, key, checksum(metadata["actor"]))
             await self.journal.complete(
-                job_id, "finished" if status < 400 else "failed", result_status=status
+                job_id,
+                "finished" if status < 400 else "failed",
+                result_status=status,
+                plan=plan,
             )
         except asyncio.CancelledError:
             await worker.child.stop()
@@ -148,7 +178,7 @@ class Coordinator:
         for _ in range(len(running), slots):
             if not await self.journal.waiting():
                 return
-            short_only = slots > 1 and sum(worker.long for worker in running) >= slots - 1
+            short_only = slots > 2 and sum(worker.long for worker in running) >= slots - 1
             record = await self.journal.claim(short_only=short_only)
             if not record:
                 return
@@ -239,6 +269,11 @@ class Coordinator:
             return response
         return web.json_response(job)
 
+    async def cancel_plan(self, request: web.Request) -> web.Response:
+        body = await request.json()
+        await self.journal.cancel_plan(body["kind"], body["key"], checksum(body["actor"]))
+        return web.Response(status=204)
+
     def app(self) -> web.Application:
         app = web.Application(client_max_size=TITLE_BODY)
         app.add_routes(
@@ -249,6 +284,7 @@ class Coordinator:
                 web.get("/jobs/{id}/result", self.job),
                 web.delete("/jobs/{id}", self.job),
                 web.put("/pressure", self.pressure_update),
+                web.delete("/plans", self.cancel_plan),
             ]
         )
         return app
@@ -268,7 +304,7 @@ async def run(configuration: dict[str, Any], socket: Path) -> None:
     try:
         journal = WorkJournal(connection)
         await journal.recover()
-        coordinator = Coordinator(journal, configuration, capacity)
+        coordinator = Coordinator(journal, configuration, capacity, socket.parent)
         await coordinator.start_worker()
         runner = web.AppRunner(coordinator.app(), access_log=None)
         await runner.setup()

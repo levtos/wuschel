@@ -18,11 +18,14 @@ from . import wiring  # noqa: F401
 from .api import API
 from .clock import SystemClock
 from .contract_types import type_registry
+from .model import canonical, checksum
 from .operations import OperationsSettings
 from .persistence import PostgresStore, State
 from .retention import RetentionPolicy, maintain_postgres, pinned_references
 from .runtime import Runtime
 from .setup import Connection
+from .wiring import Credentials, read_titles
+from .work_artifacts import load_plan
 from .work_capacity import effective_cpu_count
 from .work_process import FRAME_LIMIT, exit_with_parent, read_frame, write_frame
 from .work_routes import read_route
@@ -32,9 +35,12 @@ READ_OPERATIONS = frozenset(
         "portable_export",
         "portable_preview",
         "title_preview",
+        "title_sync_preview",
         "catalog_preview",
         "catalog_care_preview",
         "catalog_scope_preview",
+        "catalog_cleanup_preview",
+        "catalog_cleanup_snapshot",
         "draft_preview",
         "validate",
         "retention_preview",
@@ -78,6 +84,30 @@ async def run(
         raise ValueError("work_route_invalid")
     database = Connection.model_validate(configuration["connection"])
     settings = OperationsSettings.model_validate(configuration["operations"])
+    plan_kind = {
+        "catalogs/cleanup/preview": "catalog_cleanup",
+        "title-sync/preview": "title_sync",
+    }.get(path)
+    key = None
+    titles: dict[str, Any] | None = None
+    titles_error: ValueError | None = None
+    if plan_kind is not None:
+        try:
+            key = json.load(body).get("plan_id")
+        except AttributeError, UnicodeError, ValueError:
+            pass
+        finally:
+            body.seek(0)
+    if plan_kind == "title_sync" and not key:
+        try:
+            titles = await read_titles(
+                database,
+                Credentials.model_validate(configuration.get("title_classifier", {})),
+                operations=settings,
+            )
+        except ValueError as error:
+            titles_error = error
+
     connection = await asyncpg.connect(
         database.dsn(),
         ssl=database.tls(),
@@ -104,7 +134,38 @@ async def run(
                 {"registry_revision"} if method == "GET" and path.startswith("history/") else None
             )
             runtime.state = await store.load_read_state(connection, tables=tables)
+            plans = (
+                runtime.title_sync_plans
+                if plan_kind == "title_sync"
+                else runtime.catalog_cleanup_plans
+            )
+            if plan_kind == "catalog_cleanup" and isinstance(key, str):
+                plan = await load_plan(connection, plan_kind, key, checksum(metadata["actor"]))
+                if plan:
+                    plans[key] = plan
+            if metadata_socket := configuration.get("metadata_socket"):
+
+                async def discover(**_: Any) -> list[dict[str, Any]]:
+                    async with (
+                        aiohttp.ClientSession(
+                            connector=aiohttp.UnixConnector(path=metadata_socket),
+                            timeout=aiohttp.ClientTimeout(total=settings.http_timeout_s),
+                        ) as session,
+                        session.get("http://localhost/entities") as response,
+                    ):
+                        response.raise_for_status()
+                        return cast(list[dict[str, Any]], await response.json())
+
+                runtime.entity_discovery = discover
             api = API(runtime, None, runtime.installation_id)
+            if plan_kind == "title_sync":
+
+                async def title_reader() -> dict[str, Any]:
+                    if titles_error is not None:
+                        raise titles_error
+                    return titles or {}
+
+                api.title_reader = title_reader
             if isinstance(metadata.get("service"), dict):
                 runtime.service_snapshot = metadata["service"]
             app = api.application(work_actor=metadata["actor"])
@@ -126,10 +187,23 @@ async def run(
                         headers=metadata["headers"],
                         data=data,
                     ) as response:
-                        write_frame(sys.stdout.buffer, str(response.status).encode())
+                        plan_info = None
+                        artifact = None
+                        if response.status < 400 and plan_kind is not None and plans:
+                            key, artifact = next(iter(plans.items()))
+                            plan_info = (plan_kind, key)
+                        write_frame(
+                            sys.stdout.buffer,
+                            canonical({"status": response.status, "plan": plan_info}).encode(),
+                        )
                         async for part in response.content.iter_chunked(FRAME_LIMIT):
                             write_frame(sys.stdout.buffer, part)
                         write_frame(sys.stdout.buffer, b"")
+                        if artifact is not None:
+                            encoded = canonical(artifact).encode()
+                            for start in range(0, len(encoded), FRAME_LIMIT):
+                                write_frame(sys.stdout.buffer, encoded[start : start + FRAME_LIMIT])
+                            write_frame(sys.stdout.buffer, b"")
             finally:
                 await runner.cleanup()
     finally:
@@ -174,9 +248,8 @@ def main() -> None:
         except OSError:
             pass
     configuration = json.loads(read_frame(sys.stdin.buffer))
-    # The socket is reachable only by this installation's process user.
-    with tempfile.TemporaryDirectory(prefix="wuschel-worker-") as directory:
-        asyncio.run(serve(configuration, Path(directory)))
+    # The coordinator owns this private directory and reaps it with the process.
+    asyncio.run(serve(configuration, Path(sys.argv[2])))
 
 
 if __name__ == "__main__":

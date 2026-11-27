@@ -8,7 +8,7 @@ import re
 import signal
 from pathlib import Path
 from time import perf_counter
-from typing import Literal
+from typing import Any, Literal
 
 import aiohttp
 import asyncpg
@@ -231,7 +231,13 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stopped.set)
-    work = WorkClient(clock)
+
+    async def discover_entities() -> list[dict[str, Any]]:
+        if runtime.entity_discovery is None:
+            raise ConnectionError("ha_discovery_unavailable")
+        return await runtime.entity_discovery(preview=True)
+
+    work = WorkClient(clock, discover_entities)
     work_task: asyncio.Task[None] | None = None
     api = API(
         runtime,
@@ -387,6 +393,10 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
                     "connection": connection.private(),
                     "operations": operations.model_dump(mode="json"),
                     "installation_id": installation_id,
+                    "title_classifier": {
+                        **options.title_classifier.model_dump(),
+                        "password": options.title_classifier.password.get_secret_value(),
+                    },
                 }
             ),
             name="work_coordinator",

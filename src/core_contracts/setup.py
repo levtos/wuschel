@@ -200,6 +200,7 @@ async def probe(
                 "publication",
                 "cc_work_job",
                 "cc_work_artifact",
+                "cc_work_plan",
             }
             if identity:
                 allowed |= {

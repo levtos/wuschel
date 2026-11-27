@@ -27,6 +27,7 @@ from .security import RateLimiter, Tokens
 from .setup import Setup
 from .validation import RegistryValidationError
 from .work_client import WorkClient
+from .work_routes import job_route
 
 # The core dispatcher has a catch-all router resource. Only known names and
 # placeholder patterns may become diagnostic labels.
@@ -71,6 +72,7 @@ LOGICAL_ROUTES = frozenset(
         "tokens",
         "tokens/rotate",
         "types",
+        "work/jobs",
     }
 )
 PARAMETERIZED_ROUTES = (
@@ -85,6 +87,7 @@ PARAMETERIZED_ROUTES = (
     (r"history/.+", "history/{id}"),
     (r"registry/revisions/.+", "registry/revisions/{id}"),
     (r"registry/activation-requests/.+", "registry/activation-requests/{id}"),
+    (r"work/jobs/[0-9A-Fa-f-]{36}(?:/result)?", "work/jobs/{id}"),
     (r"registry/continuations/[^/]+(?:/(decisions|finish|cancel))?", "registry/continuations/{id}"),
     (
         r"registry/drafts/[^/]+(?:/(validate|activate|activation-preview|complete|continuations|reconcile))?",
@@ -500,7 +503,7 @@ class API:
         runtime, state, config = self.runtime, self.runtime.state, self.runtime.config
         self.authorize(request, path, method)
         if self.work:
-            if path == "work/jobs" or path.startswith("work/jobs/"):
+            if job_route(method, path):
                 return await self.work.jobs(request, path)
             service = runtime.service_state() if path == "diagnostics/problems" else None
             if (queued := await self.work.queue(request, path, service=service)) is not None:

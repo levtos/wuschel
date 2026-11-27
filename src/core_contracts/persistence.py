@@ -389,6 +389,7 @@ class Store(Protocol):
     async def probe(self) -> None: ...
     async def close(self) -> None: ...
     async def get(self, table: str, key: str) -> dict[str, Any] | None: ...
+    async def work_plan(self, kind: str, key: str, owner: str) -> dict[str, Any] | None: ...
     async def rows(
         self, table: str, *, contract_id: str | None = None, limit: int = 100
     ) -> list[dict[str, Any]]: ...
@@ -803,6 +804,13 @@ class PostgresStore:
         value = await self.pool.fetchval(f"SELECT payload FROM {table} WHERE key=$1", key)
         return json.loads(value) if value is not None else None
 
+    async def work_plan(self, kind: str, key: str, owner: str) -> dict[str, Any] | None:
+        from .work_artifacts import load_plan
+
+        if self.pool is None:
+            raise PersistenceUnavailable("persistence_unavailable")
+        return await load_plan(self.pool, kind, key, owner)
+
     async def managed_entries(self, catalog: str, revision: int) -> dict[str, Any]:
         if self.pool is None:
             raise PersistenceUnavailable("persistence_unavailable")
@@ -1124,6 +1132,9 @@ class MemoryStore:
     async def get(self, table: str, key: str) -> dict[str, Any] | None:
         await self.probe()
         return copy.deepcopy(self.state.tables[table].get(key))
+
+    async def work_plan(self, kind: str, key: str, owner: str) -> dict[str, Any] | None:
+        return None
 
     async def managed_entries(self, catalog: str, revision: int) -> dict[str, Any]:
         await self.probe()
