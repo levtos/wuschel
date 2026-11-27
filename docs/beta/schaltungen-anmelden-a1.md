@@ -1,6 +1,6 @@
 # Schaltungen anmelden und Herkunft ausgeben
 
-A1-Entwurf für [Wuschel #176](https://github.com/Levtos/wuschel/issues/176), Zielversion `1.0.0b32`. Der [Entscheid vom 27.11.2026](https://github.com/Levtos/wuschel/issues/176#issuecomment-7215660352) weist die Ausführung Cosmo zu. Wuschel führt den Herkunftsnachweis. Traber transportiert die Anmeldung. Bei jeder Schaltung ist die beauftragende Engine der Erzeuger. Claude prüft dieses Design vor Bennis Freigabe für A2.
+A1-Entwurf für [Wuschel #176](https://github.com/Levtos/wuschel/issues/176), Zielversion `1.0.0b32`. Der [Entscheid vom 27.11.2026](https://github.com/Levtos/wuschel/issues/176#issuecomment-7215660352) weist die Ausführung Cosmo zu. Wuschel führt den Herkunftsnachweis. Traber transportiert die Anmeldung. Bei jeder Schaltung ist die beauftragende Engine der Erzeuger. Die Umsetzung berücksichtigt das Claude-Review und den [Nachtrag vom 27.11.2026](https://github.com/Levtos/wuschel/pull/178#issuecomment-7217472556).
 
 ## Ausgangslage
 
@@ -15,7 +15,7 @@ A1-Entwurf für [Wuschel #176](https://github.com/Levtos/wuschel/issues/176), Zi
 1. Der Ausführer führt die Aktion über seine bestehende HA-Verbindung aus. Für eine zweite Engine verwendet er bei deren nächster Aktion deren eigene `producer_id`. Er meldet die ID der ausgeführten Aktion zeitnah an. Ein WebSocket-Ausführer liest sie aus `result.context.id`. Code im HA-Kern kann den selbst erzeugten, tatsächlich mitgegebenen HA-Kontext verwenden.
 2. Traber sendet die Anmeldung über den bestehenden, authentifizierten Protokoll-2-Rückkanal. Die Fähigkeit `context_registration_v1` wird zusätzlich ausgehandelt. Ein eigener Nachrichtentyp und zugehörige Antwort unterscheiden Anmeldungen von Vertragsbefehlen. Traber setzt intern Anfragen-ID, Installationskennung, HA-Prozessepoche und Frist. Der Eigentümer der verbundenen Wuschel-Sitzung ist auch der einzige zulässige Antwortgeber.
 3. Wuschel prüft in seiner seriellen Verarbeitung die Sitzung und Epoche, die Eingaben und den aktuell übernommenen Erzeuger. Nach dauerhaftem Schreiben des Auditbelegs setzt Wuschel den befristeten Automatiknachweis und quittiert. Eine Wiederholung derselben Anmeldung in der gleichen Epoche liefert innerhalb der bekannten Gültigkeit die ursprüngliche Frist. Die Quittung enthält keine Konto- oder Zielinformationen. Ein abweichender Erzeuger für dieselbe Kontext-ID wird abgewiesen. Ein verspäteter Eintrag verlängert einen noch bekannten abgelaufenen Nachweis nicht.
-4. Verbindungsverlust oder volle Verarbeitung liefern eine Ablehnung. Bei einer ausbleibenden Antwort meldet Traber `unknown_result`. Eine unklare Quittung ist keine Aussage über den Ausgang der HA-Aktion. Anhängige Anmeldungen sind begrenzt, verfallen und werden bei Neuverbindung verworfen. Der Dienst arbeitet ausschließlich mit der ihm zugeordneten HA-/App-Installation.
+4. Eine bereits getrennte Verbindung oder volle Verarbeitung liefern eine Ablehnung. Bei einem Abbruch nach Weiterleitung oder einer ausbleibenden Antwort meldet Traber `unknown_result`. Eine unklare Quittung ist keine Aussage über den Ausgang der HA-Aktion. Anhängige Anmeldungen sind begrenzt, verfallen und werden bei Neuverbindung verworfen. Der Dienst arbeitet ausschließlich mit der ihm zugeordneten HA-/App-Installation.
 
 Der neue Dienst übernimmt die Laufzeitgrenzen des vorhandenen Kontextindex (600 s, maximal 1.024 Einträge und acht Elternstufen). Die interne Anfrage antwortet spätestens nach der bestehenden Rückkanalfrist von 30 s. Wird die HA-Epoche gewechselt, werden anhängige Anmeldungen sowie flüchtige Kontext- und Nachweisdaten verworfen. Eine verspätete Anfrage der alten Epoche wird abgelehnt. Ein erneut übermittelter alter Identifikator kann ohne passende neue Beobachtung in der aktiven Epoche keine Herkunft belegen.
 
@@ -39,18 +39,18 @@ Unter **Einstellungen → HA-Anbindung** erhält das vorhandene Formular den Abs
 
 Eine Vorlage für genau eine direkt verknüpfte HA-Quelle (Zustand oder Attribut). Sie verwendet die bestehende Normalisierung und Qualitätsprüfung. Entscheidend ist der jüngste live beobachtete Wechsel des konfigurierten normalisierten Werts. Unveränderte Meldungen, Änderungen anderer Attribute und Momentaufnahmen belegen keinen neuen Wertwechsel. Verknüpfungswechsel, HA-Neustart und Beobachtungslücken führen für die Vorlage zu „Unbekannt“, bis ein neuer verwendbarer Wechsel belegt ist.
 
-| Nachweis für den jüngsten Wechsel | Hauptfeld `value` (Ja/Nein) | Wuschel-Anzeige | `changed_at` |
+| Herkunft | `value` („Manuell“) | Anzeige | Zusatz |
 | --- | --- | --- | --- |
-| Zugelassene Anmeldung oder belegter HA-Automations-/Skriptlauf | `false` | Automatik | HA-Zeitpunkt des Wechsels |
-| Positiv belegte interaktive Bedienung | `true` | Mensch | HA-Zeitpunkt des Wechsels |
-| Verwendbarer Wechsel, Herkunft offen | Feldstatus `unknown` | Herkunft unbekannt | HA-Zeitpunkt des Wechsels |
-| Quelle unbrauchbar oder Wechsel unbelegt | Feldstatus `unknown` | Änderung unbekannt | Feldstatus `unknown` |
+| `engine` | `false` | Automatik: Steuerung | `producer_id` |
+| `ha_automation` | `false` | Automatik: HA-Automation oder Skript | `automation_id`, soweit belegt |
+| `ha_user` | `true` nach Ablauf der Zuordnungsfrist | Manuell: über Home Assistant | `user_id` nur im geschützten Beleg |
+| `unattributed` | `true` nach Ablauf der Zuordnungsfrist | Manuell: am Gerät oder ohne Beleg | – |
 
-`changed_at` liefert die Zeit dieses Quellwechsels. Ein Wechsel von „Herkunft unbekannt“ zu „Automatik“ nach einer verspätet eingetroffenen Anmeldung ist kein neuer Quellwechsel. Bei freigegebener HA-Projektion gilt die vorhandene Abbildung `on`/`off`/`unknown`. Neue Verträge werden aus der Vorlage angelegt und wie üblich übernommen. Die Vorlage greift weder in bestehende Verträge noch in deren Auswahl des Primärfelds ein.
+Die Zuordnungsfrist `attribution_wait_s` beginnt mit dem Empfang des verwendbaren Live-Wechsels. Sie beträgt standardmäßig fünf Sekunden und ist am Vertrag auf 1–60 Sekunden einstellbar. Bis zum Ablauf bleiben `value` und `origin` ohne Automatikbeleg unbekannt. Ein innerhalb der Frist eintreffender Automatikbeleg liefert direkt `false`. Eine gültige später eintreffende Anmeldung kann `true` auf `false` korrigieren. `changed_at` bleibt der HA-Zeitpunkt desselben Wechsels. Bei unbrauchbarer Quelle oder unbelegtem Wechsel bleiben die Ausgaben unbekannt.
 
-**Entscheidung zur menschlichen Herkunft für das A1-Review.** ADR 0017 verlangt einen positiven Beleg. Der Vorschlag für b32 ist eine ausdrückliche Kennzeichnung eines ausschließlich zur interaktiven Bedienung verwendeten HA-Kontos je Installation. Der Betreiber bestätigt diese Nutzungsgrenze. Die optionale Zuordnung steht unter **HA-Anbindung → Interaktive Bedienung** und bleibt im normalen Entwurfsablauf. Die technischen Details nehmen die Konto-ID entgegen. Wuschel speichert für diesen Vergleich nur ihre Prüfsumme. Text: „Kennzeichne hier ein Konto, das ausschließlich von Hand bedient wird. Lass Steuerungen mit einem getrennten Konto schalten.“ Es gibt keine HA-Benutzersuche oder Namenszuordnung. Wuschel wertet einen direkten Live-Wechsel mit diesem bestätigten Konto und ohne Elternkontext als `known_user`. Ein positiver Automatikbeleg hat Vorrang. Die Zuordnung darf auch leer bleiben. Dann bleibt die Herkunft ohne anderen Beleg „Unbekannt“. Die im Issue verlangte Gegenprobe ohne Anmeldung verwendet denselben Schaltvorgang über diesen bestätigten Bedienweg. Für ein unbestätigtes Konto, Fernbedienungen ohne Herkunftsbeleg und eine nackte Kontext-ID bleibt die Herkunft offen. Die getrennte Nutzung menschlicher und technischer Zugänge ist Voraussetzung für diesen Vorschlag. Die Auswertung der Zuordnung gilt für die neue Vorlage. Der bisherige Herkunftsnachweis mit `known_automatic` behält seine Semantik.
+`ha_user` bedeutet, dass der direkte HA-Kontext eine `user_id` und keinen Elternkontext enthält. Ein Automatikbeleg hat Vorrang. `unattributed` umfasst Wandschalter, Fernbedienungen, Siri/HomeKit und Integrationen, die ihre Schaltungen nicht anmelden. Die Daten erlauben keine weitere Fall- oder Geräteunterscheidung. „Manuell“ beschreibt den belegten Stand der Zuordnung. Der bisherige Herkunftsnachweis mit `known_automatic` behält seine Semantik.
 
-Die originale HA-`user_id` des beobachteten Wechsels bleibt als Rohfeld im geschützten `HAContext`-Beleg erhalten. Sie erscheint weder in der Anmeldung noch in Engine-Feldern, HA-Sensorattributen oder gewöhnlichen Protokollzeilen. Diagnosefreigaben und Aufbewahrung folgen ADR 0017. Die Vorlage beantwortet die Herkunftsfrage ohne Personenname oder Personenprofil.
+Die originale HA-`user_id` bleibt im geschützten `HAContext`-Beleg. In Anmeldungen, gewöhnlichen Protokollzeilen und den HA-Sensorattributen stehen ausschließlich die für die jeweilige Schnittstelle bestimmten Felder. Diagnosefreigaben und Aufbewahrung folgen ADR 0017. Bei freigegebener HA-Projektion gilt die bestehende Abbildung `on`/`off`/`unknown`. Neue Verträge werden aus der Vorlage angelegt und wie üblich übernommen.
 
 ## Prüffälle für A2
 
@@ -58,17 +58,17 @@ Die originale HA-`user_id` des beobachteten Wechsels bleibt als Rohfeld im gesch
 | --- | --- |
 | Echter HA-Kern | Autorisierter Test-Ausführer schaltet zwei synthetische Wertewechsel im Auftrag zweier Engines. Der jeweilige HA-Aktionskontext wird als der richtige Erzeuger quittiert. Unberechtigter Benutzer und Fremdverbindung können keinen Nachweis anlegen. |
 | Reihenfolge | Wertwechsel vor und nach Anmeldung ergeben „Automatik“ mit demselben belegten Wechselzeitpunkt. Eine zwischenzeitlich neuere Änderung bleibt maßgeblich. Vollständiger HA-Kontext nach Anmeldung nur mit ID ergibt keinen Scheinwiderspruch. |
-| Mensch und unbekannt | Derselbe synthetische Schaltvorgang ohne Anmeldung über den bestätigten interaktiven Bedienweg ergibt „Mensch“. Technisches oder unbekanntes Konto ergibt „Unbekannt“. Die originale synthetische `user_id` bleibt nur im geschützten Beleg. |
+| Zuordnungsfrist und Herkunft | Unbelegter Wechsel wird nach der Frist „Manuell“ mit `unattributed`. Direkter HA-Kontext mit Konto ergibt `ha_user`. Anmeldung vor Ablauf vermeidet einen zwischenzeitlichen manuellen Wert. Nach Ablauf korrigiert eine gültige Anmeldung die Herkunft bei gleicher Wechselzeit. Die originale `user_id` bleibt im geschützten Beleg. |
 | Ablehnung und Zeit | Unbekannter oder nur im Entwurf angelegter Erzeuger, gesperrte Rolle, widersprüchlicher Erzeuger, ungültige Dauer, abgelaufene Gültigkeit einschließlich Fristgrenze, Commitfehler und Antwortausfall. Wiederholung darf die Frist nicht verlängern. |
 | Epochen und Quellen | HA-Neustart verwirft alte Anmeldungen. Ein neues Kontextpaar funktioniert. Momentaufnahme, unveränderte Meldung, Verbindungsunterbrechung, veraltete Quelle und Neuverknüpfung liefern keinen Ersatzbeleg. |
-| Oberfläche und Kompatibilität | Vorschau, Entwurf, Übernahme und deutsche Texte für Erzeuger. Neuer Vertrag projiziert `value` und `changed_at`. Eingefrorene HA-v1-Aufzeichnungen, REST-Registrierung, `known_automatic` und `send_command` durch ihre bestehenden Tests absichern. |
+| Oberfläche und Kompatibilität | Vorschau, Entwurf, Übernahme und deutsche Texte für Erzeuger. Neuer Vertrag projiziert `value`, `origin`, `changed_at` und wahlweise befüllte Erzeuger- oder HA-Laufkennung. Eingefrorene HA-v1-Aufzeichnungen, REST-Registrierung, `known_automatic` und `send_command` durch ihre bestehenden Tests absichern. |
 
 A2 umfasst Traber-Dienst und Protokollzusatz, Kontextverarbeitung und Belege, Vorlage, Erzeugerpflege sowie Prüfungen. Vor dem Push einer Traber-Änderung gilt der lokale HA-Kerntest mit den exakten Versionen aus `ha-bridge`; vor der späteren Veröffentlichung folgt die vollständige CI. Messwerte zur Anmeldung und Wiederverbindung dienen der Einordnung. Die Traber-Manifestversion wird bei der Umsetzung auf `1.0.0b32` abgestimmt.
 
 ## Text für den App-Changelog in b32
 
 - Steuerungen können Schaltungen über Traber anmelden. Ein gemeinsamer Ausführer meldet sie mit der Kennung der beauftragenden Steuerung.
-- Die Vorlage „Manuell geändert“ zeigt, ob der letzte belegte Wechsel von einem Menschen oder einer Automatik kam und wann er stattfand.
+- Die Vorlage „Manuell geändert“ zeigt den Zeitpunkt und die Herkunft des letzten belegten Wechsels. Du kannst die Zuordnungsfrist am Vertrag einstellen.
 - Erzeuger lassen sich in der HA-Anbindung pflegen und per Entwurf übernehmen.
 
 Mit A2 erhält `wuschel/CHANGELOG.md` den b32-Abschnitt für den Supervisor. `CHANGELOG.md` im Repository erhält denselben Eintrag. Die Übernahme und Live-Abnahme folgen ihren eigenen Freigaben.

@@ -153,9 +153,9 @@ unverändert; neue Verträge werden weiterhin automatisch angelegt.
 
 ## Schaltungen anmelden
 
-> Geplante Ergänzung zu Schnittstellenversion 1 für b32. Der
-> [A1-Entwurf](beta/schaltungen-anmelden-a1.md) beschreibt die Freigabe und die
-> Prüffälle.
+Ergänzung zu Schnittstellenversion 1 ab b32. Die
+[Zuordnungsregeln und Prüffälle](beta/schaltungen-anmelden-a1.md) beschreiben
+den Herkunftsnachweis im Detail.
 
 `traber.register_context` meldet die Herkunft einer ausgeführten HA-Aktion an.
 Die Engine, in deren Auftrag geschaltet wurde, ist der Erzeuger. Ein gemeinsamer
@@ -179,7 +179,7 @@ denselben Erzeuger innerhalb der Gültigkeit behält die ursprüngliche Frist.
 | `rejected` · `producer_not_allowed` | Der Erzeuger ist unbekannt oder seine Rolle gestattet diese Anmeldung nicht. |
 | `rejected` · `context_conflict`, `context_epoch_conflict`, `context_expired` | Abweichender Erzeuger für dieselbe Kontext-ID, veraltete HA-Epoche oder bekannte abgelaufene Anmeldung. |
 | `rejected` · `disconnected`, `unsupported_protocol`, `busy`, `storage_unavailable` | Die Anmeldung konnte über die aktuelle Verbindung nicht verarbeitet oder gesichert werden. |
-| `unknown_result` · `timeout` | Die Frist für die Quittung ist abgelaufen. Der Ausgang der Anmeldung ist unbekannt. |
+| `unknown_result` · `timeout`, `disconnected` | Die Quittung fehlt wegen Fristablauf oder Verbindungsabbruch nach Weiterleitung. Der Ausgang der Anmeldung ist unbekannt. |
 
 Bei ungültigen Eingabefeldern oder fehlender Berechtigung gilt HA-Validierung.
 Aus einer Ablehnung oder einer unklaren Antwort ergibt sich keine Anweisung,
@@ -208,8 +208,22 @@ Die Anmeldequittung steht bei erfolgreichem HA-Aufruf in `result.response`,
 zum Beispiel `{"status":"accepted","expires_at":"2026-11-27T10:01:00Z"}`.
 `result.context.id` dieser zweiten Anfrage gehört zum Anmeldedienst selbst.
 
-Ein freigegebener Vertrag aus der Vorlage **Manuell geändert** liefert `value`
-als Ja bei belegter menschlicher Bedienung, als Nein bei belegter Automatik
-und mit Status `unknown` bei offener Herkunft. `changed_at` liefert den
-belegten Zeitpunkt des Quellwechsels. Es gilt die bestehende HA-Abbildung
-für diese Feldtypen.
+Ein freigegebener Vertrag aus der Vorlage **Manuell geändert** liefert:
+
+| Feld | Aussage |
+| --- | --- |
+| `value` | Ja (`on`), wenn nach der Zuordnungsfrist kein Automatikbeleg vorliegt. Nein (`off`) bei belegter Automatik. Während der Frist und bei unbelegtem Wechsel gilt `unknown`. |
+| `changed_at` | Belegter HA-Zeitpunkt des Quellwechsels. Eine später zugeordnete Anmeldung ändert den Zeitpunkt nicht. |
+| `origin` | `engine` für eine belegte Steuerung, `ha_automation` für einen belegten HA-Lauf, `ha_user` für einen direkten HA-Kontext mit Konto, sonst `unattributed`. |
+| `producer_id` | Kennung der Steuerung bei `engine`, soweit belegt. |
+| `automation_id` | Kennung der Automation oder des Skripts bei `ha_automation`, soweit belegt. |
+
+Die Zuordnungsfrist beträgt standardmäßig fünf Sekunden ab Empfang der
+Beobachtung. Sie lässt sich am Vertrag auf 1–60 Sekunden einstellen. Eine
+gültige Anmeldung nach Ablauf kann den Wert von Ja auf Nein korrigieren.
+Die Engine entscheidet, wie sie auf eine solche Korrektur reagiert.
+
+`unattributed` umfasst Wandschalter, Fernbedienungen, Siri/HomeKit und
+Integrationen, die ihre Schaltungen nicht anmelden. Die originale HA-`user_id`
+bleibt im geschützten Wuschel-Beleg. Der HA-Kontext enthält keine Angabe zum
+bedienenden Gerät.

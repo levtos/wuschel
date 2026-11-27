@@ -12,7 +12,7 @@ import aiohttp
 
 from .. import slots
 from ..evidence import Observation
-from ..ha_context import ContextIndex, HAContext
+from ..ha_context import MANUAL_CHANGE_TYPE, ContextIndex, HAContext
 from ..model import checksum, utc
 from ..registry import Binding, RegistryConfig
 from ..runtime import Runtime
@@ -105,6 +105,8 @@ class BridgeAdapter:
         self.projection_supported = False
         self.projection_fields_supported = False
         self.contexts = ContextIndex()
+        self._origin_config: RegistryConfig | None = None
+        self._origin_sources: set[str] = set()
         runtime.context_index = self.contexts
         self.subscription_count = 0
         self.retry_delay = 1.0
@@ -298,6 +300,49 @@ class BridgeAdapter:
                 self.discovery_at = self.runtime.clock.monotonic()
             return result
 
+    def changed_source(
+        self,
+        binding: Binding,
+        event: dict[str, Any],
+        value: Any,
+        config: RegistryConfig,
+        *,
+        optional_text: bool,
+    ) -> bool:
+        if self._origin_config is not config:
+            self._origin_config = config
+            self._origin_sources = {
+                item.ref
+                for contract in config.contracts
+                if contract.enabled and contract.type_id == MANUAL_CHANGE_TYPE
+                for item in contract.inputs
+            }
+        old = event.get("old_state")
+        if (
+            binding.source_id not in self._origin_sources
+            or not old
+            or old.get("state") in {"unknown", "unavailable", None}
+        ):
+            return False
+        attributes = old.get("attributes", {})
+        previous = (
+            old["state"]
+            if binding.adapter.kind == "ha_state"
+            else attributes.get(binding.adapter.ha_attribute)
+        )
+        try:
+            normalized, _ = normalize_origin(
+                "" if previous is None and optional_text else previous,
+                attributes[binding.adapter.value_origin_path]
+                if binding.adapter.value_origin_path
+                else None,
+                binding,
+                config,
+            )
+        except KeyError, TypeError, ValueError:
+            return False
+        return normalized is not None and normalized != value
+
     def observation(
         self,
         binding: Binding,
@@ -409,6 +454,22 @@ class BridgeAdapter:
             )
             context = HAContext.model_validate(raw_context or {"id": event.get("context_id")})
             attribution = self.contexts.attribution(context, self.runtime.clock.now_utc())
+        change_epoch = (
+            self.contexts.epoch
+            if self.protocol_selected == 2
+            and kind == "live_change"
+            and availability == "available"
+            and self.changed_source(
+                binding,
+                event,
+                normalized,
+                config,
+                optional_text=source.value_schema is not None
+                and source.value_schema.type == "text"
+                and not source.value_schema.required,
+            )
+            else None
+        )
         return Observation.model_validate(
             {
                 "source_id": binding.source_id,
@@ -429,6 +490,7 @@ class BridgeAdapter:
                     if context
                     else {}
                 ),
+                "ha_change_epoch": change_epoch,
                 "received_at": self.runtime.clock.now_utc(),
                 "observation_kind": kind,
                 "ha_restored": bool(attributes.get("restored", False)),
@@ -456,6 +518,7 @@ class BridgeAdapter:
                 HAContext.model_validate(event.get("context", {})),
                 self.runtime.clock.now_utc(),
                 basis="ha_run",
+                automation_id=event["producer_id"] if len(event["producer_id"]) <= 128 else None,
             )
             return
         if kind == "bridge_reloaded":
@@ -634,6 +697,11 @@ class BridgeAdapter:
                     {
                         "type": "traber/command_subscribe",
                         "installation_id": self.runtime.installation_id,
+                        **(
+                            {"context_registration": True}
+                            if "context_registration_v1" in features
+                            else {}
+                        ),
                     },
                 )
                 command_subscription = response["id"]
@@ -715,10 +783,18 @@ class BridgeAdapter:
                         continue
                     if message.get("type") == "event":
                         if message["id"] == command_subscription:
-                            result = await self.incoming_command(message["event"])
+                            event = message["event"]
+                            registration = event.get("kind") == "context_register"
+                            result = await (
+                                self.incoming_registration(event)
+                                if registration
+                                else self.incoming_command(event)
+                            )
                             await connection.send(
                                 {
-                                    "type": "traber/command_result",
+                                    "type": "traber/context_register_result"
+                                    if registration
+                                    else "traber/command_result",
                                     "request_id": message["event"].get("request_id", ""),
                                     "result": result,
                                 }
@@ -760,6 +836,42 @@ class BridgeAdapter:
                     if not task.done():
                         task.cancel()
                 await asyncio.gather(*pending, return_exceptions=True)
+
+    async def incoming_registration(self, event: dict[str, Any]) -> dict[str, Any]:
+        try:
+            UUID(event["request_id"])
+            issued, expires = (
+                utc(datetime.fromisoformat(event[key])) for key in ("issued_at", "valid_until")
+            )
+            if (
+                not self.runtime.installation_id
+                or event["installation_id"] != self.runtime.installation_id
+                or event["ha_epoch_id"] != self.contexts.epoch
+                or "context_registration_v1" not in self.runtime.bridge_features
+            ):
+                return {"status": "rejected", "reason": "context_epoch_conflict"}
+            if (
+                not timedelta(0) < expires - issued <= timedelta(seconds=30)
+                or issued > self.runtime.clock.now_utc()
+            ):
+                return {"status": "rejected", "reason": "invalid_arguments"}
+            result = await self.runtime.submit(
+                "engine_context_register",
+                {
+                    "request": {
+                        key: event[key]
+                        for key in ("context_id", "producer_id", "ha_epoch_id", "lifetime_s")
+                    }
+                    | {"valid_until": expires},
+                    "_actor": {"kind": "internal", "role": "system", "actor": "traber"},
+                },
+            )
+            return dict(result)
+        except ValueError, KeyError, TypeError:
+            return {"status": "rejected", "reason": "invalid_arguments"}
+        except Exception:
+            # Never echo backend error text or raw context data into HA.
+            return {"status": "rejected", "reason": "storage_unavailable"}
 
     async def incoming_command(self, event: dict[str, Any]) -> dict[str, Any]:
         try:

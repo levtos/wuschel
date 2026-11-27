@@ -60,6 +60,7 @@ class Observation(Model):
     ha_time_fired: datetime | None = None
     ha_context_id: str | None = None
     ha_context: HAContext | None = Field(default=None, exclude_if=lambda value: value is None)
+    ha_change_epoch: str | None = Field(default=None, exclude_if=lambda value: value is None)
     attribution: Attribution | None = Field(default=None, exclude_if=lambda value: value is None)
     mqtt_retained: bool = False
     mqtt_qos: int | None = Field(default=None, ge=0, le=2)

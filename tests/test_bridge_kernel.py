@@ -96,6 +96,130 @@ async def test_reverse_command_service_uses_real_ha_service_and_admin_session(
     assert not hass.services.has_service("traber", "send_command")
 
 
+@pytest.mark.ha
+async def test_real_ha_registers_actions_for_two_engines(tmp_path, monkeypatch, runtime, config):
+    from custom_components.traber.context_ingress import ContextIngress
+    from tests.test_manual_change import connected, values
+
+    adapter = await connected(runtime, config)
+    monkeypatch.setattr(
+        "custom_components.traber.ContextIngress",
+        lambda epoch, clock: ContextIngress(epoch, runtime.clock.now_utc),
+    )
+    hass = kernel(tmp_path)
+    commands, results, errors, unload = {}, {}, [], []
+    events = asyncio.Queue()
+    monkeypatch.setattr(
+        websocket_api,
+        "async_register_command",
+        lambda hass, handler: commands.update({handler.__name__: handler}),
+    )
+    await async_setup_entry(hass, SimpleNamespace(async_on_unload=unload.append))
+    connection = SimpleNamespace(
+        user=SimpleNamespace(is_admin=True),
+        subscriptions={},
+        send_result=lambda key, result=None: results.update({key: result}),
+        send_event=lambda key, event: events.put_nowait(event),
+        send_error=lambda *args: errors.append(args),
+    )
+    negotiation = {"id": 1, "supported_versions": [2], "installation_id": runtime.installation_id}
+    commands["negotiate"](hass, connection, negotiation)
+    assert "context_registration_v1" in results[1]["features"]
+    adapter.contexts.set_epoch(results[1]["ha_epoch_id"])
+    commands["command_subscribe"](
+        hass,
+        connection,
+        {
+            "id": 2,
+            "installation_id": runtime.installation_id,
+            "context_registration": True,
+        },
+    )
+    foreign = SimpleNamespace(user=connection.user, send_error=lambda *args: errors.append(args))
+    hass.auth = SimpleNamespace(
+        async_get_user=AsyncMock(return_value=SimpleNamespace(is_admin=False))
+    )
+    with pytest.raises(Unauthorized):
+        await hass.services.async_call(
+            "traber",
+            "register_context",
+            {"context_id": "rejected", "producer_id": "fixture.one"},
+            blocking=True,
+            return_response=True,
+            context=Context(user_id="example-non-admin"),
+        )
+
+    entity = "sensor.example_1"
+    hass.states.async_set(entity, "off")
+
+    async def act(call):
+        hass.states.async_set(entity, call.data["state"], context=call.context)
+
+    hass.services.async_register("fixture", "operate", act)
+    for target, producer in (("on", "fixture.one"), ("off", "fixture.two")):
+        previous = hass.states.get(entity)
+        actual_context = Context()
+        await hass.services.async_call(
+            "fixture",
+            "operate",
+            {"state": target},
+            blocking=True,
+            context=actual_context,
+        )
+        current = hass.states.get(entity)
+        assert current.context.id == actual_context.id
+        runtime.clock.advance(0.1)
+        changed = adapter.observation(
+            runtime.config.bindings[0],
+            current.as_dict(),
+            "live_change",
+            {
+                "old_state": previous.as_dict(),
+                "context": current.context.as_dict(),
+                "time_fired": runtime.clock.now_utc().isoformat(),
+            },
+            runtime.config,
+        )
+        await runtime.submit("observation", changed)
+        assert values(runtime)["value"]["status"] == "unknown"
+        receipt = asyncio.create_task(
+            hass.services.async_call(
+                "traber",
+                "register_context",
+                {"context_id": current.context.id, "producer_id": producer},
+                blocking=True,
+                return_response=True,
+            )
+        )
+        event = await asyncio.wait_for(events.get(), timeout=5)
+        assert (event["context_id"], event["producer_id"], event["lifetime_s"]) == (
+            actual_context.id,
+            producer,
+            600,
+        )
+        reply = {"id": 3, "request_id": event["request_id"], "result": {"status": "accepted"}}
+        commands["context_register_result"](hass, foreign, reply)
+        assert errors[-1][1] == "context_request_missing"
+        reply["result"] = await adapter.incoming_registration(event)
+        commands["context_register_result"](hass, connection, reply)
+        assert (await receipt)["status"] == "accepted"
+        assert values(runtime)["value"]["value"] is False
+        assert values(runtime)["producer_id"]["value"] == producer
+
+    connection.subscriptions[2]()
+    assert (
+        await hass.services.async_call(
+            "traber",
+            "register_context",
+            {"context_id": "detached", "producer_id": "fixture.one"},
+            blocking=True,
+            return_response=True,
+        )
+    ) == {"status": "rejected", "reason": "disconnected"}
+    unload[0]()
+    assert not hass.services.has_service("traber", "register_context")
+
+
 def kernel(tmp_path):
     hass = HomeAssistant(str(tmp_path))
     hass.config_entries = ConfigEntries(hass, {})

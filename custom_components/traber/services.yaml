@@ -24,3 +24,31 @@ send_command:
       description: Optionale UUID zur Wiederholung derselben Anfrage. Für einen neuen Tastendruck weglassen.
       selector:
         text:
+
+register_context:
+  name: Schaltung anmelden
+  description: Meldet eine ausgeführte HA-Aktion bei Wuschel an. Die Kennung gehört zur beauftragenden Steuerung.
+  fields:
+    context_id:
+      name: HA-Kontext-ID
+      description: Originale Kontext-ID der ausgeführten Aktion.
+      required: true
+      selector:
+        text:
+    producer_id:
+      name: Erzeugerkennung
+      description: Kennung der in Wuschel übernommenen Steuerung.
+      required: true
+      selector:
+        text:
+    lifetime_s:
+      name: Gültigkeit
+      description: Gültigkeit des Automatikbelegs. Ohne Angabe gelten 600 Sekunden.
+      default: 600
+      selector:
+        number:
+          min: 1
+          max: 600
+          step: 1
+          mode: box
+          unit_of_measurement: s

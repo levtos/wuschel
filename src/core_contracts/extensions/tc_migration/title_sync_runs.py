@@ -347,7 +347,7 @@ def prepare_page(
         affected.update(affected_contracts(state, prepared))
         latches = invalidate(state, prepared, latches)
     if affected and runtime._evaluate(
-        state, config, origin="revision", initial_latches=latches, catalog_affected=affected
+        state, config, origin="revision", initial_latches=latches, affected_contracts=affected
     ):
         runtime.pending_latches = None
         runtime.pending_refresh.clear()
