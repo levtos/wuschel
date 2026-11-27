@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0b31 - Katalogklassen und Sensortypen
+
+- Kataloge können benannte Auswahl-, Ganzzahl- und Ja/Nein-Klassen mit eigenen Standards verwenden. Die Katalogpflege zeigt die einzelnen Werte, ihre Herkunft und betroffene Varianten.
+- Der Umzug und seine Rücknahme verwenden eine gemeinsame Registry- und Katalogübernahme. Die Vorschau zeigt alte Werte, neue Zuordnungen und betroffene Entitäten. Der Titelabgleich zeigt unbekannte Zahlen mit dem verwendeten Standard.
+- Sensortypen lassen sich pflegen und anhand von Geräteklasse, Einheit und Wertart gesammelt zuordnen. Gleiche Aktualitätsregeln können zu einer Vorlage zusammengefasst werden, während Quellen ihre bisherigen Fristen und Lebenszeichengeber behalten. [#169](https://github.com/Levtos/wuschel/issues/169)
+
 ## 1.0.0b30 - Schnellere Ansichten und verständliche Diagnose
 
 - Die Entwurfsliste lädt Kopfdaten. Inhalte folgen bei Auswahl, abgeschlossene Entwürfe auf Wunsch.

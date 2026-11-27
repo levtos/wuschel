@@ -5,7 +5,7 @@ import { isObject, type JsonObject } from '@/lib/json';
 import type { Registry } from '@/lib/types';
 import { durationText } from '@/lib/duration';
 import { t } from '@/i18n';
-import { effectiveRule, ownRule, SENSOR_KINDS, upgradeFreshness } from './freshness';
+import { effectiveRule, ownRule, sensorTypeName, sensorTypes, upgradeFreshness } from './freshness';
 
 export type FreshnessChoices = Record<string, { kind: string; template_id?: string; sensor_kind?: string; liveness_source?: string }>;
 export function assignFreshness(config: Registry, choices: FreshnessChoices): Registry {
@@ -22,7 +22,8 @@ export function FreshnessAssignment({ config, target = config, sourceIds, choice
   const [confirmedKind, setConfirmedKind] = useState<Record<string, string>>({});
   const sources = asArray(config.sources).filter(isObject).filter(source => source.origin !== 'manual' && (!sourceIds || sourceIds.includes(str(source.source_id))));
   const templates = asArray(target.freshness_templates).filter(isObject);
-  const groups = [...SENSOR_KINDS, 'unknown'];
+  const types = sensorTypes(target);
+  const groups = [...types.map(kind => kind.sensor_kind), 'unknown'];
   return <div className="space-y-5">{groups.map(group => {
     const rows = sources.filter(source => (source.sensor_kind && source.sensor_kind_origin ? source.sensor_kind : 'unknown') === group);
     if (!rows.length) return null;
@@ -34,10 +35,10 @@ export function FreshnessAssignment({ config, target = config, sourceIds, choice
       onChange(next);
     };
     const selected = rows.every(source => choices[str(source.source_id)]) ? choices[str(rows[0]!.source_id)] : null;
-    return <section key={group} className="space-y-2 rounded-lg border border-line p-3"><h3>{t(`b4.${group}`)} · {rows.length === 1 ? t('b4.sourceOne') : t('b4.sourceCount', { count: rows.length })}</h3>
+    return <section key={group} className="space-y-2 rounded-lg border border-line p-3"><h3>{group === 'unknown' ? t('b4.unknown') : sensorTypeName(target, group)} · {rows.length === 1 ? t('b4.sourceOne') : t('b4.sourceCount', { count: rows.length })}</h3>
       <ul>{rows.map(source => <li key={str(source.source_id)}>{str(source.display_name) || str(source.source_id)} · {effectiveRule(config, source).mode === 'event_stateful' ? t('b4.noInterval') : durationText(Number(effectiveRule(config, source).interval_s))}</li>)}</ul>
       {kind && matching.length === 1 && !selected && <p>{t('b4.sharedProposal', { name: str(matching[0]!.display_name) })}</p>}
-      {group === 'unknown' && <Field label={t('b4.confirmKind')}>{p => <Select {...p} value={kind} onChange={event => { setConfirmedKind({ ...confirmedKind, [group]: event.target.value }); const next = { ...choices }; rows.forEach(source => delete next[str(source.source_id)]); onChange(next); }}><option value="">{t('b4.choose')}</option>{SENSOR_KINDS.map(item => <option key={item} value={item}>{t(`b4.${item}`)}</option>)}</Select>}</Field>}
+      {group === 'unknown' && <Field label={t('b4.confirmKind')}>{p => <Select {...p} value={kind} onChange={event => { setConfirmedKind({ ...confirmedKind, [group]: event.target.value }); const next = { ...choices }; rows.forEach(source => delete next[str(source.source_id)]); onChange(next); }}><option value="">{t('b4.choose')}</option>{types.map(item => <option key={item.sensor_kind} value={item.sensor_kind}>{item.display_name}</option>)}</Select>}</Field>}
       <Field label={t('b4.assignImport')}>{p => <Select {...p} value={selected?.kind === 'own' ? 'own' : selected?.template_id ?? ''} onChange={event => choose(event.target.value)}><option value="">{t('b10.keepFileRules')}</option><option value="own">{t('b4.ownFile')}</option>{matching.map(template => <option key={str(template.template_id)} value={str(template.template_id)}>{t('b4.shared')} · {str(template.display_name)} · {durationText(Number(asObject(template.rule).interval_s))}</option>)}</Select>}</Field>
       {selected?.kind === 'shared' && asObject(matching.find(template => template.template_id === selected.template_id)?.rule).mode === 'liveness_source' && rows.map(source => <Field key={str(source.source_id)} label={t('b4.livenessFor', { name: str(source.display_name) || str(source.source_id) })}>{p => <Select {...p} value={choices[str(source.source_id)]?.liveness_source ?? ''} onChange={event => onChange({ ...choices, [str(source.source_id)]: { ...choices[str(source.source_id)]!, liveness_source: event.target.value } })}><option value="">{t('b4.choose')}</option>{asArray(config.sources).filter(isObject).filter(candidate => candidate.source_id !== source.source_id && (candidate.source_type === 'boolean' || asObject(candidate.value_schema).type === 'bool')).map(candidate => <option key={str(candidate.source_id)} value={str(candidate.source_id)}>{str(candidate.display_name) || str(candidate.source_id)}</option>)}</Select>}</Field>)}
     </section>;

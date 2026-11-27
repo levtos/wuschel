@@ -319,6 +319,9 @@ IDENTITIES = {
     "definitions": ("type_id", "type_version"),
     "context_producers": ("producer_id",),
     "freshness_templates": ("template_id",),
+    "catalog_classes": ("class_key",),
+    "sensor_kinds": ("sensor_kind",),
+    "class_assignments": ("class_key",),
     "inputs": ("name",),
 }
 
@@ -368,10 +371,15 @@ def merge(
     *,
     prefix: str = "",
 ) -> tuple[Any, list[dict[str, Any]]]:
-    if any(
-        isinstance(value, dict) and value.get("config_schema_version") == 4
-        for value in (base, draft, current)
-    ):
+    version = max(
+        (
+            value.get("config_schema_version", 1)
+            for value in (base, draft, current)
+            if isinstance(value, dict)
+        ),
+        default=1,
+    )
+    if version in {4, 5}:
         from .freshness_templates import upgrade_document
 
         def comparable(value: Any) -> Any:
@@ -380,9 +388,10 @@ def merge(
                 2,
                 3,
                 4,
+                5,
             ):
                 return value
-            upgraded = upgrade_document(value)
+            upgraded = upgrade_document(value, version=version)
             try:
                 return storage_document(RegistryConfig.model_validate(upgraded))
             except ValueError:
@@ -1191,6 +1200,9 @@ async def operation_activate(
         prior_activation = await authoring.prior_receipt(runtime, state, payload)
         if prior_activation is not None:
             return prior_activation
+    if operation == "rollback" and (catalog_prior := slots.AUTHORING.get("catalog_rollback_prior")):
+        if prior_rollback := catalog_prior(state, payload):
+            return prior_rollback
     note = payload.get("note", "")
     if not isinstance(note, str) or len(note) > 256:
         raise ValueError("invalid_revision_note")
@@ -1212,6 +1224,10 @@ async def operation_activate(
         document = historical["config"]
     new_config = await runtime._checked_config(document, restore=operation == "activate")
     if operation == "activate":
+        if config and config.config_schema_version == 5 and new_config.config_schema_version < 5:
+            raise ValueError("legacy_draft_upgrade_required")
+        if check_legacy_catalogs := slots.AUTHORING.get("catalog_legacy_transition"):
+            check_legacy_catalogs(config, new_config)
         from .editorial import apply_draft
 
         apply_draft(state, draft, runtime)
@@ -1223,7 +1239,11 @@ async def operation_activate(
         ):
             raise ValueError("import_plan_conflict")
         imported_latches = apply(runtime, state, draft, new_config, now)
+        if check_catalog_heads := slots.AUTHORING.get("catalog_validate_heads"):
+            check_catalog_heads(state, new_config)
         draft["config"] = storage_document(new_config)
+    elif catalog_rollback := slots.AUTHORING.get("catalog_rollback_apply"):
+        await catalog_rollback(runtime, state, payload, config, new_config, now)
     revision = max((int(r) for r in state.tables["registry_revision"]), default=0) + 1
     state.active_revision = revision
     state.tables["registry_revision"][str(revision)] = {
@@ -1280,6 +1300,10 @@ async def operation_activate(
         if operation == "activate"
         else state.tables["registry_revision"][str(revision)]
     )
+    if operation == "rollback" and (
+        finish_catalog_rollback := slots.AUTHORING.get("catalog_rollback_complete")
+    ):
+        finish_catalog_rollback(state, payload, activation_result)
     runtime._evaluate(
         state,
         new_config,

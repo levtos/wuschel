@@ -459,7 +459,7 @@ async def _source_types(runtime: Runtime, config: RegistryConfig) -> None:
                         s.source_id: s
                         for s in RegistryConfig.model_validate(historical["config"]).sources
                     }
-                    if historical and historical["config"].get("config_schema_version") == 4
+                    if historical and historical["config"].get("config_schema_version") in {4, 5}
                     else {}
                 )
             if source.source_id in revisions[previous_revision]:

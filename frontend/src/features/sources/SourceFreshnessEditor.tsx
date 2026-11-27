@@ -5,7 +5,7 @@ import { useOptionalWorkingDocument } from '@/features/authoring/WorkingDocument
 import { asArray, asObject, str } from '@/features/authoring/model';
 import { isObject, type JsonObject } from '@/lib/json';
 import { t } from '@/i18n';
-import { effectiveRule, freshnessLabel, ownRule, SENSOR_KINDS } from './freshness';
+import { effectiveRule, freshnessLabel, ownRule, sensorTypes } from './freshness';
 import { FreshnessSettings } from './FreshnessSettings';
 import { durationText } from '@/lib/duration';
 
@@ -23,7 +23,7 @@ export function SourceFreshnessEditor({ value, onChange, sources, config: suppli
     {comparison && <p>{t('b4.sourceRule')}: {durationText(Number(rule.interval_s))} · {t('b4.templateRule')}: {durationText(Number(asObject(comparison.rule).interval_s))}</p>}
     {before && before.interval_s !== rule.interval_s && <p>{t('b4.beforeAfter', { before: durationText(Number(before.interval_s)), after: durationText(Number(rule.interval_s)) })}</p>}
     {value.origin !== 'manual' && <>
-      <Field label={t('b4.confirmKind')}>{p => <Select {...p} value={str(value.sensor_kind)} onChange={event => onChange({ ...ownRule(value, rule), sensor_kind: event.target.value || null, sensor_kind_origin: event.target.value ? 'confirmed' : null })}><option value="">{t('b4.unknown')}</option>{SENSOR_KINDS.map(kind => <option key={kind} value={kind}>{t(`b4.${kind}`)}</option>)}</Select>}</Field>
+      <Field label={t('b4.confirmKind')}>{p => <Select {...p} value={str(value.sensor_kind)} onChange={event => onChange({ ...ownRule(value, rule), sensor_kind: event.target.value || null, sensor_kind_origin: event.target.value ? 'confirmed' : null })}><option value="">{t('b4.unknown')}</option>{sensorTypes(config).map(kind => <option key={kind.sensor_kind} value={kind.sensor_kind}>{kind.display_name}</option>)}</Select>}</Field>
       <Field label={t('b4.shared')}>{p => <Select {...p} value={selection.kind === 'shared' ? str(selection.template_id) : ''} onChange={event => { if (!event.target.value) onChange(ownRule(value, rule)); else onChange({ ...value, sensor_kind_origin: 'confirmed', freshness_selection: { kind: 'shared', template_id: event.target.value } }); }}><option value="">{t('b4.own')}</option>{templates.map(template => <option key={str(template.template_id)} value={str(template.template_id)}>{str(template.display_name)}</option>)}</Select>}</Field>
       <Link className="inline-flex min-h-11 items-center underline" to="/sources/freshness">{t('b4.templateChange')}</Link>
     </>}

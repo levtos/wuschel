@@ -10,6 +10,7 @@ export const registryIdentities: Record<string, string[]> = {
   contracts: ['contract_id'], definitions: ['type_id', 'type_version'],
   sources: ['source_id'], bindings: ['binding_id'], dependencies: ['dependency_id'],
   catalogs: ['catalog_id', 'version'], freshness_templates: ['template_id'],
+  sensor_kinds: ['sensor_kind'], catalog_classes: ['class_key'],
 };
 
 /** Apply the local changes onto the chosen draft, preserving unrelated draft edits. */

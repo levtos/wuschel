@@ -298,7 +298,7 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
     setSnap((current) => {
       if (!current.config || !current.draft || !currentDraft(current.draft, activeRevision)) return current;
       const changed = updater(current.config);
-      const next = current.config.config_schema_version === 4 ? upgradeFreshness(changed) : changed;
+      const next = [4, 5].includes(Number(current.config.config_schema_version)) ? upgradeFreshness(changed) : changed;
       if (next === current.config || deepEqual(next, current.config)) return current;
       return { ...current, config: next, past: [...current.past, current.config].slice(-HISTORY_LIMIT), future: [] };
     });
@@ -427,7 +427,7 @@ export function WorkingDocumentProvider({ children, validateDebounceMs = 2000, p
     if (!current.draft || !current.config || savingRef.current || pendingEdit.current) throw new Error(uiText('alpha7.draft.saveBeforeReview'));
     const owner = documentId.current;
     const changed = updater(current.config);
-    const next = current.config.config_schema_version === 4 ? upgradeFreshness(changed) : changed;
+    const next = [4, 5].includes(Number(current.config.config_schema_version)) ? upgradeFreshness(changed) : changed;
     savingRef.current = true; setSaving(true); setSaveError(null);
     try {
       const saved = await update.mutateAsync({ draft: current.draft, config: next, display_name: current.name, editorial });

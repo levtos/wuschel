@@ -16,6 +16,7 @@ import { titleLabel } from './titleLabel';
 import { catalogLabel, contextLabel } from './catalogLabels';
 import { entryKey, isGameCatalog } from './CatalogTable';
 import { CatalogMediaFacts } from './CatalogMediaFacts';
+import { ClassField, ClassFields, classLabel as typedClassLabel, type ClassValue } from './ClassFields';
 
 export function MasterVariants({ catalog, entry, onOpen, renderEntry, parameters = '' }: { catalog: Catalog; entry: Entry; onOpen: (row: Entry) => void; renderEntry?: (row: Entry) => ReactNode; parameters?: string }) {
   const [open, setOpen] = useState(false); const [after, setAfter] = useState('');
@@ -38,6 +39,7 @@ interface CareBody {
   catalog_id: string; definition_version: number; expected_active_revision: number;
   expected_content_revision: number; request_id: string; reason: string; action: string;
   identities: string[]; master?: string; new_master_name?: string; classification?: string;
+  class_key?: string; class_value?: ClassValue; class_values?: Record<string, ClassValue>;
   confirm_class_change?: boolean;
 }
 interface Group { members: Entry[]; master: string }
@@ -58,6 +60,9 @@ export function CatalogCare({ catalog, rows, selected, setSelected, revision, ac
   const sequence = useRef(0); const latest = useRef('');
   const [timings, setTimings] = useState<Record<string, number>>({});
   latest.current = JSON.stringify(body);
+  const dimensions = catalog.class_definitions ?? [];
+  const named = dimensions.length > 0;
+  const selectedClass = dimensions.find(item => item.class_key === body?.class_key);
   const classLabel = (value: string) => catalog.classification_schema.legend?.[value]?.display_name ?? value;
   const failed = (failure: unknown) => {
     setError(describeError(failure));
@@ -71,10 +76,11 @@ export function CatalogCare({ catalog, rows, selected, setSelected, revision, ac
     setBody({ catalog_id: catalog.catalog_id, definition_version: catalog.version, expected_active_revision: queue?.active_revision ?? activeRevision,
       expected_content_revision: queue?.content_revision ?? revision, request_id: uuid(), reason: t('b17.careReason'),
       action, identities: entries.map(row => row.identity), master,
-      ...(['classify', 'ungroup'].includes(action) ? { classification: entries.find(row => row.identity === master)?.classification ?? catalog.classification_schema.values[0] ?? '' } : {}) });
+      ...(named && action === 'classify' ? { class_key: dimensions[0]?.class_key } : {}),
+      ...(!named && ['classify', 'ungroup'].includes(action) ? { classification: entries.find(row => row.identity === master)?.classification ?? catalog.classification_schema.values[0] ?? '' } : {}) });
   };
   const edit = (patch: Partial<CareBody>) => { if (body) { const next = { ...body, confirm_class_change: undefined, ...patch, request_id: uuid() }; if (next.action !== 'group') delete next.new_master_name; setBody(next); setError(''); setErrorCode(''); setImpact(null); setChanged(true); setSaved(false); } };
-  const groupReady = !body || body.action !== 'group' || (body.new_master_name !== undefined ? !!body.new_master_name.trim() && !!body.classification : !!body.master);
+  const groupReady = !body || body.action !== 'group' || (body.new_master_name !== undefined ? !!body.new_master_name.trim() && (named || !!body.classification) : !!body.master);
   const selectedIds = new Set(Object.values(selected).map(row => row.identity));
   const selectionCurrent = !!work || !body || (body.identities.every(id => selectedIds.has(id)) && body.expected_content_revision === revision && body.expected_active_revision === activeRevision);
   const next = (updated: Queue) => {
@@ -150,7 +156,14 @@ export function CatalogCare({ catalog, rows, selected, setSelected, revision, ac
         {!selectionCurrent && <Notice tone="warn">{t('a2.care.selectionChanged')} <Button disabled={busy} onClick={() => void reloadSelection()}>{t('a2.care.reload')}</Button></Notice>}
         <ul>{members.map(row => <li key={row.identity}>{titleLabel(row)}</li>)}</ul>
         {body?.action === 'group' && <><Field label={t('alpha10.catalog.master')}>{p => <Select {...p} disabled={busy} value={body.new_master_name !== undefined ? '__new_master__' : body.master ?? ''} onChange={event => edit(event.target.value === '__new_master__' ? { master: undefined, new_master_name: '', classification: catalog.classification_schema.values[0] } : { master: event.target.value, new_master_name: undefined, classification: undefined })}>{members.map(row => <option key={row.identity} value={row.identity}>{titleLabel(row)}{row.master_key ? ' · ' + t('a2.care.promoteWithFamily') : ''}</option>)}<option value="__new_master__">{t('b22.catalog.newMaster')}</option></Select>}</Field>{body.new_master_name !== undefined && <><Field label={t('b22.catalog.masterName')}>{p => <Input {...p} disabled={saving} maxLength={1024} value={body.new_master_name} onChange={event => edit({ new_master_name: event.target.value })} />}</Field><p className="text-sm text-muted">{t('b22.catalog.newMasterHelp')}</p></>}</>}
-        {body && ['classify', 'group', 'ungroup'].includes(body.action) && <Field label={t(body.action === 'group' ? 'b22.catalog.masterClass' : 'alpha10.catalog.class')}>{p => <Select {...p} disabled={busy} value={body.classification ?? ''} onChange={event => edit({ classification: event.target.value || undefined })}>
+        {body?.action === 'classify' && named && <>
+          <Field label={t('alpha10.catalog.class')}>{props => <Select {...props} value={body.class_key ?? ''} onChange={event => edit({ class_key: event.target.value, class_value: undefined })}>
+            {dimensions.map(item => <option key={item.class_key} value={item.class_key}>{item.display_name}</option>)}
+          </Select>}</Field>
+          {selectedClass && <ClassField definition={selectedClass} value={body.class_value} disabled={busy} onChange={value => edit({ class_value: value })} />}
+        </>}
+        {body?.action === 'group' && named && body.new_master_name !== undefined && <ClassFields definitions={dimensions} values={body.class_values ?? {}} onChange={values => edit({ class_values: values })} disabled={busy} />}
+        {body && !named && ['classify', 'group', 'ungroup'].includes(body.action) && <Field label={t(body.action === 'group' ? 'b22.catalog.masterClass' : 'alpha10.catalog.class')}>{p => <Select {...p} disabled={busy} value={body.classification ?? ''} onChange={event => edit({ classification: event.target.value || undefined })}>
           {body.action === 'group' && body.new_master_name === undefined && <option value="">{t('a2.care.keepMasterClass')}</option>}
           {catalog.classification_schema.values.map(value => <option key={value} value={value}>{classLabel(value)}</option>)}</Select>}</Field>}
         {busy && <Spinner />}{error && <Notice tone="bad">
@@ -186,9 +199,17 @@ export function CatalogDetail({ catalog, entry, onClose, onOpen }: { catalog: Ca
       <details><summary>{t('alpha10.technical')}</summary><p>{catalog.catalog_id} · {catalog.version}</p><p>{value.signal_type === 'app' ? value.key : value.identity} · {value.scope} · {value.media_type} · {value.signal_type}</p></details>
       <dl className="grid gap-2 sm:grid-cols-[max-content_1fr]">
         <dt>{t('b26.catalog.role')}</dt><dd>{t(value.master_identity || value.master_key ? 'b22.catalog.variantRole' : value.variant_count ? 'alpha10.catalog.master' : 'alpha10.catalog.independent')}</dd>
-        <dt>{t('a2.care.storedClass')}</dt><dd>{displayClass(value.classification)}</dd>
-        <dt>{t('a2.care.defaultClass')}</dt><dd>{displayClass(catalog.unassigned_value)}</dd>
-        <dt>{t('b17.effectiveClass')}</dt><dd>{displayClass(value.effective_classification)} <span className="text-muted">· {t(value.master_identity || value.master_key ? 'a2.care.classFromMaster' : value.classification ? 'a2.care.classFromRecord' : 'a2.care.classFromDefault')}</span></dd>
+         {catalog.class_definitions?.length ? catalog.class_definitions.map(definition => {
+           const origin = value.class_origins?.[definition.class_key];
+           return <div className="contents" key={definition.class_key}><dt>{definition.display_name}</dt><dd>
+             {typedClassLabel(definition, value.effective_class_values?.[definition.class_key])}
+             {origin && <span className="text-muted"> · {t(origin === 'inherited' ? 'a2.care.classFromMaster' : origin === 'explicit' ? 'a2.care.classFromRecord' : 'a2.care.classFromDefault')}</span>}
+           </dd></div>;
+         }) : <>
+           <dt>{t('a2.care.storedClass')}</dt><dd>{displayClass(value.classification)}</dd>
+           <dt>{t('a2.care.defaultClass')}</dt><dd>{displayClass(catalog.unassigned_value)}</dd>
+           <dt>{t('b17.effectiveClass')}</dt><dd>{displayClass(value.effective_classification)} <span className="text-muted">· {t(value.master_identity || value.master_key ? 'a2.care.classFromMaster' : value.classification ? 'a2.care.classFromRecord' : 'a2.care.classFromDefault')}</span></dd>
+         </>}
         <dt>{t('b26.catalog.status')}</dt><dd>{t(`b17.status.${value.review_status ?? 'open'}`)}</dd>
       </dl>
       {data.data.master && <Button onClick={() => open(data.data!.master!)}>{t('alpha10.catalog.master')}: {titleLabel(data.data.master)}</Button>}

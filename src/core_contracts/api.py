@@ -59,6 +59,7 @@ LOGICAL_ROUTES = frozenset(
         "registry/active/export",
         "registry/drafts",
         "registry/freshness",
+        "registry/freshness/proposals",
         "registry/revisions",
         "registry/rollback",
         "registry/schema",
@@ -246,6 +247,18 @@ class API:
                         "catalog_master_name_conflict",
                         "catalog_variant_override",
                         "catalog_class_invalid",
+                        "catalog_named_classes_required",
+                        "catalog_migration_invalid",
+                        "catalog_migration_unmapped",
+                        "catalog_migration_conflict",
+                        "catalog_migration_contract_shape",
+                        "catalog_migration_requires_configuration",
+                        "catalog_migration_requires_named_classes",
+                        "catalog_migration_requires_one_class",
+                        "catalog_migration_no_legacy_catalogs",
+                        "catalog_migration_rollback_required",
+                        "catalog_rollback_request_conflict",
+                        "legacy_draft_upgrade_required",
                         "catalog_key_empty",
                         "catalog_expansion_limit",
                         "catalog_retired",
@@ -582,6 +595,24 @@ class API:
             from .validation import validate_document as validate
 
             result = effective_freshness(validate(await self.object_body(request), runtime.types))
+        elif path == "registry/freshness/proposals" and method == "POST":
+            from .freshness_templates import propose_sensor_kinds, upgrade_document
+            from .validation import validate_document as validate
+
+            document = upgrade_document(await self.object_body(request), version=5)
+            proposal_config = validate(document, runtime.types)
+            entities = []
+            metadata_available = runtime.entity_discovery is not None
+            if runtime.entity_discovery:
+                try:
+                    entities = await runtime.entity_discovery(preview=True)
+                except aiohttp.ClientError, ConnectionError, TimeoutError, ValueError, TypeError:
+                    metadata_available = False
+            result = {
+                "proposals": propose_sensor_kinds(proposal_config, entities),
+                "metadata_available": metadata_available,
+                "sensor_kinds": [item.model_dump() for item in proposal_config.sensor_kinds],
+            }
         elif path in {"portable/export", "portable/preview", "portable/stage"} and method == "POST":
             from .portable import strict_json
 

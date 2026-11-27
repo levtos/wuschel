@@ -134,6 +134,7 @@ def build(
         protected = key in contents or bool(
             row.get("tc_metadata")
             or row.get("classification")
+            or row.get("class_values")
             or row.get("reviewed_at")
             or row.get("hidden_at")
             or row.get("master_identity")

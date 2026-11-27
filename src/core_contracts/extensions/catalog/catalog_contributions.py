@@ -7,6 +7,7 @@ from uuid import uuid4
 from core_contracts import declarative_models as dm
 from core_contracts import slots
 from core_contracts.authoring import MISSING, AuthoringError, conflict_row
+from core_contracts.extensions.catalog.catalog_class_rollback import register_migration
 from core_contracts.extensions.catalog.interface_upgrade import migrate_runtime, migration_preview
 from core_contracts.extensions.catalog.managed_catalog import (
     definition,
@@ -19,6 +20,7 @@ from core_contracts.extensions.catalog.managed_catalog import (
     lookup,
     prepare,
     suspend_machine,
+    validate_heads,
 )
 from core_contracts.numeric_equivalence import equivalent, preserve_numbers
 from core_contracts.rules.catalog_models import CatalogWrite, EntryChange, ManagedCatalog
@@ -36,7 +38,9 @@ def check(
         raise ValueError("language_version_4_required")
     for arg in args:
         require(arg, scalar("text"))
-    if rule.field_schema.type != "enum" or not rule.field_schema.value_catalog:
+    if rule.class_key is None and rule.field_schema.type != "enum":
+        raise ValueError("catalog_classification_schema")
+    if rule.class_key is not None and rule.field_schema.type not in {"enum", "number", "bool"}:
         raise ValueError("catalog_classification_schema")
     return rule.field_schema
 
@@ -116,7 +120,7 @@ def remap_contents(package: Any, incoming: Any) -> None:
 def preview_contents(
     state: Any, package: Any, incoming: Any, conflicts: Any, unresolved: Any, resolutions: Any
 ) -> Any:
-    catalog_migrations = migration_preview(state, package["catalog_contents"])
+    catalog_migrations = migration_preview(state, package["catalog_contents"], incoming)
     heads = {
         head_key(c): head(state, c)["revision"]
         for c in incoming.catalogs
@@ -174,7 +178,14 @@ def apply_contents(
             raise ValueError("catalog_content_conflict")
         changes = [
             EntryChange.model_validate(
-                {k: v for k, v in row.items() if k not in {"master_identity", "normalized_key"}}
+                {
+                    **({"class_values": {}} if catalog.class_assignments else {}),
+                    **{
+                        k: v
+                        for k, v in row.items()
+                        if k not in {"master_identity", "normalized_key"}
+                    },
+                }
             )
             for row in content["entries"]
         ]
@@ -187,20 +198,34 @@ def apply_contents(
             != "keep"
         ]
         # One staged mutation and one DB commit, including cross-row parent links.
-        if changes:
-            body = CatalogWrite(
+        named_migration = content.get("class_migration", {}).get("operation") in {
+            "named_classes",
+            "named_classes_reconfigure",
+        }
+        if changes or named_migration:
+            body = CatalogWrite.model_construct(
                 catalog_id=catalog.catalog_id,
                 definition_version=catalog.version,
                 expected_active_revision=state.active_revision,
-                expected_content_revision=head(state, catalog)["revision"],
+                expected_content_revision=current["revision"],
                 request_id=str(uuid4()),
-                changes=(changes[0],),
-                reason="Konfiguration eingelesen",
+                changes=tuple(changes),
+                reason="Katalogklassen umgezogen"
+                if named_migration
+                else "Konfiguration eingelesen",
             )
-            body = body.model_copy(update={"changes": tuple(changes)})
-            result = prepare(state, config, body, plan["actor"], now, expanded_limit=100_000)
+            result = prepare(
+                state,
+                config,
+                body,
+                plan["actor"],
+                now,
+                expanded_limit=100_000,
+                force_revision=named_migration,
+            )
             latches = invalidate(state, result, latches, context_effects)
     migrate_runtime(state, plan["package"]["catalog_contents"], now)
+    register_migration(state, plan["package"]["catalog_contents"])
     return latches
 
 
@@ -291,11 +316,16 @@ def check_lookup(config: Any, add: Any) -> None:
                 ),
                 None,
             )
-            if (
-                not isinstance(catalog, ManagedCatalog)
-                or catalog.classification_schema.field_schema() != rule.field_schema
-            ):
+            field_schema = None
+            if isinstance(catalog, ManagedCatalog):
+                if rule.class_key is None:
+                    field_schema = catalog.classification_schema.field_schema()
+                elif assigned := catalog.assigned_classes.get(rule.class_key):
+                    field_schema = assigned.field_schema()
+            if field_schema != rule.field_schema:
                 add("catalog_reference", path, "managed catalog definition or schema mismatch")
+        if isinstance(rule, dm.CatalogOffsetSumRule) and config.config_schema_version < 5:
+            add("catalog_reference", path, "registry_schema_5_required")
         if not isinstance(rule, ReferenceRule):
             for name, child in rule_children(rule):
                 check_lookup(child, path + "/" + name)
@@ -306,6 +336,41 @@ def check_lookup(config: Any, add: Any) -> None:
                 check_lookup(rule, f"/definitions/{index}/{group}/{name}")
 
 
+def check_offset_sum(
+    rule: dm.CatalogOffsetSumRule,
+    definition: Any,
+    inputs: Any,
+    args: Any,
+    require: Any,
+    scalar: Any,
+) -> FieldSchema:
+    schema = FieldSchema(type="number", required=True, physical_state=False, unit="Punkte")
+    for arg in args:
+        require(arg, schema)
+    return schema
+
+
+def offset_sum(evaluation: Any, rule: dm.CatalogOffsetSumRule) -> Any:
+    from core_contracts.quality import derive
+
+    app = evaluation.evaluate(rule.application)
+    title = evaluation.evaluate(rule.title)
+    now = evaluation.now
+    if title.status == "not_applicable" and title.positively_not_applicable:
+        title = title.model_copy(
+            update={"status": "valid", "value": 0, "positively_not_applicable": False}
+        )
+    args = [app, title]
+    if any(not arg.usable(now) for arg in args):
+        return derive(None, args, now)
+    return derive(app.value + title.value, args, now)
+
+
+slots.RULES[dm.CatalogOffsetSumRule] = slots.Rule(
+    check=check_offset_sum,
+    evaluate=offset_sum,
+    children=lambda rule: [("application", rule.application), ("title", rule.title)],
+)
 slots.RULES[dm.ManagedCatalogRule] = slots.Rule(
     check=check,
     evaluate=evaluate,
@@ -320,5 +385,9 @@ slots.PORTABLE.update(
     catalog_apply=apply_contents,
     catalog_migrations=migration_preview,
 )
-slots.AUTHORING.update(catalog_effects=effects_match, catalog_rebuild=rebuild_contents)
+slots.AUTHORING.update(
+    catalog_effects=effects_match,
+    catalog_rebuild=rebuild_contents,
+    catalog_validate_heads=validate_heads,
+)
 slots.VALIDATION["catalog"] = check_lookup

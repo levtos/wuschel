@@ -85,8 +85,15 @@ def page_all(
         versions.append([catalog.catalog_id, catalog.version, head(state, catalog)["revision"]])
 
     def order(row: dict[str, Any]) -> tuple[Any, ...]:
+        dimension = (
+            row.get("effective_class_values", {}).get(sort[6:])
+            if sort.startswith("class:")
+            else None
+        )
         value: Any = (
-            row["effective_classification"]
+            (dimension is None, dimension)
+            if sort.startswith("class:")
+            else row["effective_classification"]
             if sort == "classification"
             else normalize_key(row.get("display_name") or row["key"])
             if sort == "title"

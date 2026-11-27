@@ -200,6 +200,8 @@ async def operation_catalog_write(
         changes = []
         for key in past.keys() | current_entries.keys():
             row = past.get(key) or {**current_entries[key], "tombstone": True}
+            if catalog.class_assignments and "class_values" not in row:
+                row = {**row, "class_values": {}}
             changes.append(
                 EntryChange.model_validate(
                     {k: v for k, v in row.items() if k not in {"normalized_key", "master_identity"}}

@@ -9,6 +9,7 @@ from core_contracts.extensions.catalog.catalog_care import fields
 from core_contracts.extensions.catalog.catalog_mapping import ImportWrite, current_mapping
 from core_contracts.extensions.catalog.managed_catalog import (
     affected_contracts,
+    class_view,
     effective,
     head,
     head_key,
@@ -92,6 +93,31 @@ def resolution(
     }
 
 
+def own_classification(row: dict[str, Any], catalog: Any) -> dict[str, Any]:
+    if catalog.class_assignments:
+        return {"classification": None, "class_values": row.get("class_values", {})}
+    return {"classification": row.get("classification")}
+
+
+def inherited_classification(entries: Any, key: str, catalog: Any) -> dict[str, Any]:
+    if catalog.class_assignments:
+        view = class_view(entries, key, catalog)
+        return {
+            "classification": None,
+            "class_values": {
+                name: value
+                for name, value in view["effective_class_values"].items()
+                if view["class_origins"][name] != "default"
+            },
+        }
+    value, complete, _ = effective(entries, key, catalog)
+    return {"classification": value if complete else None}
+
+
+def has_classification(value: dict[str, Any]) -> bool:
+    return bool(value.get("class_values")) or value.get("classification") is not None
+
+
 def resolve_links(
     changes: dict[str, Any],
     entries: dict[str, Any],
@@ -127,17 +153,20 @@ def resolve_links(
                 break
             parent_name = parent["master_key"]
         if reason != "master_flattened":
-            value = row.get("classification")
+            value = own_classification(row, catalog)
             for original in dict.fromkeys((key, origins.get(key, key))):
-                if original not in entries:
-                    continue
-                old_value, complete, _ = effective(entries, original, catalog)
-                if complete:
-                    value = old_value
-                    break
-            updated = {**fields(row), "master_key": None, "classification": value}
+                if original in entries:
+                    candidate = inherited_classification(entries, original, catalog)
+                    if has_classification(candidate):
+                        value = candidate
+                        break
+            updated = {**fields(row), "master_key": None, **value}
         elif parent is not None and parent["key"] != row["master_key"]:
-            updated = {**fields(row), "master_key": parent["key"], "classification": None}
+            updated = {
+                **fields(row),
+                "master_key": parent["key"],
+                **own_classification({}, catalog),
+            }
         else:
             continue
         changes[key] = projected[key] = updated
@@ -158,7 +187,7 @@ def build(state: Any, config: Any, clear_pc: bool) -> dict[str, Any]:
         ck = head_key(catalog)
         entries = current["entries"]
         changes: dict[str, Any] = {}
-        family_classes: list[tuple[str, str]] = []
+        family_classes: list[tuple[str, dict[str, Any]]] = []
         findings: list[dict[str, Any]] = []
         origins: dict[str, str] = {}
         moved = collisions = removed = 0
@@ -205,18 +234,24 @@ def build(state: Any, config: Any, clear_pc: bool) -> dict[str, Any]:
                                 target, merged, "live_master", row["master_key"], live["master_key"]
                             )
                         )
-                    merged.update(master_key=live["master_key"], classification=None)
+                    merged.update(master_key=live["master_key"], **own_classification({}, catalog))
                 elif target in live_parents and row.get("master_key"):
-                    value, complete, _ = effective(entries, key, catalog)
-                    merged.update(master_key=None, classification=value if complete else None)
+                    merged.update(
+                        master_key=None, **inherited_classification(entries, key, catalog)
+                    )
                     findings.append(
                         resolution(target, merged, "live_master", row["master_key"], None)
                     )
-                elif live.get("classification") is not None:
+                elif has_classification(live_value := own_classification(live, catalog)):
                     if row.get("master_key"):
-                        family_classes.append((target, live["classification"]))
+                        family_classes.append((target, live_value))
                     else:
-                        merged.update(classification=live["classification"], master_key=None)
+                        if catalog.class_assignments:
+                            live_value["class_values"] = {
+                                **merged.get("class_values", {}),
+                                **live_value["class_values"],
+                            }
+                        merged.update(master_key=None, **live_value)
                 if live.get("tc_metadata") and not merged.get("tc_metadata"):
                     merged["tc_metadata"] = copy.deepcopy(live["tc_metadata"])
             if key in entries:
@@ -242,7 +277,7 @@ def build(state: Any, config: Any, clear_pc: bool) -> dict[str, Any]:
                     "scope": scope,
                 }
             moved += 1
-        families: dict[str, list[tuple[str, str]]] = defaultdict(list)
+        families: dict[str, list[tuple[str, dict[str, Any]]]] = defaultdict(list)
         for target, value in family_classes:
             assert scope is not None
             variant = changes[target]
@@ -253,16 +288,14 @@ def build(state: Any, config: Any, clear_pc: bool) -> dict[str, Any]:
         for master, members in families.items():
             master_row = changes.get(master) or fields(entries.get(master, {}))
             live_master = sources.get(master, {})
-            values = {value for _, value in members}
+            values = {canonical(value): value for _, value in members}
+            live_value = own_classification(live_master, catalog)
             incompatible = (
                 not master_row
                 or master_row.get("tombstone")
                 or master_row.get("master_key")
                 or len(values) != 1
-                or (
-                    live_master.get("classification") is not None
-                    and live_master["classification"] not in values
-                )
+                or (has_classification(live_value) and canonical(live_value) not in values)
             )
             if incompatible:
                 for target, value in members:
@@ -272,12 +305,12 @@ def build(state: Any, config: Any, clear_pc: bool) -> dict[str, Any]:
                         if not master_row or master_row.get("tombstone")
                         else "live_class_standalone"
                     )
-                    changes[target] = {**variant, "master_key": None, "classification": value}
+                    changes[target] = {**variant, "master_key": None, **value}
                     findings.append(
                         resolution(target, variant, reason, variant["master_key"], None)
                     )
             else:
-                changes[master] = {**master_row, "classification": next(iter(values))}
+                changes[master] = {**master_row, **next(iter(values.values()))}
         findings.extend(resolve_links(changes, entries, sources, origins, catalog))
         if changes or moved or removed:
             groups.append(
