@@ -166,7 +166,7 @@ async def test_load_change_reports_current_then_last_operation(
         "reasons": ["lag_ms"],
         "metrics": {
             "lag_ms": 125.123,
-            "queue_percent": 0,
+            "queue_percent": round(100 / runtime.queue.maxsize, 3),
             "overflows_per_minute": 0,
             "commit_p95_ms": None,
         },
@@ -183,7 +183,7 @@ async def test_load_change_reports_current_then_last_operation(
         "load_state": "normal",
         "operation_active": False,
         "reasons": [],
-        "metrics": {**strained["metrics"], "lag_ms": 0},
+        "metrics": {**strained["metrics"], "lag_ms": 0, "queue_percent": 0},
     }
 
 
@@ -194,7 +194,7 @@ async def test_loop_stall_is_logged_once_per_phase_with_safe_activity(
     samples = asyncio.Queue()
 
     async def sleep(seconds):
-        assert seconds == 1
+        assert seconds == 0.02
         sampled = asyncio.get_running_loop().create_future()
         samples.put_nowait(sampled)
         await sampled
@@ -208,7 +208,7 @@ async def test_loop_stall_is_logged_once_per_phase_with_safe_activity(
         app.router.add_get("/api/v1/synthetic/{item}", route)
 
     async def process(operation, payload):
-        runtime.clock.advance(0.375)
+        runtime.clock.advance(0.175)
 
     monkeypatch.setattr(runtime.clock, "sleep", sleep)
     monkeypatch.setattr(runtime, "process", process)
@@ -220,7 +220,7 @@ async def test_loop_stall_is_logged_once_per_phase_with_safe_activity(
     request = None
     try:
         sample = await samples.get()
-        runtime.clock.advance(0.875)
+        runtime.clock.advance(0.095)
         request = asyncio.create_task(
             client.get(
                 "/api/v1/synthetic/synthetic-private-id?key=synthetic-private-query",
@@ -236,12 +236,12 @@ async def test_loop_stall_is_logged_once_per_phase_with_safe_activity(
         response = await request
         assert response.status == 200
 
-        runtime.clock.advance(1.125)
+        runtime.clock.advance(0.145)
         sample.set_result(None)
         sample = await samples.get()
         assert not events(caplog, "event_loop_stall")
 
-        runtime.clock.advance(1)
+        runtime.clock.advance(0.02)
         sample.set_result(None)
         sample = await samples.get()
         (stall,) = events(caplog, "event_loop_stall")
@@ -251,12 +251,12 @@ async def test_loop_stall_is_logged_once_per_phase_with_safe_activity(
             "lag_ms": 250.0,
             "count": 2,
             "activities": [
-                {"route": "synthetic/{item}", "run_ms": 375.0},
-                {"operation": "tick", "run_ms": 375.0},
+                {"route": "synthetic/{item}", "run_ms": 175.0},
+                {"operation": "tick", "run_ms": 175.0},
             ],
         }
 
-        runtime.clock.advance(1 + runtime.operations.load_lag_ms_strained / 1000)
+        runtime.clock.advance(0.02 + runtime.operations.load_lag_ms_strained / 1000)
         sample.set_result(None)
         await samples.get()
     finally:

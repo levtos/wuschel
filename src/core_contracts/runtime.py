@@ -289,6 +289,7 @@ class Runtime:
             self._broadcast(self.service_state())
 
     async def measure_event_loop(self) -> None:
+        interval = 0.02
         count = 0
         peak = 0.0
         activities: list[dict[str, str | float]] = []
@@ -301,16 +302,16 @@ class Runtime:
         try:
             while True:
                 started = self.clock.monotonic()
-                await self.clock.sleep(0.02)
+                await self.clock.sleep(interval)
                 finished = self.clock.monotonic()
-                lag = round(max(0.0, (finished - started - 0.02) * 1000), 3)
+                lag = round(max(0.0, (finished - started - interval) * 1000), 3)
                 self.event_loop_lag_ms = lag
                 self.event_loop_lag_max_ms = max(self.event_loop_lag_max_ms or 0, lag)
                 if lag >= self.operations.load_lag_ms_strained:
                     count += 1
                     if lag > peak:
                         peak = lag
-                        activities = self.activities.overlapping(started + 1, finished)
+                        activities = self.activities.overlapping(started + interval, finished)
                 elif count:
                     report()
                     count = 0
