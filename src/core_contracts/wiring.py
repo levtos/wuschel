@@ -9,6 +9,7 @@ from . import (  # noqa: F401
     manual_restart,
     mqtt_restore,
     portable,
+    portable_stage_work,
     reconfiguration,
     retention_ops,
     revision_plan,

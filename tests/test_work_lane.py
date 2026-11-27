@@ -280,6 +280,7 @@ def test_registered_operations_have_a_closed_classification():
         "draft_complete",
         "draft_reconcile",
         "portable_stage",
+        "portable_stage_prepared",
         "retention_run",
         "title_stage",
         "title_sync_apply",

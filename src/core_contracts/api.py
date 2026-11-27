@@ -146,10 +146,10 @@ class API:
             request: web.Request, handler: Callable[[web.Request], Awaitable[web.StreamResponse]]
         ) -> web.StreamResponse:
             if work_actor is not None:
-                from .work_routes import read_route
+                from .work_routes import work_route
 
                 path = request.path.removeprefix("/api/v1/")
-                if not read_route(request.method, path):
+                if not work_route(request.method, path):
                     raise web.HTTPNotFound()
                 role = work_actor["role"]
             elif ingress:

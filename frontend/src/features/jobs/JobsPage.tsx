@@ -44,10 +44,10 @@ export default function JobsPage() {
             <li key={job.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
               <div>
                 <p className="font-semibold">{jobName(job.path)}</p>
-                <p className="text-sm text-muted">{t(`work.phase.${job.phase}`)} · {new Date(job.created_at).toLocaleString('de-DE')}</p>
+                <p className="text-sm text-muted">{t(job.phase === 'running' && job.cancellable === false ? 'work.phase.committing' : `work.phase.${job.phase}`)} · {new Date(job.created_at).toLocaleString('de-DE')}</p>
                 {job.phase === 'failed' && <p className="text-sm">{t('work.jobFailed')}</p>}
               </div>
-              {(job.phase === 'waiting' || job.phase === 'running') && (
+              {(job.cancellable ?? (job.phase === 'waiting' || job.phase === 'running')) && (
                 <Button variant="secondary" disabled={cancel.isPending || !work.available} onClick={() => cancel.mutate(job.id)}>
                   {t('work.cancel')}
                 </Button>

@@ -4,6 +4,7 @@ from uuid import uuid4
 import pytest
 
 from core_contracts.portable import strict_json
+from core_contracts.portable_stage_work import prepare_stage
 from tests.conftest import activate, activate_draft
 
 from .test_managed_catalog import configured, request
@@ -104,6 +105,59 @@ async def test_staging_is_idempotent_and_activation_rejects_changed_catalog_head
     with pytest.raises(ValueError, match="catalog_content_conflict"):
         await activate_draft(runtime, imported, expected_active_revision=1)
     assert runtime.state.model_dump() == before
+
+
+@pytest.mark.asyncio
+async def test_prepared_stage_publishes_once_after_separate_read(runtime, config):
+    await activate(runtime, configured(config))
+    package = await export(runtime)
+    preview = await plan(runtime, package)
+    body = {"package": package, "plan_digest": preview["plan_digest"], "request_id": str(uuid4())}
+    draft, prepared = await prepare_stage(runtime, body)
+    assert prepared is not None
+    assert draft["draft_id"] not in runtime.state.tables["registry_draft"]
+    assert await runtime.store.get("catalog_import", "stage:" + body["request_id"]) is None
+    assert await runtime.submit("portable_stage_prepared", prepared) == draft
+    assert await runtime.submit("portable_stage_prepared", prepared) == draft
+    assert await runtime.store.get("catalog_import", "stage:" + body["request_id"])
+    assert runtime.state.active_revision == 1
+
+
+@pytest.mark.asyncio
+async def test_prepared_stage_commit_failure_leaves_no_draft_or_receipt(runtime, config):
+    await activate(runtime, configured(config))
+    package = await export(runtime)
+    preview = await plan(runtime, package)
+    body = {"package": package, "plan_digest": preview["plan_digest"], "request_id": str(uuid4())}
+    draft, prepared = await prepare_stage(runtime, body)
+    assert prepared is not None
+
+    def stop_commit():
+        raise RuntimeError("synthetic commit interrupted")
+
+    runtime.store.before_commit = stop_commit
+    try:
+        with pytest.raises(RuntimeError, match="synthetic commit interrupted"):
+            await runtime.submit("portable_stage_prepared", prepared)
+    finally:
+        runtime.store.before_commit = None
+    assert draft["draft_id"] not in runtime.state.tables["registry_draft"]
+    assert await runtime.store.get("catalog_import", "stage:" + body["request_id"]) is None
+
+
+@pytest.mark.asyncio
+async def test_prepared_stage_checks_catalog_revision_again(runtime, config):
+    await activate(runtime, configured(config))
+    package = await export(runtime)
+    preview = await plan(runtime, package)
+    body = {"package": package, "plan_digest": preview["plan_digest"], "request_id": str(uuid4())}
+    draft, prepared = await prepare_stage(runtime, body)
+    assert prepared is not None
+    await runtime.submit("catalog_write", {"request": request(runtime)})
+    with pytest.raises(ValueError, match="import_plan_conflict"):
+        await runtime.submit("portable_stage_prepared", prepared)
+    assert draft["draft_id"] not in runtime.state.tables["registry_draft"]
+    assert await runtime.store.get("catalog_import", "stage:" + body["request_id"]) is None
 
 
 @pytest.mark.asyncio

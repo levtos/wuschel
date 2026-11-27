@@ -21,6 +21,7 @@ from .contract_types import type_registry
 from .model import canonical, checksum
 from .operations import OperationsSettings
 from .persistence import PostgresStore, State
+from .portable_stage_work import PreparedPortableStage, prepare_stage
 from .retention import RetentionPolicy, maintain_postgres, pinned_references
 from .runtime import Runtime
 from .setup import Connection
@@ -28,7 +29,7 @@ from .wiring import Credentials, read_titles
 from .work_artifacts import load_plan
 from .work_capacity import effective_cpu_count
 from .work_process import FRAME_LIMIT, exit_with_parent, read_frame, write_frame
-from .work_routes import read_route
+from .work_routes import work_route
 
 READ_OPERATIONS = frozenset(
     {
@@ -61,6 +62,7 @@ class WorkerStore(PostgresStore):
 
 class WorkerRuntime(Runtime):
     service_snapshot: dict[str, Any] | None = None
+    prepared_stage: PreparedPortableStage | None = None
 
     def service_state(self) -> dict[str, Any]:
         return (
@@ -68,6 +70,9 @@ class WorkerRuntime(Runtime):
         )
 
     async def submit(self, operation: str, payload: Any = None) -> Any:
+        if operation == "portable_stage":
+            result, self.prepared_stage = await prepare_stage(self, payload)
+            return result
         if operation not in READ_OPERATIONS:
             raise RuntimeError("work_read_only")
         return await self.process(operation, payload)
@@ -80,7 +85,7 @@ async def run(
     directory: Path,
 ) -> None:
     method, path = metadata["method"], metadata["path"]
-    if not read_route(method, path):
+    if not work_route(method, path):
         raise ValueError("work_route_invalid")
     database = Connection.model_validate(configuration["connection"])
     settings = OperationsSettings.model_validate(configuration["operations"])
@@ -192,9 +197,15 @@ async def run(
                         if response.status < 400 and plan_kind is not None and plans:
                             key, artifact = next(iter(plans.items()))
                             plan_info = (plan_kind, key)
+                        commit = None
+                        if response.status < 400 and runtime.prepared_stage is not None:
+                            artifact = runtime.prepared_stage.model_dump(mode="json")
+                            commit = "portable_stage_prepared"
                         write_frame(
                             sys.stdout.buffer,
-                            canonical({"status": response.status, "plan": plan_info}).encode(),
+                            canonical(
+                                {"status": response.status, "plan": plan_info, "commit": commit}
+                            ).encode(),
                         )
                         async for part in response.content.iter_chunked(FRAME_LIMIT):
                             write_frame(sys.stdout.buffer, part)

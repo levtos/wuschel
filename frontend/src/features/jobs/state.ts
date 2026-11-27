@@ -8,6 +8,7 @@ export interface WorkJob {
   id: string;
   path: string;
   phase: WorkPhase;
+  cancellable?: boolean;
   created_at: string;
   error: string | null;
   status: number | null;

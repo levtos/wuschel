@@ -34,6 +34,10 @@ class WorkJournal:
                 "WHERE phase='running'"
             )
             await self.connection.execute(
+                "UPDATE cc_work_job SET phase='prepared', updated_at=clock_timestamp() "
+                "WHERE phase='committing'"
+            )
+            await self.connection.execute(
                 "DELETE FROM cc_work_artifact a USING cc_work_job j "
                 "WHERE a.job_id=j.id AND j.phase='waiting' AND a.kind!='request'"
             )
@@ -181,6 +185,52 @@ class WorkJournal:
                 updated is None or result_status is None,
             )
 
+    async def prepare_commit(self, job_id: UUID, operation: str) -> None:
+        async with self.lock, self.connection.transaction():
+            await self.connection.execute(
+                "UPDATE cc_work_job SET phase='prepared', prepared_operation=$2, "
+                "updated_at=clock_timestamp() WHERE id=$1 AND phase='running'",
+                job_id,
+                operation,
+            )
+            await self.connection.execute(
+                "DELETE FROM cc_work_artifact WHERE job_id=$1 AND kind='request'", job_id
+            )
+
+    async def claim_commit(self) -> asyncpg.Record | None:
+        async with self.lock:
+            return await self.connection.fetchrow(
+                "UPDATE cc_work_job SET phase='committing', updated_at=clock_timestamp() "
+                "WHERE id=(SELECT id FROM cc_work_job WHERE phase IN ('prepared','committing') "
+                "ORDER BY phase!='committing',created_at,id LIMIT 1) RETURNING id,prepared_operation"
+            )
+
+    async def seal_receipt(self, job_id: UUID, status: int, replacement: bytes | None) -> None:
+        async with self.lock, self.connection.transaction():
+            updated = await self.connection.fetchval(
+                "UPDATE cc_work_job SET phase=$2, result_status=$3, updated_at=clock_timestamp() "
+                "WHERE id=$1 AND phase='committing' RETURNING id",
+                job_id,
+                "finished" if status < 400 else "failed",
+                status,
+            )
+            if updated is None:
+                return
+            await self.connection.execute(
+                "DELETE FROM cc_work_artifact WHERE job_id=$1 AND kind='plan'", job_id
+            )
+            if replacement is not None:
+                await self.connection.execute(
+                    "DELETE FROM cc_work_artifact WHERE job_id=$1 AND kind='result'", job_id
+                )
+                await self.connection.executemany(
+                    "INSERT INTO cc_work_artifact VALUES ($1, 'result', $2, $3)",
+                    (
+                        (job_id, part, replacement[offset : offset + ARTIFACT_CHUNK])
+                        for part, offset in enumerate(range(0, len(replacement), ARTIFACT_CHUNK))
+                    ),
+                )
+
     async def requeue(self, job_id: UUID) -> None:
         async with self.lock, self.connection.transaction():
             await self.connection.execute(
@@ -196,7 +246,7 @@ class WorkJournal:
         async with self.lock:
             rows = await self.connection.fetch(
                 "SELECT * FROM cc_work_job WHERE owner=$1 AND phase!='receiving' "
-                "ORDER BY phase NOT IN ('waiting','running'), created_at DESC LIMIT 100",
+                "ORDER BY phase NOT IN ('waiting','running','prepared','committing'), created_at DESC LIMIT 100",
                 owner,
             )
         return [public_job(row) for row in rows]
@@ -215,7 +265,7 @@ class WorkJournal:
             return bool(
                 await self.connection.fetchval(
                     "UPDATE cc_work_job SET phase='cancelled', updated_at=clock_timestamp() "
-                    "WHERE id=$1 AND owner=$2 AND phase IN ('waiting','running') RETURNING id",
+                    "WHERE id=$1 AND owner=$2 AND phase IN ('waiting','running','prepared') RETURNING id",
                     job_id,
                     owner,
                 )
@@ -248,7 +298,8 @@ def public_job(row: asyncpg.Record) -> dict[str, Any]:
     return {
         "id": str(row["id"]),
         "operation": row["operation"],
-        "phase": row["phase"],
+        "phase": {"prepared": "waiting", "committing": "running"}.get(row["phase"], row["phase"]),
+        "cancellable": row["phase"] in {"waiting", "running", "prepared"},
         "created_at": created_at.isoformat(),
         "updated_at": updated_at.isoformat(),
         "error": row["error_code"],

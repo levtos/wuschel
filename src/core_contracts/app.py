@@ -25,6 +25,7 @@ from .identity import load_id, reconcile, write_private
 from .model import Model, canonical
 from .operations import OperationsFile, OperationsSettings
 from .persistence import PersistenceUnavailable, PostgresStore
+from .portable_stage_work import PreparedPortableStage
 from .runtime import Runtime
 from .security import Tokens
 from .setup import Connection, Setup, probe
@@ -237,7 +238,14 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
             raise ConnectionError("ha_discovery_unavailable")
         return await runtime.entity_discovery(preview=True)
 
-    work = WorkClient(clock, discover_entities)
+    async def apply_work(operation: str, raw: dict[str, Any]) -> dict[str, Any]:
+        if operation != "portable_stage_prepared":
+            raise ValueError("work_commit_invalid")
+        plan = PreparedPortableStage.model_validate(raw)
+        result: dict[str, Any] = await runtime.submit(operation, plan)
+        return result
+
+    work = WorkClient(clock, discover_entities, apply_work)
     work_task: asyncio.Task[None] | None = None
     api = API(
         runtime,

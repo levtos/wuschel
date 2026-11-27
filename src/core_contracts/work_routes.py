@@ -67,6 +67,14 @@ def job_route(method: str, path: str) -> bool:
     return match is not None and (method == "GET" or method == "DELETE" and not match["result"])
 
 
+def prepare_route(method: str, path: str) -> bool:
+    return method == "POST" and path == "portable/stage"
+
+
+def work_route(method: str, path: str) -> bool:
+    return read_route(method, path) or prepare_route(method, path)
+
+
 def read_route(method: str, path: str) -> bool:
     if path in READ_ROUTES.get(method, ()):
         return True
