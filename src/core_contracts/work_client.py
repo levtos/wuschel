@@ -229,6 +229,8 @@ class WorkClient:
                     "catalog_request_conflict",
                     "catalog_evaluation_failed",
                     "catalog_cleanup_conflict",
+                    "catalog_migration_conflict",
+                    "catalog_rollback_request_conflict",
                     "title_sync_plan_conflict",
                     "title_sync_mapping_conflict",
                 }

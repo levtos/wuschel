@@ -98,10 +98,12 @@ class WorkerRuntime(Runtime):
                 return result.draft
             return result
         if operation == "retention_run":
-            assert isinstance(self.store, PostgresStore)
+            connection = getattr(self.store, "pool", None)
+            if not isinstance(connection, asyncpg.Connection):
+                raise RuntimeError("work_read_only")
             prepared = await prepare_retention(
                 self,
-                self.store.pool,
+                connection,
                 self.job_id,
                 scheduled=self.retention_scheduled,
             )
