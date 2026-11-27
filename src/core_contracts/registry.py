@@ -767,6 +767,10 @@ def diff(
         ("catalog_classes", "class_key"),
         ("sensor_kinds", "sensor_kind"),
     ):
+        if group in {"catalog_classes", "sensor_kinds"} and (
+            after.config_schema_version < 5 and (before is None or before.config_schema_version < 5)
+        ):
+            continue
 
         def entries(config: RegistryConfig | None) -> dict[str, Any]:
             return (
