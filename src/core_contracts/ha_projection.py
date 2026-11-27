@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from .schema import PRIMARY_FIELDS as PRIMARY_FIELDS
 from .schema import primary_field as primary_field
 
 
