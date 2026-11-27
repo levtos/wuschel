@@ -5,11 +5,20 @@ from aiohttp import web
 
 class FakeHA:
     def __init__(
-        self, states=None, protocol=1, missing=False, registries=None, v2=False, projection=False
+        self,
+        states=None,
+        protocol=1,
+        missing=False,
+        registries=None,
+        v2=False,
+        projection=False,
+        *,
+        record_requests=True,
     ):
         self.states = states or {}
         self.protocol, self.missing = protocol, missing
         self.requests = []
+        self.record_requests = record_requests
         self.sockets = set()
         self.connections = []
         self.subscriptions = {}
@@ -40,8 +49,9 @@ class FakeHA:
                 if message.type != web.WSMsgType.TEXT:
                     break
                 data = message.json()
-                self.requests.append(data)
-                requests.append(data)
+                if self.record_requests:
+                    self.requests.append(data)
+                    requests.append(data)
                 if data["id"] <= last_id:
                     await socket.send_json(
                         {

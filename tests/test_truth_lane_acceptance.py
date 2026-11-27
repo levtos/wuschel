@@ -356,7 +356,7 @@ async def test_double_inventory_acceptance(
             entity: {"state": False, "attributes": {}, "last_updated": now, "last_reported": now}
             for entity in entities
         }
-        fake = FakeHA(states, v2=True, projection=True)
+        fake = FakeHA(states, v2=True, projection=True, record_requests=False)
         fake.projection_cache = projection_cache()
         ha = await aiohttp_server(fake.application())
         async with aiohttp.ClientSession() as session:
