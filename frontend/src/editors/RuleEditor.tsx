@@ -39,6 +39,7 @@ import { AnnualCurvePoints } from './AnnualCurvePoints';
 export interface RuleEnv {
   ctx: RuleContext;
   caps: Capabilities | undefined;
+  registry?: JsonObject;
   /** Activated definition versions are semantically immutable. */
   locked: boolean;
 }
@@ -349,13 +350,42 @@ function Body({ value, onChange, pointer, depth }: { value: Rule; onChange: (nex
         </Select>}</Fld>}
       </>;
     }
-    case 'managed_catalog_lookup': return <>
-      <Fld label={uiText('alpha10.catalog.catalog')} pointer={join(pointer, 'catalog_id')}>{p => <Input {...p} value={str(value.catalog_id)} onChange={e => set({ catalog_id: e.target.value })} />}</Fld>
-      <NumberField label={uiText('editors.RegistryObjects.version_dd1679')} pointer={join(pointer, 'definition_version')} value={Number(value.definition_version ?? 1)} min={1} step={1} onChange={n => set({ definition_version: Math.max(1, Math.trunc(n)) })} />
+    case 'managed_catalog_lookup': {
+      const catalog = asArray(env.registry?.catalogs).filter(isObject).find(row =>
+        row.kind === 'managed' && row.catalog_id === value.catalog_id && row.version === value.definition_version);
+      const assigned = new Set(asArray(catalog?.class_assignments).filter(isObject).map(row => str(row.class_key)));
+      const definitions = asArray(env.registry?.catalog_classes).filter(isObject).filter(row => assigned.has(str(row.class_key)));
+      const selectClass = (key: string) => {
+        const definition = definitions.find(row => row.class_key === key);
+        if (!definition) {
+          const legacy = asArray(asObject(catalog?.classification_schema).values);
+          set({ class_key: undefined, ...(legacy.length ? { schema: { ...newFieldSchema('enum'), value_catalog: legacy } } : {}) });
+          return;
+        }
+        const type = definition.kind === 'integer' ? 'number' : definition.kind === 'boolean' ? 'bool' : 'enum';
+        set({ class_key: key, schema: {
+          ...newFieldSchema(type),
+          ...(type === 'enum' ? { value_catalog: Object.keys(asObject(definition.values)).sort() } : {}),
+          ...(type === 'number' ? { unit: definition.unit ?? null } : {}),
+        } });
+      };
+      return <>
+      <Fld label={uiText('alpha10.catalog.catalog')} pointer={join(pointer, 'catalog_id')}>{p => <Input {...p} value={str(value.catalog_id)} onChange={e => set({ catalog_id: e.target.value, class_key: undefined })} />}</Fld>
+      <NumberField label={uiText('editors.RegistryObjects.version_dd1679')} pointer={join(pointer, 'definition_version')} value={Number(value.definition_version ?? 1)} min={1} step={1} onChange={n => set({ definition_version: Math.max(1, Math.trunc(n)), class_key: undefined })} />
+      {!!definitions.length && <Fld label={uiText('b31.classes.lookupClass')} pointer={join(pointer, 'class_key')}>{props =>
+        <Select {...props} value={str(value.class_key)} onChange={event => selectClass(event.target.value)}>
+          <option value="">{uiText('b31.classes.legacyClass')}</option>
+          {value.class_key && !definitions.some(row => row.class_key === value.class_key) && <option value={str(value.class_key)} disabled>{str(value.class_key)}</option>}
+          {definitions.map(row => <option key={str(row.class_key)} value={str(row.class_key)}>{str(row.display_name)}</option>)}
+        </Select>
+      }</Fld>}
       <p className="text-sm text-muted">{uiText('alpha10.catalog.languageHelp')}</p>
       {['scope', 'media_type', 'signal_type', 'key'].map(name => <Child key={name} parent={value} pointer={pointer} depth={depth} keyPath={[name]} label={uiText(`alpha10.catalog.field.${name}`)} onChange={onChange} />)}
-      <FieldSchemaEditor pointer={join(pointer, 'schema')} value={asObject(value.schema) as FieldSchema} onChange={next => set({ schema: next })} />
-    </>;
+      <fieldset disabled={!!value.class_key}>
+        <FieldSchemaEditor pointer={join(pointer, 'schema')} value={asObject(value.schema) as FieldSchema} onChange={next => set({ schema: next })} />
+      </fieldset>
+      </>;
+    }
     case 'input': {
       const names = ctx.inputs.map((i) => i.name);
       const current = str(value.name);

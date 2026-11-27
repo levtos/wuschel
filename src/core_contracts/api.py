@@ -248,6 +248,8 @@ class API:
                         "catalog_variant_override",
                         "catalog_class_invalid",
                         "catalog_named_classes_required",
+                        "catalog_class_output_invalid",
+                        "catalog_class_output_conflict",
                         "catalog_migration_invalid",
                         "catalog_migration_unmapped",
                         "catalog_migration_conflict",

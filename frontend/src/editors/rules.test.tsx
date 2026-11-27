@@ -12,9 +12,9 @@ const node = (p: string) => document.querySelector(`[data-pointer="${p}"]`) as H
 const base = '/definitions/0';
 const root = `${base}/outputs/value`;
 
-function mount(definition: JsonObject, locked = false) {
+function mount(definition: JsonObject, locked = false, registry?: JsonObject) {
   let current = definition;
-  wrap(<Stateful initial={definition} onValue={(v) => (current = v)}>{(v, set) => <DefinitionEditor value={v} onChange={set} pointer={base} caps={caps} locked={locked} />}</Stateful>);
+  wrap(<Stateful initial={definition} onValue={(v) => (current = v)}>{(v, set) => <DefinitionEditor value={v} onChange={set} pointer={base} caps={caps} locked={locked} registry={registry} />}</Stateful>);
   return () => current;
 }
 const withEnumInput = (): JsonObject => ({ ...newDefinition('test.x', 1), inputs: [{ name: 'mode', schema: { ...newFieldSchema('enum'), value_catalog: ['on', 'off'] } }] });
@@ -92,6 +92,35 @@ describe('operators beyond the example', () => {
     expect(options).not.toContain('bucket');
     expect(options).not.toContain('machine');
     expect(options).toContain('compare');
+  });
+
+  it('limits a lookup to its catalog version’s assigned classes and derives the output type', async () => {
+    const rule = {
+      op: 'managed_catalog_lookup', catalog_id: 'example.titles', definition_version: 2,
+      schema: { ...newFieldSchema('enum'), value_catalog: ['other'] },
+    };
+    const result = mount({
+      ...newDefinition('test.lookup', 1), language_version: 4, outputs: { value: rule },
+    }, false, {
+      catalogs: [
+        { kind: 'managed', catalog_id: 'example.titles', version: 1, class_assignments: [{ class_key: 'older' }] },
+        { kind: 'managed', catalog_id: 'example.titles', version: 2, class_assignments: [{ class_key: 'offset' }],
+          classification_schema: { type: 'enum', values: ['other'] } },
+      ],
+      catalog_classes: [
+        { class_key: 'offset', display_name: 'Korrektur', kind: 'integer', unit: 'Punkte' },
+        { class_key: 'older', display_name: 'Frühere Zuordnung', kind: 'boolean' },
+      ],
+    });
+    await user.click(screen.getByRole('tab', { name: /Ausgaben/ }));
+    const select = screen.getByRole('combobox', { name: /^Katalogklasse/ });
+    expect(within(select).queryByRole('option', { name: 'Frühere Zuordnung' })).toBeNull();
+    await user.selectOptions(select, 'offset');
+    expect(result().outputs).toMatchObject({ value: { class_key: 'offset', schema: { type: 'number', unit: 'Punkte' } } });
+    expect(result().schema).toMatchObject({ fields: { value: { type: 'number', unit: 'Punkte' } } });
+    await user.selectOptions(select, '');
+    expect(result().outputs).toMatchObject({ value: { schema: { type: 'enum', value_catalog: ['other'] } } });
+    expect(result().schema).toMatchObject({ fields: { value: { type: 'enum', value_catalog: ['other'] } } });
   });
 
   it('locked (activated) definitions cannot change logic', async () => {

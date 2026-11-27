@@ -92,6 +92,8 @@ DEVICE_CLASSES = {
     "opening": "contact",
     "window": "contact",
     "motion": "motion",
+    "occupancy": "motion",
+    "presence": "motion",
     "temperature": "temperature",
     "humidity": "humidity",
     "power": "power",

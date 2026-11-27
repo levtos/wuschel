@@ -45,6 +45,8 @@ async def test_typed_migration_commits_one_content_revision(runtime, config):
                         change("Synthetic B", classification=None, master_key="Synthetic A"),
                         change("Synthetic C", classification="leiser"),
                         change("Synthetic D", classification=None),
+                        change("Synthetic E", classification="normal"),
+                        change("Synthetic F", classification="boost"),
                     ],
                 ),
                 "catalog_id": old.catalog_id,
@@ -59,9 +61,11 @@ async def test_typed_migration_commits_one_content_revision(runtime, config):
     keep = {key: "file" for key in objects(package["config"])}
     preview = await plan(runtime, package, resolutions=keep)
     assert preview["unresolved"] == []
-    assert preview["catalog_migrations"][0]["class_values"]["stumm"] == {
-        "volume_offset": 0,
-        "damped": True,
+    assert preview["catalog_migrations"][0]["class_values"] == {
+        "stumm": {"damped": True},
+        "leiser": {"volume_offset": -10},
+        "normal": {},
+        "boost": {"volume_offset": 15},
     }
     draft = await stage(runtime, package, preview, resolutions=keep)
     assert runtime.config.catalogs[0].version == 1
@@ -70,11 +74,21 @@ async def test_typed_migration_commits_one_content_revision(runtime, config):
     current = head(runtime.state, new)
     assert current["revision"] == 1
     entries = current["entries"]
-    keys = [identity("example", "music", "title", f"Synthetic {label}") for label in "ABCD"]
-    assert effective(entries, keys[0], new, "volume_offset")[:2] == (0, True)
+    keys = [identity("example", "music", "title", f"Synthetic {label}") for label in "ABCDEF"]
+    assert [entries[key].get("class_values") for key in keys] == [
+        {"damped": True},
+        None,
+        {"volume_offset": -10},
+        None,
+        None,
+        {"volume_offset": 15},
+    ]
+    assert effective(entries, keys[0], new, "volume_offset")[:2] == (0, False)
     assert effective(entries, keys[1], new, "damped") == (True, True, keys[0])
     assert effective(entries, keys[2], new, "volume_offset")[:2] == (-10, True)
     assert effective(entries, keys[3], new, "damped")[:2] == (False, False)
+    assert effective(entries, keys[4], new, "volume_offset")[:2] == (0, False)
+    assert effective(entries, keys[5], new, "damped")[:2] == (False, False)
     assert head(runtime.state, old)["entries"][keys[0]]["classification"] == "stumm"
     assert read_package(await export(runtime))["format_version"] == 3
     with pytest.raises(ValueError, match="catalog_class_value_invalid"):
@@ -188,6 +202,144 @@ async def test_bulk_changes_one_dimension_and_reconfiguration_keeps_old_values(r
     }
     assert head(runtime.state, catalog) == before
     assert rollback_preview(runtime.state, runtime.config)["catalogs"][0]["care_revisions"] == 3
+
+
+@pytest.mark.parametrize(
+    ("catalog_id", "legacy_value", "class_key", "class_value"),
+    [
+        ("media.ps5", "heimkino", "sound_mode", "home_cinema"),
+        ("media.pc", "headset", "sound_mode", "headset"),
+        ("media.stash", "privat", "content", "private"),
+        ("media.appletv", "normal", "content", "normal"),
+        ("media.appletv_titles", "private", "content", "private"),
+        ("media.tv_device", "ps5", "tv_device", "ps5"),
+        ("media.tv_activity", "gaming", "tv_activity", "gaming"),
+    ],
+)
+def test_migration_only_persists_the_legacy_dimension(
+    config, catalog_id, legacy_value, class_key, class_value
+):
+    from core_contracts.extensions.catalog.named_class_migration import (
+        CLASSES,
+        convert_entry,
+        upgrade_catalog,
+    )
+    from core_contracts.registry import RegistryConfig
+    from core_contracts.rules.catalog_models import ManagedCatalog
+
+    document = upgrade_document(configured(config), version=5)
+    catalog = ManagedCatalog.model_validate({**document["catalogs"][0], "catalog_id": catalog_id})
+    document["catalogs"] = [upgrade_catalog(catalog)]
+    document["catalog_classes"] = deepcopy(list(CLASSES))
+    target = RegistryConfig.model_validate(document).catalogs[0]
+    migrated = convert_entry({"classification": legacy_value}, target)
+    assert migrated == {"classification": None, "class_values": {class_key: class_value}}
+
+
+def test_presence_device_classes_propose_motion(config):
+    from core_contracts.contract_types import type_registry
+
+    registry = validate_document(
+        upgrade_document(config, version=5), type_registry(include_test_types=True)
+    )
+    for device_class in ("occupancy", "presence"):
+        proposals = propose_sensor_kinds(
+            registry, [{"entity_id": "sensor.example_1", "device_class": device_class, "unit": "W"}]
+        )
+        assert proposals["source.a"] == {"sensor_kind": "motion", "basis": "device_class"}
+
+
+async def test_publish_new_class_in_selected_contract_and_ha_projection(
+    runtime, config, aiohttp_client, tmp_path
+):
+    from core_contracts.ha_projection import snapshot
+
+    from .test_declarative import definition, registry, schema
+    from .test_managed_catalog import lookup_rule
+    from .test_workbench_api import api_client
+
+    lookup = {**lookup_rule("Synthetic First"), "class_key": "damped", "schema": schema()}
+    template = {**definition(lookup), "language_version": 4}
+    document = upgrade_document(configured(registry(config, template)), version=5)
+    document["catalogs"][0]["class_assignments"] = [{"class_key": "damped"}]
+    document["catalog_classes"] = [
+        {"class_key": "damped", "display_name": "Dämpfen", "kind": "boolean", "default": False}
+    ]
+    document["contracts"][0]["ha_projection"] = True
+    document["contracts"].append(
+        {**deepcopy(document["contracts"][0]), "contract_id": "fixture.other"}
+    )
+    await activate(runtime, document)
+    _, client, headers = await api_client(runtime, aiohttp_client, tmp_path)
+    response = await client.get("/api/v1/catalogs/classes/outputs", headers=headers)
+    assert response.status == 200
+    assert {(row["contract_id"], row["from_field"]) for row in await response.json()} == {
+        ("fixture.echo", "value"),
+        ("fixture.other", "value"),
+    }
+
+    response = await client.post(
+        "/api/v1/catalogs/classes/migration",
+        headers=headers,
+        json={
+            "expected_active_revision": runtime.state.active_revision,
+            "catalog_classes": [
+                *document["catalog_classes"],
+                {
+                    "class_key": "offset",
+                    "display_name": "Korrektur",
+                    "kind": "integer",
+                    "default": 0,
+                    "minimum": -30,
+                    "maximum": 30,
+                    "unit": "Punkte",
+                },
+            ],
+            "assignments": {"example.titles": [{"class_key": "damped"}, {"class_key": "offset"}]},
+            "outputs": [
+                {
+                    "catalog_id": "example.titles",
+                    "class_key": "offset",
+                    "contract_id": "fixture.echo",
+                    "from_field": "value",
+                }
+            ],
+        },
+    )
+    result = await response.json()
+    assert response.status == 200, result
+    assert result["preview"].get("can_stage") is not False
+    assert result["preview"]["unresolved"] == []
+    (projection,) = result["projections"]
+    assert projection["contract_id"] == "fixture.echo"
+    assert projection["primary_field"] == "value"
+    assert projection["old_fields"] == ["value"]
+    assert set(projection["fields"]) == {"value", "offset"}
+    draft = await stage(
+        runtime, result["package"], result["preview"], resolutions=result["resolutions"]
+    )
+    assert runtime.config.contracts[0].type_version == 1
+    await activate_draft(runtime, draft)
+    selected, sibling = runtime.config.contracts
+    assert selected.type_version > sibling.type_version
+    catalog = runtime.config.catalogs[0]
+    await runtime.submit(
+        "catalog_write",
+        {
+            "request": {
+                **request(
+                    runtime,
+                    [change(classification=None, class_values={"offset": 12})],
+                    revision=head(runtime.state, catalog)["revision"],
+                ),
+                "definition_version": catalog.version,
+            }
+        },
+    )
+    projected = {row["contract_id"]: row for row in snapshot(runtime)["contracts"]}
+    offset = projected["fixture.echo"]["fields"]["offset"]
+    assert (offset["value"], offset["status"], offset["unit"]) == (12, "valid", "Punkte")
+    assert set(projected["fixture.other"]["fields"]) == {"value"}
 
 
 def test_title_classifier_keeps_untouched_dimensions_for_unknown_numbers(config):

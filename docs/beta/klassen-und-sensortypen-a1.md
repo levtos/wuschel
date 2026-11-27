@@ -110,12 +110,13 @@ bereits belegten Alias-Paare normalisiert.
 
 | Katalog | Überführung vorhandener Werte |
 | --- | --- |
-| HomePods | normal → 0 Punkte und Nein. boost → +15 und Nein. mute/stumm → 0 und Ja. quieter/leiser → −10 und Nein. |
-| PS5 und PC | Bisheriger Wert → Soundmodus. Licht-Look Standard. Korrektur 0. |
-| Stash und Apple TV Apps/Titel | Bisheriger Wert → Inhalt. Korrektur 0. |
+| HomePods | boost → +15 Punkte. mute/stumm → Dämpfen Ja. quieter/leiser → −10 Punkte. normal bleibt ungepflegt. |
+| PS5 und PC | Bisheriger Wert → Soundmodus. |
+| Stash und Apple TV Apps/Titel | Bisheriger Wert → Inhalt. |
 | TV-Gerät und TV-Aktivität | Bestehende Werteschlüssel bleiben erhalten und erhalten den jeweiligen Klassenschlüssel. |
 
-Ungepflegte Einträge bleiben ungepflegt und verwenden den jeweiligen Standard.
+Ungepflegte Einträge und beim Umzug nicht belegte Dimensionen verwenden den
+jeweiligen Standard. Die Vorschau zeigt die tatsächlich gespeicherten Werte.
 Ein gespeicherter Altwert ohne bestätigte Zuordnung wird in der Vorschau
 angezeigt und blockiert seine Migration. Die Fallback-Regel für unbekannte
 TC-Zahlen gilt nur im Abgleich. Der Umzug übernimmt Klassendefinitionen,
@@ -154,7 +155,12 @@ Der Abgleich erfindet keine Szenennamen und schreibt jede bestätigte
 
 Ein typisierter Katalog-Lookup benennt die Katalogdefinition und
 Klassendimension. Validierung prüft den Rückgabetyp gegen die Klassendefinition.
-Die jeweils neue Vertragsvorlage publiziert ein separates Feld pro Dimension.
+Bei einer Katalogabfrage im Vorlagen-Editor sind die dem Katalog zugeordneten
+Klassen wählbar. Die Klassendefinition liefert den Ergebnistyp. Beim Zuordnen
+einer Klasse kann die Katalogpflege aus einer vorhandenen Katalogabfrage ein
+zusätzliches Feld für den gewählten Vertrag ableiten. Die Vorschau zeigt die
+neue Vorlagenversion und gegebenenfalls ihre HA-Projektion. Katalogzuordnung
+und Vertragsfeld werden gemeinsam im Entwurf abgelegt und übernommen.
 Apple TV summiert die tatsächlichen App- und Titel-Korrekturen in Wuschel.
 Aus je −30 bis +30 folgt ein Summenbereich von −60 bis +60 Punkten. Die
 Summe behält Qualität und Evidence beider Komponenten. Bei belegtem
@@ -171,8 +177,8 @@ aus Korrektur und Dämpfen ab und bleibt während der Engine-Umstellung in
 Betrieb. Bestehende IDs oder Felder abzuschalten
 braucht eine eigene Freigabe und Übergangszeit. Die Umsetzung liefert ein
 Inventar je betroffenem Vertrag mit alten und neuen Feldern, vorgeschlagenen
-Entitäts-IDs und tatsächlicher `unique_id`. Keine Änderungen an den Engines
-oder an der Apple-TV-Erfassung sind Teil dieses Auftrags.
+Entitäts-IDs und tatsächlicher `unique_id`. Die beiden Apple-TV-Modi mit
+zweiter Zeile erfassen Titel ohne zweite Zeile als Einzeltitel.
 
 ## Paket 2 – Sensortypen und gemeinsame Aktualität
 

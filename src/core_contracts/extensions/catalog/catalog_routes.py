@@ -43,6 +43,10 @@ async def dispatch(self: Any, request: web.Request, *, cache: CatalogReadCache) 
         from core_contracts.extensions.catalog.catalog_class_rollback import preview
 
         result = preview(state, config)
+    elif path == "catalogs/classes/outputs" and method == "GET":
+        from core_contracts.extensions.catalog.named_class_migration import output_options
+
+        result = await asyncio.to_thread(output_options, config) if config else []
     elif path == "catalogs/classes/migration" and method == "POST":
         from core_contracts.extensions.catalog.named_class_migration import (
             build_package,
@@ -71,7 +75,11 @@ async def dispatch(self: Any, request: web.Request, *, cache: CatalogReadCache) 
             }
         package = (
             await asyncio.to_thread(
-                configure_package, baseline, body["catalog_classes"], body.get("assignments", {})
+                configure_package,
+                baseline,
+                body["catalog_classes"],
+                body.get("assignments", {}),
+                body.get("outputs"),
             )
             if "catalog_classes" in body
             else await asyncio.to_thread(build_package, baseline)
@@ -87,7 +95,7 @@ async def dispatch(self: Any, request: web.Request, *, cache: CatalogReadCache) 
             "projections": await asyncio.to_thread(
                 projection_changes, runtime, baseline["config"], plan["config"]
             )
-            if plan.get("can_stage")
+            if plan.get("can_stage") is not False and not plan["unresolved"]
             else [],
         }
     elif (
@@ -275,6 +283,7 @@ def register(app: web.Application, api: Any) -> None:
         "catalogs/care/queue",
         "catalogs/classes/migration",
         "catalogs/classes/rollback",
+        "catalogs/classes/outputs",
         "catalogs/care/inspect",
         "catalogs/care/export",
         "catalogs/care/detail",

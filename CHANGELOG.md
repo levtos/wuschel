@@ -4,7 +4,9 @@
 
 - Kataloge können benannte Auswahl-, Ganzzahl- und Ja/Nein-Klassen mit eigenen Standards verwenden. Die Katalogpflege zeigt die einzelnen Werte, ihre Herkunft und betroffene Varianten.
 - Der Umzug und seine Rücknahme verwenden eine gemeinsame Registry- und Katalogübernahme. Die Vorschau zeigt alte Werte, neue Zuordnungen und betroffene Entitäten. Der Titelabgleich zeigt unbekannte Zahlen mit dem verwendeten Standard.
-- Sensortypen lassen sich pflegen und anhand von Geräteklasse, Einheit und Wertart gesammelt zuordnen. Gleiche Aktualitätsregeln können zu einer Vorlage zusammengefasst werden, während Quellen ihre bisherigen Fristen und Lebenszeichengeber behalten. [#169](https://github.com/Levtos/wuschel/issues/169)
+- Neu zugeordnete Katalogklassen lassen sich über einen Entwurf im zugehörigen Vertrag ausgeben. Beim Umzug greifen für ungepflegte Dimensionen die jeweiligen Standards.
+- Apple TV erfasst Filme ohne zweite Titelzeile auch in Apps mit Serienerkennung als Einzeltitel.
+- Sensortypen lassen sich pflegen und anhand von Geräteklasse, Einheit und Wertart gesammelt zuordnen. Präsenzmelder werden als Bewegung vorgeschlagen. Gleiche Aktualitätsregeln können zu einer Vorlage zusammengefasst werden, während Quellen ihre bisherigen Fristen und Lebenszeichengeber behalten. [#169](https://github.com/Levtos/wuschel/issues/169)
 
 ## 1.0.0b30 - Schnellere Ansichten und verständliche Diagnose
 

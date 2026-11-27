@@ -232,6 +232,25 @@ async def test_each_configured_pattern_uses_exactly_two_levels_or_one(
     assert head(runtime.state, cat)["revision"] == 0
 
 
+@pytest.mark.parametrize("mode", ["episode_in_second", "parent_in_second"])
+async def test_second_line_modes_discover_series_and_film_in_one_app(runtime, config, mode):
+    await activate(runtime, configuration(config, settings(mode)))
+    series, episode, film = "Synthetic series", "Synthetic episode", "Synthetic film"
+    first, second = (series, episode) if mode == "episode_in_second" else (episode, series)
+    await send(runtime, first, second)
+    await advance(runtime, 2)
+    await send(runtime, film)
+    await advance(runtime, 2)
+
+    cat = runtime.config.catalogs[0]
+    roots = {row["display_name"]: row for row in listing(runtime.state, cat, grouped=True)["items"]}
+    assert set(roots) == {series, film}
+    variants = detail(runtime.state, cat, roots[series]["identity"])["variants"]
+    assert [row["display_metadata"]["title"] for row in variants] == [episode]
+    assert roots[film]["variant_count"] == 0
+    assert not roots[film].get("master_identity")
+
+
 async def test_live_tv_waits_sixty_seconds_without_splitting_and_sender_is_only_metadata(
     runtime, config
 ):
@@ -347,7 +366,7 @@ async def test_source_and_app_stability_are_independent_and_app_ids_namespace_ti
         ("ignore", None, "", ""),
         ("content_prefix", "Synthetic season", "", "GN_SEASON_SYNTHETIC"),
         ("parent_in_second", "", "Synthetic channel", ""),
-        ("episode_in_second", "Synthetic series", "", ""),
+        ("episode_in_second", "", "Synthetic episode", ""),
     ],
 )
 async def test_ignored_or_incomplete_titles_are_never_discovered(

@@ -32,13 +32,9 @@ def parse(attributes: dict[str, Any], settings: AppleTitleConfig) -> dict[str, A
     if ignored or not app_id or not title:
         return result
     parent, child, live, sender = "", title, False, ""
-    if mode == "episode_in_second":
-        if not second:
-            return result
+    if mode == "episode_in_second" and second:
         parent, child = title, second
-    elif mode == "parent_in_second":
-        if not second:
-            return result
+    elif mode == "parent_in_second" and second:
         parent = second
     elif mode == "content_prefix":
         if content_id.startswith("GN_EP"):

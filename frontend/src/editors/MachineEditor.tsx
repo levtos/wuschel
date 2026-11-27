@@ -39,6 +39,7 @@ export function MachineEditor({
   definition,
   caps,
   locked,
+  registry,
 }: {
   value: JsonObject;
   onChange: (next: JsonObject) => void;
@@ -46,6 +47,7 @@ export function MachineEditor({
   definition: JsonObject;
   caps: Capabilities | undefined;
   locked: boolean;
+  registry?: JsonObject;
 }) {
   const states = asArray(value.states).map(String);
   const transitions = asArray(value.transitions).map(asObject);
@@ -53,7 +55,7 @@ export function MachineEditor({
   const extended = value.unknown_deadline === 'keep_and_block_transition';
   const hasDeadline = typeof value.deadline_s === 'number' || isObject(value.deadline_s) || Object.keys(asObject(value.deadline_by_state)).length > 0;
   const events = ['input', ...(hasDeadline ? ['deadline'] : []), ...Object.keys(commands)];
-  const env = { ctx: ruleContext(definition, true), caps };
+  const env = { ctx: ruleContext(definition, true), caps, registry };
   const defaults = operatorDefaults(caps);
   const set = (patch: Record<string, Json | undefined>) => {
     const next: JsonObject = { ...value };

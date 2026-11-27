@@ -120,6 +120,7 @@ export default function DefinitionDetailPage() {
       <PanelLayout view="definition.detail"><LayoutPanel id="editor" title={uiText("features.contracts.DefinitionDetailPage.definitionseditor_c9b1ee")}><div className="min-w-0">
         <DefinitionEditor
           value={definition}
+          registry={config ?? undefined}
           pointer={pointer}
           caps={caps.data}
           initialTab={params.get('tab') ?? undefined}
@@ -139,7 +140,7 @@ export default function DefinitionDetailPage() {
         if (editing.removed) navigate('/templates/own');
         else if (isObject(row) && (str(row.type_id) !== typeId || String(row.type_version) !== version)) navigate(`/templates/details/${encodeURIComponent(str(row.type_id))}/${String(row.type_version)}`);
       }} footer={!editing.removed && <Button size="sm" variant="danger" onClick={() => setRemoving(true)}><Trash2 size={14} />{uiText('features.contracts.DefinitionDetailPage.entfernen_382837')}</Button>}>
-        {editing.removed ? <p>{uiText('a2.edit.removalPending')}</p> : <DefinitionEditor value={asArray(editing.config.definitions).filter(isObject)[editing.index]!} pointer={editingPointer} caps={caps.data} initialTab={params.get('tab') ?? undefined} locked={editing.lockedSince !== null} onChange={next => setEditing(current => current && { ...current, config: { ...setAt(current.config, editingPointer, next), ...(Number(next.language_version) === 4 ? { config_schema_version: 3, fingerprint_version: 3 } : Number(next.language_version) >= 3 ? { config_schema_version: Math.max(2, Number(current.config.config_schema_version ?? 1)) } : {}) } })} />}
+        {editing.removed ? <p>{uiText('a2.edit.removalPending')}</p> : <DefinitionEditor value={asArray(editing.config.definitions).filter(isObject)[editing.index]!} pointer={editingPointer} caps={caps.data} registry={editing.config} initialTab={params.get('tab') ?? undefined} locked={editing.lockedSince !== null} onChange={next => setEditing(current => current && { ...current, config: { ...setAt(current.config, editingPointer, next), ...(Number(next.language_version) === 4 ? { config_schema_version: Math.max(3, Number(current.config.config_schema_version ?? 1)), fingerprint_version: Math.max(3, Number(current.config.fingerprint_version ?? 1)) } : Number(next.language_version) >= 3 ? { config_schema_version: Math.max(2, Number(current.config.config_schema_version ?? 1)) } : {}) } })} />}
       </DraftEditor>}
       {versioning && <DraftEditor base={versioning.base} input={versioning.copy} dirty plan={() => ({ config: setAt(versioning.base, '/definitions', [...asArray(versioning.base.definitions), versioning.copy]) })} onClose={() => setVersioning(null)} onSaved={saved => {
         const next = Number(versioning.copy.type_version);

@@ -134,10 +134,14 @@ def convert_entry(row: dict[str, Any], catalog: ManagedCatalog) -> dict[str, Any
     catalog_id = catalog.catalog_id
     values: dict[str, ClassValue]
     if catalog_id == "media.homepods":
-        offsets = {"normal": 0, "boost": 15, "mute": 0, "quieter": -10}
-        if code not in offsets:
+        if code == "normal":
+            return result
+        if code == "mute":
+            values = {"damped": True}
+        elif code in (offsets := {"boost": 15, "quieter": -10}):
+            values = {"volume_offset": offsets[code]}
+        else:
             raise ValueError("catalog_migration_unmapped")
-        values = {"volume_offset": offsets[code], "damped": code == "mute"}
     else:
         dimension = LEGACY_DIMENSIONS[catalog_id]
         if dimension.startswith("tv_") and raw in (
@@ -145,10 +149,6 @@ def convert_entry(row: dict[str, Any], catalog: ManagedCatalog) -> dict[str, Any
         ):
             code = raw
         values = {dimension: code}
-        if dimension == "sound_mode":
-            values.update(light_look="standard", volume_offset=0)
-        elif dimension == "content":
-            values["volume_offset"] = 0
     catalog.validate_classes(values)
     result["class_values"] = values
     return result
@@ -618,7 +618,142 @@ def affected_definitions(
         )
 
 
-def configure_package(package: dict[str, Any], classes: Any, assignments: Any) -> dict[str, Any]:
+def output_basis(
+    rule: dict[str, Any],
+    catalog: ManagedCatalog,
+    rules: dict[str, Any],
+    seen: frozenset[str] = frozenset(),
+) -> dict[str, Any] | None:
+    """Reuse a lookup's inputs and applicability, with the new class as its result."""
+    op = rule["op"]
+    if op == "managed_catalog_lookup":
+        if (rule["catalog_id"], rule["definition_version"]) == (
+            catalog.catalog_id,
+            catalog.version,
+        ):
+            return rule
+    elif op == "ref":
+        name = rule["name"]
+        if name in rules and name not in seen:
+            return output_basis(rules[name], catalog, rules, seen | {name})
+    elif op == "map":
+        return output_basis(rule["arg"], catalog, rules, seen)
+    elif op == "catalog_offset_sum":
+        return output_basis(rule["title"], catalog, rules, seen)
+    elif op in {"not_applicable", "literal"}:
+        return {"op": "not_applicable"}
+    elif op == "first_match":
+        cases = []
+        for case in rule["cases"]:
+            branch = output_basis(case["then"], catalog, rules, seen)
+            if branch is None:
+                return None
+            cases.append({**case, "then": branch})
+        if any(case["then"]["op"] != "not_applicable" for case in cases):
+            return {"op": "first_match", "cases": cases}
+    return None
+
+
+def output_options(config: RegistryConfig) -> list[dict[str, Any]]:
+    from core_contracts.registry import storage_document
+
+    document = storage_document(config)
+    definitions = {
+        (row["type_id"], row["type_version"]): row for row in document.get("definitions", [])
+    }
+    options = []
+    for contract in document["contracts"]:
+        definition = definitions.get((contract["type_id"], contract["type_version"]))
+        if not definition or definition.get("lifecycle") == "retired":
+            continue
+        for catalog in config.catalogs:
+            if not isinstance(catalog, ManagedCatalog) or not catalog.class_assignments:
+                continue
+            for field, rule in definition["outputs"].items():
+                basis = output_basis(rule, catalog, definition.get("rules", {}))
+                if basis and basis["op"] != "not_applicable":
+                    options.append(
+                        {
+                            "catalog_id": catalog.catalog_id,
+                            "contract_id": contract["contract_id"],
+                            "display_name": contract.get("display_name") or contract["contract_id"],
+                            "from_field": field,
+                            "fields": list(definition["outputs"]),
+                        }
+                    )
+    return options
+
+
+def publish_class_outputs(
+    document: dict[str, Any],
+    outputs: Any,
+    previous: RegistryConfig,
+    catalogs: dict[tuple[str, int], ManagedCatalog],
+) -> None:
+    from core_contracts.schema import Schema, primary_field
+
+    if not isinstance(outputs, list) or len(outputs) > 256:
+        raise ValueError("catalog_class_output_invalid")
+    definitions = {
+        (row["type_id"], row["type_version"]): row for row in document.get("definitions", [])
+    }
+    contracts = {row["contract_id"]: row for row in document["contracts"]}
+    old_classes = {
+        catalog.catalog_id: catalog.assigned_classes
+        for catalog in previous.catalogs
+        if isinstance(catalog, ManagedCatalog)
+    }
+    requests: dict[str, list[dict[str, str]]] = {}
+    for request in outputs:
+        if (
+            not isinstance(request, dict)
+            or set(request) != {"catalog_id", "class_key", "contract_id", "from_field"}
+            or not all(isinstance(value, str) and value for value in request.values())
+        ):
+            raise ValueError("catalog_class_output_invalid")
+        requests.setdefault(request["contract_id"], []).append(request)
+    targets = {catalog.catalog_id: catalog for catalog in catalogs.values()}
+    for contract_id, fields in requests.items():
+        contract = contracts.get(contract_id)
+        if not contract:
+            raise ValueError("catalog_class_output_invalid")
+        type_id = contract["type_id"]
+        base = definitions.get((type_id, contract["type_version"]))
+        if not base or base.get("lifecycle") == "retired":
+            raise ValueError("catalog_class_output_invalid")
+        candidate = copy.deepcopy(base)
+        for field in fields:
+            catalog = targets.get(field["catalog_id"])
+            key = field["class_key"]
+            source = base["outputs"].get(field["from_field"])
+            if (
+                catalog is None
+                or source is None
+                or key in old_classes.get(catalog.catalog_id, {})
+                or (definition := catalog.assigned_classes.get(key)) is None
+            ):
+                raise ValueError("catalog_class_output_invalid")
+            if key in candidate["outputs"]:
+                raise ValueError("catalog_class_output_conflict")
+            basis = output_basis(source, catalog, base.get("rules", {}))
+            if not basis or basis["op"] == "not_applicable":
+                raise ValueError("catalog_class_output_invalid")
+            schema = definition.field_schema().model_dump(mode="json")
+            add_output(candidate, key, schema, dimension_output(basis, key, schema))
+        if contract.get("ha_projection") and primary_field(
+            Schema.model_validate(candidate["schema"]), type_id
+        ) != primary_field(Schema.model_validate(base["schema"]), type_id):
+            raise ValueError("catalog_class_output_conflict")
+        version = max(number for name, number in definitions if name == type_id) + 1
+        candidate["type_version"] = version
+        definitions[(type_id, version)] = candidate
+        document["definitions"].append(candidate)
+        contract["type_version"] = version
+
+
+def configure_package(
+    package: dict[str, Any], classes: Any, assignments: Any, outputs: Any = None
+) -> dict[str, Any]:
     from core_contracts.portable import read_package
 
     result = copy.deepcopy(read_package(package))
@@ -666,6 +801,8 @@ def configure_package(package: dict[str, Any], classes: Any, assignments: Any) -
         for row in verified.catalogs
         if isinstance(row, ManagedCatalog)
     }
+    if outputs is not None:
+        publish_class_outputs(document, outputs, before, targets)
     for content in result["catalog_contents"]:
         old_key = (content["catalog_id"], content["definition_version"])
         if old_key not in versions:
@@ -762,7 +899,9 @@ def migration_proof(
     if not reconfigure:
         for raw in counts:
             if raw != "unassigned":
-                values[raw] = convert_entry({"classification": raw}, upgraded)["class_values"]
+                values[raw] = convert_entry({"classification": raw}, upgraded).get(
+                    "class_values", {}
+                )
     removed = old.assigned_classes.keys() - new.assigned_classes.keys()
     removed_values = {
         name: sum(name in row.get("class_values", {}) for row in original.values())

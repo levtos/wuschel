@@ -16,6 +16,8 @@ import { classLabel, ClassField, type ClassDefinition, type ClassValue } from '.
 import type { Catalog } from './CatalogPage';
 
 type Assignment = { class_key: string; default?: ClassValue; title_catalog_mapping?: Record<string, ClassValue> };
+type OutputSource = { catalog_id: string; contract_id: string; display_name: string; from_field: string; fields: string[] };
+type ClassOutput = Pick<OutputSource, 'catalog_id' | 'contract_id' | 'from_field'> & { class_key: string };
 type Change = {
   catalog_id: string; entries: number; before: Record<string, number>; variants: number; tombstones: number;
   sightings: number; class_values: Record<string, Record<string, ClassValue>>; removed_values?: Record<string, number>;
@@ -76,8 +78,11 @@ function EnumValues({ value, onChange }: {
   </>;
 }
 
-function CatalogAssignments({ catalog, classes, assignments, onChange }: {
-  catalog: Catalog; classes: ClassDefinition[]; assignments: Assignment[]; onChange: (value: Assignment[]) => void;
+function CatalogAssignments({ catalog, classes, assignments, sources, outputs, onChange, onOutputChange }: {
+  catalog: Catalog; classes: ClassDefinition[]; assignments: Assignment[];
+  sources: OutputSource[]; outputs: ClassOutput[];
+  onChange: (value: Assignment[]) => void;
+  onOutputChange: (key: string, source?: OutputSource) => void;
 }) {
   const [adding, setAdding] = useState('');
   const available = classes.filter(row => row.class_key && !assignments.some(item => item.class_key === row.class_key));
@@ -86,6 +91,10 @@ function CatalogAssignments({ catalog, classes, assignments, onChange }: {
     {assignments.map(assignment => {
       const definition = classes.find(row => row.class_key === assignment.class_key);
       if (!definition) return null;
+      const newAssignment = !catalog.class_definitions?.some(row => row.class_key === assignment.class_key);
+      const availableOutputs = sources.filter(source => !source.fields.includes(assignment.class_key));
+      const selected = outputs.find(output => output.class_key === assignment.class_key);
+      const index = availableOutputs.findIndex(source => source.contract_id === selected?.contract_id && source.from_field === selected.from_field);
       return <section className="space-y-2" key={assignment.class_key}>
         <h4>{definition.display_name}</h4>
         <ClassField definition={definition} label={t('b31.classes.catalogDefault')} value={assignment.default} onChange={value => edit(assignment.class_key, { default: value })} />
@@ -98,6 +107,17 @@ function CatalogAssignments({ catalog, classes, assignments, onChange }: {
               edit(assignment.class_key, { title_catalog_mapping: mapping });
             }} />)}
         </div>}
+        {newAssignment && availableOutputs.length > 0 &&
+          <Field label={t('b31.classes.contractOutput')} help={t('b31.classes.contractOutputHelp')}>{props =>
+            <Select {...props} value={index < 0 ? '' : String(index)} onChange={event =>
+              onOutputChange(assignment.class_key, event.target.value === '' ? undefined : availableOutputs[Number(event.target.value)])
+            }>
+              <option value="">{t('b31.classes.catalogOnly')}</option>
+              {availableOutputs.map((source, i) => <option key={`${source.contract_id}:${source.from_field}`} value={String(i)}>
+                {source.display_name} · {source.from_field}
+              </option>)}
+            </Select>
+          }</Field>}
         <Button disabled={assignments.length <= 1} onClick={() => onChange(assignments.filter(row => row !== assignment))}>{t('b31.classes.removeAssignment')}</Button>
       </section>;
     })}
@@ -115,6 +135,7 @@ export function CatalogClasses({ config, revision, catalogs }: { config?: Regist
   const [open, setOpen] = useState(false);
   const [classes, setClasses] = useState<ClassDefinition[]>([]);
   const [assignments, setAssignments] = useState<Record<string, Assignment[]>>({});
+  const [outputs, setOutputs] = useState<ClassOutput[]>([]);
   const [dirty, setDirty] = useState(false);
   const [plan, setPlan] = useState<MovePlan | null>(null);
   const [undo, setUndo] = useState<UndoPlan | null>(null);
@@ -126,13 +147,19 @@ export function CatalogClasses({ config, revision, catalogs }: { config?: Regist
   const version5 = config?.config_schema_version === 5;
   const legacy = catalogs.some(row => ['media.homepods', 'media.ps5', 'media.pc', 'media.appletv', 'media.appletv_titles', 'media.stash', 'media.tv_device', 'media.tv_activity'].includes(row.catalog_id) && !row.class_definitions?.length);
   const typed = catalogs.filter(row => row.class_definitions?.length);
+  const sources = useQuery({
+    queryKey: ['catalog-class-outputs', revision],
+    enabled: open && typed.some(catalog => assignments[catalog.catalog_id]?.some(assignment =>
+      !catalog.class_definitions?.some(row => row.class_key === assignment.class_key))),
+    queryFn: () => api<OutputSource[]>('catalogs/classes/outputs'), retry: false,
+  });
   const reverse = useQuery({
     queryKey: ['catalog-classes-rollback', revision], enabled: open && !!typed.length,
     queryFn: () => api<UndoPlan | null>('catalogs/classes/rollback'), retry: false,
   });
   const saved = (config?.catalog_classes ?? []) as unknown as ClassDefinition[];
   const start = () => {
-    setClasses(saved); setPlan(null); setUndo(null); setReceipt(''); setError(''); setDirty(false);
+    setClasses(saved); setOutputs([]); setPlan(null); setUndo(null); setReceipt(''); setError(''); setDirty(false);
     setBaseRevision(revision);
     setAssignments(Object.fromEntries((Array.isArray(config?.catalogs) ? config.catalogs : [])
       .flatMap(value => value && typeof value === 'object' && 'class_assignments' in value &&
@@ -151,7 +178,7 @@ export function CatalogClasses({ config, revision, catalogs }: { config?: Regist
   };
   const check = (move: boolean) => execute(async () => {
     const response = await api<MovePlan>('catalogs/classes/migration', {
-      method: 'POST', body: { expected_active_revision: revision, ...(move ? {} : { catalog_classes: classes, assignments }) },
+      method: 'POST', body: { expected_active_revision: revision, ...(move ? {} : { catalog_classes: classes, assignments, outputs }) },
     });
     setPlan(response); setUndo(null); setRequestId(uuid());
   });
@@ -197,9 +224,23 @@ export function CatalogClasses({ config, revision, catalogs }: { config?: Regist
           }} />)}
         </div>
         <Button disabled={busy} onClick={() => { setClasses([...classes, seed]); refresh(); }}>{t('b31.classes.addClass')}</Button>
+        {sources.isError && <Notice tone="warn">{t('b31.classes.outputSourcesFailed')}
+          <Button onClick={() => void sources.refetch()}>{t('b31.sensor.retry')}</Button>
+        </Notice>}
         {typed.map(catalog => <CatalogAssignments key={catalog.catalog_id} catalog={catalog} classes={classes}
-          assignments={assignments[catalog.catalog_id] ?? []} onChange={next => {
-            setAssignments({ ...assignments, [catalog.catalog_id]: next }); refresh();
+          assignments={assignments[catalog.catalog_id] ?? []}
+          sources={(sources.data ?? []).filter(source => source.catalog_id === catalog.catalog_id)}
+          outputs={outputs.filter(output => output.catalog_id === catalog.catalog_id)}
+          onChange={next => {
+            setAssignments({ ...assignments, [catalog.catalog_id]: next });
+            setOutputs(outputs.filter(output => output.catalog_id !== catalog.catalog_id || next.some(assignment => assignment.class_key === output.class_key)));
+            refresh();
+          }}
+          onOutputChange={(class_key, source) => {
+            const next = outputs.filter(output => output.catalog_id !== catalog.catalog_id || output.class_key !== class_key);
+            if (source) next.push({ catalog_id: catalog.catalog_id, class_key, contract_id: source.contract_id, from_field: source.from_field });
+            setOutputs(next);
+            refresh();
           }} />)}
         <Button disabled={busy || !current || !dirty} onClick={() => void check(false)}>{t('alpha10.catalog.preview')}</Button>
       </>}
@@ -223,7 +264,7 @@ export function CatalogClasses({ config, revision, catalogs }: { config?: Regist
             {row.class_values[value] && ` → ${Object.entries(row.class_values[value]).map(([key, replacement]) => {
               const item = classes.find(definition => definition.class_key === key);
               return item ? `${item.display_name} ${classLabel(item, replacement)}` : `${key} ${String(replacement)}`;
-            }).join(' · ')}`}
+            }).join(' · ') || t('b31.classes.followsDefault')}`}
           </li>)}</ul>
           {Object.entries(row.removed_values ?? {}).map(([name, count]) => <p key={name}>{t('b31.classes.removed', { name, count })}</p>)}
         </li>)}</ul>
