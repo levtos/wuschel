@@ -170,12 +170,17 @@ def test_measurement_job_is_manual_and_area_steps_keep_every_check():
     )
 
 
-def test_measurement_is_never_a_release_gate():
+@pytest.mark.parametrize("measurement", ["area-map", "work-acceptance"])
+def test_measurement_is_never_a_release_gate(measurement):
     run, jobs, proof = ci()
-    jobs.append({"name": "area-map", "status": "completed", "conclusion": "skipped"})
+    jobs.extend(
+        {"name": name, "status": "completed", "conclusion": "skipped"}
+        for name in ("area-map", "work-acceptance")
+    )
     assert verify(run, jobs, proof, "b" * 40, "b" * 40) == "a" * 40
-    jobs[-1]["conclusion"] = "success"
-    with pytest.raises(AssertionError, match="measurement"):
+    selected = next(job for job in jobs if job["name"] == measurement)
+    selected["conclusion"] = "success"
+    with pytest.raises(AssertionError, match=measurement):
         verify(run, jobs, proof, "b" * 40, "b" * 40)
 
 

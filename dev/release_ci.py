@@ -51,14 +51,16 @@ def verify(run, jobs, proof, tree, tested_tree):
         "images (amd64, linux/amd64)",
         "CI result",
     }
-    # The measurement job is deliberately manual and must never replace a gate.
-    measurement = [job for job in jobs if job["name"] == "area-map"]
-    assert not measurement or (
-        len(measurement) == 1
-        and measurement[0]["status"] == "completed"
-        and measurement[0]["conclusion"] == "skipped"
-    ), "Area measurement is not a publication run"
-    jobs = [job for job in jobs if job["name"] != "area-map"]
+    # Manual measurements are separate evidence, never part of the release gate.
+    measurements = ("area-map", "work-acceptance")
+    for name in measurements:
+        matches = [job for job in jobs if job["name"] == name]
+        assert not matches or (
+            len(matches) == 1
+            and matches[0]["status"] == "completed"
+            and matches[0]["conclusion"] == "skipped"
+        ), f"Manual measurement {name} is not a publication run"
+    jobs = [job for job in jobs if job["name"] not in measurements]
     names = {job["name"] for job in jobs}
     assert names == required and len(jobs) == len(required), "Incomplete CI jobs"
     assert jobs and all(
