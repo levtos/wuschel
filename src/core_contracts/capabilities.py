@@ -79,6 +79,7 @@ REASONS = {
     ReasonCode.SENSOR_STUCK: "Explicit sensor profile suspects an unchanged numeric value.",
     ReasonCode.INPUT_RESTORED: "Restored source data is not new measurement evidence.",
     ReasonCode.INPUT_ABSENT: "No observation exists for the required input.",
+    ReasonCode.ATTRIBUTION_PENDING: "The observed change is waiting for automatic attribution.",
     ReasonCode.UNMAPPED_VALUE: "The map has no entry for this input.",
     ReasonCode.INVALID_VALUE: "The input does not satisfy its declared value type.",
     ReasonCode.NO_MATCH: "No first-match condition selected a result.",

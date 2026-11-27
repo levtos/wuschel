@@ -13,6 +13,16 @@ from core_contracts.manual_change import register
 from .conftest import activate
 
 
+def test_production_capabilities_publish_manual_change_and_its_pending_reason():
+    from core_contracts.capabilities import capabilities
+    from core_contracts.contract_types import type_registry
+
+    document = capabilities(None, type_registry())
+    declaration = next(item for item in document["types"] if item["type_id"] == MANUAL_CHANGE_TYPE)
+    assert declaration["parameter_schema"]["properties"]["attribution_wait_s"]["default"] == 5
+    assert any(row["code"] == "attribution_pending" for row in document["reasons"]["codes"])
+
+
 def configuration(config, *, wait=5):
     config["config_schema_version"] = 2
     config["context_producers"] = [
