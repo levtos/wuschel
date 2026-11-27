@@ -21,6 +21,7 @@ from core_contracts.work_routes import job_route, read_route
 from core_contracts.work_worker import READ_OPERATIONS, WorkerRuntime
 
 from .conftest import activate
+from .test_postgres import database as database
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 
