@@ -205,16 +205,11 @@ async def execute(runtime: Runtime, operation: str, payload: Any) -> Any:
                 # This OCC rejection happens before writing anything. Recompute
                 # from a fresh snapshot only for changed live state, never for
                 # changed configuration, drafts or catalog content.
-                if not plan.live_conflict:
+                if not plan.live_conflict or attempt == 2:
+                    if plan.live_conflict:
+                        runtime.retry_failed("management", error)
                     raise
                 runtime.retry_failed("management", error)
-                if attempt == 2:
-                    # The speculative snapshot aged while truth was arriving.
-                    # Run the existing writer operation once against fresh state.
-                    # Its draft, catalog and revision guards still apply.
-                    result = await runtime._enqueue(operation, payload)
-                    runtime.retry_succeeded("management")
-                    return result
         raise AssertionError("management_attempts_exhausted")
 
 

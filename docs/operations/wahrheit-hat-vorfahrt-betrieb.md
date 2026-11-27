@@ -57,3 +57,27 @@ Läufe mit `--scale 1` und `--scale 2`, jeweils mit und ohne `--administration`.
 `--profile` ergänzt ein kumuliertes CPU-Profil. Der manuelle GitHub-Arbeitsablauf
 **Platform Alpha 1** bietet unter **work_acceptance** einen kurzen Probelauf und den
 60-Minuten-Lauf mit doppeltem Bestand und 40 Ereignissen pro Sekunde an.
+
+## Linux-Abnahme mit PostgreSQL und Traber
+
+Der kurze Probelauf mit doppeltem Bestand bestand bei 40 angebotenen Ereignissen pro
+Sekunde. Der maximale Schleifenverzug betrug 498 ms. Die Ende-zu-Ende-p95 lag bei
+2.377 ms, die p95 für `observation_block` bei 268 ms und die p95 für `tick` bei 5,3 ms.
+Der Hauptprozess benötigte im Mittel 0,162 CPU-Kerne über den gesamten Probelauf.
+Klassen-Umzug, TC-Abgleich, Verlaufsabfrage, Verarbeiter-Ausfall und Abbruch waren
+Teil des Probelaufs. [Linux-Probelauf](https://github.com/levtos/wuschel/actions/runs/46071647804)
+
+Der 60-Minuten-Versuch stoppte während der Aktivierung mit
+`409 active_revision_conflict`. Die Beobachtungen hatten den Stand für die
+Aktivierung fortgeschrieben. Die aktive Registerrevision war gleich geblieben.
+[Dauertestversuch](https://github.com/levtos/wuschel/actions/runs/46071981207)
+
+In einem längeren Probelauf mit doppeltem Bestand wurde die bestehende Aktivierung
+nach diesem Konflikt direkt im seriellen Schreiber ausgeführt. Dabei lag der
+maximale Schleifenverzug bei **3.058 ms**, gemessen während `activate`.
+Das zugehörige Aktivierungsfenster dauerte rund 15,5 s. Traber hielt die Verbindung.
+Der Test konnte **20 von 21** erwarteten geschützten Ereignissen in Reihenfolge
+nachweisen und lief beim Warten auf das fehlende Ereignis in einen Zeitablauf.
+Der Ausweichpfad ist aus A2c entfernt. Die Aktivierung unter laufender Wahrheit
+braucht einen Folgeauftrag. Die 60-Minuten-Abnahme bleibt offen.
+[Probelauf mit Aktivierung im Schreiber](https://github.com/levtos/wuschel/actions/runs/46072658958)
