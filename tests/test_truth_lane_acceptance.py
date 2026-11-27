@@ -22,6 +22,7 @@ from core_contracts.api import API
 from core_contracts.app import apply_work
 from core_contracts.clock import SystemClock
 from core_contracts.contract_types import type_registry
+from core_contracts.extensions.tc_migration.title_sync import current_mapping
 from core_contracts.model import canonical, checksum
 from core_contracts.operations import OperationsSettings
 from core_contracts.persistence import PostgresStore
@@ -196,9 +197,14 @@ async def reconcile(dsn, client, headers, runtime):
         runtime.clock,
         "POST",
         "title-sync/preview",
-        {"expected_active_revision": runtime.state.active_revision, "plan_id": source["plan_id"]},
+        {
+            "expected_active_revision": runtime.state.active_revision,
+            "plan_id": source["plan_id"],
+            "mapping": mapping(),
+            "expected_mapping_version": current_mapping(runtime.state)["version"],
+        },
     )
-    assert plan["can_apply"]
+    assert plan["can_apply"], plan["error_groups"]
     applied = await accepted(
         client,
         headers,
@@ -483,6 +489,20 @@ async def exercise(runtime, work, client, headers, fake, entities, dsn):
             )
         )
     finally:
+        print(
+            json.dumps(
+                {
+                    "partial_elapsed_s": round(perf_counter() - start, 3),
+                    "loop": distribution(lag),
+                    "observed_events": len(observed_events),
+                    "expected_events": len(expected),
+                    "adapter_connections": len(fake.connections),
+                    "operation": runtime.activities.operation(),
+                    "projection_acks": len(truth_latency.all_acknowledgments_ms),
+                }
+            ),
+            flush=True,
+        )
         for task in (*tasks, manage):
             task.cancel()
         await asyncio.gather(*tasks, manage, return_exceptions=True)
