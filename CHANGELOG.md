@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0b32 - Schaltungen und ihre Herkunft
+
+- Steuerungen können Schaltungen über Traber anmelden. Ein gemeinsamer Ausführer verwendet die Kennung der beauftragenden Steuerung.
+- Die Vorlage „Manuell geändert“ zeigt den Zeitpunkt des letzten belegten Wechsels und unterscheidet Steuerung, HA-Automation oder Skript, direkte HA-Bedienung und Änderungen ohne Herkunftsbeleg. Die Zuordnungsfrist ist am Vertrag einstellbar.
+- Erzeuger lassen sich in der HA-Anbindung pflegen und per Entwurf übernehmen. [#176](https://github.com/Levtos/wuschel/issues/176)
+
 ## 1.0.0b31 - Katalogklassen und Sensortypen
 
 - Kataloge können benannte Auswahl-, Ganzzahl- und Ja/Nein-Klassen mit eigenen Standards verwenden. Die Katalogpflege zeigt die einzelnen Werte, ihre Herkunft und betroffene Varianten.

@@ -116,15 +116,18 @@ export interface RefOption {
   kind: 'source' | 'contract';
   detail?: string;
   schema?: FieldSchema;
+  adapterKind?: string;
 }
 
 export function refOptions(config: JsonObject | null | undefined, types: TypeEntry[], excludeContract?: string): RefOption[] {
   const out: RefOption[] = [];
+  const adapters = new Map(asArray(config?.bindings).filter(isObject).map(binding =>
+    [str(binding.source_id), str(asObject(binding.adapter).kind)]));
   for (const source of asArray(config?.sources).filter(isObject)) {
     const id = str(source.source_id);
     const kind = ({ boolean: 'bool', numeric: 'number', text: "text" } as Record<string, string>)[str(source.source_type)];
     const schema = isObject(source.value_schema) ? source.value_schema as FieldSchema : kind ? { type: kind, required: true, physical_state: false } as FieldSchema : undefined;
-    if (id) out.push({ value: id, label: id, kind: 'source', detail: str(source.source_type), schema });
+    if (id) out.push({ value: id, label: id, kind: 'source', detail: str(source.source_type), schema, adapterKind: adapters.get(id) });
   }
   for (const contract of asArray(config?.contracts).filter(isObject)) {
     const id = str(contract.contract_id);

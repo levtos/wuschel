@@ -12,9 +12,11 @@ from homeassistant.helpers.event import (
     async_track_state_change_event,
     async_track_state_report_event,
 )
+from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.util import dt as dt_util
 
 from .command_ingress import CommandIngress
+from .context_ingress import FEATURE, SCHEMA, ContextIngress
 from .projection import Projection
 from .service_channel import OPERATIONS, ServiceChannel
 from .source_metadata import refresh_action, source_metadata
@@ -33,6 +35,7 @@ async def async_setup_entry(hass, entry):
     projection = Projection(hass.loop.time, hass.loop.call_later)
     hass.data["traber_projection"] = projection
     ingress = CommandIngress(HA_EPOCH_ID, dt_util.utcnow)
+    registration = ContextIngress(HA_EPOCH_ID, dt_util.utcnow)
 
     async def send_command(call):
         return await ingress.call(dict(call.data))
@@ -52,8 +55,24 @@ async def async_setup_entry(hass, entry):
         supports_response=SupportsResponse.OPTIONAL,
     )
 
+    async def register_context(call):
+        if ingress.owner is not None and registration.owner is None:
+            return {"status": "rejected", "reason": "unsupported_protocol"}
+        return await registration.call(dict(call.data))
+
+    async_register_admin_service(
+        hass,
+        DOMAIN,
+        "register_context",
+        register_context,
+        schema=SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+
     @callback
     def unload():
+        registration.detach(registration.owner)
+        hass.services.async_remove(DOMAIN, "register_context")
         ingress.detach(ingress.owner)
         hass.services.async_remove(DOMAIN, "send_command")
         hass.data.pop(DOMAIN, None)
@@ -95,6 +114,7 @@ async def async_setup_entry(hass, entry):
             return
         old = channels.pop(id(connection), None)
         ingress.detach(connection)
+        registration.detach(connection)
         if old:
             old.close()
             projection.disconnect(connection)
@@ -111,6 +131,7 @@ async def async_setup_entry(hass, entry):
             @callback
             def disconnected():
                 ingress.detach(connection)
+                registration.detach(connection)
                 channel.close()
                 projection.disconnect(connection)
                 if channels.get(id(connection)) is channel:
@@ -130,6 +151,7 @@ async def async_setup_entry(hass, entry):
                     "contract_projection",
                     "contract_projection_fields",
                     "command_ingress_v1",
+                    FEATURE,
                 ]
                 if selected == 2
                 else [],
@@ -158,7 +180,11 @@ async def async_setup_entry(hass, entry):
 
     @callback
     @websocket_api.websocket_command(
-        {vol.Required("type"): f"{DOMAIN}/command_subscribe", vol.Required("installation_id"): str}
+        {
+            vol.Required("type"): f"{DOMAIN}/command_subscribe",
+            vol.Required("installation_id"): str,
+            vol.Optional("context_registration", default=False): bool,
+        }
     )
     @websocket_api.require_admin
     def command_subscribe(hass, connection, msg):
@@ -177,7 +203,20 @@ async def async_setup_entry(hass, entry):
         except ValueError:
             connection.send_error(msg["id"], "command_owner_busy", "Command channel unavailable")
             return
-        connection.subscriptions[msg["id"]] = lambda: ingress.detach(connection)
+        if msg.get("context_registration"):
+            registration.attach(
+                connection,
+                msg["installation_id"],
+                lambda event: connection.send_event(msg["id"], event),
+            )
+        else:
+            registration.detach(connection)
+
+        def unsubscribe():
+            ingress.detach(connection)
+            registration.detach(connection)
+
+        connection.subscriptions[msg["id"]] = unsubscribe
         connection.send_result(msg["id"])
 
     @callback
@@ -195,6 +234,21 @@ async def async_setup_entry(hass, entry):
             return
         connection.send_result(msg["id"])
 
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): f"{DOMAIN}/context_register_result",
+            vol.Required("request_id"): str,
+            vol.Required("result"): dict,
+        }
+    )
+    @websocket_api.require_admin
+    def context_register_result(hass, connection, msg):
+        if not registration.complete(connection, msg["request_id"], msg["result"]):
+            connection.send_error(msg["id"], "context_request_missing", "Request unavailable")
+            return
+        connection.send_result(msg["id"])
+
+    websocket_api.async_register_command(hass, context_register_result)
     websocket_api.async_register_command(hass, command_subscribe)
     websocket_api.async_register_command(hass, command_result)
 

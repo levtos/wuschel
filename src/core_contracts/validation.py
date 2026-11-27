@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from . import slots
 from .declarative import all_rules
 from .errors import RegistryValidationError as RegistryValidationError
+from .ha_context import MANUAL_CHANGE_TYPE
 from .model import Model, canonical, semantic_fingerprint
 from .numeric_equivalence import preserve_numbers
 from .persistence import State
@@ -689,6 +690,19 @@ def validate_document(
                 )
             ):
                 add("refresh_binding", location, "refresh requires HA source binding", key)
+            if contract.type_id == MANUAL_CHANGE_TYPE and (
+                field is not None
+                or not any(
+                    b.source_id == ref and b.adapter.kind in {"ha_state", "ha_attribute"}
+                    for b in config.bindings
+                )
+            ):
+                add(
+                    "manual_change_ha_source_required",
+                    location,
+                    "HA state or attribute source required",
+                    key,
+                )
             actual: FieldSchema | None = None
             if field is None:
                 if ref not in bound:

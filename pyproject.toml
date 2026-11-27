@@ -1,6 +1,6 @@
 [project]
 name = "wuschel"
-version = "1.0.0b31"
+version = "1.0.0b32"
 requires-python = ">=3.14,<3.15"
 dependencies = ["aiohttp>=3.13,<4", "asyncpg>=0.32,<0.33", "pydantic>=2.12,<3", "aiomqtt>=2.5,<3", "tzdata==2026.2"]
 
@@ -86,7 +86,7 @@ layers = [
     "core_contracts.extensions.catalog : core_contracts.extensions.openings : core_contracts.testing : core_contracts.extensions.tc_migration : core_contracts.extensions.wake",
     "core_contracts.adapters.ha : core_contracts.adapters.mqtt : core_contracts.authoring : core_contracts.capabilities : core_contracts.editorial : core_contracts.ha_projection : core_contracts.management : core_contracts.manual_restart : core_contracts.mqtt_restore : core_contracts.portable : core_contracts.provision : core_contracts.reconfiguration : core_contracts.revision_plan : core_contracts.service_jobs : core_contracts.setup : core_contracts.validation",
     "core_contracts.load_guard : core_contracts.manual_entry : core_contracts.observation_block : core_contracts.retention_ops : core_contracts.runtime",
-    "core_contracts.rules : core_contracts.adapter_config : core_contracts.calendar_cache : core_contracts.calendar_coverage : core_contracts.calendar_inputs : core_contracts.calendar_rules : core_contracts.dated_rules : core_contracts.declarative : core_contracts.engines : core_contracts.environment_formulas : core_contracts.instance_parameters : core_contracts.notifications : core_contracts.producer : core_contracts.refresh_plan : core_contracts.source_values : core_contracts.registry : core_contracts.slots : core_contracts.validation_cache",
+    "core_contracts.rules : core_contracts.adapter_config : core_contracts.calendar_cache : core_contracts.calendar_coverage : core_contracts.calendar_inputs : core_contracts.calendar_rules : core_contracts.dated_rules : core_contracts.declarative : core_contracts.engines : core_contracts.environment_formulas : core_contracts.instance_parameters : core_contracts.notifications : core_contracts.manual_change : core_contracts.producer : core_contracts.refresh_plan : core_contracts.source_values : core_contracts.registry : core_contracts.slots : core_contracts.validation_cache",
     "core_contracts.history : core_contracts.persistence : core_contracts.retention",
     "core_contracts.errors : core_contracts.clock : core_contracts.declarative_models : core_contracts.evidence : core_contracts.field_since : core_contracts.freshness_templates : core_contracts.fusion : core_contracts.ha_context : core_contracts.identity : core_contracts.lifecycle : core_contracts.machine_events : core_contracts.manual_source : core_contracts.model : core_contracts.multibucket : core_contracts.numeric_equivalence : core_contracts.operations : core_contracts.operation_timing : core_contracts.quality : core_contracts.resolver : core_contracts.schema : core_contracts.sensor_profile : core_contracts.state_tracking : core_contracts.statemachine : core_contracts.temporal : core_contracts.text_rules : core_contracts.user_text : core_contracts.value_origin",
 ]

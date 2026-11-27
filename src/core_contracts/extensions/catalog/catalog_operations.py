@@ -259,7 +259,7 @@ async def operation_catalog_write(
             config,
             origin="revision",
             initial_latches=latches,
-            catalog_affected=direct_catalog_contracts,
+            affected_contracts=direct_catalog_contracts,
         )
         if failures:
             runtime.pending_latches = None

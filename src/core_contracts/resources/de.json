@@ -77,6 +77,8 @@
   "codes.input_stale": "Nachweis ist veraltet",
   "codes.input_restored": "Wiederhergestellter Wert ist noch nicht neu bestätigt",
   "codes.input_absent": "Eingang fehlt",
+  "codes.attribution_pending": "Wuschel wartet auf einen Automatikbeleg.",
+  "validation.manual_change_ha_source_required": "Wähle eine direkt mit einem HA-Zustand oder -Merkmal verknüpfte Quelle.",
   "codes.unmapped_value": "Für diesen Wert fehlt eine Zuordnung",
   "codes.no_match": "Keine Regel trifft zu",
   "codes.conflict": "Nachweise widersprechen sich",

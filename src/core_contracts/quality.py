@@ -23,6 +23,7 @@ class ReasonCode(StrEnum):
     SENSOR_STUCK = "sensor_stuck_suspected"
     INPUT_RESTORED = "input_restored"
     INPUT_ABSENT = "input_absent"
+    ATTRIBUTION_PENDING = "attribution_pending"
     UNMAPPED_VALUE = "unmapped_value"
     INVALID_VALUE = "invalid_value"
     NO_MATCH = "no_match"

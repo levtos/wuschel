@@ -53,6 +53,7 @@ export function contractTitle(contract: JsonObject | undefined, fallback = ''): 
 }
 
 export function contractFieldLabel(typeId: string | undefined, name: string): string {
+  if (typeId === 'ha.manual_change' && name === 'value') return t('b32.manual');
   if (typeId && SLEEP_TYPES.has(typeId) && name === 'value') return fieldLabel('sleep_state');
   if (typeId === 'wake.plan_view' && name === 'status') return fieldLabel('wake_status');
   return fieldLabel(name);
@@ -62,6 +63,11 @@ export function contractFieldLabel(typeId: string | undefined, name: string): st
 export function contractFieldValue(typeId: string | undefined, name: string, field: FieldValue, schema?: FieldSchema): string {
   if (field.status === 'not_applicable') return t('b22.na.noProof');
   if (technicalValue(name, field)) return t('b22.output.technical');
+  if (typeId === 'ha.manual_change' && field.status === 'valid') {
+    if (name === 'value' && typeof field.value === 'boolean') return t(field.value ? 'b32.manual' : 'b32.automatic');
+    const key = `b32.origin.${String(field.value)}`;
+    if (name === 'origin' && hasTranslation(key)) return t(key);
+  }
   if (typeId && SLEEP_TYPES.has(typeId) && ['valid', 'held'].includes(field.status) && typeof field.value === 'string') {
     const namespace = typeId === 'wake.plan_view' || name.startsWith('wake_') ? 'wake' : 'sleep';
     const codeField = ['value', 'entry_origin', 'last_action_origin', 'status', 'decision', 'wake_status', 'wake_decision'].includes(name);

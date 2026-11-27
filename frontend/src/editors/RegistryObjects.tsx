@@ -550,7 +550,7 @@ export function ContractEditor({ value, onChange, pointer, types, refs, onAddDev
             >
               {!entry && <option value={key}>{key}</option>}
               {types.filter(t => t.lifecycle !== 'retired' || t.key === key).map((t) => (
-                <option key={t.key} value={t.key}>{uiText('a2.read.templateChoice', { name: t.type_id, version: t.type_version, origin: uiText(t.declarative ? 'a2.read.ownTemplate' : 'a2.read.packageTemplate') })}</option>
+                <option key={t.key} value={t.key}>{uiText('a2.read.templateChoice', { name: t.type_id === 'ha.manual_change' ? fieldLabel(t.type_id) : t.type_id, version: t.type_version, origin: uiText(t.declarative ? 'a2.read.ownTemplate' : 'a2.read.packageTemplate') })}</option>
               ))}
             </Select>
           )}
@@ -575,7 +575,10 @@ export function ContractEditor({ value, onChange, pointer, types, refs, onAddDev
           const index = inputs.findIndex((i) => str(i.name) === input.name);
           const ref = str(current?.ref);
           const ip = index >= 0 ? join(pointer, 'inputs', index) : join(pointer, 'inputs');
-          const availableRefs = refs.filter((ref) => !input.schema || (ref.schema && fieldCompatible(ref.schema, input.schema)));
+          const availableRefs = refs.filter(candidate =>
+            (entry?.type_id !== 'ha.manual_change' || ['ha_state', 'ha_attribute'].includes(candidate.adapterKind ?? '')) &&
+            (!input.schema || (candidate.schema && fieldCompatible(candidate.schema, input.schema))));
+
           return (
             <div key={input.name} className="grid items-start gap-2 sm:grid-cols-[12rem_1fr]">
               <div className="pt-6 text-sm">

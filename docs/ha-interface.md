@@ -150,3 +150,80 @@ Zustandsschreibungen ihrer Sensoren aus. Verbindungsaufbau und -trennung,
 Karenzablauf sowie Wechsel der Installations- oder Epochenkennung aktualisieren
 alle Sensoren. Vollständige Projektion, Protokoll und Entitätskennungen bleiben
 unverändert; neue Verträge werden weiterhin automatisch angelegt.
+
+## Schaltungen anmelden
+
+Ergänzung zu Schnittstellenversion 1 ab b32. Die
+[Zuordnungsregeln und Prüffälle](beta/schaltungen-anmelden-a1.md) beschreiben
+den Herkunftsnachweis im Detail.
+
+`traber.register_context` meldet die Herkunft einer ausgeführten HA-Aktion an.
+Die Engine, in deren Auftrag geschaltet wurde, ist der Erzeuger. Ein gemeinsamer
+Ausführer verwendet bei getrennten Aktionen die jeweils beauftragende Engine.
+Die Anmeldung läuft über die bestehende Traber-Verbindung zur Wuschel-App
+derselben HA-Installation. Für den Aufruf gelten HA-Adminrechte.
+
+| Eingabe | Bedeutung |
+| --- | --- |
+| `context_id` | Originale HA-Kontext-ID der ausgeführten Aktion. Nicht leer, höchstens 128 Zeichen. |
+| `producer_id` | Kennung einer in Wuschel übernommenen Steuerung. Es gilt die Kennung aus der Erzeugerpflege. |
+| `lifetime_s` | Optional. Ganze Sekunden von 1 bis 600, Standard 600. |
+
+Bei `status: accepted` liefert Wuschel `expires_at` als ISO-8601-Zeitpunkt in
+UTC. Die Quittung bestätigt die Anmeldung. Der Zustand des Geräts folgt aus
+der tatsächlichen Beobachtung. Eine Wiederholung in derselben Epoche für
+denselben Erzeuger innerhalb der Gültigkeit behält die ursprüngliche Frist.
+
+| Antwort | Bedeutung |
+| --- | --- |
+| `rejected` · `producer_not_allowed` | Der Erzeuger ist unbekannt oder seine Rolle gestattet diese Anmeldung nicht. |
+| `rejected` · `context_conflict`, `context_epoch_conflict`, `context_expired` | Abweichender Erzeuger für dieselbe Kontext-ID, veraltete HA-Epoche oder bekannte abgelaufene Anmeldung. |
+| `rejected` · `disconnected`, `unsupported_protocol`, `busy`, `storage_unavailable` | Die Anmeldung konnte über die aktuelle Verbindung nicht verarbeitet oder gesichert werden. |
+| `unknown_result` · `timeout`, `disconnected` | Die Quittung fehlt wegen Fristablauf oder Verbindungsabbruch nach Weiterleitung. Der Ausgang der Anmeldung ist unbekannt. |
+
+Bei ungültigen Eingabefeldern oder fehlender Berechtigung gilt HA-Validierung.
+Aus einer Ablehnung oder einer unklaren Antwort ergibt sich keine Anweisung,
+eine Aktion erneut auszuführen. Nach HA-Neustart gilt die neue Epoche.
+
+Beispiel für eine synthetische Engine mit eigenem Ausführer über die
+HA-WebSocket-API. Der Ausführer führt zuerst den normalen HA-Aufruf aus.
+
+```json
+{"id":41,"type":"call_service","domain":"switch","service":"turn_on",
+ "target":{"entity_id":"switch.example"}}
+```
+
+Nach Erfolg übernimmt er `result.context.id` genau dieses Aufrufs in eine
+zweite Anfrage. Für die Rückmeldung des Anmeldedienstes fordert er die
+HA-Antwortdaten an. [HA-WebSocket-API](https://contributors.home-assistant.io/core/internals/websocket-api/#call-an-action)
+
+```json
+{"id":42,"type":"call_service","domain":"traber","service":"register_context",
+ "return_response":true,
+ "service_data":{"context_id":"01KFX00ABCDEF1234567890GHJ",
+                 "producer_id":"example.engine","lifetime_s":60}}
+```
+
+Die Anmeldequittung steht bei erfolgreichem HA-Aufruf in `result.response`,
+zum Beispiel `{"status":"accepted","expires_at":"2026-11-27T10:01:00Z"}`.
+`result.context.id` dieser zweiten Anfrage gehört zum Anmeldedienst selbst.
+
+Ein freigegebener Vertrag aus der Vorlage **Manuell geändert** liefert:
+
+| Feld | Aussage |
+| --- | --- |
+| `value` | Ja (`on`), wenn nach der Zuordnungsfrist kein Automatikbeleg vorliegt. Nein (`off`) bei belegter Automatik. Während der Frist und bei unbelegtem Wechsel gilt `unknown`. |
+| `changed_at` | Belegter HA-Zeitpunkt des Quellwechsels. Eine später zugeordnete Anmeldung ändert den Zeitpunkt nicht. |
+| `origin` | `engine` für eine belegte Steuerung, `ha_automation` für einen belegten HA-Lauf, `ha_user` für einen direkten HA-Kontext mit Konto, sonst `unattributed`. |
+| `producer_id` | Kennung der Steuerung bei `engine`, soweit belegt. |
+| `automation_id` | Kennung der Automation oder des Skripts bei `ha_automation`, soweit belegt. |
+
+Die Zuordnungsfrist beträgt standardmäßig fünf Sekunden ab Empfang der
+Beobachtung. Sie lässt sich am Vertrag auf 1–60 Sekunden einstellen. Eine
+gültige Anmeldung nach Ablauf kann den Wert von Ja auf Nein korrigieren.
+Die Engine entscheidet, wie sie auf eine solche Korrektur reagiert.
+
+`unattributed` umfasst Wandschalter, Fernbedienungen, Siri/HomeKit und
+Integrationen, die ihre Schaltungen nicht anmelden. Die originale HA-`user_id`
+bleibt im geschützten Wuschel-Beleg. Der HA-Kontext enthält keine Angabe zum
+bedienenden Gerät.

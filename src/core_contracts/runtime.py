@@ -22,7 +22,7 @@ from .clock import Alarm, Clock
 from .declarative import GuardEvaluationError
 from .errors import AuthoringError, LoadProtected, RegistryValidationError
 from .evidence import Observation, assess, is_new, is_older
-from .ha_context import ContextIndex
+from .ha_context import MANUAL_CHANGE_TYPE, ContextIndex, EngineRegistration
 from .load_guard import LoadGuard
 from .model import Model, checksum, utc
 from .operation_timing import Activities, ObservationTimings, TimedStore, Timing, current
@@ -1091,6 +1091,8 @@ class Runtime:
             if entry.after_prepare is not None:
                 entry.after_prepare(self, payload, care_started)
             return await entry.handler(self, state, operation, payload, now, config)
+        if operation == "engine_context_register":
+            return await self._register_engine_context(state, payload, now)
         if operation == "context_register":
             from .ha_context import ContextRegistration
 
@@ -1117,7 +1119,12 @@ class Runtime:
                 context_digest=checksum(registration.context.id),
             )
             await self._commit(state)
-            index.register(registration.context, now, lifetime_s=registration.lifetime_s)
+            index.register(
+                registration.context,
+                now,
+                lifetime_s=registration.lifetime_s,
+                producer_id=registration.producer_id,
+            )
             return {
                 "registered": True,
                 "expires_at": index.proofs[registration.context.id][1].isoformat(),
@@ -1247,6 +1254,54 @@ class Runtime:
             self._broadcast(self.service_state())
         return None
 
+    async def _register_engine_context(
+        self, state: State, payload: dict[str, Any], now: datetime
+    ) -> dict[str, Any]:
+        from .manual_change import apply_registration
+
+        request = EngineRegistration.model_validate(payload["request"])
+        index, config = self.context_index, self.config
+        if (
+            index is None
+            or config is None
+            or self.bridge != "connected"
+            or self.bridge_protocol_selected != 2
+        ):
+            return {"status": "rejected", "reason": "disconnected"}
+        if not any(
+            row.producer_id == request.producer_id and row.kind == "policy"
+            for row in config.context_producers
+        ):
+            return {"status": "rejected", "reason": "producer_not_allowed"}
+        try:
+            proof, new = index.prepare_engine(request, now)
+        except ValueError as error:
+            return {"status": "rejected", "reason": str(error)}
+        if new:
+            affected = {
+                contract.contract_id
+                for contract in config.contracts
+                if contract.enabled
+                and contract.type_id == MANUAL_CHANGE_TYPE
+                and (node := state.tables["node_state"].get(contract.contract_id))
+                and apply_registration(node, index, request.context_id, proof)
+            }
+            self._audit(
+                state,
+                "engine_context_register",
+                payload,
+                producer_id=request.producer_id,
+                context_digest=checksum(request.context_id),
+                expires_at=proof.expires_at.isoformat(),
+            )
+            if affected:
+                self._evaluate(state, config, origin="revision", affected_contracts=affected)
+            await self._commit(state, publication=bool(affected))
+            if index.epoch != request.ha_epoch_id:
+                return {"status": "rejected", "reason": "context_epoch_conflict"}
+            index.engine_proofs[request.context_id] = proof
+        return {"status": "accepted", "expires_at": proof.expires_at.isoformat()}
+
     def _older_than_stored(self, state: State, observation: Observation) -> bool:
         stored = state.tables["source_observation_current"].get(observation.binding_id)
         return is_older(observation, self._observation(stored) if stored else None)
@@ -1267,6 +1322,8 @@ class Runtime:
                 continue
             affected.add(contract.contract_id)
             node = state.tables["node_state"].get(contract.contract_id, {})
+            if contract.type_id == MANUAL_CHANGE_TYPE:
+                node.pop("manual_change", None)
             for context in self._temporal_contexts(node):
                 if "temporal" in context:
                     context["restore_pending"] = copy.deepcopy(context["temporal"])
@@ -1492,7 +1549,7 @@ class Runtime:
         machine_override: dict[str, MachineState] | None = None,
         trigger_source: str | None = None,
         initial_latches: dict[str, Bucket] | None = None,
-        catalog_affected: set[str] | None = None,
+        affected_contracts: set[str] | None = None,
         reassessment: bool = False,
     ) -> set[str]:
         """Return transaction-local failures after discarding their staged producer effects."""
@@ -1543,7 +1600,7 @@ class Runtime:
             and now >= self.last_clock
             and (self.next_evaluation is None or self.next_evaluation > now)
         )
-        if catalog_affected is not None:
+        if affected_contracts is not None:
             can_reuse = True
         self.pending_refresh = set()
         previous_config = self.config
@@ -1575,7 +1632,7 @@ class Runtime:
                     "enabled": False,
                 }
                 continue
-            triggered = (catalog_affected is not None and key in catalog_affected) or any(
+            triggered = (affected_contracts is not None and key in affected_contracts) or any(
                 self._resolve(item.ref, config)[0] in affected for item in contract.inputs
             )
             if triggered:

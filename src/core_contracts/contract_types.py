@@ -2,6 +2,7 @@
 
 from core_contracts.extensions.openings import register
 
+from .manual_change import register as register_manual_change
 from .schema import TypeRegistry
 
 
@@ -12,4 +13,5 @@ def type_registry(*, include_test_types: bool = False) -> TypeRegistry:
 
         registry = fixture_types()
     register(registry)
+    register_manual_change(registry)
     return registry

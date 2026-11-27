@@ -11,7 +11,22 @@ from core_contracts.validation import validate_document as validate
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_only_approved_opening_domain_registration_outside_testing():
+def test_only_approved_builtin_template_registration_outside_testing():
+    from core_contracts.extensions.openings import register as register_openings
+    from core_contracts.manual_change import register as register_manual_change
+    from core_contracts.schema import TypeRegistry
+
+    approved = {
+        ROOT / "src/core_contracts/extensions/openings/__init__.py": (
+            register_openings,
+            {("opening.dual_contact", 1), ("opening.single_contact", 1), ("opening_zone.facts", 1)},
+        ),
+        # Issue #176 explicitly requires one built-in template.
+        ROOT / "src/core_contracts/manual_change.py": (
+            register_manual_change,
+            {("ha.manual_change", 1)},
+        ),
+    }
     domain_terms = {
         "opening",
         "window",
@@ -51,17 +66,11 @@ def test_only_approved_opening_domain_registration_outside_testing():
                     for keyword in node.keywords
                 ):
                     continue
-                if path == ROOT / "src/core_contracts/extensions/openings/__init__.py":
-                    from core_contracts.extensions.openings import register
-                    from core_contracts.schema import TypeRegistry
-
+                if path in approved:
+                    register, identities = approved[path]
                     production = TypeRegistry()
                     register(production)
-                    assert set(production.types) == {
-                        ("opening.dual_contact", 1),
-                        ("opening.single_contact", 1),
-                        ("opening_zone.facts", 1),
-                    }
+                    assert set(production.types) == identities
                     assert all(not entry.schema.fixture for entry in production.types.values())
                     continue
                 raise AssertionError(f"Unapproved domain registration: {path.name}")
