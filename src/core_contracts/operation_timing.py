@@ -227,7 +227,8 @@ class TruthTimings:
 
     def __init__(self) -> None:
         self.started = perf_counter()
-        self.samples: defaultdict[str, deque[float]] = defaultdict(lambda: deque(maxlen=4096))
+        # Keep the most recent samples per phase, including when no meter is running.
+        self.samples: defaultdict[str, deque[float]] = defaultdict(lambda: deque(maxlen=512))
         self.block_total_ms = self.block_unassigned_ms = 0.0
         self.tick_runs = self.tick_evaluated = self.tick_evaluated_max = 0
 
