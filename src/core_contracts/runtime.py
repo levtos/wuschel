@@ -28,9 +28,12 @@ from .model import Model, checksum, utc
 from .operation_timing import (
     Activities,
     ObservationTimings,
+    StallSampler,
     TimedStore,
     Timing,
+    TruthTimings,
     current,
+    phase,
     timed_sync,
 )
 from .operations import OperationsSettings
@@ -123,6 +126,7 @@ class Runtime:
         self.projection_paused = False
         self.projection_changed = asyncio.Event()
         self.observation_timings = ObservationTimings()
+        self.truth_timings = TruthTimings()
         self.activities = Activities(lambda: self.clock.monotonic())
         self.validation_cache = ValidationCache()
         self.require_history_retention = require_history_retention
@@ -318,9 +322,12 @@ class Runtime:
                 "event_loop_stall", extra={"lag_ms": peak, "count": count, "activities": activities}
             )
 
+        sampler = StallSampler()
+        sampler.thread.start()
         try:
             while True:
                 started = self.clock.monotonic()
+                sampler.heartbeat = perf_counter() + interval
                 await self.clock.sleep(interval)
                 finished = self.clock.monotonic()
                 lag = round(max(0.0, (finished - started - interval) * 1000), 3)
@@ -337,7 +344,10 @@ class Runtime:
                     peak = 0.0
                     activities = []
                 self.sample_load()
+                self.truth_timings.report(sampler)
         finally:
+            sampler.stop.set()
+            sampler.thread.join()
             if count:
                 report()
 
@@ -668,10 +678,10 @@ class Runtime:
         }
         LOGGER.warning("history_gap", extra={"reason": reason})
 
-    def _hooks(self, register: dict[int, slots.Hook], phase: str, *args: Any) -> None:
+    def _hooks(self, register: dict[int, slots.Hook], hook_phase: str, *args: Any) -> None:
         for order in sorted(register):
             hook = register[order]
-            if hook.phase == phase:
+            if hook.phase == hook_phase:
                 hook.handler(*args)
 
     async def _restore_hooks(
@@ -911,6 +921,15 @@ class Runtime:
             self.queue.task_done()
             elapsed = (perf_counter() - started) * 1000
             wait = (started - work.queued_at) * 1000
+            if work.operation in {
+                "observation",
+                "tick",
+                "snapshot",
+                "mqtt_state",
+                "bridge_state",
+                "service_claim",
+            }:
+                self.truth_timings.record(work.operation, timing, elapsed)
             if work.operation == "observation":
                 self.observation_timings.add(wait, elapsed)
             else:
@@ -923,6 +942,7 @@ class Runtime:
                         "db_calls": timing.db_calls,
                         "db_ms": timing.db_ms,
                         "phases_ms": timing.phases_ms,
+                        "evaluated": timing.evaluated,
                     },
                 )
             current.reset(timing_token)
@@ -1223,7 +1243,8 @@ class Runtime:
                     and obs.binding_id in {b.binding_id for b in config.bindings}
                     and not self._older_than_stored(state, obs)
                 ):
-                    self._hooks(slots.OBSERVATION, "frame", state, obs)
+                    with phase("hook_frame"):
+                        self._hooks(slots.OBSERVATION, "frame", state, obs)
                     state.tables["source_observation_current"][obs.binding_id] = (
                         obs.storage_document()
                     )
@@ -1234,12 +1255,13 @@ class Runtime:
                 return None
             stored = state.tables["source_observation_current"].get(obs.binding_id)
             previous = self._observation(stored) if stored else None
-            if any(
-                slots.OBSERVATION[order].handler(obs, previous, config, self.types, now)
-                for order in sorted(slots.OBSERVATION)
-                if slots.OBSERVATION[order].phase == "filter"
-            ):
-                return None
+            with phase("hook_filter"):
+                if any(
+                    slots.OBSERVATION[order].handler(obs, previous, config, self.types, now)
+                    for order in sorted(slots.OBSERVATION)
+                    if slots.OBSERVATION[order].phase == "filter"
+                ):
+                    return None
             # Overflow drains the newest coalesced observation before older queue
             # entries. Quality changes must obey measurement order too. Without
             # comparable source times, keep the conservative negative-evidence
@@ -1278,11 +1300,13 @@ class Runtime:
                 )
             ):
                 return None
-            for order in sorted(slots.OBSERVATION):
-                hook = slots.OBSERVATION[order]
-                if hook.phase == "remember":
-                    obs = hook.handler(obs, config, self.types, self.clock.now_utc())
-            self._hooks(slots.OBSERVATION, "frame", state, obs)
+            with phase("hook_remember"):
+                for order in sorted(slots.OBSERVATION):
+                    hook = slots.OBSERVATION[order]
+                    if hook.phase == "remember":
+                        obs = hook.handler(obs, config, self.types, self.clock.now_utc())
+            with phase("hook_frame"):
+                self._hooks(slots.OBSERVATION, "frame", state, obs)
             self._remember_observation(state, obs)
             await self._record_observation(state, obs)
         elif operation != "tick":
@@ -1910,6 +1934,8 @@ class Runtime:
             self.bridge == "connected" and self.bridge_protocol_selected == 2,
             plan.refresh_fingerprints,
         )
+        if (timing := current.get()) is not None and timing.task is asyncio.current_task():
+            timing.evaluated += self.evaluation_stats["evaluated"]
         return evaluation_errors
 
     def _dispose(self, contract: Contract, node: dict[str, Any], state: State) -> None:
@@ -2074,27 +2100,28 @@ class Runtime:
     ) -> None:
         started = self.clock.monotonic()
         measured_at = perf_counter()
-        catalog_changed = (
-            state.table_differs(self.state, "catalog_sighting")
-            or state.table_differs(self.state, "catalog_head")
-            or state.tables["service_state"].get("catalog_counter_epoch")
-            != self.state.tables["service_state"].get("catalog_counter_epoch")
-        )
-        self._hooks(slots.BEFORE_COMMIT, "archive", self.state, state)
-        config = (
-            self.config
-            if state.active_revision == self.state.active_revision
-            else self._config(state)
-        )
-        if config and self.installation_id:
-            from .notifications import plan_notices
+        with phase("commit_before_store"):
+            catalog_changed = (
+                state.table_differs(self.state, "catalog_sighting")
+                or state.table_differs(self.state, "catalog_head")
+                or state.tables["service_state"].get("catalog_counter_epoch")
+                != self.state.tables["service_state"].get("catalog_counter_epoch")
+            )
+            self._hooks(slots.BEFORE_COMMIT, "archive", self.state, state)
+            config = (
+                self.config
+                if state.active_revision == self.state.active_revision
+                else self._config(state)
+            )
+            if config and self.installation_id:
+                from .notifications import plan_notices
 
-            if self.first_snapshot or not self.requires_ha_snapshot:
-                state.detach_rows("service_state", ["notice:signal", "notice:configuration"])
-                state.detach_rows("service_job", state.tables["service_job"])
-                plan_notices(
-                    state, config, self.clock.now_utc(), self.installation_id, self.ingress_slug
-                )
+                if self.first_snapshot or not self.requires_ha_snapshot:
+                    state.detach_rows("service_state", ["notice:signal", "notice:configuration"])
+                    state.detach_rows("service_job", state.tables["service_job"])
+                    plan_notices(
+                        state, config, self.clock.now_utc(), self.installation_id, self.ingress_slug
+                    )
         try:
             await self.store.commit(state)
         except Exception:
@@ -2102,73 +2129,74 @@ class Runtime:
             self.pending_refresh.clear()
             self._unavailable()
             raise
-        previous_seq = self.state.publication_seq
-        previous_producers = self.config.context_producers if self.config else ()
-        if self.context_index and previous_producers != (
-            config.context_producers if config else ()
-        ):
-            self.context_index.clear_registered()
-        previous_contracts = self.state.tables["contract_state_current"]
-        previously_needed_ha = self.requires_ha_snapshot
-        self.state = state
-        self._hooks(slots.NEXT_DUE, "commit", self, state)
-        if not self.requires_ha_snapshot:
-            self.ha = self.bridge = "not_needed"
-            self.bridge_subscriptions = 0
-            self.first_snapshot = False
-            self.dependency_connections.pop("ha", None)
-        elif not previously_needed_ha:
-            self.ha = self.bridge = "disconnected"
-            self.first_snapshot = False
-        if self.pending_latches is not None:
-            self.latches = self.pending_latches
-            self.pending_latches = None
-        self.persistence = True
-        self.confirmed = True
-        for source_id in self.pending_refresh:
-            try:
-                self.refresh_requests.put_nowait((state.active_revision, source_id))
-            except asyncio.QueueFull:
-                self.refresh_overflow += 1
-                LOGGER.warning("refresh_queue_overflow")
-        self.pending_refresh.clear()
-        self.commit_duration = self.clock.monotonic() - started
-        if _measure_commit_load.get() if measure_load is None else measure_load:
-            self.commit_samples.append(
-                (self.clock.monotonic(), (perf_counter() - measured_at) * 1000)
-            )
-            self._expire_commit_samples()
-        self._plan_evaluation()
-        self.service_jobs_changed.set()
-        if catalog_changed:
-            self._broadcast({"type": "catalog_changed"})
-        for key, envelope in state.tables["contract_state_current"].items():
-            previous_fields = previous_contracts.get(key, {}).get("fields", {})
-            for name, field in envelope["fields"].items():
-                old = previous_fields.get(name, {}).get("status")
-                if old != field["status"]:
-                    LOGGER.info(
-                        "quality_transition",
-                        extra={
-                            "contract_id": key,
-                            "field": name,
-                            "previous_status": old,
-                            "status": field["status"],
-                        },
-                    )
-        if resync:
-            self._broadcast({"type": "resync_required", "reason": "epoch"})
-        elif publication and state.publication_seq != previous_seq:
-            self._broadcast(
-                {
-                    "type": "delta",
-                    "publication_seq": state.publication_seq,
-                    "prev_seq": previous_seq,
-                    "epoch_id": state.epoch_id,
-                    "registry_revision": state.active_revision,
-                    "contracts": state.tables["contract_state_current"],
-                }
-            )
+        with phase("commit_after_store"):
+            previous_seq = self.state.publication_seq
+            previous_producers = self.config.context_producers if self.config else ()
+            if self.context_index and previous_producers != (
+                config.context_producers if config else ()
+            ):
+                self.context_index.clear_registered()
+            previous_contracts = self.state.tables["contract_state_current"]
+            previously_needed_ha = self.requires_ha_snapshot
+            self.state = state
+            self._hooks(slots.NEXT_DUE, "commit", self, state)
+            if not self.requires_ha_snapshot:
+                self.ha = self.bridge = "not_needed"
+                self.bridge_subscriptions = 0
+                self.first_snapshot = False
+                self.dependency_connections.pop("ha", None)
+            elif not previously_needed_ha:
+                self.ha = self.bridge = "disconnected"
+                self.first_snapshot = False
+            if self.pending_latches is not None:
+                self.latches = self.pending_latches
+                self.pending_latches = None
+            self.persistence = True
+            self.confirmed = True
+            for source_id in self.pending_refresh:
+                try:
+                    self.refresh_requests.put_nowait((state.active_revision, source_id))
+                except asyncio.QueueFull:
+                    self.refresh_overflow += 1
+                    LOGGER.warning("refresh_queue_overflow")
+            self.pending_refresh.clear()
+            self.commit_duration = self.clock.monotonic() - started
+            if _measure_commit_load.get() if measure_load is None else measure_load:
+                self.commit_samples.append(
+                    (self.clock.monotonic(), (perf_counter() - measured_at) * 1000)
+                )
+                self._expire_commit_samples()
+            self._plan_evaluation()
+            self.service_jobs_changed.set()
+            if catalog_changed:
+                self._broadcast({"type": "catalog_changed"})
+            for key, envelope in state.tables["contract_state_current"].items():
+                previous_fields = previous_contracts.get(key, {}).get("fields", {})
+                for name, field in envelope["fields"].items():
+                    old = previous_fields.get(name, {}).get("status")
+                    if old != field["status"]:
+                        LOGGER.info(
+                            "quality_transition",
+                            extra={
+                                "contract_id": key,
+                                "field": name,
+                                "previous_status": old,
+                                "status": field["status"],
+                            },
+                        )
+            if resync:
+                self._broadcast({"type": "resync_required", "reason": "epoch"})
+            elif publication and state.publication_seq != previous_seq:
+                self._broadcast(
+                    {
+                        "type": "delta",
+                        "publication_seq": state.publication_seq,
+                        "prev_seq": previous_seq,
+                        "epoch_id": state.epoch_id,
+                        "registry_revision": state.active_revision,
+                        "contracts": state.tables["contract_state_current"],
+                    }
+                )
 
     def _calendar_observations(self, state: State, config: RegistryConfig, origin: str) -> set[str]:
         changed: set[str] = set()

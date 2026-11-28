@@ -10,7 +10,7 @@ from core_contracts import slots
 from core_contracts.api import API, logical_route
 from core_contracts.app import JsonFormatter
 from core_contracts.observation_block import BlockRuntime
-from core_contracts.operation_timing import ObservationTimings
+from core_contracts.operation_timing import ObservationTimings, StallSampler, Timing, TruthTimings
 from core_contracts.persistence import PostgresStore, State
 from core_contracts.security import Tokens
 
@@ -36,6 +36,39 @@ def events(caplog, event):
         for record in caplog.records
         if record.msg == event
     ]
+
+
+def test_truth_path_summary_is_available_at_info(caplog, monkeypatch):
+    timings = TruthTimings()
+    timings.started = 0
+    sampler = StallSampler()
+    sampler.heartbeat = 60
+    monkeypatch.setattr("core_contracts.operation_timing.perf_counter", lambda: 61)
+    monkeypatch.setattr(sampler.stop, "wait", MagicMock(side_effect=[False, False, True]))
+    sampler.run()
+
+    timings.record(
+        "observation_block", Timing(None, db_calls=1, db_ms=15, phases_ms={"window_wait": 30}), 50
+    )
+    timings.record("tick", Timing(None, evaluated=99), 15)
+    with caplog.at_level(logging.INFO):
+        timings.report(sampler)
+        timings.report(sampler)
+    (summary,) = events(caplog, "truth_path_timing")
+    assert summary["level"] == "INFO"
+    assert summary["phase_p95_ms"] == {
+        "observation_block": 50,
+        "store": 15,
+        "tick": 15,
+        "window_wait": 30,
+    }
+    assert summary["unassigned_block_percent"] == 10
+    assert summary["tick_evaluated"] == 99
+    assert summary["sampled_stall_count"] == 1
+    assert any(
+        "test_truth_path_summary_is_available_at_info" in frame
+        for frame in summary["sampled_stall_stack"]
+    )
 
 
 async def test_queue_and_block_timings_are_debug_only(runtime, caplog, monkeypatch):

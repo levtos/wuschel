@@ -3,6 +3,7 @@
 import asyncio
 import copy
 import importlib.util
+import json
 from datetime import timedelta
 from pathlib import Path
 from uuid import uuid4
@@ -168,8 +169,8 @@ async def test_projection_worker_initial_send_update_ack_and_disconnect():
     sent = asyncio.Queue()
 
     class Socket:
-        async def send_json(self, message):
-            await sent.put(message)
+        async def send_json(self, message, *, dumps=json.dumps):
+            await sent.put(json.loads(dumps(message)))
 
     adapter = BridgeAdapter(runtime, None, "", "")
     connection = WebSocketRequests(Socket())
