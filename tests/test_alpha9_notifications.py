@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 from uuid import uuid4
 
 from core_contracts.notifications import complete_notice, plan_notices
@@ -54,6 +55,29 @@ def jobs(state):
 def acknowledge(state, job, at):
     job["status"] = "finished"
     complete_notice(state, job, {"outcome": "completed"}, at)
+
+
+async def test_empty_claim_does_not_fork_and_next_claim_is_durable(runtime, config):
+    await activate(runtime, config)
+    runtime.bridge = "connected"
+    runtime.bridge_protocol_selected = 2
+    with patch.object(State, "clone", autospec=True, side_effect=State.clone) as clone:
+        assert await runtime.submit("service_claim") is None
+        clone.assert_not_called()
+
+    staged = runtime.state.clone()
+    staged.tables["service_job"]["shadow"] = {
+        "job_id": "shadow",
+        "status": "planned",
+        "kind": "calendar",
+    }
+    await runtime._commit(staged)
+    runtime.bridge = "connected"
+    with patch.object(State, "clone", autospec=True, side_effect=State.clone) as clone:
+        job = await runtime.submit("service_claim")
+        clone.assert_called_once()
+    assert job["status"] == "sent"
+    assert await runtime.store.get("service_job", "shadow") == job
 
 
 def test_axes_debounce_individual_onsets_unchanged_digest_and_own_link(config):

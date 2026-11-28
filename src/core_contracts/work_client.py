@@ -32,10 +32,13 @@ class WorkClient:
         clock: Clock,
         discovery: Callable[[], Awaitable[list[dict[str, Any]]]] | None = None,
         apply: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]] | None = None,
+        *,
+        writer_idle: Callable[[], bool] | None = None,
     ) -> None:
         self.clock = clock
         self.discovery = discovery
         self.apply = apply
+        self.writer_idle = writer_idle
         self.ready = asyncio.Event()
         self.session: aiohttp.ClientSession | None = None
         self.pressure = "normal"
@@ -173,7 +176,7 @@ class WorkClient:
             return
         while self.session is not None:
             try:
-                if self.pressure != "geschützt":
+                if self.writer_idle is None or self.writer_idle():
                     await self.publish_next_commit(self.session, self.apply)
             except (
                 aiohttp.ClientError,

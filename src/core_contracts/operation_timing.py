@@ -245,7 +245,9 @@ class TruthTimings:
             self.tick_evaluated += timing.evaluated
             self.tick_evaluated_max = max(self.tick_evaluated_max, timing.evaluated)
 
-    def report(self, sampler: StallSampler) -> None:
+    def report(
+        self, sampler: StallSampler, pending_truth: dict[str, float | None] | None = None
+    ) -> None:
         now = perf_counter()
         if now - self.started < 60:
             return
@@ -266,6 +268,7 @@ class TruthTimings:
                     "tick_runs": self.tick_runs,
                     "tick_evaluated": self.tick_evaluated,
                     "tick_evaluated_max": self.tick_evaluated_max,
+                    "pending_truth": pending_truth,
                     **stall,
                 },
             )

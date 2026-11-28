@@ -117,6 +117,7 @@ class JsonFormatter(logging.Formatter):
                         "evaluated",
                         "phase_p95_ms",
                         "unassigned_block_percent",
+                        "pending_truth",
                         "tick_runs",
                         "tick_evaluated",
                         "tick_evaluated_max",
@@ -287,7 +288,9 @@ async def run(options: Options | None, data: Path, migrations: Path, frontend: P
             raise ConnectionError("ha_discovery_unavailable")
         return await runtime.entity_discovery(preview=True)
 
-    work = WorkClient(clock, discover_entities, partial(apply_work, runtime))
+    work = WorkClient(
+        clock, discover_entities, partial(apply_work, runtime), writer_idle=runtime.writer_idle
+    )
     runtime.retention_dispatch = work.retention_due.set
     work_task: asyncio.Task[None] | None = None
     api = API(

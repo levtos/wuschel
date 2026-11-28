@@ -310,21 +310,25 @@ async def operation_service_claim(
 ) -> Any:
     if runtime.bridge != "connected" or runtime.bridge_protocol_selected != 2:
         return None
-    job = next(
+    key = next(
         (
-            job
-            for job in state.tables["service_job"].values()
+            key
+            for key, job in dict.items(state.tables["service_job"])
             if job["status"] == "planned"
             and (
                 job["kind"] != "notice"
-                or state.tables["service_state"].get(job["state_key"], {}).get("eligible_epoch")
+                or dict.get(state.tables["service_state"], job["state_key"], {}).get(
+                    "eligible_epoch"
+                )
                 == state.epoch_id
             )
         ),
         None,
     )
-    if job is None:
+    if key is None:
         return None
+    state = state.clone()
+    job = state.tables["service_job"][key]
     job["status"] = "sent"
     job["sent_at"] = now.isoformat()
     await runtime._commit(state)
@@ -332,7 +336,7 @@ async def operation_service_claim(
 
 
 slots.OPERATIONS["service_claim"] = slots.Operation(
-    operation_service_claim, state="full", early=False
+    operation_service_claim, state="none", early=False
 )
 
 

@@ -9,7 +9,9 @@ from pydantic import ValidationError
 
 from core_contracts.api import API
 from core_contracts.load_guard import LoadGuard
+from core_contracts.observation_block import IngestQueue
 from core_contracts.operations import OperationsSettings
+from core_contracts.runtime import Work
 from core_contracts.security import Tokens
 
 from .conftest import activate
@@ -187,6 +189,34 @@ async def test_end_to_end_publication_samples_recover_after_quiet(runtime):
     runtime.clock.advance(runtime.operations.load_recover_hold_s)
     runtime.sample_load()
     assert runtime.load_guard.state == "normal"
+
+
+async def test_pending_truth_ages_ignore_timer_and_mqtt_state(runtime, monkeypatch):
+    from .test_runtime import obs
+
+    queue = IngestQueue(256)
+    monkeypatch.setattr(runtime, "queue", queue)
+    now = runtime.clock.monotonic()
+    for operation in ("mqtt_state", "tick"):
+        queue.put_nowait(Work(operation, None, queued_at=now - 10))
+    runtime.sample_load()
+    assert runtime.load_guard.state == "normal"
+    assert runtime.load_view()["pending_truth"] == {
+        "waiting_ms": None,
+        "active_ms": None,
+        "unacknowledged_ms": None,
+    }
+
+    queue.put_nowait(Work("observation", obs(runtime, True), queued_at=now - 0.1))
+    runtime.active_truth_since = now - 0.7
+    runtime.truth_latency.publish(1, now - 0.4)
+    runtime.sample_load()
+    assert runtime.load_view()["pending_truth"] == pytest.approx(
+        {"waiting_ms": 100, "active_ms": 700, "unacknowledged_ms": 400}
+    )
+    assert runtime.load_guard.metrics["pending_truth_ms"] == pytest.approx(700)
+    assert runtime.load_guard.state == "geschützt"
+    monkeypatch.undo()
 
 
 async def test_truth_warning_requires_an_unacknowledged_publication(runtime):

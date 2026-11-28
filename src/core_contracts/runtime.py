@@ -123,6 +123,12 @@ class Runtime:
         self.truth_latency = TruthLatency()
         self.truth_delayed = False
         self.active_truth_since: float | None = None
+        self.active_work: Work | None = None
+        self.pending_truth_ages: dict[str, float | None] = {
+            "waiting_ms": None,
+            "active_ms": None,
+            "unacknowledged_ms": None,
+        }
         self.projection_paused = False
         self.projection_changed = asyncio.Event()
         self.observation_timings = ObservationTimings()
@@ -269,6 +275,19 @@ class Runtime:
         self._expire_commit_samples()
         return sorted(duration for _, duration in self.commit_samples)
 
+    def writer_idle(self) -> bool:
+        return (
+            self.persistence
+            and not self.stopping
+            and not self.overflow
+            and self.active_work is None
+            and self._next_work is None
+            and self.queue.empty()
+        )
+
+    def load_view(self, now: float = 0.0) -> dict[str, Any]:
+        return {**self.load_guard.view(now), "pending_truth": dict(self.pending_truth_ages)}
+
     def sample_load(self) -> None:
         now = self.clock.monotonic()
         guard = self.load_guard
@@ -278,18 +297,34 @@ class Runtime:
 
         queue = self.queue
         truth_queued = queue.truth_queued if isinstance(queue, IngestQueue) else ()
-        oldest = truth_queued[0] if truth_queued else self.active_truth_since
-        queued_ms = max(0.0, (now - oldest) * 1000) if oldest is not None else 0.0
+        ha_queued = queue.ha_queued if isinstance(queue, IngestQueue) else ()
+        next_work = self._next_work
+        oldest_waiting = ha_queued[0] if ha_queued else None
+        if next_work is not None and IngestQueue.ha_truth(next_work):
+            oldest_waiting = next_work.queued_at
+        queue_depth = len(truth_queued) + sum(
+            item is not None and item.operation in IngestQueue.TRUTH_OPERATIONS
+            for item in (self.active_work, next_work)
+        )
+
+        def age(since: float | None) -> float | None:
+            return max(0.0, (now - since) * 1000) if since is not None else None
+
         pending_ms = self.truth_latency.oldest_ms(now)
+        self.pending_truth_ages = {
+            "waiting_ms": age(oldest_waiting),
+            "active_ms": age(self.active_truth_since),
+            "unacknowledged_ms": pending_ms,
+        }
         self.truth_delayed = pending_ms is not None and pending_ms >= 1000
         changed = guard.sample(
             now,
             lag_ms=self.event_loop_lag_ms,
-            queue_depth=len(truth_queued) + int(self.active_truth_since is not None),
+            queue_depth=queue_depth,
             queue_capacity=self.queue.maxsize,
             overflow_total=self.overflow_serial,
             commit_p95_ms=self.truth_latency.p95_ms(now),
-            pending_ms=max(pending_ms or 0.0, queued_ms) or None,
+            pending_ms=max((value or 0.0) for value in self.pending_truth_ages.values()) or None,
         )
         if changed:
             LOGGER.warning(
@@ -344,7 +379,7 @@ class Runtime:
                     peak = 0.0
                     activities = []
                 self.sample_load()
-                self.truth_timings.report(sampler)
+                self.truth_timings.report(sampler, self.pending_truth_ages)
         finally:
             sampler.stop.set()
             sampler.thread.join()
@@ -355,7 +390,7 @@ class Runtime:
         samples = self._commit_window()
         return {
             **self.service_state(),
-            "load": self.load_guard.view(self.clock.monotonic()),
+            "load": self.load_view(self.clock.monotonic()),
             "truth_delayed": self.truth_delayed,
             "publication_seq": self.state.publication_seq,
             "queues": {
@@ -488,7 +523,7 @@ class Runtime:
             "type": "service_state",
             "startup": {key: round(value) for key, value in self.startup_timings.items()},
             "startup_attempts": self.startup_attempts,
-            "load": self.load_guard.view(),
+            "load": self.load_view(),
             "projection_paused": self.projection_paused,
             "retry_notices": [name for name, retry in self.retries.items() if retry["warning"]],
             "ready": self.ready,
@@ -873,9 +908,8 @@ class Runtime:
                 work = await self.queue.get()
             from .observation_block import IngestQueue, process_block
 
-            self.active_truth_since = (
-                work.queued_at if work.operation in IngestQueue.TRUTH_OPERATIONS else None
-            )
+            self.active_work = work
+            self.active_truth_since = work.queued_at if IngestQueue.ha_truth(work) else None
             try:
                 if work.operation == "observation" and self.persistence:
                     with self.activities.track("observation_block"):
@@ -884,6 +918,7 @@ class Runtime:
                     with self.activities.track(work.operation):
                         await self._run_work(work)
             finally:
+                self.active_work = None
                 self.active_truth_since = None
 
     async def _run_work(self, work: Work) -> None:

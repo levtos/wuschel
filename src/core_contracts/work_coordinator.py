@@ -145,11 +145,6 @@ class Coordinator:
         if state != self.pressure:
             self.pressure = state
             self.wake.set()
-        if state == "geschützt":
-            for worker in self.workers:
-                if worker.task and not worker.task.cancelling():
-                    worker.pause = True
-                    worker.task.cancel()
 
     async def schedule(self) -> None:
         prune_at = self.loop.time() + 60
@@ -189,15 +184,21 @@ class Coordinator:
         slots = self.capacity.slots(self.pressure)
         running = [worker for worker in self.workers if worker.job is not None]
         for _ in range(len(running), slots):
-            if not await self.journal.waiting():
+            if not await self.journal.waiting() or self.pressure == "geschützt":
                 return
             short_only = slots > 2 and sum(worker.long for worker in running) >= slots - 1
             record = await self.journal.claim(short_only=short_only)
             if not record:
                 return
+            job_id: UUID = record["id"]
+            if self.pressure == "geschützt":
+                await self.journal.requeue(job_id)
+                return
             available = next((item for item in self.workers if item.job is None), None)
             worker = available if available is not None else await self.start_worker()
-            job_id: UUID = record["id"]
+            if self.pressure == "geschützt":
+                await self.journal.requeue(job_id)
+                return
             metadata = json.loads(record["metadata"])
             worker.job = job_id
             worker.long = metadata["long"]

@@ -21,6 +21,28 @@ Arbeitsweg oder lässt dessen Aufträge warten. Unter **Betrieb** kannst du den 
 verbleibende Haltezeit sehen. Eine Meldung erscheint bei einer tatsächlich verspäteten
 Wahrheit ab einer Sekunde.
 
+## Wahrheitsweg ab Schritt 1 von Issue 189
+
+Die INFO-Meldung `truth_path_timing` fasst etwa einmal pro Minute die
+Phasenlaufzeiten als p95 zusammen. Dazu gehören der Fork, das Sammelfenster,
+die Beobachtungs-Hooks, der Commit vor und nach dem Store, der Folge-Claim
+sowie Aufbau, Kodierung, Senden und Bestätigung der Traber-Projektion.
+`unassigned_block_percent` bezieht sich auf die gesamte Belegungszeit
+des Schreibers einschließlich Fork. Der Tick-Zähler dokumentiert die Zahl
+ausgewerteter Verträge. Der Stall-Sampler protokolliert bei mehr als 200 ms
+Schleifenverzug Modul, Funktion und Zeile des aktiven Stacks.
+
+Unter `load.pending_truth` zeigen `waiting_ms`, `active_ms` und
+`unacknowledged_ms` die drei Alterswerte. Die erste Größe bezieht sich auf
+wartende HA-Eingänge. Bei freiem Schreiber kann Wuschel vorbereitete Ergebnisse
+auch im Zustand „geschützt“ übernehmen. Laufende Verarbeiter arbeiten weiter.
+Neue Verarbeiteraufträge warten auf die Freigabe.
+
+Der manuelle CI-Lauf `work_acceptance=shadow` vergleicht b33 und den
+Kandidaten im selben isolierten PostgreSQL- und Traber-Prüfaufbau.
+Pro Stand läuft ein 90-Sekunden-Profil mit denselben synthetischen Eingängen.
+Die Tick-Zahl und die Millisekundenwerte dienen der Einordnung.
+
 ## Messprotokoll für Issue 180
 
 Die folgenden Kurzläufe verwenden synthetische Bestände, Windows und den Speicher im
