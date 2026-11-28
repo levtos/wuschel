@@ -150,7 +150,9 @@ class ProjectionPeer:
     async def send_json(self, request, *, dumps=json.dumps):
         payload = json.loads(dumps(request))
         future = self.connection.pending[payload.pop("id")]
-        self.projections.append(payload)
+        # A repeated unchanged heartbeat still receives its ACK.
+        if not self.projections or self.projections[-1] != payload:
+            self.projections.append(payload)
         future.set_result({"applied": True})
         self.changed.set()
 
@@ -221,6 +223,7 @@ async def trajectory(store, config, monkeypatch, *, seconds=0):
 
 async def exercise(runtime, bridge, peer, mqtt, seconds):
     trace = []
+    publications = runtime.subscribe(max_queue=100)
     tick_counts = []
     last_projection = -1
 
@@ -234,6 +237,11 @@ async def exercise(runtime, bridge, peer, mqtt, seconds):
                     peer.changed.clear()
                     await peer.changed.wait()
             last_projection = sequence
+        deltas = []
+        while not publications.empty():
+            event = publications.get_nowait()
+            if event["type"] == "delta":
+                deltas.append(event)
         tables = runtime.state.tables
         trace.append(
             {
@@ -259,6 +267,7 @@ async def exercise(runtime, bridge, peer, mqtt, seconds):
                     }
                 ),
                 "projections": checksum(peer.projections),
+                "publications": checksum(deltas),
             }
         )
 
