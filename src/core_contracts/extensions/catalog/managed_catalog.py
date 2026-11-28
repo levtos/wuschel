@@ -7,7 +7,6 @@ from core_contracts import slots
 from core_contracts.model import checksum, semantic_fingerprint
 from core_contracts.persistence import State
 from core_contracts.quality import FieldValue
-from core_contracts.registry import RegistryConfig
 
 if TYPE_CHECKING:
     from core_contracts.runtime import Runtime
@@ -51,16 +50,16 @@ def identity(scope: str, media_type: str, signal_type: str, key: str) -> str:
 
 
 def head(state: State, catalog: ManagedCatalog) -> dict[str, Any]:
-    return state.tables["catalog_head"].get(
-        head_key(catalog),
-        {
-            "catalog_id": catalog.catalog_id,
-            "definition_version": catalog.version,
-            "definition_digest": definition_digest(catalog),
-            "revision": 0,
-            "entries": {},
-        },
-    )
+    current = state.tables["catalog_head"].get(head_key(catalog))
+    if current is not None:
+        return current
+    return {
+        "catalog_id": catalog.catalog_id,
+        "definition_version": catalog.version,
+        "definition_digest": definition_digest(catalog),
+        "revision": 0,
+        "entries": {},
+    }
 
 
 def discovered_entries(state: Any, catalog: ManagedCatalog) -> dict[str, Any]:
@@ -224,11 +223,7 @@ def lookup(ctx: Any, rule: Any, args: list[FieldValue]) -> FieldValue:
         from core_contracts.extensions.catalog.stash_catalog import lookup as slot_lookup
 
         return slot_lookup(ctx, rule, args)
-    document = ctx.state.tables["registry_revision"][str(ctx.state.active_revision)]["config"]
-
-    catalog = definition(
-        RegistryConfig.model_validate(document), rule.catalog_id, rule.definition_version
-    )
+    catalog = definition(ctx.registry, rule.catalog_id, rule.definition_version)
     scope, media, signal, raw = (str(value.value) for value in args)
     key = identity(scope, media, signal, raw)
     current = head(ctx.state, catalog)

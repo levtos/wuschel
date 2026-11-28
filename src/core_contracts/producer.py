@@ -4,8 +4,8 @@ Definitions and lifecycle hooks are pure code. Mutable context belongs to the st
 node or staged latch map, so a failed commit cannot advance a producer's memory.
 """
 
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
@@ -18,7 +18,7 @@ from .evidence import Observation
 from .model import Model
 from .persistence import State
 from .quality import FieldValue, Reason, ReasonCode, unknown
-from .registry import Contract
+from .registry import Contract, RegistryConfig
 from .resolver import Bucket
 from .statemachine import Machine, MachineState
 from .temporal import Temporal, TemporalState, age, delta
@@ -43,6 +43,17 @@ class Context:
     override: MachineState | None
     reassessment: bool = False
     event: Observation | None = None
+    registry: RegistryConfig | None = None
+    observation_references: Mapping[str, tuple[int, Observation]] = field(default_factory=dict)
+
+    def evidence_observations(self, references: Iterable[str]) -> list[Observation]:
+        matches = [
+            row
+            for ref in set(references)
+            if (row := self.observation_references.get(ref)) is not None
+        ]
+        # Preserve the order of the staged observation table for tied ingest sequences.
+        return [observation for _, observation in sorted(matches, key=lambda item: item[0])]
 
     @property
     def now(self) -> datetime:
@@ -105,6 +116,8 @@ class Producer:
         *,
         reassessment: bool = False,
         event: Observation | None = None,
+        registry: RegistryConfig | None = None,
+        observation_references: Mapping[str, tuple[int, Observation]] | None = None,
     ) -> tuple[dict[str, FieldValue], dict[str, Any], MachineState | None]:
         ctx = Context(
             clock,
@@ -118,6 +131,8 @@ class Producer:
             override,
             reassessment,
             event,
+            registry,
+            observation_references if observation_references is not None else {},
         )
         if node.get("producer_epoch") != state.epoch_id:
             self.init(ctx)

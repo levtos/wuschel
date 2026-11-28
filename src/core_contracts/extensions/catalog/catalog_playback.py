@@ -154,12 +154,7 @@ def offer(
     *,
     hierarchy: dict[str, Any] | None = None,
 ) -> None:
-    references = set(evidence)
-    observations = [
-        item
-        for row in ctx.state.tables["source_observation_current"].values()
-        if (item := Observation.model_validate(row)).reference in references
-    ]
+    observations = ctx.evidence_observations(evidence)
     if not observations:
         return
     framed = [item for item in observations if item.catalog_frame]
@@ -186,7 +181,7 @@ def offer(
         else {}
     )
     consumers[ctx.contract.contract_id] = True
-    title_evidence = set(ctx.inputs["title"].evidence) if "title" in ctx.inputs else references
+    title_evidence = set(ctx.inputs["title"].evidence) if "title" in ctx.inputs else set(evidence)
     old = {
         **old,
         "consumers": consumers,

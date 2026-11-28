@@ -56,12 +56,10 @@ class MQTTAdapter:
 
             def put_nowait(self, item: aiomqtt.Message) -> None:
                 config = adapter.runtime.config
-                protected = adapter.runtime._structure(config).protected if config else set()
-                if config and any(
-                    binding.source_id in protected
-                    and binding.adapter.kind == "mqtt"
-                    and binding.adapter.mqtt_topic == str(getattr(item, "topic", ""))
-                    for binding in config.bindings
+                plan = adapter.runtime._structure(config) if config else None
+                if plan and any(
+                    binding.source_id in plan.protected
+                    for binding in plan.mqtt_by_topic.get(str(getattr(item, "topic", "")), ())
                 ):
                     self.ordered_put = True
                     try:
@@ -177,9 +175,9 @@ class MQTTAdapter:
                     max_queued_incoming_messages=self.runtime.operations.mqtt_queue_size,
                     queue_type=self.queue_type,
                 ) as client:
-                    bindings = [b for b in config.bindings if b.adapter.kind == "mqtt"]
-                    for binding in bindings:
-                        await client.subscribe(binding.adapter.mqtt_topic or "", qos=1)
+                    topics = self.runtime._structure(config).mqtt_by_topic
+                    for topic in topics:
+                        await client.subscribe(topic, qos=1)
                     await self.runtime.submit("mqtt_state", "connected")
                     self.seen.clear()
                     connected_at = self.runtime.clock.monotonic()
@@ -197,9 +195,7 @@ class MQTTAdapter:
                                 and not same_mqtt_bindings(config, current)
                             ):
                                 return
-                            for binding in bindings:
-                                if str(message.topic) != binding.adapter.mqtt_topic:
-                                    continue
+                            for binding in topics.get(str(message.topic), ()):
                                 try:
                                     raw = message.payload
                                     if not isinstance(raw, (bytes, bytearray)):

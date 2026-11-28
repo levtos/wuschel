@@ -287,7 +287,7 @@ class State(BaseModel):
     def clone(self) -> State:
         return self._fork(set())
 
-    def _fork(self, readonly: set[str]) -> State:
+    def _fork(self, readonly: set[str], *, defer_sightings: bool = False) -> State:
         result = State.model_construct(
             generation=self.generation,
             active_revision=self.active_revision,
@@ -296,8 +296,23 @@ class State(BaseModel):
             tables={},
         )
         tables: dict[str, dict[str, dict[str, Any]]] = {}
+        deferred: set[str] = set()
+        assert isinstance(self.tables, Tables)
         for name, rows in self.current_tables().items():
             changed = self._changes.changed.get(name, set())
+            if (
+                defer_sightings
+                and name == "catalog_sighting"
+                and isinstance(rows, Rows)
+                and not changed
+                and not rows.accessed
+            ):
+                # A clean table has no writable row leases. Let both states
+                # materialize their own container only if they access sightings.
+                tables[name] = rows
+                deferred.add(name)
+                self.tables.deferred.add(name)
+                continue
             tables[name] = {}
             for key, row in dict.items(rows):
                 if key in changed:
@@ -311,7 +326,9 @@ class State(BaseModel):
                     if isinstance(row, RowDict):
                         row.owner.shared = True
                     tables[name][key] = row
-        object.__setattr__(result, "tables", Tables(result._changes, tables, readonly=readonly))
+        object.__setattr__(
+            result, "tables", Tables(result._changes, tables, readonly=readonly, deferred=deferred)
+        )
         result._basis = self._basis
         for name, keys in self._changes.changed.items():
             if name != PUBLICATIONS:
@@ -337,7 +354,8 @@ class State(BaseModel):
                 "contract_lifecycle",
                 "sm_instance",
                 "source_observation_current",
-            }
+            },
+            defer_sightings=True,
         )
         result._catalog_base = self
         return result
@@ -348,8 +366,8 @@ class State(BaseModel):
         base = self._catalog_base
         while base is not None and base is not previous:
             base = base._catalog_base
-        current_rows = self.tables[table]
-        previous_rows = previous.tables[table]
+        current_rows = dict.__getitem__(self.tables, table)
+        previous_rows = dict.__getitem__(previous.tables, table)
         if base is None:
             return current_rows != previous_rows
         changed = self._changes.changed.get(table, set()) | self._changes.deleted.get(table, set())
@@ -357,7 +375,7 @@ class State(BaseModel):
 
     def current_tables(self) -> dict[str, dict[str, dict[str, Any]]]:
         result = {}
-        for name, rows in self.tables.items():
+        for name, rows in dict.items(self.tables):
             key = str(self.active_revision) if name == "registry_revision" else self.epoch_id
             if name in {"registry_revision", "runtime_epoch"}:
                 result[name] = {key: rows[key]} if key in rows else {}
@@ -463,8 +481,12 @@ def encoded_changes(previous: State, state: State, *, verify: bool = False) -> W
     """Encode only dirty keys; the original full comparison remains a test oracle."""
     changes = WriteBatch()
     for table in TABLES:
-        old, new = previous.tables[table], state.tables[table]
+        dirty = state._changes.changed.get(table, set())
         deleted = state._changes.deleted.get(table, set())
+        if not dirty and not deleted and state._basis is not None:
+            continue
+        old = dict.__getitem__(previous.tables, table)
+        new = dict.__getitem__(state.tables, table)
         if state._basis is None:
             # A completely replaced state has no inherited baseline. All its
             # rows are already dirty; account for omitted boundary rows once.
@@ -474,7 +496,7 @@ def encoded_changes(previous: State, state: State, *, verify: bool = False) -> W
                 if key in old and key not in new:
                     changes.append((f"DELETE FROM {table} WHERE key=$1", (key,)))
                     changes.deletes.setdefault(table, set()).add(key)
-        for key in state._changes.changed.get(table, set()):
+        for key in dirty:
             if key not in new:
                 continue
             value = new[key]
