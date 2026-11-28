@@ -22,7 +22,7 @@ on:
       work_acceptance:
         description: Run the synthetic work lane acceptance on demand
         type: choice
-        options: ['off', 'smoke', 'hour']
+        options: ['off', 'smoke', 'hour', 'shadow']
         default: 'off'
   pull_request:
   push:
@@ -157,7 +157,7 @@ jobs:
             dist/alpha4-review-performance.json
             dist/alpha8-scale.json
   work-acceptance:
-    if: github.event_name == 'workflow_dispatch' && (inputs.work_acceptance == 'smoke' || inputs.work_acceptance == 'hour')
+    if: github.event_name == 'workflow_dispatch' && inputs.work_acceptance != 'off'
     runs-on: ubuntu-24.04
     timeout-minutes: 72
     services:
@@ -179,7 +179,27 @@ jobs:
           python-version: '3.14.5'
       - run: uv sync --frozen
       - name: Exercise PostgreSQL, work processes and synthetic Traber
+        if: inputs.work_acceptance != 'shadow'
         run: uv run pytest -q -s tests/test_truth_lane_acceptance.py
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        if: inputs.work_acceptance == 'shadow'
+        with:
+          ref: c3d3e28ea7a986d787d94c2bf7aa28462cc6cf2b
+          path: reference-b33
+      - name: Measure b33 in the same shadow inventory
+        if: inputs.work_acceptance == 'shadow'
+        working-directory: reference-b33
+        env:
+          WUSCHEL_SHADOW_PROFILE_SECONDS: '90'
+        run: |
+          cp ../tests/test_truth_shadow.py tests/test_truth_shadow.py
+          uv sync --frozen
+          uv run pytest -q -s tests/test_truth_shadow.py::test_b33_shadow_postgres
+      - name: Measure the candidate in the shadow inventory
+        if: inputs.work_acceptance == 'shadow'
+        env:
+          WUSCHEL_SHADOW_PROFILE_SECONDS: '90'
+        run: uv run pytest -q -s tests/test_truth_shadow.py::test_b33_shadow_postgres
   area-map:
     needs: scope
     if: github.event_name == 'workflow_dispatch' && inputs.area_map

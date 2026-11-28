@@ -3,6 +3,7 @@
 import asyncio
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import unquote, urlsplit
 from uuid import UUID
 
@@ -15,9 +16,11 @@ from core_contracts.api import API, LOGICAL_ROUTES, PARAMETERIZED_ROUTES
 from core_contracts.clock import SystemClock
 from core_contracts.operations import OperationsSettings
 from core_contracts.persistence import PostgresStore
+from core_contracts.runtime import Work
 from core_contracts.security import Tokens
 from core_contracts.work_capacity import READ_CONNECTION_LIMIT, WorkCapacity
 from core_contracts.work_client import WorkClient
+from core_contracts.work_coordinator import Coordinator, Worker
 from core_contracts.work_routes import job_route, read_route
 from core_contracts.work_worker import READ_OPERATIONS, WorkerRuntime
 
@@ -362,6 +365,49 @@ async def test_authenticated_job_reads_keep_a_separate_budget(
     assert (await client.get("/api/v1/info", headers=headers)).status == 429
     assert (await client.get("/api/v1/work/jobs", headers=headers)).status == 200
     assert (await client.get("/api/v1/work/jobs")).status == 429
+
+
+async def test_protected_coordinator_keeps_admitted_work_running(tmp_path):
+    journal = AsyncMock()
+    gate = asyncio.Event()
+    task = asyncio.create_task(gate.wait())
+    coordinator = Coordinator(journal, {}, WorkCapacity.for_cpus(4), tmp_path)
+    worker = Worker(MagicMock(), 0, tmp_path, job=UUID(int=189), task=task)
+    coordinator.workers.append(worker)
+    try:
+        coordinator.set_pressure("geschützt")
+        await coordinator.fill_slots()
+        assert not task.cancelling()
+        journal.claim.assert_not_awaited()
+        gate.set()
+        assert await task
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_protected_client_claims_a_prepared_result_when_writer_frees(runtime, monkeypatch):
+    apply = AsyncMock()
+    work = WorkClient(runtime.clock, apply=apply, writer_idle=runtime.writer_idle)
+    work.session = session = MagicMock()
+    work.set_pressure("geschützt")
+    claim = AsyncMock()
+    monkeypatch.setattr(work, "publish_next_commit", claim)
+    runtime.active_work = Work("tick", None)
+    pauses = 0
+
+    async def advance(_seconds):
+        nonlocal pauses
+        pauses += 1
+        if pauses == 1:
+            claim.assert_not_awaited()
+            runtime.active_work = None
+        else:
+            work.session = None
+
+    monkeypatch.setattr(runtime.clock, "sleep", advance)
+    await work.publish_commits()
+    claim.assert_awaited_once_with(session, apply)
 
 
 @pytest.mark.postgres

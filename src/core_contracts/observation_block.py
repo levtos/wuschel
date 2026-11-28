@@ -6,6 +6,7 @@ import logging
 from collections import deque
 from time import perf_counter
 
+from .evidence import Observation
 from .operation_timing import Timing, current, phase
 from .persistence import State
 from .runtime import Runtime, Work
@@ -42,16 +43,29 @@ class IngestQueue(asyncio.Queue[Work]):
     def __init__(self, maxsize: int = 0) -> None:
         super().__init__(maxsize)
         self.truth_queued: deque[float] = deque()
+        self.ha_queued: deque[float] = deque()
+
+    @staticmethod
+    def ha_truth(item: Work) -> bool:
+        return item.operation in {"snapshot", "snapshot_complete"} or (
+            item.operation == "observation"
+            and isinstance(item.payload, Observation)
+            and item.payload.adapter.startswith("ha_")
+        )
 
     def _put(self, item: Work) -> None:
         super()._put(item)
         if item.operation in self.TRUTH_OPERATIONS:
             self.truth_queued.append(item.queued_at)
+        if self.ha_truth(item):
+            self.ha_queued.append(item.queued_at)
 
     def _get(self) -> Work:
         item = super()._get()
         if item.operation in self.TRUTH_OPERATIONS:
             self.truth_queued.popleft()
+        if self.ha_truth(item):
+            self.ha_queued.popleft()
         return item
 
     def full(self) -> bool:
@@ -106,6 +120,8 @@ async def process_block(runtime: Runtime, first: Work) -> None:
     try:
         while True:
             works.append(work)
+            if IngestQueue.ha_truth(work) and runtime.active_truth_since is None:
+                runtime.active_truth_since = work.queued_at
             await worker.process("observation", worker.queued_observation(work))
             if (
                 len(works) >= runtime.operations.observation_block_size

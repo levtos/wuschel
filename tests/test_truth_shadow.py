@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import logging
 import os
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
@@ -21,10 +20,11 @@ from core_contracts.contract_types import type_registry
 from core_contracts.extensions.catalog.managed_catalog import head, head_key, prepare
 from core_contracts.freshness_templates import upgrade_document
 from core_contracts.model import canonical, checksum
+from core_contracts.operation_timing import TruthTimings
 from core_contracts.persistence import MemoryStore, PostgresStore
 from core_contracts.rules.catalog_models import CatalogWrite, EntryChange
 from core_contracts.runtime import Runtime
-from dev.truth_lane_profile import Timings, distribution
+from dev.truth_lane_profile import distribution
 
 from .conftest import activate
 from .test_catalog_playback import player_document, player_event
@@ -215,7 +215,9 @@ async def trajectory(store, config, monkeypatch, *, seconds=0):
             mqtt = MQTTAdapter(runtime, session, "disabled", {}, "")
             projection = asyncio.create_task(bridge.projection_worker())
             try:
-                return await exercise(runtime, bridge, peer, mqtt, seconds)
+                runtime.truth_timings = TruthTimings()
+                trace = await exercise(runtime, bridge, peer, mqtt, seconds)
+                return trace, runtime.truth_timings
             finally:
                 projection.cancel()
                 await asyncio.gather(projection, return_exceptions=True)
@@ -226,7 +228,6 @@ async def trajectory(store, config, monkeypatch, *, seconds=0):
 async def exercise(runtime, bridge, peer, mqtt, seconds):
     trace = []
     publications = runtime.subscribe(max_queue=100)
-    tick_counts = []
     last_projection = -1
 
     async def checkpoint(label):
@@ -324,15 +325,16 @@ async def exercise(runtime, bridge, peer, mqtt, seconds):
                 previous += 0.01
                 await checkpoint("catalog-miss")
         await runtime.submit("tick")
-        tick_counts.append(runtime.evaluation_stats["evaluated"])
         await checkpoint(f"tick-{cycle}")
+    if seconds:
+        await pacing_clock.sleep(max(0.0, start + seconds - perf_counter()))
     assert any(job["kind"] == "notice" for job in runtime.state.tables["service_job"].values())
     while job := await runtime.submit("service_claim"):
         await runtime.submit(
             "service_complete", {"job_id": job["job_id"], "response": {"outcome": "completed"}}
         )
     await checkpoint("service-claims")
-    return trace, tick_counts
+    return trace
 
 
 def assert_reference(trace):
@@ -355,28 +357,25 @@ async def test_b33_shadow_trajectory(config, monkeypatch):
 @pytest.mark.postgres
 async def test_b33_shadow_postgres(database, config, monkeypatch):
     seconds = int(os.getenv("WUSCHEL_SHADOW_PROFILE_SECONDS", "0"))
-    timings = Timings()
     store = PostgresStore(database, MIGRATIONS, tls=False)
     await store.open()
-    logger = logging.getLogger("core_contracts")
-    logger.addHandler(timings)
-    old_level = logger.level
-    if seconds:
-        logger.setLevel(logging.DEBUG)
     try:
-        trace, tick_counts = await trajectory(store, config, monkeypatch, seconds=seconds)
+        trace, timings = await trajectory(store, config, monkeypatch, seconds=seconds)
         assert_reference(trace)
     finally:
-        logger.setLevel(old_level)
-        logger.removeHandler(timings)
         await store.close()
     if seconds:
         print(
             json.dumps(
                 {
-                    "tick_evaluated": tick_counts,
+                    "tick_runs": timings.tick_runs,
+                    "tick_evaluated": timings.tick_evaluated,
+                    "tick_evaluated_max": timings.tick_evaluated_max,
+                    "unassigned_block_percent": round(
+                        100 * timings.block_unassigned_ms / timings.block_total_ms, 2
+                    ),
                     "timing": {
-                        name: distribution(values) for name, values in timings.measurements.items()
+                        name: distribution(values) for name, values in timings.samples.items()
                     },
                 },
                 sort_keys=True,
