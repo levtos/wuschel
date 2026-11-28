@@ -556,21 +556,17 @@ class BridgeAdapter:
                 **(self.states[entity] or {}),
                 "last_reported": event["last_reported"],
             }
-        for binding in config.bindings:
-            if binding.adapter.ha_entity_id == entity and binding.adapter.kind in {
-                "ha_state",
-                "ha_attribute",
-            }:
-                self.runtime.ingest(
-                    self.observation(
-                        binding,
-                        self.states.get(entity),
-                        "report" if kind == "reported" else "live_change",
-                        event,
-                        config,
-                        revision,
-                    )
+        for binding in self.runtime._structure(config).ha_by_entity.get(entity, ()):
+            self.runtime.ingest(
+                self.observation(
+                    binding,
+                    self.states.get(entity),
+                    "report" if kind == "reported" else "live_change",
+                    event,
+                    config,
+                    revision,
                 )
+            )
 
     async def _response(
         self,

@@ -279,17 +279,34 @@ class Rows(MutationDict):
 
 class Tables(MutationDict):
     def __init__(
-        self, changes: Changes, data: Mapping[Any, Any], *, readonly: set[str] | None = None
+        self,
+        changes: Changes,
+        data: Mapping[Any, Any],
+        *,
+        readonly: set[str] | None = None,
+        deferred: set[str] | None = None,
     ) -> None:
         dict.__init__(self)
         self.changes = changes
+        self.deferred = deferred or set()
         for name, rows in data.items():
+            if name in self.deferred:
+                dict.__setitem__(self, name, rows)
+                continue
             shared = (
                 name in readonly
                 if readonly is not None
                 else isinstance(rows, Rows) and rows.readonly
             )
             dict.__setitem__(self, name, Rows(changes, name, rows, readonly=shared))
+
+    def __getitem__(self, name: Any) -> Any:
+        rows = dict.__getitem__(self, name)
+        if name in self.deferred:
+            self.deferred.remove(name)
+            rows = Rows(self.changes, name, rows)
+            dict.__setitem__(self, name, rows)
+        return rows
 
     def __setitem__(self, name: Any, value: Any) -> None:
         old = self.get(name, {})

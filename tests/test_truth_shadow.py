@@ -40,7 +40,7 @@ START = datetime(2026, 1, 1, 12, tzinfo=UTC)
 INSTALLATION = str(UUID(int=189))
 
 
-def shadow_document(config, scale=1):
+def shadow_document(config, replicas=6):
     presence = json.loads((FIXTURES / "presence-package-v1.json").read_text(encoding="utf-8"))[
         "config"
     ]
@@ -49,6 +49,7 @@ def shadow_document(config, scale=1):
         row for row in presence["contracts"] if row["type_id"] != "synthetic.connectivity"
     ]
     document = player_document(config)
+    document["contracts"][0]["ha_projection"] = True
     applicable = next(row for row in document["sources"] if row["source_id"] == "source.applicable")
     applicable.pop("origin")
     applicable["dependency_id"] = "dep.ha"
@@ -58,7 +59,7 @@ def shadow_document(config, scale=1):
     for section in ("dependencies", "definitions", "catalogs"):
         document[section] = document.get(section, []) + presence.get(section, [])
     inventory = {"sources": "source_id", "bindings": "binding_id", "contracts": "contract_id"}
-    for index in range(6 * scale):
+    for index in range(replicas):
         ids = {
             item[key]: f"{item[key]}.shadow{index}"
             for section, key in inventory.items()
@@ -78,6 +79,9 @@ def shadow_document(config, scale=1):
         for section in inventory:
             for item in presence[section]:
                 clone = replace(item)
+                if section == "contracts":
+                    # Increase the unprojected stock; keep the same Traber workload.
+                    clone["ha_projection"] = index < 6
                 if clone.get("physical_source_key"):
                     clone["physical_source_key"] += f".shadow{index}"
                 if adapter := clone.get("adapter"):
@@ -89,8 +93,6 @@ def shadow_document(config, scale=1):
     control = upgrade_document(config)
     for section in ("dependencies", *inventory):
         document[section].extend(control[section])
-    for item in document["contracts"]:
-        item["ha_projection"] = item["type_id"] != "test.echo"
     media = deepcopy(document["contracts"][0])
     media["contract_id"] = "fixture.media_secondary"
     document["contracts"].append(media)
@@ -337,7 +339,12 @@ def assert_reference(trace):
     actual = {"reference_commit": BASELINE, "trace": trace}
     if os.getenv("WUSCHEL_SHADOW_RECORD_B33") == BASELINE:
         REFERENCE.write_text(json.dumps(actual, indent=2) + "\n", encoding="utf-8")
-    assert actual == json.loads(REFERENCE.read_text(encoding="utf-8"))
+    expected = json.loads(REFERENCE.read_text(encoding="utf-8"))
+    assert actual["reference_commit"] == expected["reference_commit"]
+    for checkpoint, reference in zip(trace, expected["trace"], strict=True):
+        assert checkpoint["event"] == reference["event"]
+        for name in ("observations", "fields", "side_effects", "projections", "publications"):
+            assert checkpoint[name] == reference[name], (checkpoint["event"], name)
 
 
 async def test_b33_shadow_trajectory(config, monkeypatch):

@@ -447,6 +447,21 @@ class Runtime:
         state.tables["source_observation_current"][observation.binding_id] = row
         self._observation_models[observation.binding_id] = (row.copy(), observation)
 
+    def _observations(self, state: State) -> dict[str, Observation]:
+        return {
+            key: self._observation(row)
+            for key, row in state.tables["source_observation_current"].items()
+        }
+
+    @staticmethod
+    def _evidence_index(
+        observations: dict[str, Observation],
+    ) -> dict[str, tuple[int, Observation]]:
+        return {
+            observation.reference: (index, observation)
+            for index, observation in enumerate(observations.values())
+        }
+
     def _field(self, key: str, row: dict[str, Any]) -> FieldValue:
         cached = self._field_models.get(key)
         if cached is not None and (row is cached[0] or row == cached[0]):
@@ -1237,12 +1252,9 @@ class Runtime:
 
             return await enter(self, state, payload)
         if operation == "snapshot":
+            bindings = self._structure(config).bindings if config else {}
             for obs in payload:
-                if (
-                    config
-                    and obs.binding_id in {b.binding_id for b in config.bindings}
-                    and not self._older_than_stored(state, obs)
-                ):
+                if obs.binding_id in bindings and not self._older_than_stored(state, obs):
                     with phase("hook_frame"):
                         self._hooks(slots.OBSERVATION, "frame", state, obs)
                     state.tables["source_observation_current"][obs.binding_id] = (
@@ -1251,13 +1263,21 @@ class Runtime:
                     await self._record_observation(state, obs)
         elif operation == "observation":
             obs = payload
-            if config is None or obs.binding_id not in {b.binding_id for b in config.bindings}:
+            if config is None:
+                return None
+            structure = self._structure(config)
+            if obs.binding_id not in structure.bindings:
                 return None
             stored = state.tables["source_observation_current"].get(obs.binding_id)
             previous = self._observation(stored) if stored else None
             with phase("hook_filter"):
+                lineage = (
+                    self._evaluation_plan(state, config).fingerprints
+                    if obs.adapter == "mqtt"
+                    else {}
+                )
                 if any(
-                    slots.OBSERVATION[order].handler(obs, previous, config, self.types, now)
+                    slots.OBSERVATION[order].handler(obs, previous, structure, lineage, now)
                     for order in sorted(slots.OBSERVATION)
                     if slots.OBSERVATION[order].phase == "filter"
                 ):
@@ -1304,7 +1324,7 @@ class Runtime:
                 for order in sorted(slots.OBSERVATION):
                     hook = slots.OBSERVATION[order]
                     if hook.phase == "remember":
-                        obs = hook.handler(obs, config, self.types, self.clock.now_utc())
+                        obs = hook.handler(obs, structure, lineage, self.clock.now_utc())
             with phase("hook_frame"):
                 self._hooks(slots.OBSERVATION, "frame", state, obs)
             self._remember_observation(state, obs)
@@ -1504,10 +1524,7 @@ class Runtime:
         by_source = structure.by_source
         sources = structure.sources
         if observations is None:
-            observations = {
-                k: self._observation(v)
-                for k, v in state.tables["source_observation_current"].items()
-            }
+            observations = self._observations(state)
         dependencies = structure.dependencies
 
         def source_value(ref: str, visited: set[str]) -> FieldValue:
@@ -1533,13 +1550,9 @@ class Runtime:
                 != self._evaluation_plan(state, config).fingerprints[ref]
             ):
                 return unknown(ReasonCode.RESTORE_INCOMPATIBLE, ref, now)
+            bindings = structure.source_bindings.get(ref, ())
             calendar_binding = next(
-                (
-                    binding
-                    for binding in config.bindings
-                    if binding.source_id == ref and binding.adapter.kind == "ha_calendar"
-                ),
-                None,
+                (binding for binding in bindings if binding.adapter.kind == "ha_calendar"), None
             )
             if calendar_binding:
                 cache = state.tables["service_state"].get(
@@ -1552,9 +1565,7 @@ class Runtime:
                     return unknown(ReasonCode.INPUT_STALE, ref, now)
             dependency = dependencies[source.dependency_id]
             available = self.dependency_connections.get(dependency.kind, True)
-            if any(
-                b.source_id == ref and b.adapter.kind == "connectivity" for b in config.bindings
-            ):
+            if any(binding.adapter.kind == "connectivity" for binding in bindings):
                 available = (
                     True  # The monitor reports the connection itself, not a sensor behind it.
                 )
@@ -1655,10 +1666,8 @@ class Runtime:
         state.detach_rows("service_job", state.tables["service_job"])
         self._hooks(slots.AFTER_EVALUATE, "prepare", state, config, self.clock.now_utc())
         calendar_changed = self._calendar_observations(state, config, origin)
-        observations = {
-            key: self._observation(row)
-            for key, row in state.tables["source_observation_current"].items()
-        }
+        observations = self._observations(state)
+        observation_references = self._evidence_index(observations)
         now, seq = self.clock.now_utc(), state.publication_seq + 1
         input_event = (
             next(
@@ -1782,7 +1791,12 @@ class Runtime:
                     case,
                     (machine_override or {}).get(key),
                     **(
-                        {"reassessment": reassessment, "event": input_event}
+                        {
+                            "reassessment": reassessment,
+                            "event": input_event,
+                            "registry": config,
+                            "observation_references": observation_references,
+                        }
                         if isinstance(declaration.evaluate, Producer)
                         else {}
                     ),
@@ -1955,6 +1969,7 @@ class Runtime:
                         "dispose",
                         "valid",
                         None,
+                        registry=config,
                     )
                 )
             except Exception as error:
@@ -2002,7 +2017,8 @@ class Runtime:
                 from .declarative_models import DeclarativeDefinition
 
                 definition = DeclarativeDefinition.model_validate(declaration.definition)
-                inputs = self._inputs(contract, config, state)
+                observations = self._observations(state)
+                inputs = self._inputs(contract, config, state, observations=observations)
                 # Guards read the transaction's catalog head. A rejected command
                 # must not mutate a live temporal slot or its dependency trace.
                 context = Context(
@@ -2015,6 +2031,8 @@ class Runtime:
                     "command",
                     "valid",
                     None,
+                    registry=config,
+                    observation_references=self._evidence_index(observations),
                 )
                 machine = compile_machine(
                     definition, evaluation=Evaluation(definition, inputs, now, context)

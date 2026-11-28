@@ -1,11 +1,14 @@
 """Immutable configuration-derived indexes, shared only for one configuration."""
 
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from . import slots
 from .registry import (
+    Binding,
     RegistryConfig,
+    Source,
     resolve_ref,
     topological,
 )
@@ -21,9 +24,12 @@ from .registry import required_sources
 class RevisionPlan:
     config: RegistryConfig
     references: dict[str, tuple[str, str | None]]
-    sources: dict[str, Any]
-    bindings: dict[str, Any]
+    sources: dict[str, Source]
+    bindings: dict[str, Binding]
     by_source: dict[str, str]
+    ha_by_entity: dict[str, list[Binding]]
+    mqtt_by_topic: dict[str, list[Binding]]
+    source_bindings: dict[str, list[Binding]]
     dependencies: dict[str, Any]
     required: set[str]
     protected: set[str]
@@ -34,6 +40,16 @@ def build(config: RegistryConfig) -> RevisionPlan:
     sources = {source.source_id: source for source in config.sources}
     bindings = {binding.binding_id: binding for binding in config.bindings}
     by_source = {binding.source_id: binding.binding_id for binding in config.bindings}
+    ha_by_entity: defaultdict[str, list[Binding]] = defaultdict(list)
+    mqtt_by_topic: defaultdict[str, list[Binding]] = defaultdict(list)
+    source_bindings: defaultdict[str, list[Binding]] = defaultdict(list)
+    for binding in config.bindings:
+        adapter = binding.adapter
+        source_bindings[binding.source_id].append(binding)
+        if adapter.ha_entity_id and adapter.kind in {"ha_state", "ha_attribute"}:
+            ha_by_entity[adapter.ha_entity_id].append(binding)
+        if adapter.mqtt_topic and adapter.kind == "mqtt":
+            mqtt_by_topic[adapter.mqtt_topic].append(binding)
     dependencies = {item.dependency_id: item for item in config.dependencies}
     references = {
         item.ref: resolve_ref(item.ref, config)
@@ -121,6 +137,9 @@ def build(config: RegistryConfig) -> RevisionPlan:
         sources,
         bindings,
         by_source,
+        dict(ha_by_entity),
+        dict(mqtt_by_topic),
+        dict(source_bindings),
         dependencies,
         required,
         protected,

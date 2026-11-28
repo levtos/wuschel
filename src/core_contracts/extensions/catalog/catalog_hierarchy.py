@@ -6,14 +6,11 @@ from core_contracts.quality import ConfigurationHint, ConfigurationStatus, Field
 
 
 def source_frame(ctx: Any, args: list[FieldValue], profile: str) -> dict[str, Any] | None:
-    from core_contracts.evidence import Observation
-
-    references = {ref for arg in args for ref in arg.evidence if not ref.startswith("catalog:")}
+    references = (ref for arg in args for ref in arg.evidence if not ref.startswith("catalog:"))
     frames = [
         frame
-        for row in ctx.state.tables["source_observation_current"].values()
-        if (observation := Observation.model_validate(row)).reference in references
-        and observation.availability == "available"
+        for observation in ctx.evidence_observations(references)
+        if observation.availability == "available"
         and not observation.transform_error
         and (frame := observation.catalog_frame)
         and frame.get("catalog_profile") == profile
@@ -35,13 +32,9 @@ def lookup(
         token,
         trace_key,
     )
-    from core_contracts.registry import RegistryConfig
 
     scope, media, signal = (str(value.value) for value in args[:3])
-    config = RegistryConfig.model_validate(
-        ctx.state.tables["registry_revision"][str(ctx.state.active_revision)]["config"]
-    )
-    catalog = definition(config, rule.catalog_id, rule.definition_version)
+    catalog = definition(ctx.registry, rule.catalog_id, rule.definition_version)
     current = head(ctx.state, catalog)
     key = identity(scope, media, signal, raw)
     parent = (
