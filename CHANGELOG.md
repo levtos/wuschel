@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0b34 - Weniger Arbeit im Wahrheitsweg
+
+- Wuschel nutzt vorbereitete Daten für MQTT-Meldungen und Katalogabfragen.
+- Laufende Verarbeiter arbeiten im Zustand „geschützt“ weiter. Wuschel übernimmt fertige Ergebnisse, sobald der Schreiber frei ist.
+- Die Betriebsdiagnose zeigt die Zeit je Phase und das Alter offener Wahrheiten. [#189](https://github.com/Levtos/wuschel/issues/189)
+
 ## 1.0.0b33 - Wahrheiten haben Vorfahrt
 
 - Große Vorschauen, Übernahmen und Abgleiche laufen in eigenen Verarbeitern.
