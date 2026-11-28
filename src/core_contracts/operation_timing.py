@@ -7,7 +7,8 @@ they are not individual SQL statements or server-side execution time.
 import asyncio
 import inspect
 import logging
-from collections import deque
+import sys
+from collections import defaultdict, deque
 from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -15,6 +16,7 @@ from dataclasses import dataclass, field
 from functools import wraps
 from heapq import nlargest
 from itertools import chain
+from threading import Event, Lock, Thread, get_ident
 from time import perf_counter
 from typing import Any, Literal
 
@@ -93,23 +95,36 @@ class Timing:
     db_calls: int = 0
     db_ms: float = 0.0
     phases_ms: dict[str, float] = field(default_factory=dict)
+    evaluated: int = 0
+
+    def accounted_ms(self) -> float:
+        return self.db_ms + sum(self.phases_ms.values())
 
 
 current: ContextVar[Timing | None] = ContextVar("operation_timing", default=None)
 
 
+@contextmanager
+def phase(name: str) -> Iterator[None]:
+    timing = current.get()
+    if timing is None or timing.task is not asyncio.current_task():
+        yield
+        return
+    accounted = timing.accounted_ms()
+    started = perf_counter()
+    try:
+        yield
+    finally:
+        elapsed = (perf_counter() - started) * 1000
+        exclusive = max(0.0, elapsed - (timing.accounted_ms() - accounted))
+        timing.phases_ms[name] = timing.phases_ms.get(name, 0.0) + exclusive
+
+
 def timed_phase[**P, T](fn: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
     @wraps(fn)
     async def measured(*args: P.args, **kwargs: P.kwargs) -> T:
-        timing = current.get()
-        start = perf_counter()
-        try:
+        with phase(fn.__name__):
             return await fn(*args, **kwargs)
-        finally:
-            if timing is not None and timing.task is asyncio.current_task():
-                timing.phases_ms[fn.__name__] = (
-                    timing.phases_ms.get(fn.__name__, 0) + (perf_counter() - start) * 1000
-                )
 
     return measured
 
@@ -117,15 +132,8 @@ def timed_phase[**P, T](fn: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[
 def timed_sync[**P, T](fn: Callable[P, T]) -> Callable[P, T]:
     @wraps(fn)
     def measured(*args: P.args, **kwargs: P.kwargs) -> T:
-        timing = current.get()
-        start = perf_counter()
-        try:
+        with phase(fn.__name__):
             return fn(*args, **kwargs)
-        finally:
-            if timing is not None and timing.task is asyncio.current_task():
-                timing.phases_ms[fn.__name__] = (
-                    timing.phases_ms.get(fn.__name__, 0) + (perf_counter() - start) * 1000
-                )
 
     return measured
 
@@ -161,6 +169,110 @@ class TimedStore:
 def percentile(values: list[float], fraction: float) -> float:
     ordered = sorted(values)
     return ordered[min(len(ordered) - 1, int((len(ordered) - 1) * fraction))]
+
+
+class StallSampler:
+    """Sample the loop thread while it is stalled. Emit only static frame names."""
+
+    interval_s = 0.05
+    threshold_s = 0.2
+
+    def __init__(self) -> None:
+        self.owner = get_ident()
+        self.heartbeat = perf_counter()
+        self.stop = Event()
+        self.lock = Lock()
+        self.count = 0
+        self.peak_ms = 0.0
+        self.stack: list[str] = []
+        self.thread = Thread(target=self.run, name="wuschel-stall-sampler", daemon=True)
+
+    def run(self) -> None:
+        sampled = None
+        while not self.stop.wait(self.interval_s):
+            heartbeat = self.heartbeat
+            elapsed = perf_counter() - heartbeat
+            if elapsed <= self.threshold_s:
+                continue
+            with self.lock:
+                if sampled != heartbeat:
+                    sampled = heartbeat
+                    self.count += 1
+                    frame = sys._current_frames().get(self.owner)
+                    stack: list[str] = []
+                    while frame is not None and len(stack) < 16:
+                        stack.append(
+                            f"{frame.f_globals.get('__name__', '')}.{frame.f_code.co_name}:"
+                            f"{frame.f_lineno}"
+                        )
+                        frame = frame.f_back
+                    self.stack = stack
+                self.peak_ms = max(self.peak_ms, elapsed * 1000)
+
+    def take(self) -> dict[str, Any]:
+        with self.lock:
+            fields = {
+                "sampled_stall_count": self.count,
+                "sampled_stall_max_ms": round(self.peak_ms, 3),
+                "sampled_stall_stack": self.stack,
+            }
+            self.count = 0
+            self.peak_ms = 0.0
+            self.stack = []
+        return fields
+
+
+class TruthTimings:
+    """Bounded, value-free one-minute summaries of the truth path."""
+
+    def __init__(self) -> None:
+        self.started = perf_counter()
+        self.samples: defaultdict[str, deque[float]] = defaultdict(lambda: deque(maxlen=4096))
+        self.block_total_ms = self.block_unassigned_ms = 0.0
+        self.tick_runs = self.tick_evaluated = self.tick_evaluated_max = 0
+
+    def record(self, operation: str, timing: Timing, elapsed: float) -> None:
+        self.samples[operation].append(elapsed)
+        for name, duration in timing.phases_ms.items():
+            self.samples[name].append(duration)
+        if timing.db_calls:
+            self.samples["store"].append(timing.db_ms)
+        if operation == "observation_block":
+            self.block_total_ms += elapsed
+            self.block_unassigned_ms += max(0.0, elapsed - timing.accounted_ms())
+        if operation == "tick":
+            self.tick_runs += 1
+            self.tick_evaluated += timing.evaluated
+            self.tick_evaluated_max = max(self.tick_evaluated_max, timing.evaluated)
+
+    def report(self, sampler: StallSampler) -> None:
+        now = perf_counter()
+        if now - self.started < 60:
+            return
+        stall = sampler.take()
+        if self.samples or stall["sampled_stall_count"]:
+            LOGGER.info(
+                "truth_path_timing",
+                extra={
+                    "phase_p95_ms": {
+                        key: round(percentile(list(values), 0.95), 3)
+                        for key, values in sorted(self.samples.items())
+                    },
+                    "unassigned_block_percent": round(
+                        100 * self.block_unassigned_ms / self.block_total_ms, 2
+                    )
+                    if self.block_total_ms
+                    else None,
+                    "tick_runs": self.tick_runs,
+                    "tick_evaluated": self.tick_evaluated,
+                    "tick_evaluated_max": self.tick_evaluated_max,
+                    **stall,
+                },
+            )
+        self.started = now
+        self.samples.clear()
+        self.block_total_ms = self.block_unassigned_ms = 0.0
+        self.tick_runs = self.tick_evaluated = self.tick_evaluated_max = 0
 
 
 class ObservationTimings:

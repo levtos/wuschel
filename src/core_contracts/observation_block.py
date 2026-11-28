@@ -6,7 +6,7 @@ import logging
 from collections import deque
 from time import perf_counter
 
-from .operation_timing import Timing, current
+from .operation_timing import Timing, current, phase
 from .persistence import State
 from .runtime import Runtime, Work
 
@@ -115,9 +115,10 @@ async def process_block(runtime: Runtime, first: Work) -> None:
             if runtime.queue.empty() and first.future is not None:
                 break
             try:
-                work = await asyncio.wait_for(
-                    runtime.queue.get(), max(0, deadline - perf_counter())
-                )
+                with phase("window_wait"):
+                    work = await asyncio.wait_for(
+                        runtime.queue.get(), max(0, deadline - perf_counter())
+                    )
             except TimeoutError:
                 break
             if work.operation != "observation":
@@ -167,11 +168,14 @@ async def process_block(runtime: Runtime, first: Work) -> None:
             and runtime.persistence
         ):
             try:
-                await runtime._drain_overflow()
+                with phase("overflow"):
+                    await runtime._drain_overflow()
             except Exception as caught:
                 error = error or caught
                 LOGGER.warning("buffer_drain_failed", extra={"error_type": type(caught).__name__})
         finished = perf_counter()
+        writer_ms = (finished - fork_started) * 1000
+        runtime.truth_timings.record("observation_block", timing, writer_ms)
         for item in works:
             if item.future is not None and not item.future.done():
                 if error is None:
@@ -188,6 +192,8 @@ async def process_block(runtime: Runtime, first: Work) -> None:
                 "operation": "observation_block",
                 "count": len(works),
                 "run_ms": (finished - started) * 1000,
+                "writer_ms": writer_ms,
+                "unassigned_ms": max(0.0, writer_ms - timing.accounted_ms()),
                 "db_calls": timing.db_calls,
                 "db_ms": timing.db_ms,
                 "phases_ms": timing.phases_ms,

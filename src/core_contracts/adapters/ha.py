@@ -1,10 +1,12 @@
 """Bridge protocol client and generic observation normalization."""
 
 import asyncio
+import json
 import logging
 import random
 from datetime import UTC, datetime, timedelta
 from math import isfinite
+from time import perf_counter
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -14,6 +16,7 @@ from .. import slots
 from ..evidence import Observation
 from ..ha_context import MANUAL_CHANGE_TYPE, ContextIndex, HAContext
 from ..model import checksum, utc
+from ..operation_timing import Timing, current, phase
 from ..registry import Binding, RegistryConfig
 from ..runtime import Runtime
 from ..source_values import normalize as normalize_origin
@@ -27,6 +30,11 @@ class BridgeRequestError(ConnectionError):
         super().__init__("bridge_request_failed")
         self.request_type = request_type
         self.ha_error_code = ha_error_code
+
+
+def encode_projection(request: Any) -> str:
+    with phase("projection_encode"):
+        return json.dumps(request)
 
 
 class WebSocketRequests:
@@ -44,7 +52,11 @@ class WebSocketRequests:
             if future is not None:
                 self.pending[self.number] = future
             try:
-                await self.socket.send_json({**request, "id": self.number})
+                message = {**request, "id": self.number}
+                if request["type"] == "traber/project_contracts":
+                    await self.socket.send_json(message, dumps=encode_projection)
+                else:
+                    await self.socket.send_json(message)
             except BaseException:
                 self.pending.pop(self.number, None)
                 raise
@@ -959,8 +971,12 @@ class BridgeAdapter:
                         if await self._projection_wait(None, None) == "disconnected":
                             break
                         continue
+                    build_started = perf_counter()
                     payload = snapshot(
                         self.runtime, include_fields=self.projection_fields_supported
+                    )
+                    self.runtime.truth_timings.samples["projection_build"].append(
+                        (perf_counter() - build_started) * 1000
                     )
                     if (
                         payload["contracts"]
@@ -975,12 +991,16 @@ class BridgeAdapter:
                     if self.projection_supported and payload != previous:
                         future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
                         identifier = None
+                        timing = Timing(asyncio.current_task())
+                        token = current.set(timing)
                         try:
-                            identifier = await connection.send(payload, future)
-                            async with asyncio.timeout(
-                                self.runtime.operations.projection_timeout_s
-                            ):
-                                result = await future
+                            with phase("projection_send"):
+                                identifier = await connection.send(payload, future)
+                            with phase("projection_ack"):
+                                async with asyncio.timeout(
+                                    self.runtime.operations.projection_timeout_s
+                                ):
+                                    result = await future
                             if not isinstance(result, dict) or "applied" not in result:
                                 raise ConnectionError("projection_not_acknowledged")
                             self.runtime.truth_latency.acknowledge(
@@ -1002,6 +1022,10 @@ class BridgeAdapter:
                                 continue
                             break
                         finally:
+                            current.reset(token)
+                            self.runtime.truth_timings.record(
+                                "projection_attempt", timing, timing.accounted_ms()
+                            )
                             if identifier is not None:
                                 connection.pending.pop(identifier, None)
                     elif (
